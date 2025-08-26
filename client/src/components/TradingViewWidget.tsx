@@ -87,7 +87,7 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
             {data?.ticker && (
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Volume2 className="h-4 w-4" />
-                <span>24h Vol: {parseFloat(data.ticker.vol24h || '0').toLocaleString()}</span>
+                <span>24h Vol: {parseFloat(data.ticker.volume || data.ticker.vol24h || '0').toLocaleString()}</span>
               </div>
             )}
           </div>
@@ -98,18 +98,18 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Current Price:</span>
               <span className="text-xl font-bold text-foreground">
-                ${parseFloat(data.ticker.last).toFixed(6)}
+                ${parseFloat(data.ticker.price || data.ticker.last || '0').toFixed(2)}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">24h Change:</span>
-              <span className={`font-semibold ${parseFloat(data.ticker.changePercent || '0') >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                {parseFloat(data.ticker.changePercent || '0') >= 0 ? '+' : ''}{parseFloat(data.ticker.changePercent || '0').toFixed(2)}%
+              <span className={`font-semibold ${parseFloat((data.ticker.change24h || data.ticker.changePercent || '0').replace('%', '')) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                {data.ticker.change24h || `${parseFloat(data.ticker.changePercent || '0') >= 0 ? '+' : ''}${parseFloat(data.ticker.changePercent || '0').toFixed(2)}%`}
               </span>
             </div>
             <div className="flex items-center gap-4 text-muted-foreground">
-              <span>High: ${parseFloat(data.ticker.high24h).toFixed(6)}</span>
-              <span>Low: ${parseFloat(data.ticker.low24h).toFixed(6)}</span>
+              <span>High: ${parseFloat(data.ticker.high24h || '0').toFixed(2)}</span>
+              <span>Low: ${parseFloat(data.ticker.low24h || '0').toFixed(2)}</span>
             </div>
           </div>
         )}
