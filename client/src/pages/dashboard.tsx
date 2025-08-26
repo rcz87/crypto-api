@@ -7,22 +7,29 @@ import { SystemLogs } from "@/components/system-logs";
 import { ConfigurationPanel } from "@/components/configuration-panel";
 import { SimpleTradingChart } from "@/components/SimpleTradingChart";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function Dashboard() {
-  const { data: healthData, isLoading: healthLoading } = useQuery({
+  const { data: healthData, isLoading: healthLoading, error: healthError } = useQuery({
     queryKey: ["/health"],
-    refetchInterval: 5000, // Refresh every 5 seconds
+    refetchInterval: false, // Disable auto-refresh to reduce errors
+    retry: 0, // No retry to prevent spam
+    staleTime: Infinity,
   });
 
-  const { data: metricsData } = useQuery({
+  const { data: metricsData, error: metricsError } = useQuery({
     queryKey: ["/api/metrics"],
-    refetchInterval: 5000,
+    refetchInterval: false, // Disable auto-refresh
+    retry: 0,
+    staleTime: Infinity,
   });
 
-  // Keep REST API as fallback, but reduce frequency since WebSocket provides real-time data
-  const { data: solData, isLoading: solLoading } = useQuery({
+  // Keep REST API as fallback, but only fetch once since WebSocket provides real-time data
+  const { data: solData, isLoading: solLoading, error: solError } = useQuery({
     queryKey: ["/api/sol/complete"],
-    refetchInterval: 60000, // Reduce to 1 minute as WebSocket provides real-time updates
+    refetchInterval: false, // Disable auto-refresh completely
+    retry: 0,
+    staleTime: Infinity,
   });
 
   // WebSocket connection for real-time data
@@ -112,10 +119,12 @@ export default function Dashboard() {
 
         {/* Professional Trading Chart */}
         <div className="mt-8">
-          <SimpleTradingChart 
-            data={displaySolData} 
-            isConnected={wsConnected}
-          />
+          <ErrorBoundary>
+            <SimpleTradingChart 
+              data={displaySolData} 
+              isConnected={wsConnected}
+            />
+          </ErrorBoundary>
           
           {/* Temporary debug - will remove after fix */}
           <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-800">
@@ -126,6 +135,9 @@ export default function Dashboard() {
             <div>Transformed Data: {transformedMarketData ? '✅ Available' : '❌ None'}</div>
             <div>SOL API Data: {(solData as any)?.data ? '✅ Available' : '❌ None'}</div>
             <div>Final Display Data: {displaySolData ? '✅ Available' : '❌ None'}</div>
+            {healthError && <div>⚠️ Health API Error: {(healthError as Error).message}</div>}
+            {metricsError && <div>⚠️ Metrics API Error: {(metricsError as Error).message}</div>}
+            {solError && <div>⚠️ SOL API Error: {(solError as Error).message}</div>}
             {displaySolData?.ticker && (
               <div>💰 Chart Data: ${displaySolData.ticker.last} | High: ${displaySolData.ticker.high24h} | Low: ${displaySolData.ticker.low24h}</div>
             )}

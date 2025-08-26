@@ -13,6 +13,8 @@ export function SimpleTradingChart({ data, isConnected }: SimpleTradingChartProp
 
   useEffect(() => {
     if (!chartRef.current || !data?.ticker?.last) return;
+    
+    try {
 
     const canvas = chartRef.current;
     const ctx = canvas.getContext('2d');
@@ -94,7 +96,10 @@ export function SimpleTradingChart({ data, isConnected }: SimpleTradingChartProp
     ctx.lineTo(width - padding, currentY);
     ctx.stroke();
     ctx.setLineDash([]);
-
+    
+    } catch (error) {
+      console.warn('Chart rendering error:', error);
+    }
   }, [data]);
 
   return (

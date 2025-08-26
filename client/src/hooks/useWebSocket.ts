@@ -73,10 +73,14 @@ export function useWebSocket(): UseWebSocketReturn {
               break;
               
             default:
-              console.log('Received WebSocket message:', message);
+              // Don't log every message to reduce console noise
+              break;
           }
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          // Reduce error logging to prevent spam
+          if (error instanceof Error) {
+            console.warn('WebSocket message parse error:', error.message);
+          }
         }
       };
 
