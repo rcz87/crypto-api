@@ -18,7 +18,14 @@ export function SMCAnalysis({ className = '' }: SMCProps) {
     data: SMCAnalysisData;
     timestamp: string;
   }>({
-    queryKey: [`/api/sol/smc?timeframe=${timeframe}&limit=100`],
+    queryKey: [`/api/sol/smc`, timeframe],
+    queryFn: async () => {
+      const response = await fetch(`/api/sol/smc?timeframe=${timeframe}&limit=100`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch SMC data');
+      }
+      return response.json();
+    },
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 

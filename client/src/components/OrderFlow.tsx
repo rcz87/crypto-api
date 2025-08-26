@@ -27,23 +27,27 @@ export const OrderFlow: React.FC<OrderFlowProps> = ({
 
   // Listen for WebSocket market_data messages (trades channel)
   useEffect(() => {
-    if (!lastMessage || lastMessage.type !== 'market_data' || !lastMessage.data) {
-      return;
-    }
-    
-    const payload = lastMessage.data;
-    if (payload.arg?.channel === 'trades' && Array.isArray(payload.data)) {
-      const newTrades: Trade[] = payload.data.map((t: any) => ({
-        price: parseFloat(t.px),
-        size: parseFloat(t.sz),
-        side: t.side === 'buy' ? 'buy' : 'sell',
-        timestamp: Number(t.ts),
-      }));
+    try {
+      if (!lastMessage || lastMessage.type !== 'market_data' || !lastMessage.data) {
+        return;
+      }
       
-      setTrades(prev => {
-        const combined = [...newTrades, ...prev];
-        return combined.slice(0, maxTrades);
-      });
+      const payload = lastMessage.data;
+      if (payload.arg?.channel === 'trades' && Array.isArray(payload.data)) {
+        const newTrades: Trade[] = payload.data.map((t: any) => ({
+          price: parseFloat(t.px || '0'),
+          size: parseFloat(t.sz || '0'),
+          side: t.side === 'buy' ? 'buy' : 'sell',
+          timestamp: Number(t.ts || Date.now()),
+        }));
+        
+        setTrades(prev => {
+          const combined = [...newTrades, ...prev];
+          return combined.slice(0, maxTrades);
+        });
+      }
+    } catch (error) {
+      console.error('Error parsing WebSocket trade data:', error);
     }
   }, [lastMessage, maxTrades]);
 
