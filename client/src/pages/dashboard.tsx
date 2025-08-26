@@ -44,42 +44,71 @@ export default function Dashboard() {
 
   const isOnline = (healthData as any)?.data?.status === 'operational';
   
-  // Store last valid ticker data to prevent re-renders
+  // Store last valid ticker and order book data
   const lastTickerRef = useRef<any>(null);
+  const lastOrderBookRef = useRef<any>(null);
 
-  // Only update when we receive ticker data specifically
+  // Handle WebSocket data updates
   useEffect(() => {
-    if (marketData?.arg?.channel === 'tickers' && marketData.data?.length) {
-      const tickerData = marketData.data[0];
-      const changePercent = tickerData.changePercent || 
-        (tickerData.last && tickerData.open24h ? 
-          (((parseFloat(tickerData.last) - parseFloat(tickerData.open24h)) / parseFloat(tickerData.open24h)) * 100).toFixed(2) : '0');
-      
-      const transformedTicker = {
-        ticker: {
-          symbol: tickerData.instId || 'SOL-USDT',
-          price: tickerData.last, // Convert 'last' to 'price'
-          change24h: `${parseFloat(changePercent) >= 0 ? '+' : ''}${changePercent}%`, // Add % sign
-          high24h: tickerData.high24h,
-          low24h: tickerData.low24h,
-          volume: tickerData.vol24h, // Convert 'vol24h' to 'volume'
-          tradingVolume24h: (parseFloat(tickerData.last || '0') * parseFloat(tickerData.vol24h || '0')).toFixed(0)
+    if (!marketData?.arg?.channel || !marketData.data?.length) return;
+
+    switch (marketData.arg.channel) {
+      case 'tickers':
+        // Handle ticker data
+        const tickerData = marketData.data[0];
+        const changePercent = tickerData.changePercent || 
+          (tickerData.last && tickerData.open24h ? 
+            (((parseFloat(tickerData.last) - parseFloat(tickerData.open24h)) / parseFloat(tickerData.open24h)) * 100).toFixed(2) : '0');
+        
+        lastTickerRef.current = {
+          ticker: {
+            symbol: tickerData.instId || 'SOL-USDT',
+            price: tickerData.last,
+            change24h: `${parseFloat(changePercent) >= 0 ? '+' : ''}${changePercent}%`,
+            high24h: tickerData.high24h,
+            low24h: tickerData.low24h,
+            volume: tickerData.vol24h,
+            tradingVolume24h: (parseFloat(tickerData.last || '0') * parseFloat(tickerData.vol24h || '0')).toFixed(0)
+          }
+        };
+        break;
+
+      case 'books':
+        // Handle real-time order book data
+        const bookData = marketData.data[0];
+        if (bookData?.asks && bookData?.bids) {
+          const asks = bookData.asks.map((ask: string[]) => ({
+            price: ask[0],
+            size: ask[1]
+          }));
+          const bids = bookData.bids.map((bid: string[]) => ({
+            price: bid[0], 
+            size: bid[1]
+          }));
+          const spread = (parseFloat(asks[0]?.price || '0') - parseFloat(bids[0]?.price || '0')).toFixed(4);
+          
+          lastOrderBookRef.current = {
+            asks,
+            bids,
+            spread
+          };
         }
-      };
-      lastTickerRef.current = transformedTicker;
+        break;
     }
   }, [marketData]);
 
-  // Prioritize WebSocket real-time ticker data, fallback to REST for historical data
+  // Combine WebSocket real-time data with REST fallback
   const restData = (solData as any)?.data;
   const wsTicker = lastTickerRef.current?.ticker;
+  const wsOrderBook = lastOrderBookRef.current;
 
-  const displaySolData = wsTicker && restData
+  const displaySolData = restData
     ? { 
         ...restData,
-        ticker: wsTicker, // Always use WebSocket ticker for real-time updates
+        ticker: wsTicker || restData.ticker, // Prioritize WebSocket ticker
+        orderBook: wsOrderBook || restData.orderBook, // Prioritize WebSocket order book
       }
-    : restData || lastTickerRef.current;
+    : lastTickerRef.current;
   const isDataLoading = solLoading && !marketData;
 
   return (
