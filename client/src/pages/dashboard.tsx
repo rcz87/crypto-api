@@ -51,16 +51,19 @@ export default function Dashboard() {
   useEffect(() => {
     if (marketData?.arg?.channel === 'tickers' && marketData.data?.length) {
       const tickerData = marketData.data[0];
+      const changePercent = tickerData.changePercent || 
+        (tickerData.last && tickerData.open24h ? 
+          (((parseFloat(tickerData.last) - parseFloat(tickerData.open24h)) / parseFloat(tickerData.open24h)) * 100).toFixed(2) : '0');
+      
       const transformedTicker = {
         ticker: {
           symbol: tickerData.instId || 'SOL-USDT',
-          last: tickerData.last,
+          price: tickerData.last, // Convert 'last' to 'price'
+          change24h: `${parseFloat(changePercent) >= 0 ? '+' : ''}${changePercent}%`, // Add % sign
           high24h: tickerData.high24h,
           low24h: tickerData.low24h,
-          vol24h: tickerData.vol24h,
-          changePercent: tickerData.changePercent || 
-            (tickerData.last && tickerData.open24h ? 
-              (((parseFloat(tickerData.last) - parseFloat(tickerData.open24h)) / parseFloat(tickerData.open24h)) * 100).toFixed(2) : '0')
+          volume: tickerData.vol24h, // Convert 'vol24h' to 'volume'
+          tradingVolume24h: (parseFloat(tickerData.last || '0') * parseFloat(tickerData.vol24h || '0')).toFixed(0)
         }
       };
       lastTickerRef.current = transformedTicker;
