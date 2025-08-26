@@ -33,12 +33,26 @@ export const OrderFlow: React.FC<OrderFlowProps> = ({
       }
       
       const payload = lastMessage.data;
-      if (payload.arg?.channel === 'trades' && Array.isArray(payload.data)) {
-        const newTrades: Trade[] = payload.data.map((t: any) => ({
-          price: parseFloat(t.px || '0'),
-          size: parseFloat(t.sz || '0'),
+      
+      // Validate payload structure before processing
+      if (!payload || typeof payload !== 'object') {
+        return;
+      }
+      
+      if (payload.arg?.channel === 'trades' && Array.isArray(payload.data) && payload.data.length > 0) {
+        const validTrades = payload.data.filter((t: any) => 
+          t && typeof t === 'object' && t.px && t.sz && t.side && t.ts
+        );
+        
+        if (validTrades.length === 0) {
+          return;
+        }
+        
+        const newTrades: Trade[] = validTrades.map((t: any) => ({
+          price: parseFloat(t.px),
+          size: parseFloat(t.sz),
           side: t.side === 'buy' ? 'buy' : 'sell',
-          timestamp: Number(t.ts || Date.now()),
+          timestamp: Number(t.ts),
         }));
         
         setTrades(prev => {
@@ -47,7 +61,10 @@ export const OrderFlow: React.FC<OrderFlowProps> = ({
         });
       }
     } catch (error) {
-      console.error('Error parsing WebSocket trade data:', error);
+      // Only log meaningful errors, ignore empty objects
+      if (error instanceof Error && error.message && !error.message.includes('{}')) {
+        console.warn('OrderFlow WebSocket parsing error:', error.message);
+      }
     }
   }, [lastMessage, maxTrades]);
 

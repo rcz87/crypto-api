@@ -35,27 +35,48 @@ export function VolumeDelta() {
 
   useEffect(() => {
     try {
-      if (lastMessage?.type === 'market_data' && lastMessage.data?.arg?.channel === 'trades') {
-        const wsData = lastMessage.data;
+      if (!lastMessage?.type || lastMessage.type !== 'market_data' || !lastMessage.data) {
+        return;
+      }
+      
+      const wsData = lastMessage.data;
+      
+      // Validate data structure before processing
+      if (!wsData || typeof wsData !== 'object' || wsData.arg?.channel !== 'trades') {
+        return;
+      }
+      
+      if (wsData.data && Array.isArray(wsData.data) && wsData.data.length > 0) {
+        const validTrades = wsData.data.filter((tradeData: any) => 
+          tradeData && 
+          typeof tradeData === 'object' && 
+          tradeData.side && 
+          tradeData.sz && 
+          tradeData.px && 
+          tradeData.ts
+        );
         
-        if (wsData.data && Array.isArray(wsData.data)) {
-          wsData.data.forEach((tradeData: any) => {
-            const newTrade: Trade = {
-              side: tradeData.side,
-              size: parseFloat(tradeData.sz || '0'),
-              price: parseFloat(tradeData.px || '0'),
-              timestamp: parseInt(tradeData.ts || Date.now().toString())
-            };
-            
-            setTrades(prev => {
-              const updated = [newTrade, ...prev].slice(0, 1000); // Keep last 1000 trades
-              return updated;
-            });
-          });
+        if (validTrades.length === 0) {
+          return;
         }
+        
+        const newTrades: Trade[] = validTrades.map((tradeData: any) => ({
+          side: tradeData.side,
+          size: parseFloat(tradeData.sz),
+          price: parseFloat(tradeData.px),
+          timestamp: parseInt(tradeData.ts)
+        }));
+        
+        setTrades(prev => {
+          const updated = [...newTrades, ...prev].slice(0, 1000); // Keep last 1000 trades
+          return updated;
+        });
       }
     } catch (error) {
-      console.error('Error parsing WebSocket trade data:', error);
+      // Only log meaningful errors, ignore empty objects
+      if (error instanceof Error && error.message && !error.message.includes('{}')) {
+        console.warn('VolumeDelta WebSocket parsing error:', error.message);
+      }
     }
   }, [lastMessage]);
 
