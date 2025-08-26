@@ -391,127 +391,148 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
           </div>
         )}
 
-        {/* Market Depth Chart */}
+        {/* Market Depth Chart - Simplified Visual */}
         {orderBook && (
           <div className="border border-gray-200 rounded-lg overflow-hidden mt-6">
             <div className="bg-gray-900 text-white px-4 py-3">
               <div className="flex items-center">
                 <BarChart3 className="text-blue-400 mr-2" size={16} />
                 <h3 className="text-sm font-semibold">Market Depth Chart</h3>
-                <span className="ml-2 text-xs text-gray-400">Cumulative Volume Visualization</span>
+                <span className="ml-2 text-xs text-gray-400">Liquidity Visualization</span>
               </div>
             </div>
             
-            <div className="bg-gray-50 p-4">
+            <div className="bg-white p-4">
               {(() => {
-                const { bidsData, asksData, maxVolume } = generateDepthChartData(orderBook);
+                // Simplified depth chart using bars instead of SVG curves
+                const groupedBids = groupOrdersByPrecision(orderBook.bids, precision).slice(0, 15);
+                const groupedAsks = groupOrdersByPrecision(orderBook.asks, precision).slice(0, 15);
                 
-                if (bidsData.length === 0 || asksData.length === 0) {
+                if (groupedBids.length === 0 || groupedAsks.length === 0) {
                   return <div className="text-center text-gray-500 py-8">Loading depth chart...</div>;
                 }
                 
-                const chartWidth = 600;
-                const chartHeight = 200;
-                const padding = 40;
+                // Calculate cumulative volumes
+                let bidCumulative = 0;
+                const bidDepth = groupedBids.reverse().map(bid => {
+                  bidCumulative += parseFloat(bid.size);
+                  return { price: parseFloat(bid.price), volume: bidCumulative };
+                });
                 
-                // Find price range
-                const allPrices = [...bidsData.map(d => d.price), ...asksData.map(d => d.price)];
+                let askCumulative = 0;
+                const askDepth = groupedAsks.map(ask => {
+                  askCumulative += parseFloat(ask.size);
+                  return { price: parseFloat(ask.price), volume: askCumulative };
+                });
+                
+                const maxVolume = Math.max(bidCumulative, askCumulative);
+                const allPrices = [...bidDepth.map(d => d.price), ...askDepth.map(d => d.price)];
                 const minPrice = Math.min(...allPrices);
                 const maxPrice = Math.max(...allPrices);
-                const priceRange = maxPrice - minPrice;
-                
-                // Create SVG path for bids (green area)
-                const bidPoints = bidsData.map(d => {
-                  const x = padding + ((d.price - minPrice) / priceRange) * (chartWidth - 2 * padding);
-                  const y = chartHeight - padding - (d.volume / maxVolume) * (chartHeight - 2 * padding);
-                  return `${x},${y}`;
-                }).join(' ');
-                
-                // Create SVG path for asks (red area)
-                const askPoints = asksData.map(d => {
-                  const x = padding + ((d.price - minPrice) / priceRange) * (chartWidth - 2 * padding);
-                  const y = chartHeight - padding - (d.volume / maxVolume) * (chartHeight - 2 * padding);
-                  return `${x},${y}`;
-                }).join(' ');
-                
-                // Add baseline points for area fill
-                const bidPath = `M${padding},${chartHeight - padding} L${bidPoints} L${chartWidth - padding},${chartHeight - padding} Z`;
-                const askPath = `M${padding + ((bidsData[bidsData.length - 1]?.price - minPrice || 0) / priceRange) * (chartWidth - 2 * padding)},${chartHeight - padding} L${askPoints} L${chartWidth - padding},${chartHeight - padding} Z`;
                 
                 return (
-                  <div className="relative">
-                    <svg width={chartWidth} height={chartHeight} className="border border-gray-200 rounded bg-white">
-                      {/* Grid lines */}
-                      {[0, 0.25, 0.5, 0.75, 1].map(ratio => (
-                        <g key={ratio}>
-                          <line
-                            x1={padding}
-                            y1={padding + ratio * (chartHeight - 2 * padding)}
-                            x2={chartWidth - padding}
-                            y2={padding + ratio * (chartHeight - 2 * padding)}
-                            stroke="#f0f0f0"
-                            strokeWidth={1}
-                          />
-                        </g>
-                      ))}
+                  <div className="space-y-4">
+                    {/* Chart Header Info */}
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>Price Range: ${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}</span>
+                      <span>Max Volume: {maxVolume.toFixed(1)} SOL</span>
+                    </div>
+                    
+                    {/* Visual Depth Chart using CSS */}
+                    <div className="relative h-48 border border-gray-300 rounded bg-gray-50 overflow-hidden">
+                      {/* Current price line */}
+                      <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-orange-500 opacity-70 z-10">
+                        <div className="absolute -top-1 -left-6 text-xs text-orange-600 font-medium">
+                          Current
+                        </div>
+                      </div>
                       
-                      {/* Bids area (green) */}
-                      <path
-                        d={bidPath}
-                        fill="rgba(34, 197, 94, 0.3)"
-                        stroke="rgba(34, 197, 94, 0.8)"
-                        strokeWidth={2}
-                      />
+                      {/* Bids visualization (left side - green) */}
+                      <div className="absolute left-0 top-0 w-1/2 h-full">
+                        {bidDepth.map((bid, index) => {
+                          const heightPercent = (bid.volume / maxVolume) * 100;
+                          const widthPercent = ((maxPrice - bid.price) / (maxPrice - minPrice)) * 100;
+                          
+                          return (
+                            <div
+                              key={`bid-${index}`}
+                              className="absolute bottom-0 bg-green-500 bg-opacity-40 border-t border-green-600 transition-all duration-500"
+                              style={{
+                                height: `${heightPercent}%`,
+                                width: `${Math.min(widthPercent, 100)}%`,
+                                right: 0
+                              }}
+                              title={`Price: $${bid.price.toFixed(2)}, Volume: ${bid.volume.toFixed(1)} SOL`}
+                            />
+                          );
+                        })}
+                        
+                        {/* Bids label */}
+                        <div className="absolute bottom-2 left-2 text-xs font-medium text-green-700 bg-white bg-opacity-80 px-1 rounded">
+                          BIDS
+                        </div>
+                      </div>
                       
-                      {/* Asks area (red) */}
-                      <path
-                        d={askPath}
-                        fill="rgba(239, 68, 68, 0.3)"
-                        stroke="rgba(239, 68, 68, 0.8)"
-                        strokeWidth={2}
-                      />
+                      {/* Asks visualization (right side - red) */}
+                      <div className="absolute right-0 top-0 w-1/2 h-full">
+                        {askDepth.map((ask, index) => {
+                          const heightPercent = (ask.volume / maxVolume) * 100;
+                          const widthPercent = ((ask.price - minPrice) / (maxPrice - minPrice)) * 100;
+                          
+                          return (
+                            <div
+                              key={`ask-${index}`}
+                              className="absolute bottom-0 bg-red-500 bg-opacity-40 border-t border-red-600 transition-all duration-500"
+                              style={{
+                                height: `${heightPercent}%`,
+                                width: `${Math.min(widthPercent, 100)}%`,
+                                left: 0
+                              }}
+                              title={`Price: $${ask.price.toFixed(2)}, Volume: ${ask.volume.toFixed(1)} SOL`}
+                            />
+                          );
+                        })}
+                        
+                        {/* Asks label */}
+                        <div className="absolute bottom-2 right-2 text-xs font-medium text-red-700 bg-white bg-opacity-80 px-1 rounded">
+                          ASKS
+                        </div>
+                      </div>
                       
-                      {/* Price axis labels */}
-                      {[minPrice, (minPrice + maxPrice) / 2, maxPrice].map((price, index) => (
-                        <text
-                          key={index}
-                          x={padding + (index * (chartWidth - 2 * padding)) / 2}
-                          y={chartHeight - 10}
-                          textAnchor="middle"
-                          fontSize="10"
-                          fill="#666"
-                        >
-                          ${price.toFixed(2)}
-                        </text>
-                      ))}
-                      
-                      {/* Volume axis labels */}
-                      {[0, 0.5, 1].map((ratio, index) => (
-                        <text
-                          key={index}
-                          x={10}
-                          y={chartHeight - padding - ratio * (chartHeight - 2 * padding)}
-                          textAnchor="start"
-                          fontSize="10"
-                          fill="#666"
-                        >
-                          {(ratio * maxVolume).toFixed(0)}
-                        </text>
-                      ))}
-                    </svg>
+                      {/* Volume scale */}
+                      <div className="absolute left-1 top-1 text-xs text-gray-500">
+                        {maxVolume.toFixed(0)}
+                      </div>
+                      <div className="absolute left-1 bottom-1 text-xs text-gray-500">
+                        0
+                      </div>
+                    </div>
                     
                     {/* Legend */}
-                    <div className="flex items-center justify-center mt-2 space-x-4 text-xs">
+                    <div className="flex items-center justify-center space-x-6 text-xs">
                       <div className="flex items-center">
-                        <div className="w-3 h-3 bg-green-500 bg-opacity-60 border border-green-600 rounded-sm mr-1"></div>
-                        <span className="text-gray-600">Bids (Buy Orders)</span>
+                        <div className="w-3 h-3 bg-green-500 bg-opacity-60 border border-green-600 rounded-sm mr-2"></div>
+                        <span className="text-gray-600">Cumulative Buy Volume</span>
                       </div>
                       <div className="flex items-center">
-                        <div className="w-3 h-3 bg-red-500 bg-opacity-60 border border-red-600 rounded-sm mr-1"></div>
-                        <span className="text-gray-600">Asks (Sell Orders)</span>
+                        <div className="w-3 h-3 bg-red-500 bg-opacity-60 border border-red-600 rounded-sm mr-2"></div>
+                        <span className="text-gray-600">Cumulative Sell Volume</span>
                       </div>
-                      <div className="text-gray-500">
-                        Max Volume: {maxVolume.toFixed(1)} SOL
+                    </div>
+                    
+                    {/* Analysis insights */}
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      <div className="bg-green-50 p-2 rounded">
+                        <div className="font-medium text-green-800">Buy Side Strength</div>
+                        <div className="text-green-600">
+                          {((bidCumulative / (bidCumulative + askCumulative)) * 100).toFixed(1)}% of total volume
+                        </div>
+                      </div>
+                      <div className="bg-red-50 p-2 rounded">
+                        <div className="font-medium text-red-800">Sell Side Pressure</div>
+                        <div className="text-red-600">
+                          {((askCumulative / (bidCumulative + askCumulative)) * 100).toFixed(1)}% of total volume
+                        </div>
                       </div>
                     </div>
                   </div>
