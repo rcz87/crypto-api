@@ -33,8 +33,13 @@ export function useWebSocket(): UseWebSocketReturn {
 
   const connect = () => {
     try {
-      // Always use production domain for WebSocket
-      const wsUrl = 'wss://guardiansofthegreentoken.com/ws';
+      // Use appropriate domain for WebSocket
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('replit');
+      const wsUrl = isLocal 
+        ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
+        : 'wss://guardiansofthegreentoken.com/ws';
+      
+      console.log('WebSocket URL:', wsUrl);
       
       setConnectionStatus('connecting');
       ws.current = new WebSocket(wsUrl);

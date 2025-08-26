@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { createChart, ColorType, UTCTimestamp } from 'lightweight-charts';
+import { createChart, ColorType, UTCTimestamp, IChartApi, ISeriesApi } from 'lightweight-charts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Activity, TrendingUp, Volume2 } from 'lucide-react';
@@ -12,14 +12,21 @@ interface CandlestickChartProps {
 
 export function CandlestickChart({ data, isConnected }: CandlestickChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chart = useRef<any>(null);
-  const candleSeries = useRef<any>(null);
-  const volumeSeries = useRef<any>(null);
+  const chart = useRef<IChartApi | null>(null);
+  const candleSeries = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const volumeSeries = useRef<ISeriesApi<'Histogram'> | null>(null);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
     try {
+      console.log('Initializing chart...');
+      
+      if (!chartContainerRef.current) {
+        console.error('Chart container not found');
+        return;
+      }
+
       // Create chart
       chart.current = createChart(chartContainerRef.current, {
         layout: {
@@ -45,12 +52,20 @@ export function CandlestickChart({ data, isConnected }: CandlestickChartProps) {
           timeVisible: true,
           secondsVisible: false,
         },
-        width: chartContainerRef.current.clientWidth,
+        width: chartContainerRef.current.clientWidth || 800,
         height: 500,
       });
 
+      console.log('Chart created:', !!chart.current);
+
+      if (!chart.current) {
+        console.error('Chart creation failed');
+        return;
+      }
+
       // Add candlestick series
-      candleSeries.current = chart.current.addCandlestickSeries({
+      candleSeries.current = chart.current.addCandlestickSeries();
+      candleSeries.current.applyOptions({
         upColor: '#26a69a',
         downColor: '#ef5350',
         borderDownColor: '#ef5350',
@@ -59,8 +74,11 @@ export function CandlestickChart({ data, isConnected }: CandlestickChartProps) {
         wickUpColor: '#26a69a',
       });
 
+      console.log('Candlestick series created:', !!candleSeries.current);
+
       // Add volume histogram
-      volumeSeries.current = chart.current.addHistogramSeries({
+      volumeSeries.current = chart.current.addHistogramSeries();
+      volumeSeries.current.applyOptions({
         color: '#26a69a',
         priceFormat: {
           type: 'volume',
@@ -72,12 +90,16 @@ export function CandlestickChart({ data, isConnected }: CandlestickChartProps) {
         },
       });
 
-      chart.current.priceScale('volume').applyOptions({
-        scaleMargins: {
-          top: 0.7,
-          bottom: 0,
-        },
-      });
+      console.log('Volume series created:', !!volumeSeries.current);
+
+      if (chart.current) {
+        chart.current.priceScale('volume').applyOptions({
+          scaleMargins: {
+            top: 0.7,
+            bottom: 0,
+          },
+        });
+      }
 
       // Handle resize
       const handleResize = () => {
@@ -90,24 +112,38 @@ export function CandlestickChart({ data, isConnected }: CandlestickChartProps) {
 
       window.addEventListener('resize', handleResize);
 
+      console.log('Chart initialized successfully');
+
       return () => {
         window.removeEventListener('resize', handleResize);
         if (chart.current) {
           chart.current.remove();
+          chart.current = null;
+          candleSeries.current = null;
+          volumeSeries.current = null;
         }
       };
     } catch (error) {
-      console.warn('Chart initialization error:', error);
+      console.error('Chart initialization error:', error);
     }
   }, []);
 
   // Update chart with real candle data
   useEffect(() => {
-    if (!data?.candles || !candleSeries.current || !volumeSeries.current) return;
+    if (!data?.candles || !candleSeries.current || !volumeSeries.current) {
+      console.log('Candles update skipped:', { 
+        hasCandles: !!data?.candles, 
+        hasCandleSeries: !!candleSeries.current, 
+        hasVolumeSeries: !!volumeSeries.current 
+      });
+      return;
+    }
 
     try {
       // Use 1H candles as default, fallback to 4H or 1D
       const candles = data.candles['1H'] || data.candles['4H'] || data.candles['1D'] || [];
+      
+      console.log('Updating chart with candles:', candles.length);
       
       if (candles.length === 0) return;
 
@@ -132,10 +168,14 @@ export function CandlestickChart({ data, isConnected }: CandlestickChartProps) {
       volumeSeries.current.setData(volumeData);
 
       // Fit content to show all candles
-      chart.current.timeScale().fitContent();
+      if (chart.current) {
+        chart.current.timeScale().fitContent();
+      }
+
+      console.log('Chart updated successfully with', candleData.length, 'candles');
 
     } catch (error) {
-      console.warn('Chart data update error:', error);
+      console.error('Chart data update error:', error);
     }
   }, [data?.candles]);
 
@@ -149,9 +189,11 @@ export function CandlestickChart({ data, isConnected }: CandlestickChartProps) {
 
       // Add current price as a temporary marker or update last candle
       // For now, just ensure the price scale includes current price
-      chart.current.priceScale().applyOptions({
-        autoScale: true,
-      });
+      if (chart.current) {
+        chart.current.priceScale('').applyOptions({
+          autoScale: true,
+        });
+      }
     } catch (error) {
       console.warn('Price update error:', error);
     }

@@ -12,7 +12,7 @@ export function SimpleTradingChart({ data, isConnected }: SimpleTradingChartProp
   const chartRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!chartRef.current || !data?.ticker?.last) return;
+    if (!chartRef.current) return;
     
     try {
 
@@ -28,31 +28,61 @@ export function SimpleTradingChart({ data, isConnected }: SimpleTradingChartProp
     canvas.style.height = '400px';
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
-    // Draw simple price chart
-    const currentPrice = parseFloat(data.ticker.last);
-    const high24h = parseFloat(data.ticker.high24h);
-    const low24h = parseFloat(data.ticker.low24h);
-    const priceRange = high24h - low24h;
-
     // Clear canvas
     ctx.clearRect(0, 0, rect.width, 400);
     
-    // Generate sample data points
-    const dataPoints = [];
-    let price = low24h + (priceRange * 0.3);
+    // Use real candles data if available
+    let candlesData = [];
+    let currentPrice = 0;
+    let high24h = 0;
+    let low24h = 0;
     
-    for (let i = 0; i < 100; i++) {
-      const variation = (Math.random() - 0.5) * priceRange * 0.1;
-      price = Math.max(low24h, Math.min(high24h, price + variation));
-      dataPoints.push(price);
+    if (data?.candles) {
+      // Use real candles data
+      const candles = data.candles['1H'] || data.candles['4H'] || data.candles['1D'] || [];
+      candlesData = candles.slice(-50); // Show last 50 candles
+      console.log('Drawing candlestick chart with', candlesData.length, 'real candles');
     }
     
-    // Add current price as last point
-    dataPoints.push(currentPrice);
+    if (data?.ticker) {
+      currentPrice = parseFloat(data.ticker.last || '0');
+      high24h = parseFloat(data.ticker.high24h || '0');
+      low24h = parseFloat(data.ticker.low24h || '0');
+    }
+    
+    // Fallback to demo data if no real candles
+    if (candlesData.length === 0 && currentPrice > 0) {
+      const priceRange = high24h - low24h || currentPrice * 0.02;
+      let price = currentPrice;
+      
+      for (let i = 0; i < 30; i++) {
+        const variation = (Math.random() - 0.5) * priceRange * 0.1;
+        const open = price;
+        const close = price + variation;
+        const high = Math.max(open, close) + Math.random() * priceRange * 0.05;
+        const low = Math.min(open, close) - Math.random() * priceRange * 0.05;
+        
+        candlesData.push({
+          open: open.toString(),
+          high: high.toString(),
+          low: low.toString(),
+          close: close.toString(),
+          timestamp: (Date.now() - (30 - i) * 3600000).toString()
+        });
+        price = close;
+      }
+    }
+    
+    if (candlesData.length === 0) return;
 
-    // Draw chart
-    ctx.strokeStyle = '#10b981';
-    ctx.lineWidth = 2;
+    // Find price range for scaling
+    const allPrices = candlesData.flatMap(candle => [
+      parseFloat(candle.high),
+      parseFloat(candle.low)
+    ]);
+    const minPrice = Math.min(...allPrices);
+    const maxPrice = Math.max(...allPrices);
+    const range = maxPrice - minPrice || 1;
     ctx.beginPath();
 
     const width = rect.width;

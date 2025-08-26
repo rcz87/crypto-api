@@ -6,7 +6,7 @@ import { APIDocumentation } from "@/components/api-documentation";
 import { RealTimeData } from "@/components/real-time-data";
 import { SystemLogs } from "@/components/system-logs";
 import { ConfigurationPanel } from "@/components/configuration-panel";
-import { CandlestickChart } from "@/components/CandlestickChart";
+import { RealCandlestickChart } from "@/components/RealCandlestickChart";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -29,8 +29,9 @@ export default function Dashboard() {
   const { data: solData, isLoading: solLoading, error: solError } = useQuery({
     queryKey: ["/api/sol/complete"],
     refetchInterval: false, // Disable auto-refresh completely
-    retry: 0,
-    staleTime: Infinity,
+    retry: 1, // Allow one retry
+    staleTime: 30000, // Cache for 30 seconds
+    enabled: true, // Always enable the query
   });
 
   // WebSocket connection for real-time data
@@ -138,7 +139,7 @@ export default function Dashboard() {
         {/* Professional Candlestick Chart */}
         <div className="mt-8">
           <ErrorBoundary>
-            <CandlestickChart 
+            <RealCandlestickChart 
               data={displaySolData} 
               isConnected={wsConnected}
             />
@@ -147,7 +148,7 @@ export default function Dashboard() {
           {/* Temporary debug - will remove after fix */}
           <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-800">
             <div>🔍 Debug Info:</div>
-            <div>🌐 API Base: https://guardiansofthegreentoken.com (hardcoded)</div>
+            <div>🌐 API Base: {window.location.hostname === 'localhost' ? 'localhost:5000' : 'guardiansofthegreentoken.com'}</div>
             <div>WebSocket: {wsConnected ? '✅ Connected' : '❌ Disconnected'}</div>
             <div>Raw Market Data: {marketData ? '✅ Available' : '❌ None'}</div>
             <div>SOL API Data: {(solData as any)?.data ? '✅ Available' : '❌ None'}</div>

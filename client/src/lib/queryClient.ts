@@ -12,9 +12,13 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // Always use production domain for API calls
-  const apiBase = 'https://guardiansofthegreentoken.com';
+  // Use current domain for development, production domain for production
+  const apiBase = window.location.hostname === 'localhost' || window.location.hostname.includes('replit') 
+    ? window.location.origin 
+    : 'https://guardiansofthegreentoken.com';
   const fullUrl = url.startsWith('http') ? url : `${apiBase}${url}`;
+  
+  console.log('API Request:', fullUrl);
   
   const res = await fetch(fullUrl, {
     method,
@@ -33,10 +37,14 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // Always use production domain for API calls
-    const apiBase = 'https://guardiansofthegreentoken.com';
+    // Use current domain for development, production domain for production
+    const apiBase = window.location.hostname === 'localhost' || window.location.hostname.includes('replit') 
+      ? window.location.origin 
+      : 'https://guardiansofthegreentoken.com';
     const endpoint = queryKey.join("/") as string;
     const fullUrl = endpoint.startsWith('http') ? endpoint : `${apiBase}${endpoint}`;
+    
+    console.log('API Request:', fullUrl);
     
     const res = await fetch(fullUrl, {
       credentials: "include",
