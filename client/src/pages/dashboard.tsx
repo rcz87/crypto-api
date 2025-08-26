@@ -5,6 +5,7 @@ import { Database, AlertCircle, Radio } from "lucide-react";
 import { StatusOverview } from "@/components/status-overview";
 import { APIDocumentation } from "@/components/api-documentation";
 import { RealTimeData } from "@/components/real-time-data";
+import { OrderFlow } from "@/components/OrderFlow";
 import { SystemLogs } from "@/components/system-logs";
 import { ConfigurationPanel } from "@/components/configuration-panel";
 import { TradingViewWidget } from "@/components/TradingViewWidget";
@@ -255,6 +256,11 @@ export default function Dashboard() {
             isLoading={isDataLoading}
             isLiveStream={wsConnected && !!marketData}
           />
+        </div>
+
+        {/* Order Flow & Recent Trades */}
+        <div className="mt-8">
+          <OrderFlow largeTradeThreshold={10000} maxTrades={60} />
         </div>
 
         {/* System Logs */}
