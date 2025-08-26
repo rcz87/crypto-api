@@ -74,24 +74,30 @@ export default function Dashboard() {
         break;
 
       case 'books':
-        // Handle real-time order book data
+        // Handle real-time order book data with better stability
         const bookData = marketData.data[0];
-        if (bookData?.asks && bookData?.bids) {
-          const asks = bookData.asks.map((ask: string[]) => ({
-            price: ask[0],
-            size: ask[1]
+        if (bookData?.asks?.length && bookData?.bids?.length) {
+          const asks = bookData.asks.slice(0, 20).map((ask: string[]) => ({
+            price: parseFloat(ask[0]).toFixed(2),
+            size: parseFloat(ask[1]).toFixed(3)
           }));
-          const bids = bookData.bids.map((bid: string[]) => ({
-            price: bid[0], 
-            size: bid[1]
+          const bids = bookData.bids.slice(0, 20).map((bid: string[]) => ({
+            price: parseFloat(bid[0]).toFixed(2), 
+            size: parseFloat(bid[1]).toFixed(3)
           }));
           const spread = (parseFloat(asks[0]?.price || '0') - parseFloat(bids[0]?.price || '0')).toFixed(4);
           
-          lastOrderBookRef.current = {
-            asks,
-            bids,
-            spread
-          };
+          // Only update if data significantly changed to reduce flicker
+          const prevOrderBook = lastOrderBookRef.current;
+          if (!prevOrderBook || 
+              Math.abs(parseFloat(spread) - parseFloat(prevOrderBook.spread)) > 0.001 ||
+              asks[0]?.price !== prevOrderBook.asks?.[0]?.price) {
+            lastOrderBookRef.current = {
+              asks,
+              bids,
+              spread
+            };
+          }
         }
         break;
     }

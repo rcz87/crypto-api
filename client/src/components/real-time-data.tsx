@@ -152,16 +152,16 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
             <div className="text-right">Total</div>
           </div>
 
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto bg-gray-50">
             {/* Calculate max size for volume bars */}
             {(() => {
               const allSizes = [...orderBook.asks, ...orderBook.bids].map(item => parseFloat(item.size));
-              const maxSize = Math.max(...allSizes);
+              const maxSize = Math.max(...allSizes) || 1;
               
               return (
                 <>
                   {/* Asks (Sell Orders) - Show in reverse order */}
-                  {orderBook.asks.slice(0, 15).reverse().map((ask, index) => {
+                  {orderBook.asks.slice(0, 12).reverse().map((ask, index) => {
                     const sizePercent = (parseFloat(ask.size) / maxSize) * 100;
                     const cumulativeTotal = orderBook.asks.slice(0, orderBook.asks.length - index).reduce((sum, a) => sum + parseFloat(a.size), 0);
                     
@@ -176,15 +176,15 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                           style={{ width: `${sizePercent}%` }}
                         />
                         
-                        <div className="relative grid grid-cols-3 gap-4 px-4 py-1 text-xs font-mono transition-all duration-300">
-                          <div className="text-red-600 font-semibold transition-colors duration-300" data-testid={`ask-price-${index}`}>
-                            {parseFloat(ask.price).toFixed(2)}
+                        <div className="relative grid grid-cols-3 gap-2 px-3 py-1.5 text-xs font-mono">
+                          <div className="text-red-600 font-bold" data-testid={`ask-price-${index}`}>
+                            ${ask.price}
                           </div>
-                          <div className="text-right text-gray-800 transition-all duration-300" data-testid={`ask-size-${index}`}>
-                            {parseFloat(ask.size).toLocaleString(undefined, { maximumFractionDigits: 3 })}
+                          <div className="text-right text-gray-800 font-medium" data-testid={`ask-size-${index}`}>
+                            {ask.size}
                           </div>
-                          <div className="text-right text-gray-600 transition-all duration-300">
-                            {cumulativeTotal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                          <div className="text-right text-gray-600 text-xs">
+                            {cumulativeTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                           </div>
                         </div>
                       </div>
@@ -205,7 +205,7 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                   </div>
 
                   {/* Bids (Buy Orders) */}
-                  {orderBook.bids.slice(0, 15).map((bid, index) => {
+                  {orderBook.bids.slice(0, 12).map((bid, index) => {
                     const sizePercent = (parseFloat(bid.size) / maxSize) * 100;
                     const cumulativeTotal = orderBook.bids.slice(0, index + 1).reduce((sum, b) => sum + parseFloat(b.size), 0);
                     
@@ -220,15 +220,15 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                           style={{ width: `${sizePercent}%` }}
                         />
                         
-                        <div className="relative grid grid-cols-3 gap-4 px-4 py-1 text-xs font-mono transition-all duration-300">
-                          <div className="text-green-600 font-semibold transition-colors duration-300" data-testid={`bid-price-${index}`}>
-                            {parseFloat(bid.price).toFixed(2)}
+                        <div className="relative grid grid-cols-3 gap-2 px-3 py-1.5 text-xs font-mono">
+                          <div className="text-green-600 font-bold" data-testid={`bid-price-${index}`}>
+                            ${bid.price}
                           </div>
-                          <div className="text-right text-gray-800 transition-all duration-300" data-testid={`bid-size-${index}`}>
-                            {parseFloat(bid.size).toLocaleString(undefined, { maximumFractionDigits: 3 })}
+                          <div className="text-right text-gray-800 font-medium" data-testid={`bid-size-${index}`}>
+                            {bid.size}
                           </div>
-                          <div className="text-right text-gray-600 transition-all duration-300">
-                            {cumulativeTotal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                          <div className="text-right text-gray-600 text-xs">
+                            {cumulativeTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                           </div>
                         </div>
                       </div>
