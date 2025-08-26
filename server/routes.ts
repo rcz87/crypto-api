@@ -54,8 +54,7 @@ function corsMiddleware(req: Request, res: Response, next: Function) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Apply middleware
-  app.use(corsMiddleware);
+  // Apply middleware (CORS already handled in index.ts)
   app.use('/api', rateLimit);
   
   // Health check endpoint

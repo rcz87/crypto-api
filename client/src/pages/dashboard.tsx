@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useEffect } from "react";
+import { SolCompleteData } from "@shared/schema";
 import { Database, AlertCircle, Radio } from "lucide-react";
 import { StatusOverview } from "@/components/status-overview";
 import { APIDocumentation } from "@/components/api-documentation";
@@ -26,13 +27,34 @@ export default function Dashboard() {
   });
 
   // Keep REST API as fallback, but only fetch once since WebSocket provides real-time data
-  const { data: solData, isLoading: solLoading, error: solError } = useQuery({
+  const { data: solData, isLoading: solLoading, error: solError } = useQuery<{ success: boolean; data: SolCompleteData; timestamp: string }>({
     queryKey: ["/api/sol/complete"],
     refetchInterval: false, // Disable auto-refresh completely
     retry: 1, // Allow one retry
     staleTime: 30000, // Cache for 30 seconds
     enabled: true, // Always enable the query
   });
+
+  // Debug log for data fetching
+  useEffect(() => {
+    console.log('🔍 SOL Data Debug:', { 
+      hasData: !!solData, 
+      isLoading: solLoading, 
+      hasError: !!solError,
+      errorMessage: solError?.message,
+      orderBookExists: !!solData?.data?.orderBook,
+      dataKeys: solData?.data ? Object.keys(solData.data) : []
+    });
+    if (solData?.data?.orderBook) {
+      console.log('📊 Order Book Data:', {
+        asks: solData.data.orderBook.asks?.length || 0,
+        bids: solData.data.orderBook.bids?.length || 0,
+        spread: solData.data.orderBook.spread,
+        firstAsk: solData.data.orderBook.asks?.[0],
+        firstBid: solData.data.orderBook.bids?.[0]
+      });
+    }
+  }, [solData, solLoading, solError]);
 
   // WebSocket connection for real-time data
   const { 
@@ -116,6 +138,18 @@ export default function Dashboard() {
       }
     : lastTickerRef.current;
   const isDataLoading = solLoading && !marketData;
+
+  // Debug display data
+  useEffect(() => {
+    console.log('🎯 Display SOL Data:', {
+      restData: !!restData,
+      wsTicker: !!wsTicker,
+      wsOrderBook: !!wsOrderBook,
+      displaySolData: !!displaySolData,
+      isDataLoading,
+      hasOrderBook: !!displaySolData?.orderBook
+    });
+  }, [restData, wsTicker, wsOrderBook, displaySolData, isDataLoading]);
 
   return (
     <div className="font-inter bg-gray-50 text-gray-900 min-h-screen">
