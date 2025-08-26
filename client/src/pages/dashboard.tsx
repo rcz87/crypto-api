@@ -35,8 +35,22 @@ export default function Dashboard() {
 
   const isOnline = (healthData as any)?.data?.status === 'operational';
   
-  // Use WebSocket data if available, otherwise fall back to REST API data  
-  const displaySolData = marketData || (solData as any)?.data;
+  // Transform WebSocket data to match expected format for chart
+  const transformedMarketData = marketData && marketData.data && marketData.data[0] ? {
+    ticker: {
+      symbol: marketData.data[0].instId || 'SOL-USDT',
+      last: marketData.data[0].last,
+      high24h: marketData.data[0].high24h,
+      low24h: marketData.data[0].low24h,
+      vol24h: marketData.data[0].vol24h,
+      changePercent: marketData.data[0].changePercent || 
+        (marketData.data[0].last && marketData.data[0].open24h ? 
+          (((parseFloat(marketData.data[0].last) - parseFloat(marketData.data[0].open24h)) / parseFloat(marketData.data[0].open24h)) * 100).toFixed(2) : '0')
+    }
+  } : null;
+
+  // Use transformed WebSocket data if available, otherwise fall back to REST API data  
+  const displaySolData = transformedMarketData || (solData as any)?.data;
   const isDataLoading = solLoading && !marketData;
 
   return (
@@ -102,6 +116,22 @@ export default function Dashboard() {
             data={displaySolData} 
             isConnected={wsConnected}
           />
+          
+          {/* Temporary debug - will remove after fix */}
+          <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-800">
+            <div>🔍 Debug Info:</div>
+            <div>WebSocket: {wsConnected ? '✅ Connected' : '❌ Disconnected'}</div>
+            <div>Raw Market Data: {marketData ? '✅ Available' : '❌ None'}</div>
+            <div>Transformed Data: {transformedMarketData ? '✅ Available' : '❌ None'}</div>
+            <div>SOL API Data: {(solData as any)?.data ? '✅ Available' : '❌ None'}</div>
+            <div>Final Display Data: {displaySolData ? '✅ Available' : '❌ None'}</div>
+            {displaySolData?.ticker && (
+              <div>💰 Chart Data: ${displaySolData.ticker.last} | High: ${displaySolData.ticker.high24h} | Low: ${displaySolData.ticker.low24h}</div>
+            )}
+            {marketData && (
+              <div>📡 Raw WS: {marketData.data?.[0]?.last ? `$${marketData.data[0].last}` : 'No ticker data'}</div>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
