@@ -186,18 +186,18 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                       >
                         {/* Volume Bar Background */}
                         <div 
-                          className="absolute right-0 top-0 h-full bg-red-100 opacity-30 transition-all duration-500 ease-out"
+                          className="absolute right-0 top-0 h-full bg-red-100 opacity-30 transition-all duration-1500 ease-out"
                           style={{ width: `${sizePercent}%` }}
                         />
                         
-                        <div className="relative grid grid-cols-3 gap-2 px-3 py-1.5 text-xs font-mono">
-                          <div className="text-red-600 font-bold" data-testid={`ask-price-${index}`}>
+                        <div className="relative grid grid-cols-3 gap-2 px-3 py-1.5 text-xs font-mono transition-all duration-1000 ease-in-out">
+                          <div className="text-red-600 font-bold transition-all duration-1000" data-testid={`ask-price-${index}`}>
                             ${ask.price}
                           </div>
-                          <div className="text-right text-gray-800 font-medium" data-testid={`ask-size-${index}`}>
+                          <div className="text-right text-gray-800 font-medium transition-all duration-1000" data-testid={`ask-size-${index}`}>
                             {ask.size}
                           </div>
-                          <div className="text-right text-gray-600 text-xs">
+                          <div className="text-right text-gray-600 text-xs transition-all duration-1000">
                             {cumulativeTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                           </div>
                         </div>
@@ -230,18 +230,18 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                       >
                         {/* Volume Bar Background */}
                         <div 
-                          className="absolute right-0 top-0 h-full bg-green-100 opacity-30 transition-all duration-500 ease-out"
+                          className="absolute right-0 top-0 h-full bg-green-100 opacity-30 transition-all duration-1500 ease-out"
                           style={{ width: `${sizePercent}%` }}
                         />
                         
-                        <div className="relative grid grid-cols-3 gap-2 px-3 py-1.5 text-xs font-mono">
-                          <div className="text-green-600 font-bold" data-testid={`bid-price-${index}`}>
+                        <div className="relative grid grid-cols-3 gap-2 px-3 py-1.5 text-xs font-mono transition-all duration-1000 ease-in-out">
+                          <div className="text-green-600 font-bold transition-all duration-1000" data-testid={`bid-price-${index}`}>
                             ${bid.price}
                           </div>
-                          <div className="text-right text-gray-800 font-medium" data-testid={`bid-size-${index}`}>
+                          <div className="text-right text-gray-800 font-medium transition-all duration-1000" data-testid={`bid-size-${index}`}>
                             {bid.size}
                           </div>
-                          <div className="text-right text-gray-600 text-xs">
+                          <div className="text-right text-gray-600 text-xs transition-all duration-1000">
                             {cumulativeTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                           </div>
                         </div>

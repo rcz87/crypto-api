@@ -69,6 +69,8 @@ export default function Dashboard() {
   // Store last valid ticker and order book data
   const lastTickerRef = useRef<any>(null);
   const lastOrderBookRef = useRef<any>(null);
+  const lastUpdateTimeRef = useRef<number>(0);
+  const UPDATE_THROTTLE_MS = 3000; // Update setiap 3 detik saja
 
   // Handle WebSocket data updates
   useEffect(() => {
@@ -96,8 +98,15 @@ export default function Dashboard() {
         break;
 
       case 'books':
-        // Handle real-time order book data with better stability
+        // Handle real-time order book data with throttling
         const bookData = marketData.data[0];
+        const now = Date.now();
+        
+        // Throttle updates - hanya update setiap 3 detik
+        if (now - lastUpdateTimeRef.current < UPDATE_THROTTLE_MS) {
+          break;
+        }
+        
         if (bookData?.asks?.length && bookData?.bids?.length) {
           const asks = bookData.asks.slice(0, 20).map((ask: string[]) => ({
             price: parseFloat(ask[0]).toFixed(2),
@@ -109,16 +118,18 @@ export default function Dashboard() {
           }));
           const spread = (parseFloat(asks[0]?.price || '0') - parseFloat(bids[0]?.price || '0')).toFixed(4);
           
-          // Only update if data significantly changed to reduce flicker
+          // Only update if data significantly changed AND enough time passed
           const prevOrderBook = lastOrderBookRef.current;
           if (!prevOrderBook || 
-              Math.abs(parseFloat(spread) - parseFloat(prevOrderBook.spread)) > 0.001 ||
-              asks[0]?.price !== prevOrderBook.asks?.[0]?.price) {
+              Math.abs(parseFloat(spread) - parseFloat(prevOrderBook.spread)) > 0.01 ||
+              Math.abs(parseFloat(asks[0]?.price || '0') - parseFloat(prevOrderBook.asks?.[0]?.price || '0')) > 0.05) {
+            
             lastOrderBookRef.current = {
               asks,
               bids,
               spread
             };
+            lastUpdateTimeRef.current = now;
           }
         }
         break;
