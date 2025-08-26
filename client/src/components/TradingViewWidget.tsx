@@ -19,6 +19,21 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
       autosize: true,
       symbol: 'OKX:SOLUSDT', // SOL/USDT pair dari OKX
       interval: '1H',         // 1 hour candlesticks
+      toolbar_bg: '#1f2937',   // Dark toolbar background
+      overrides: {
+        // LuxAlgo-style color scheme
+        "paneProperties.background": "#111827",
+        "paneProperties.vertGridProperties.color": "#374151",
+        "paneProperties.horzGridProperties.color": "#374151",
+        "symbolWatermarkProperties.transparency": 90,
+        "scalesProperties.textColor": "#9CA3AF",
+        "mainSeriesProperties.candleStyle.upColor": "#10B981",
+        "mainSeriesProperties.candleStyle.downColor": "#EF4444",
+        "mainSeriesProperties.candleStyle.borderUpColor": "#10B981",
+        "mainSeriesProperties.candleStyle.borderDownColor": "#EF4444",
+        "mainSeriesProperties.candleStyle.wickUpColor": "#10B981",
+        "mainSeriesProperties.candleStyle.wickDownColor": "#EF4444"
+      },
       timezone: 'Etc/UTC',
       theme: 'dark',         // Dark theme
       style: '1',            // Candlestick style
@@ -30,7 +45,14 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
       details: true,
       hotlist: false,
       calendar: false,
-      studies: ['Volume'],   // Menampilkan volume
+      studies: [
+        'Volume',                    // Volume indicator
+        'RSI@tv-basicstudies',      // RSI - momentum oscillator
+        'MACD@tv-basicstudies',     // MACD - trend following
+        'EMA@tv-basicstudies',      // EMA - similar to LuxAlgo trend
+        'BB@tv-basicstudies',       // Bollinger Bands - volatility
+        'StochasticRSI@tv-basicstudies'  // Stochastic RSI
+      ],
       container_id: 'tradingview_chart'
     });
 
@@ -109,7 +131,7 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
           </div>
           <div className="flex items-center gap-4">
             <span>✅ Volume Analysis</span>
-            <span>📊 Technical Indicators</span>
+            <span>📊 RSI • MACD • EMA • Bollinger</span>
           </div>
         </div>
       </CardContent>
