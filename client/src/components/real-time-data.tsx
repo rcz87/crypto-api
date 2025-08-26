@@ -10,9 +10,6 @@ interface RealTimeDataProps {
 }
 
 export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealTimeDataProps) {
-  // Debug logging to see what data we're receiving
-  console.log('RealTimeData component received:', { solData, isLoading, isLiveStream });
-  
   if (isLoading || !solData) {
     return (
       <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -49,8 +46,6 @@ export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealT
   }
 
   const { ticker, orderBook } = solData;
-  
-  console.log('Extracted data:', { ticker, orderBook });
   
   // Safe checks for ticker data
   if (!ticker || !orderBook) {
