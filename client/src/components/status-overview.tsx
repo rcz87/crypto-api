@@ -4,8 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { HealthCheckData, SystemMetrics } from "@shared/schema";
 
 interface StatusOverviewProps {
-  healthData?: HealthCheckData;
-  metricsData?: SystemMetrics;
+  healthData?: HealthCheckData | any;
+  metricsData?: SystemMetrics | any;
   isLoading: boolean;
 }
 

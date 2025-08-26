@@ -91,8 +91,8 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Status Overview */}
         <StatusOverview 
-          healthData={healthData?.data || {}} 
-          metricsData={metricsData?.data || {}}
+          healthData={healthData?.data} 
+          metricsData={metricsData?.data}
           isLoading={healthLoading}
         />
 
@@ -121,7 +121,7 @@ export default function Dashboard() {
 
         {/* Configuration Panel */}
         <ConfigurationPanel 
-          healthData={healthData?.data || {}}
+          healthData={healthData?.data}
         />
       </div>
 

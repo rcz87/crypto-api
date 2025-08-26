@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HealthCheckData } from "@shared/schema";
 
 interface ConfigurationPanelProps {
-  healthData?: HealthCheckData;
+  healthData?: HealthCheckData | any;
 }
 
 export function ConfigurationPanel({ healthData }: ConfigurationPanelProps) {
