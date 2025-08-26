@@ -10,6 +10,9 @@ interface RealTimeDataProps {
 }
 
 export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealTimeDataProps) {
+  // Debug logging to see what data we're receiving
+  console.log('RealTimeData component received:', { solData, isLoading, isLiveStream });
+  
   if (isLoading || !solData) {
     return (
       <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -46,6 +49,8 @@ export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealT
   }
 
   const { ticker, orderBook } = solData;
+  
+  console.log('Extracted data:', { ticker, orderBook });
   
   // Safe checks for ticker data
   if (!ticker || !orderBook) {
@@ -132,9 +137,9 @@ export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealT
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Market Cap</p>
-            <p className="text-lg font-semibold text-gray-900" data-testid="text-market-cap">
-              ${parseFloat(ticker.marketCap).toLocaleString()}
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Trading Vol</p>
+            <p className="text-lg font-semibold text-gray-900" data-testid="text-trading-volume">
+              ${parseFloat(ticker.tradingVolume24h || '0').toLocaleString()}
             </p>
           </div>
         </div>
