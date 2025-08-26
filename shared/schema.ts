@@ -62,13 +62,17 @@ export const recentTradeSchema = z.object({
   timestamp: z.string(),
 });
 
-// Complete SOL data aggregation schema
+// Complete SOL data aggregation schema with comprehensive timeframes
 export const solCompleteDataSchema = z.object({
   ticker: tickerSchema,
   candles: z.object({
-    '1H': z.array(candleSchema),
-    '4H': z.array(candleSchema),
-    '1D': z.array(candleSchema),
+    '5m': z.array(candleSchema),   // 5-minute candles for scalping
+    '15m': z.array(candleSchema),  // 15-minute candles for short-term
+    '30m': z.array(candleSchema),  // 30-minute candles for intraday
+    '1H': z.array(candleSchema),   // 1-hour candles for day trading
+    '4H': z.array(candleSchema),   // 4-hour candles for swing trading
+    '1D': z.array(candleSchema),   // 1-day candles for position trading
+    '1W': z.array(candleSchema),   // 1-week candles for long-term analysis
   }),
   orderBook: orderBookSchema,
   recentTrades: z.array(recentTradeSchema),

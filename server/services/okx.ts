@@ -158,11 +158,15 @@ export class OKXService {
 
   async getCompleteSOLData(): Promise<SolCompleteData> {
     try {
-      const [ticker, candles1H, candles4H, candles1D, orderBook, recentTrades] = await Promise.all([
+      const [ticker, candles5m, candles15m, candles30m, candles1H, candles4H, candles1D, candles1W, orderBook, recentTrades] = await Promise.all([
         this.getTicker('SOL-USDT'),
-        this.getCandles('SOL-USDT', '1H', 50), // Increased from 24 to 50
-        this.getCandles('SOL-USDT', '4H', 50), // Increased from 24 to 50  
-        this.getCandles('SOL-USDT', '1D', 60), // Increased from 30 to 60
+        this.getCandles('SOL-USDT', '5m', 100),  // 5m: 8+ hours of data
+        this.getCandles('SOL-USDT', '15m', 96),  // 15m: 24+ hours of data
+        this.getCandles('SOL-USDT', '30m', 48),  // 30m: 24+ hours of data
+        this.getCandles('SOL-USDT', '1H', 72),   // 1H: 72+ hours (3+ days) of data
+        this.getCandles('SOL-USDT', '4H', 42),   // 4H: 168+ hours (7+ days) of data  
+        this.getCandles('SOL-USDT', '1D', 90),   // 1D: 90+ days (3+ months) of data
+        this.getCandles('SOL-USDT', '1W', 52),   // 1W: 52+ weeks (1+ year) of data
         this.getOrderBook('SOL-USDT', 50), // Increased to 50 levels for maximum depth
         this.getRecentTrades('SOL-USDT', 30), // Increased from 20 to 30
       ]);
@@ -170,9 +174,13 @@ export class OKXService {
       return {
         ticker,
         candles: {
-          '1H': candles1H,
-          '4H': candles4H,
-          '1D': candles1D,
+          '5m': candles5m,   // Scalping & micro-movements
+          '15m': candles15m, // Short-term patterns
+          '30m': candles30m, // Intraday analysis
+          '1H': candles1H,   // Day trading
+          '4H': candles4H,   // Swing trading
+          '1D': candles1D,   // Position trading
+          '1W': candles1W,   // Long-term trends
         },
         orderBook,
         recentTrades,

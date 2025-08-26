@@ -54,6 +54,7 @@ Preferred communication style: Simple, everyday language.
 
 ### OKX API & WebSocket Enhancements
 - **6-Channel Streaming**: tickers, books, trades, books-l2-tbt, mark-price, funding-rate
+- **7-Timeframe Candlestick Data**: 5m, 15m, 30m, 1H, 4H, 1D, 1W for complete analysis
 - **Tick-by-tick Updates**: Real-time order book changes with books-l2-tbt channel
 - **Ping/Pong Health**: 25-second keep-alive mechanism prevents connection drops
 - **Exponential Backoff**: Smart reconnection 3s→6s→12s→24s→30s with 10 attempts
