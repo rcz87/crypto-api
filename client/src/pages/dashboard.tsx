@@ -33,10 +33,10 @@ export default function Dashboard() {
     connectionStatus
   } = useWebSocket();
 
-  const isOnline = healthData?.data?.status === 'operational';
+  const isOnline = (healthData as any)?.data?.status === 'operational';
   
   // Use WebSocket data if available, otherwise fall back to REST API data  
-  const displaySolData = marketData || solData?.data;
+  const displaySolData = marketData || (solData as any)?.data;
   const isDataLoading = solLoading && !marketData;
 
   return (
@@ -91,8 +91,8 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Status Overview */}
         <StatusOverview 
-          healthData={healthData?.data} 
-          metricsData={metricsData?.data}
+          healthData={(healthData as any)?.data} 
+          metricsData={(metricsData as any)?.data}
           isLoading={healthLoading}
         />
 
@@ -102,6 +102,17 @@ export default function Dashboard() {
             data={displaySolData} 
             isConnected={wsConnected}
           />
+          
+          {/* Debug info (temporary) */}
+          <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
+            <div>Debug: WS Connected: {wsConnected ? 'Yes' : 'No'}</div>
+            <div>Market Data: {marketData ? 'Available' : 'None'}</div>
+            <div>SOL Data: {(solData as any)?.data ? 'Available' : 'None'}</div>
+            <div>Display Data: {displaySolData ? 'Available' : 'None'}</div>
+            {displaySolData?.ticker && (
+              <div>Price: ${displaySolData.ticker.last}</div>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
@@ -121,7 +132,7 @@ export default function Dashboard() {
 
         {/* Configuration Panel */}
         <ConfigurationPanel 
-          healthData={healthData?.data}
+          healthData={(healthData as any)?.data}
         />
       </div>
 

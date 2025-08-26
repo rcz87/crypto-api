@@ -12,19 +12,32 @@ export function SimpleTradingChart({ data, isConnected }: SimpleTradingChartProp
   const chartRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!chartRef.current || !data?.ticker?.last) return;
+    console.log('Chart data received:', data);
+    if (!chartRef.current) {
+      console.log('No canvas ref');
+      return;
+    }
+    if (!data?.ticker?.last) {
+      console.log('No ticker data available');
+      return;
+    }
 
     const canvas = chartRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size
-    canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+    // Set canvas size with proper dimensions
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * window.devicePixelRatio;
     canvas.height = 400 * window.devicePixelRatio;
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = '400px';
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
     // Clear canvas
-    ctx.clearRect(0, 0, canvas.offsetWidth, 400);
+    ctx.clearRect(0, 0, rect.width, 400);
+    
+    console.log('Drawing chart with price:', currentPrice, 'range:', priceRange);
 
     // Draw simple price chart
     const currentPrice = parseFloat(data.ticker.last);
@@ -50,7 +63,7 @@ export function SimpleTradingChart({ data, isConnected }: SimpleTradingChartProp
     ctx.lineWidth = 2;
     ctx.beginPath();
 
-    const width = canvas.offsetWidth;
+    const width = rect.width;
     const height = 300;
     const padding = 50;
 
@@ -132,12 +145,26 @@ export function SimpleTradingChart({ data, isConnected }: SimpleTradingChartProp
       
       <CardContent>
         <div className="relative w-full bg-background border rounded-lg">
-          <canvas
-            ref={chartRef}
-            className="w-full h-[400px]"
-            style={{ width: '100%', height: '400px' }}
-            data-testid="simple-trading-chart"
-          />
+          {data?.ticker?.last ? (
+            <canvas
+              ref={chartRef}
+              className="w-full h-[400px]"
+              style={{ width: '100%', height: '400px' }}
+              data-testid="simple-trading-chart"
+            />
+          ) : (
+            <div className="w-full h-[400px] flex items-center justify-center text-muted-foreground">
+              <div className="text-center">
+                <div className="text-lg mb-2">📊 Loading chart data...</div>
+                <div className="text-sm">
+                  {isConnected ? 'Connected to live data stream' : 'Connecting to WebSocket...'}
+                </div>
+                <div className="text-xs mt-2 text-muted-foreground/60">
+                  Waiting for real-time SOL price data
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
