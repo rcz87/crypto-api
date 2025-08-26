@@ -49,23 +49,22 @@ export function TradingChart({ data, isConnected }: TradingChartProps) {
       height: 500,
     });
 
-    // Add candlestick series
-    candleSeries.current = chart.current.addCandlestickSeries({
-      upColor: '#10b981',
-      downColor: '#ef4444',
-      borderDownColor: '#ef4444',
-      borderUpColor: '#10b981',
-      wickDownColor: '#ef4444',
-      wickUpColor: '#10b981',
+    // Add price line series
+    candleSeries.current = chart.current.addLineSeries({
+      color: '#10b981',
+      lineWidth: 2,
     });
 
-    // Add volume histogram  
-    volumeSeries.current = chart.current.addHistogramSeries({
-      color: '#26a69a',
-      priceFormat: {
-        type: 'volume',
-      },
-      priceScaleId: '',
+    // Add volume area series  
+    volumeSeries.current = chart.current.addAreaSeries({
+      topColor: 'rgba(38, 166, 154, 0.56)',
+      bottomColor: 'rgba(38, 166, 154, 0.04)',
+      lineColor: 'rgba(38, 166, 154, 1)',
+      lineWidth: 2,
+      priceScaleId: 'volume',
+    });
+    
+    chart.current.priceScale('volume').applyOptions({
       scaleMargins: {
         top: 0.7,
         bottom: 0,
@@ -100,9 +99,9 @@ export function TradingChart({ data, isConnected }: TradingChartProps) {
     const low24h = parseFloat(data.ticker.low24h);
     const now = Math.floor(Date.now() / 1000) as UTCTimestamp;
     
-    // Generate realistic historical candles
-    const candles = [];
-    const volumes = [];
+    // Generate realistic price line data
+    const priceData = [];
+    const volumeData = [];
     
     let price = currentPrice * 0.98; // Start below current
     const priceRange = high24h - low24h;
@@ -110,53 +109,39 @@ export function TradingChart({ data, isConnected }: TradingChartProps) {
     for (let i = 99; i >= 0; i--) {
       const time = (now - i * 3600) as UTCTimestamp; // 1 hour intervals
       
-      // Generate OHLC with realistic movement
+      // Generate price movement
       const volatility = 0.015;
       const trend = (Math.random() - 0.5) * 0.003;
-      
-      const open = price;
       const change = (Math.random() - 0.5) * volatility * price;
-      const high = open + Math.abs(change) * 1.2 + (Math.random() * 0.005 * price);
-      const low = open - Math.abs(change) * 1.2 - (Math.random() * 0.005 * price);
-      const close = open + change + (trend * price);
+      price = Math.max(low24h, Math.min(high24h, price + change + (trend * price)));
       
-      candles.push({
+      priceData.push({
         time,
-        open: Number(open.toFixed(6)),
-        high: Number(high.toFixed(6)),
-        low: Number(low.toFixed(6)),
-        close: Number(close.toFixed(6)),
+        value: Number(price.toFixed(6)),
       });
       
       // Generate volume
       const baseVolume = 500000 + Math.random() * 1000000;
-      volumes.push({
+      volumeData.push({
         time,
         value: baseVolume,
-        color: close > open ? '#10b98180' : '#ef444480',
       });
-      
-      price = close;
     }
     
-    // Add current real-time candle
-    candles.push({
+    // Add current real-time price
+    priceData.push({
       time: now,
-      open: price,
-      high: Math.max(price, currentPrice),
-      low: Math.min(price, currentPrice),
-      close: currentPrice,
+      value: currentPrice,
     });
     
-    volumes.push({
+    volumeData.push({
       time: now,
       value: parseFloat(data.ticker.vol24h || '800000'),
-      color: currentPrice > price ? '#10b98180' : '#ef444480',
     });
 
     // Set data to chart
-    candleSeries.current.setData(candles);
-    volumeSeries.current.setData(volumes);
+    candleSeries.current.setData(priceData);
+    volumeSeries.current.setData(volumeData);
 
   }, [data?.ticker?.last]);
 

@@ -12,15 +12,7 @@ export function SimpleTradingChart({ data, isConnected }: SimpleTradingChartProp
   const chartRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    console.log('Chart data received:', data);
-    if (!chartRef.current) {
-      console.log('No canvas ref');
-      return;
-    }
-    if (!data?.ticker?.last) {
-      console.log('No ticker data available');
-      return;
-    }
+    if (!chartRef.current || !data?.ticker?.last) return;
 
     const canvas = chartRef.current;
     const ctx = canvas.getContext('2d');
@@ -34,19 +26,17 @@ export function SimpleTradingChart({ data, isConnected }: SimpleTradingChartProp
     canvas.style.height = '400px';
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
-    // Clear canvas
-    ctx.clearRect(0, 0, rect.width, 400);
-    
-    console.log('Drawing chart with price:', currentPrice, 'range:', priceRange);
-
     // Draw simple price chart
     const currentPrice = parseFloat(data.ticker.last);
     const high24h = parseFloat(data.ticker.high24h);
     const low24h = parseFloat(data.ticker.low24h);
+    const priceRange = high24h - low24h;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, rect.width, 400);
     
     // Generate sample data points
     const dataPoints = [];
-    const priceRange = high24h - low24h;
     let price = low24h + (priceRange * 0.3);
     
     for (let i = 0; i < 100; i++) {

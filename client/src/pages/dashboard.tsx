@@ -102,17 +102,6 @@ export default function Dashboard() {
             data={displaySolData} 
             isConnected={wsConnected}
           />
-          
-          {/* Debug info (temporary) */}
-          <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
-            <div>Debug: WS Connected: {wsConnected ? 'Yes' : 'No'}</div>
-            <div>Market Data: {marketData ? 'Available' : 'None'}</div>
-            <div>SOL Data: {(solData as any)?.data ? 'Available' : 'None'}</div>
-            <div>Display Data: {displaySolData ? 'Available' : 'None'}</div>
-            {displaySolData?.ticker && (
-              <div>Price: ${displaySolData.ticker.last}</div>
-            )}
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
