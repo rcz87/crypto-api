@@ -12,8 +12,9 @@ export class OKXService {
   private wsUrl = 'wss://ws.okx.com:8443/ws/v5/public';
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectInterval = 5000;
+  private maxReconnectAttempts = 10; // Increased for better reliability
+  private reconnectInterval = 3000;  // Faster reconnection
+  private pingInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.apiKey = process.env.OKX_API_KEY || '';
@@ -102,7 +103,7 @@ export class OKXService {
     }
   }
 
-  async getOrderBook(symbol: string = 'SOL-USDT', depth: number = 20): Promise<OrderBookData> {
+  async getOrderBook(symbol: string = 'SOL-USDT', depth: number = 50): Promise<OrderBookData> {
     try {
       const response = await this.client.get(`/api/v5/market/books?instId=${symbol}&sz=${depth}`);
       
@@ -162,7 +163,7 @@ export class OKXService {
         this.getCandles('SOL-USDT', '1H', 50), // Increased from 24 to 50
         this.getCandles('SOL-USDT', '4H', 50), // Increased from 24 to 50  
         this.getCandles('SOL-USDT', '1D', 60), // Increased from 30 to 60
-        this.getOrderBook('SOL-USDT', 20), // Increased to 20 levels for better depth
+        this.getOrderBook('SOL-USDT', 50), // Increased to 50 levels for maximum depth
         this.getRecentTrades('SOL-USDT', 30), // Increased from 20 to 30
       ]);
 
@@ -203,14 +204,17 @@ export class OKXService {
           console.log('OKX WebSocket connected');
           this.reconnectAttempts = 0;
           
-          // Subscribe to SOL-USDT ticker, order book, and trades
+          // Subscribe to comprehensive SOL-USDT data streams
           const subscriptions = [
             {
               op: 'subscribe',
               args: [
                 { channel: 'tickers', instId: 'SOL-USDT' },
-                { channel: 'books', instId: 'SOL-USDT' }, // Upgraded to 10 levels
-                { channel: 'trades', instId: 'SOL-USDT' }
+                { channel: 'books', instId: 'SOL-USDT' },     // Real-time order book
+                { channel: 'trades', instId: 'SOL-USDT' },    // All trades
+                { channel: 'books-l2-tbt', instId: 'SOL-USDT' }, // Tick-by-tick order book updates
+                { channel: 'mark-price', instId: 'SOL-USDT' }, // Mark price for derivatives
+                { channel: 'funding-rate', instId: 'SOL-USDT' } // Funding rate data
               ]
             }
           ];
@@ -220,6 +224,9 @@ export class OKXService {
               this.ws.send(JSON.stringify(sub));
             }
           });
+
+          // Setup ping/pong for connection health
+          this.setupPingPong();
           
           resolve();
         });
@@ -257,17 +264,38 @@ export class OKXService {
       this.reconnectAttempts++;
       console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
       
+      // Exponential backoff: 3s, 6s, 12s, 24s, etc.
+      const backoffDelay = Math.min(this.reconnectInterval * Math.pow(2, this.reconnectAttempts - 1), 30000);
+      
       setTimeout(() => {
         this.initWebSocket(onMessage).catch(error => {
           console.error('Reconnection failed:', error);
         });
-      }, this.reconnectInterval);
+      }, backoffDelay);
     } else {
       console.error('Max reconnection attempts reached');
+      // Reset after 5 minutes to allow fresh reconnection attempts
+      setTimeout(() => {
+        this.reconnectAttempts = 0;
+        console.log('Reconnection attempts reset, allowing new attempts');
+      }, 300000);
     }
+  }
+
+  private setupPingPong(): void {
+    // Send ping every 25 seconds to keep connection alive
+    this.pingInterval = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ op: 'ping' }));
+      }
+    }, 25000);
   }
   
   closeWebSocket(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
     if (this.ws) {
       this.ws.close();
       this.ws = null;
