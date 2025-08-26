@@ -393,13 +393,13 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
 
         {/* Market Depth Chart - Full Width Visible */}
         {orderBook && (
-          <div className="w-full border border-gray-200 rounded-lg overflow-hidden mt-6 bg-white">
+          <div className="w-full max-w-full border border-gray-200 rounded-lg overflow-visible mt-6 bg-white">
             <div className="bg-gray-900 text-white px-4 py-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <BarChart3 className="text-blue-400 mr-2" size={16} />
                   <h3 className="text-sm font-semibold">Market Depth Chart</h3>
-                  <span className="ml-2 text-xs text-gray-400">Cumulative Volume Analysis</span>
+                  <span className="ml-2 text-xs text-gray-400">Analisis Volume Kumulatif</span>
                 </div>
                 <div className="text-xs text-green-400">
                   📊 LIVE
@@ -407,7 +407,7 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
               </div>
             </div>
             
-            <div className="bg-white p-6 w-full">
+            <div className="bg-white p-4 w-full min-h-[400px]">
               {(() => {
                 // Simplified depth chart using bars instead of SVG curves
                 const groupedBids = groupOrdersByPrecision(orderBook.bids, precision).slice(0, 15);
@@ -436,15 +436,15 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                 const maxPrice = Math.max(...allPrices);
                 
                 return (
-                  <div className="space-y-4">
+                  <div className="space-y-4 w-full">
                     {/* Chart Header Info */}
-                    <div className="flex justify-between text-xs text-gray-600">
-                      <span>Price Range: ${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}</span>
-                      <span>Max Volume: {maxVolume.toFixed(1)} SOL</span>
+                    <div className="flex justify-between items-center text-sm font-medium bg-gray-100 p-3 rounded">
+                      <span className="text-blue-600">Range Harga: ${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}</span>
+                      <span className="text-green-600">Volume Maksimal: {maxVolume.toFixed(1)} SOL</span>
                     </div>
                     
                     {/* Visual Depth Chart using CSS */}
-                    <div className="relative h-64 w-full border border-gray-300 rounded bg-gray-50 overflow-hidden">
+                    <div className="relative h-80 w-full border-2 border-gray-400 rounded-lg bg-gray-50 overflow-hidden">
                       {/* Current price line */}
                       <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-orange-500 opacity-70 z-10">
                         <div className="absolute -top-1 -left-6 text-xs text-orange-600 font-medium bg-white px-1 rounded">
@@ -461,20 +461,20 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                           return (
                             <div
                               key={`bid-${index}`}
-                              className="absolute bottom-0 bg-green-500 bg-opacity-60 border-t-2 border-green-600 transition-all duration-500 hover:bg-opacity-80 cursor-pointer"
+                              className="absolute bottom-0 bg-green-500 bg-opacity-70 border-t-2 border-green-700 transition-all duration-300 hover:bg-opacity-90 cursor-pointer shadow-sm"
                               style={{
                                 height: `${heightPercent}%`,
                                 width: `${widthPercent}%`,
                                 right: 0
                               }}
-                              title={`BIDS: Price $${bid.price.toFixed(2)} | Volume ${bid.volume.toFixed(1)} SOL`}
+                              title={`BUY ORDERS: Harga $${bid.price.toFixed(2)} | Volume ${bid.volume.toFixed(1)} SOL`}
                             />
                           );
                         })}
                         
                         {/* Bids label */}
-                        <div className="absolute bottom-2 left-2 text-xs font-bold text-green-800 bg-green-100 bg-opacity-90 px-2 py-1 rounded-full border border-green-300">
-                          BUY ORDERS
+                        <div className="absolute top-2 left-2 text-sm font-bold text-green-800 bg-green-200 bg-opacity-95 px-3 py-2 rounded-lg border-2 border-green-400 shadow-lg">
+                          💚 BUY ORDERS
                         </div>
                       </div>
                       
@@ -487,20 +487,20 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                           return (
                             <div
                               key={`ask-${index}`}
-                              className="absolute bottom-0 bg-red-500 bg-opacity-60 border-t-2 border-red-600 transition-all duration-500 hover:bg-opacity-80 cursor-pointer"
+                              className="absolute bottom-0 bg-red-500 bg-opacity-70 border-t-2 border-red-700 transition-all duration-300 hover:bg-opacity-90 cursor-pointer shadow-sm"
                               style={{
                                 height: `${heightPercent}%`,
                                 width: `${widthPercent}%`,
                                 left: 0
                               }}
-                              title={`ASKS: Price $${ask.price.toFixed(2)} | Volume ${ask.volume.toFixed(1)} SOL`}
+                              title={`SELL ORDERS: Harga $${ask.price.toFixed(2)} | Volume ${ask.volume.toFixed(1)} SOL`}
                             />
                           );
                         })}
                         
                         {/* Asks label */}
-                        <div className="absolute bottom-2 right-2 text-xs font-bold text-red-800 bg-red-100 bg-opacity-90 px-2 py-1 rounded-full border border-red-300">
-                          SELL ORDERS
+                        <div className="absolute top-2 right-2 text-sm font-bold text-red-800 bg-red-200 bg-opacity-95 px-3 py-2 rounded-lg border-2 border-red-400 shadow-lg">
+                          ❤️ SELL ORDERS
                         </div>
                       </div>
                       
@@ -522,30 +522,32 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                     </div>
                     
                     {/* Legend */}
-                    <div className="flex items-center justify-center space-x-6 text-xs">
+                    <div className="flex items-center justify-center space-x-8 text-sm font-medium">
                       <div className="flex items-center">
-                        <div className="w-3 h-3 bg-green-500 bg-opacity-60 border border-green-600 rounded-sm mr-2"></div>
-                        <span className="text-gray-600">Cumulative Buy Volume</span>
+                        <div className="w-4 h-4 bg-green-500 bg-opacity-70 border-2 border-green-700 rounded mr-3"></div>
+                        <span className="text-gray-700">Volume Buy Kumulatif</span>
                       </div>
                       <div className="flex items-center">
-                        <div className="w-3 h-3 bg-red-500 bg-opacity-60 border border-red-600 rounded-sm mr-2"></div>
-                        <span className="text-gray-600">Cumulative Sell Volume</span>
+                        <div className="w-4 h-4 bg-red-500 bg-opacity-70 border-2 border-red-700 rounded mr-3"></div>
+                        <span className="text-gray-700">Volume Sell Kumulatif</span>
                       </div>
                     </div>
                     
                     {/* Analysis insights */}
-                    <div className="grid grid-cols-2 gap-4 text-xs">
-                      <div className="bg-green-50 p-2 rounded">
-                        <div className="font-medium text-green-800">Buy Side Strength</div>
-                        <div className="text-green-600">
-                          {((bidCumulative / (bidCumulative + askCumulative)) * 100).toFixed(1)}% of total volume
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <div className="font-bold text-green-800 mb-1">💚 Kekuatan Buy Side</div>
+                        <div className="text-green-700 text-lg font-semibold">
+                          {((bidCumulative / (bidCumulative + askCumulative)) * 100).toFixed(1)}%
                         </div>
+                        <div className="text-green-600 text-xs">dari total volume</div>
                       </div>
-                      <div className="bg-red-50 p-2 rounded">
-                        <div className="font-medium text-red-800">Sell Side Pressure</div>
-                        <div className="text-red-600">
-                          {((askCumulative / (bidCumulative + askCumulative)) * 100).toFixed(1)}% of total volume
+                      <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                        <div className="font-bold text-red-800 mb-1">❤️ Tekanan Sell Side</div>
+                        <div className="text-red-700 text-lg font-semibold">
+                          {((askCumulative / (bidCumulative + askCumulative)) * 100).toFixed(1)}%
                         </div>
+                        <div className="text-red-600 text-xs">dari total volume</div>
                       </div>
                     </div>
                   </div>
