@@ -48,39 +48,39 @@ export const OrderFlow: React.FC<OrderFlowProps> = ({
   }, [lastMessage, maxTrades]);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="px-6 py-4 border-b border-gray-200">
+    <div className="bg-gray-900 border-gray-800 rounded-lg shadow-lg border">
+      <div className="px-6 py-4 border-b border-gray-800">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold flex items-center text-gray-900">
+          <h2 className="text-lg font-semibold flex items-center text-white">
             <span className="mr-2">
-              <ArrowUp className="h-5 w-5 text-emerald-500" />
+              <ArrowUp className="h-5 w-5 text-emerald-400" />
             </span>
             Order Flow &amp; Recent Trades
           </h2>
           <div className="flex items-center space-x-2 text-sm">
             <div className={`w-2 h-2 rounded-full ${
-              trades.length > 0 ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+              trades.length > 0 ? 'bg-green-400 animate-pulse' : 'bg-gray-600'
             }`} />
-            <span className={trades.length > 0 ? 'text-green-600' : 'text-gray-500'}>
+            <span className={trades.length > 0 ? 'text-green-400' : 'text-gray-400'}>
               {trades.length > 0 ? `${trades.length} trades` : 'Waiting for data...'}
             </span>
           </div>
         </div>
       </div>
-      <div className="h-64 overflow-y-auto border border-gray-200 rounded">
+      <div className="h-64 overflow-y-auto bg-gray-800/50 rounded-lg">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Time</TableHead>
-              <TableHead className="text-right">Price&nbsp;(USDT)</TableHead>
-              <TableHead className="text-right">Size&nbsp;(SOL)</TableHead>
-              <TableHead className="text-right">Value&nbsp;(USDT)</TableHead>
+            <TableRow className="border-gray-700">
+              <TableHead className="text-gray-300">Time</TableHead>
+              <TableHead className="text-right text-gray-300">Price&nbsp;(USDT)</TableHead>
+              <TableHead className="text-right text-gray-300">Size&nbsp;(SOL)</TableHead>
+              <TableHead className="text-right text-gray-300">Value&nbsp;(USDT)</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {trades.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-gray-500 py-8">
+              <TableRow className="border-gray-700">
+                <TableCell colSpan={4} className="text-center text-gray-400 py-8">
                   Waiting for live trade data...
                 </TableCell>
               </TableRow>
@@ -94,14 +94,14 @@ export const OrderFlow: React.FC<OrderFlowProps> = ({
                 return (
                   <TableRow
                     key={`${trade.timestamp}-${idx}`}
-                    className={isLarge ? 'bg-yellow-50' : undefined}
+                    className={isLarge ? 'bg-yellow-900/30 border-yellow-600/50' : 'border-gray-700 hover:bg-gray-800/50'}
                   >
-                    <TableCell className="font-mono text-xs text-gray-500">
+                    <TableCell className="font-mono text-xs text-gray-300">
                       {timeStr}
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       <span
-                        className={trade.side === 'buy' ? 'text-emerald-600' : 'text-red-600'}
+                        className={trade.side === 'buy' ? 'text-emerald-400' : 'text-red-400'}
                       >
                         {trade.side === 'buy'
                           ? <ArrowUp className="inline h-3 w-3" />
@@ -109,13 +109,13 @@ export const OrderFlow: React.FC<OrderFlowProps> = ({
                       </span>{' '}
                       {trade.price.toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right font-mono text-gray-300">
                       {trade.size.toFixed(3)}
                     </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right font-mono text-gray-300">
                       {value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       {isLarge && (
-                        <span className="ml-1 inline-block px-1 text-xs rounded bg-yellow-200 text-yellow-800 font-medium">
+                        <span className="ml-1 inline-block px-1 text-xs rounded bg-yellow-900/50 text-yellow-400 font-medium">
                           ⚠
                         </span>
                       )}
