@@ -33,9 +33,11 @@ export function useWebSocket(): UseWebSocketReturn {
 
   const connect = () => {
     try {
-      // Determine correct protocol and URL
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      // Use environment variable for API base URL or fall back to current location
+      const wsBase = import.meta.env.VITE_API_URL || window.location.origin;
+      const protocol = wsBase.startsWith('https') || window.location.protocol === "https:" ? "wss:" : "ws:";
+      const host = wsBase ? new URL(wsBase).host : window.location.host;
+      const wsUrl = `${protocol}//${host}/ws`;
       
       setConnectionStatus('connecting');
       ws.current = new WebSocket(wsUrl);

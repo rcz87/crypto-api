@@ -120,6 +120,7 @@ export default function Dashboard() {
           {/* Temporary debug - will remove after fix */}
           <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-800">
             <div>🔍 Debug Info:</div>
+            <div>🌐 API Base: {import.meta.env.VITE_API_URL || 'using current domain'}</div>
             <div>WebSocket: {wsConnected ? '✅ Connected' : '❌ Disconnected'}</div>
             <div>Raw Market Data: {marketData ? '✅ Available' : '❌ None'}</div>
             <div>Transformed Data: {transformedMarketData ? '✅ Available' : '❌ None'}</div>
