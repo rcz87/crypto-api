@@ -1,4 +1,4 @@
-openapi: 3.0.1
+openapi: 3.1.0
 info:
   title: SOL Crypto Data Gateway API
   description: |
@@ -44,17 +44,7 @@ paths:
     get:
       operationId: getCompleteSOLData
       summary: Get comprehensive SOL trading data
-      description: |
-        **🚀 Primary endpoint** for complete SOL-USDT market analysis with all essential trading data.
-        
-        **Data Included:**
-        - **Real-time ticker**: Current price, 24h change, volume, high/low
-        - **7-Timeframe candlesticks**: 5m, 15m, 30m, 1H, 4H, 1D, 1W (500+ data points)
-        - **Deep order book**: 50 levels of bid/ask spreads for market depth
-        - **Recent trades**: Live trading activity with buy/sell indicators
-        - **Metadata**: Last update timestamp and data freshness
-        
-        **Perfect for**: AI analysis, algorithmic trading, technical analysis, market monitoring
+      description: Primary endpoint for complete SOL-USDT market data including real-time ticker, 7-timeframe candlesticks (5m to 1W), 50-level order book depth, recent trades, and metadata. Perfect for AI analysis, algorithmic trading, and market monitoring.
       tags:
         - Market Data
       responses:
@@ -372,26 +362,7 @@ paths:
     get:
       operationId: connectWebSocket
       summary: WebSocket connection for real-time streaming
-      description: |
-        **🔄 Real-time WebSocket endpoint** for live SOL-USDT market data streaming.
-        
-        **Connection URL**: `wss://guardiansofthegreentoken.com/ws`
-        
-        **Features:**
-        - **Live ticker updates**: Real-time price changes
-        - **Order book streaming**: Live bid/ask updates with 50-level depth
-        - **Trade flow**: Real-time buy/sell transactions
-        - **Auto-reconnection**: Exponential backoff (3s→30s) with 10 retry attempts
-        - **Health monitoring**: Ping/pong keep-alive mechanism
-        
-        **Message Types:**
-        - `connection`: Connection status messages
-        - `market_data`: Real-time OKX market updates
-        - `ticker`: Live price and volume updates
-        - `trades`: Individual transaction data
-        - `orderbook`: Bid/ask spread changes
-        
-        **Perfect for**: Live trading dashboards, real-time alerts, streaming analysis
+      description: Real-time WebSocket endpoint for live SOL-USDT streaming. Connect to wss://guardiansofthegreentoken.com/ws for live ticker, order book, trades with auto-reconnection and health monitoring. Perfect for live dashboards.
       tags:
         - WebSocket
       responses:
