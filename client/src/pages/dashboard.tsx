@@ -5,6 +5,7 @@ import { APIDocumentation } from "@/components/api-documentation";
 import { RealTimeData } from "@/components/real-time-data";
 import { SystemLogs } from "@/components/system-logs";
 import { ConfigurationPanel } from "@/components/configuration-panel";
+import { SimpleTradingChart } from "@/components/SimpleTradingChart";
 import { useWebSocket } from "@/hooks/useWebSocket";
 
 export default function Dashboard() {
@@ -81,7 +82,7 @@ export default function Dashboard() {
                 </span>
               </div>
               
-              <span className="text-sm text-gray-500">crypto-data-gateway.replit.app</span>
+              <span className="text-sm text-gray-500">guardiansofthegreentoken.com</span>
             </div>
           </div>
         </div>
@@ -90,10 +91,18 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Status Overview */}
         <StatusOverview 
-          healthData={healthData?.data} 
-          metricsData={metricsData?.data}
+          healthData={healthData?.data || {}} 
+          metricsData={metricsData?.data || {}}
           isLoading={healthLoading}
         />
+
+        {/* Professional Trading Chart */}
+        <div className="mt-8">
+          <SimpleTradingChart 
+            data={displaySolData} 
+            isConnected={wsConnected}
+          />
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
           {/* API Documentation */}
@@ -112,7 +121,7 @@ export default function Dashboard() {
 
         {/* Configuration Panel */}
         <ConfigurationPanel 
-          healthData={healthData?.data}
+          healthData={healthData?.data || {}}
         />
       </div>
 
@@ -124,11 +133,11 @@ export default function Dashboard() {
               <p className="text-sm text-gray-500">© 2024 Crypto Data Gateway</p>
               <span className="text-gray-300">|</span>
               <a 
-                href="https://crypto-data-gateway.replit.app" 
+                href="https://guardiansofthegreentoken.com" 
                 className="text-sm text-primary hover:text-blue-700"
                 data-testid="link-domain"
               >
-                crypto-data-gateway.replit.app
+                guardiansofthegreentoken.com
               </a>
             </div>
             <div className="flex items-center space-x-2 text-xs text-gray-500">
