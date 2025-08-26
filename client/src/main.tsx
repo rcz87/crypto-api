@@ -4,7 +4,18 @@ import "./index.css";
 
 // Global error handler to prevent unhandled rejections from causing UI issues
 window.addEventListener('unhandledrejection', (event) => {
-  console.warn('Unhandled promise rejection caught and suppressed:', event.reason?.message || event.reason);
+  const errorMessage = event.reason?.message || event.reason;
+  
+  // Suppress Replit development environment WebSocket warnings
+  if (typeof errorMessage === 'string' && 
+      (errorMessage.includes('localhost:undefined') || 
+       errorMessage.includes('WebSocket') && errorMessage.includes('invalid'))) {
+    // Silently suppress Replit Cartographer WebSocket warnings
+    event.preventDefault();
+    return;
+  }
+  
+  console.warn('Unhandled promise rejection caught and suppressed:', errorMessage);
   event.preventDefault(); // Prevent the default behavior that causes kedip-kedip
 });
 
