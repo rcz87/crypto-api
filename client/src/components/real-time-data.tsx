@@ -2,6 +2,7 @@ import { TrendingUp, ArrowUp, ArrowDown, Radio } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SolCompleteData } from "@shared/schema";
+import { useState } from "react";
 
 interface RealTimeDataProps {
   solData?: SolCompleteData;
@@ -10,6 +11,43 @@ interface RealTimeDataProps {
 }
 
 const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: RealTimeDataProps) => {
+  const [precision, setPrecision] = useState(0.01);
+  
+  // Group order book by precision
+  const groupOrdersByPrecision = (orders: Array<{price: string, size: string}>, tickSize: number) => {
+    const grouped: Record<string, number> = {};
+    
+    orders.forEach(order => {
+      const price = parseFloat(order.price);
+      const size = parseFloat(order.size);
+      const groupedPrice = Math.floor(price / tickSize) * tickSize;
+      const key = groupedPrice.toFixed(tickSize < 1 ? (tickSize === 0.01 ? 2 : 1) : 0);
+      
+      if (!grouped[key]) grouped[key] = 0;
+      grouped[key] += size;
+    });
+    
+    return Object.entries(grouped)
+      .map(([price, size]) => ({ price, size: size.toFixed(3) }))
+      .sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+  };
+  
+  // Calculate buy/sell percentages
+  const calculateBuySellPercentage = (orderBook: any) => {
+    if (!orderBook?.asks?.length || !orderBook?.bids?.length) return { buyPercent: 50, sellPercent: 50 };
+    
+    const totalAskVolume = orderBook.asks.reduce((sum: number, ask: any) => sum + parseFloat(ask.size), 0);
+    const totalBidVolume = orderBook.bids.reduce((sum: number, bid: any) => sum + parseFloat(bid.size), 0);
+    const totalVolume = totalAskVolume + totalBidVolume;
+    
+    if (totalVolume === 0) return { buyPercent: 50, sellPercent: 50 };
+    
+    const buyPercent = (totalBidVolume / totalVolume) * 100;
+    const sellPercent = (totalAskVolume / totalVolume) * 100;
+    
+    return { buyPercent: buyPercent.toFixed(1), sellPercent: sellPercent.toFixed(1) };
+  };
+  
   // Debug log
   console.log('💡 RealTimeData Component:', { 
     isLoading, 
@@ -152,7 +190,51 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
         {orderBook && (
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="bg-gray-900 text-white px-4 py-3">
-              <h3 className="text-sm font-semibold">Order Book</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Order Book</h3>
+                
+                {/* Precision Selector */}
+                <div className="flex items-center space-x-1">
+                  <span className="text-xs text-gray-300 mr-2">Precision:</span>
+                  {[0.01, 0.1, 1].map((tick) => (
+                    <button
+                      key={tick}
+                      onClick={() => setPrecision(tick)}
+                      className={`px-2 py-1 text-xs rounded transition-all duration-200 ${
+                        precision === tick 
+                          ? 'bg-blue-600 text-white font-medium' 
+                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                      data-testid={`precision-${tick}`}
+                    >
+                      {tick}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Buy/Sell Percentage Bar */}
+              {(() => {
+                const { buyPercent, sellPercent } = calculateBuySellPercentage(orderBook);
+                return (
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-green-400">Buy {buyPercent}%</span>
+                      <span className="text-red-400">Sell {sellPercent}%</span>
+                    </div>
+                    <div className="flex h-2 bg-gray-700 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-green-500 transition-all duration-1000"
+                        style={{ width: `${buyPercent}%` }}
+                      />
+                      <div 
+                        className="bg-red-500 transition-all duration-1000"
+                        style={{ width: `${sellPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             
             <div className="grid grid-cols-2 gap-0 h-80 bg-gray-50">
@@ -171,12 +253,14 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                     return <div className="p-4 text-center text-gray-500">Loading asks...</div>;
                   }
                   
-                  const askSizes = (orderBook.asks || []).map(item => parseFloat(item.size));
+                  // Group asks by precision
+                  const groupedAsks = groupOrdersByPrecision(orderBook.asks, precision);
+                  const askSizes = groupedAsks.map(item => parseFloat(item.size));
                   const maxAskSize = Math.max(...askSizes) || 1;
                   
-                  return (orderBook.asks || []).slice(0, 10).reverse().map((ask, index) => {
+                  return groupedAsks.slice(0, 10).reverse().map((ask, index) => {
                     const sizePercent = (parseFloat(ask.size) / maxAskSize) * 100;
-                    const cumulativeTotal = (orderBook.asks || []).slice(0, (orderBook.asks?.length || 0) - index).reduce((sum, a) => sum + parseFloat(a.size), 0);
+                    const cumulativeTotal = groupedAsks.slice(0, groupedAsks.length - index).reduce((sum, a) => sum + parseFloat(a.size), 0);
                     
                     return (
                       <div 
@@ -222,12 +306,14 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                     return <div className="p-4 text-center text-gray-500">Loading bids...</div>;
                   }
                   
-                  const bidSizes = (orderBook.bids || []).map(item => parseFloat(item.size));
+                  // Group bids by precision
+                  const groupedBids = groupOrdersByPrecision(orderBook.bids, precision);
+                  const bidSizes = groupedBids.map(item => parseFloat(item.size));
                   const maxBidSize = Math.max(...bidSizes) || 1;
                   
-                  return (orderBook.bids || []).slice(0, 10).map((bid, index) => {
+                  return groupedBids.slice(0, 10).reverse().map((bid, index) => {
                     const sizePercent = (parseFloat(bid.size) / maxBidSize) * 100;
-                    const cumulativeTotal = (orderBook.bids || []).slice(0, index + 1).reduce((sum, b) => sum + parseFloat(b.size), 0);
+                    const cumulativeTotal = groupedBids.slice(0, groupedBids.length - index).reduce((sum, b) => sum + parseFloat(b.size), 0);
                     
                     return (
                       <div 
