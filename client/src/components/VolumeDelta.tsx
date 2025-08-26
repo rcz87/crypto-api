@@ -34,27 +34,28 @@ export function VolumeDelta() {
   const { lastMessage } = useWebSocket();
 
   useEffect(() => {
-    if (lastMessage?.data) {
-      try {
-        const wsData = JSON.parse(lastMessage.data);
+    try {
+      if (lastMessage?.type === 'market_data' && lastMessage.data?.arg?.channel === 'trades') {
+        const wsData = lastMessage.data;
         
-        if (wsData.arg?.channel === 'trades' && wsData.data?.[0]) {
-          const tradeData = wsData.data[0];
-          const newTrade: Trade = {
-            side: tradeData.side,
-            size: parseFloat(tradeData.sz),
-            price: parseFloat(tradeData.px),
-            timestamp: parseInt(tradeData.ts)
-          };
-          
-          setTrades(prev => {
-            const updated = [newTrade, ...prev].slice(0, 1000); // Keep last 1000 trades
-            return updated;
+        if (wsData.data && Array.isArray(wsData.data)) {
+          wsData.data.forEach((tradeData: any) => {
+            const newTrade: Trade = {
+              side: tradeData.side,
+              size: parseFloat(tradeData.sz || '0'),
+              price: parseFloat(tradeData.px || '0'),
+              timestamp: parseInt(tradeData.ts || Date.now().toString())
+            };
+            
+            setTrades(prev => {
+              const updated = [newTrade, ...prev].slice(0, 1000); // Keep last 1000 trades
+              return updated;
+            });
           });
         }
-      } catch (error) {
-        console.error('Error parsing WebSocket trade data:', error);
       }
+    } catch (error) {
+      console.error('Error parsing WebSocket trade data:', error);
     }
   }, [lastMessage]);
 
