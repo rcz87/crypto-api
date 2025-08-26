@@ -36,26 +36,12 @@ export default function Dashboard() {
     enabled: true, // Always enable the query
   });
 
-  // Debug log for data fetching
+  // Data validation and error handling
   useEffect(() => {
-    console.log('🔍 SOL Data Debug:', { 
-      hasData: !!solData, 
-      isLoading: solLoading, 
-      hasError: !!solError,
-      errorMessage: solError?.message,
-      orderBookExists: !!solData?.data?.orderBook,
-      dataKeys: solData?.data ? Object.keys(solData.data) : []
-    });
-    if (solData?.data?.orderBook) {
-      console.log('📊 Order Book Data:', {
-        asks: solData.data.orderBook.asks?.length || 0,
-        bids: solData.data.orderBook.bids?.length || 0,
-        spread: solData.data.orderBook.spread,
-        firstAsk: solData.data.orderBook.asks?.[0],
-        firstBid: solData.data.orderBook.bids?.[0]
-      });
+    if (solError) {
+      console.error('SOL Data API Error:', solError.message);
     }
-  }, [solData, solLoading, solError]);
+  }, [solError]);
 
   // WebSocket connection for real-time data
   const { 
@@ -151,17 +137,6 @@ export default function Dashboard() {
     : lastTickerRef.current;
   const isDataLoading = solLoading && !marketData;
 
-  // Debug display data
-  useEffect(() => {
-    console.log('🎯 Display SOL Data:', {
-      restData: !!restData,
-      wsTicker: !!wsTicker,
-      wsOrderBook: !!wsOrderBook,
-      displaySolData: !!displaySolData,
-      isDataLoading,
-      hasOrderBook: !!displaySolData?.orderBook
-    });
-  }, [restData, wsTicker, wsOrderBook, displaySolData, isDataLoading]);
 
   return (
     <div className="font-inter bg-gray-50 text-gray-900 min-h-screen">

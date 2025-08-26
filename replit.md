@@ -45,7 +45,21 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes (August 2025)
 
-## Latest Updates - Binance-Style Market Depth Chart (August 26, 2025)
+## Latest Updates - Order Flow & Real-Time Trading Module (August 26, 2025)
+- **Order Flow Component**: Professional real-time trades tracking with WebSocket integration
+- **Trade Detection**: Live buy/sell indicators with whale trade alerts ($10,000+ USDT threshold)
+- **Performance Optimization**: Cleaned debug logs, optimized WebSocket data processing
+- **Production Ready**: All real-time components stable for deployment
+
+### Order Flow Features
+- **Real-time trades table**: Time, Price, Size, Value columns with professional formatting
+- **Buy/Sell indicators**: Green ↑ arrows for buy orders, red ↓ arrows for sell orders  
+- **Whale trade alerts**: Yellow highlighting for large transactions with warning icons
+- **Buffer management**: Auto-maintains 60 most recent trades with efficient memory usage
+- **WebSocket integration**: Listens to OKX trades channel for live trading activity
+- **Visual status**: Real-time indicator showing trade count and connection status
+
+## Previous Updates - Binance-Style Market Depth Chart (August 26, 2025)
 - **Professional Market Depth Chart**: Upgraded to Binance-style professional trading interface
 - **SVG-Based Smooth Curves**: Replaced bar charts with smooth SVG curves for cumulative volume visualization
 - **Professional Dark Theme**: Black/gray gradient backgrounds with professional color schemes

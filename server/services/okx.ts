@@ -227,16 +227,6 @@ export class OKXService {
         this.ws.on('message', (data: Buffer) => {
           try {
             const message = JSON.parse(data.toString());
-            
-            // Debug log untuk trades data
-            if (message.arg?.channel === 'trades' && message.data?.length) {
-              console.log('🔥 OKX Trades received:', {
-                channel: message.arg.channel,
-                count: message.data.length,
-                firstTrade: message.data[0]
-              });
-            }
-            
             if (onMessage && message.data) {
               onMessage(message);
             }

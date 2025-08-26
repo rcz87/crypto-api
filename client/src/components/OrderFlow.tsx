@@ -25,30 +25,14 @@ export const OrderFlow: React.FC<OrderFlowProps> = ({
   const { lastMessage } = useWebSocket();
   const [trades, setTrades] = useState<Trade[]>([]);
 
-  // Dengarkan pesan WebSocket bertipe market_data (channel trades)
+  // Listen for WebSocket market_data messages (trades channel)
   useEffect(() => {
-    console.log('🔄 OrderFlow WebSocket Message:', { 
-      hasMessage: !!lastMessage,
-      messageType: lastMessage?.type,
-      hasData: !!lastMessage?.data,
-      channel: lastMessage?.data?.arg?.channel,
-      dataLength: lastMessage?.data?.data?.length 
-    });
-
     if (!lastMessage || lastMessage.type !== 'market_data' || !lastMessage.data) {
       return;
     }
     
     const payload = lastMessage.data;
-    console.log('📊 Processing market data:', { 
-      channel: payload.arg?.channel, 
-      hasTradesData: Array.isArray(payload.data),
-      dataCount: payload.data?.length 
-    });
-
     if (payload.arg?.channel === 'trades' && Array.isArray(payload.data)) {
-      console.log('💰 Raw trades data:', payload.data);
-      
       const newTrades: Trade[] = payload.data.map((t: any) => ({
         price: parseFloat(t.px),
         size: parseFloat(t.sz),
@@ -56,13 +40,9 @@ export const OrderFlow: React.FC<OrderFlowProps> = ({
         timestamp: Number(t.ts),
       }));
       
-      console.log('✅ Processed trades:', newTrades);
-      
       setTrades(prev => {
         const combined = [...newTrades, ...prev];
-        const result = combined.slice(0, maxTrades);
-        console.log('📈 Updated trades count:', result.length);
-        return result;
+        return combined.slice(0, maxTrades);
       });
     }
   }, [lastMessage, maxTrades]);

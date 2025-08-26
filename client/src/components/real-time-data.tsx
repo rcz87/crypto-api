@@ -83,14 +83,6 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
     return { bidsData, asksData, maxVolume };
   };
   
-  // Debug log
-  console.log('💡 RealTimeData Component:', { 
-    isLoading, 
-    hasSolData: !!solData, 
-    hasOrderBook: !!solData?.orderBook,
-    orderBookAsks: solData?.orderBook?.asks?.length,
-    orderBookBids: solData?.orderBook?.bids?.length
-  });
 
   if (isLoading && !solData) {
     return (
