@@ -72,7 +72,7 @@ export class OKXService {
         high24h: tickerData.high24h,
         low24h: tickerData.low24h,
         volume: tickerData.vol24h,
-        marketCap: (parseFloat(tickerData.last) * parseFloat(tickerData.vol24h)).toFixed(0),
+        tradingVolume24h: (parseFloat(tickerData.last) * parseFloat(tickerData.vol24h)).toFixed(0), // This is trading volume, not market cap
       };
     } catch (error) {
       console.error('Error fetching ticker:', error);
@@ -159,11 +159,11 @@ export class OKXService {
     try {
       const [ticker, candles1H, candles4H, candles1D, orderBook, recentTrades] = await Promise.all([
         this.getTicker('SOL-USDT'),
-        this.getCandles('SOL-USDT', '1H', 24),
-        this.getCandles('SOL-USDT', '4H', 24),
-        this.getCandles('SOL-USDT', '1D', 30),
+        this.getCandles('SOL-USDT', '1H', 50), // Increased from 24 to 50
+        this.getCandles('SOL-USDT', '4H', 50), // Increased from 24 to 50  
+        this.getCandles('SOL-USDT', '1D', 60), // Increased from 30 to 60
         this.getOrderBook('SOL-USDT', 10),
-        this.getRecentTrades('SOL-USDT', 20),
+        this.getRecentTrades('SOL-USDT', 30), // Increased from 20 to 30
       ]);
 
       return {
@@ -209,7 +209,7 @@ export class OKXService {
               op: 'subscribe',
               args: [
                 { channel: 'tickers', instId: 'SOL-USDT' },
-                { channel: 'books5', instId: 'SOL-USDT' },
+                { channel: 'books', instId: 'SOL-USDT' }, // Upgraded to 10 levels
                 { channel: 'trades', instId: 'SOL-USDT' }
               ]
             }

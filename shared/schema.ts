@@ -28,7 +28,7 @@ export const tickerSchema = z.object({
   high24h: z.string(),
   low24h: z.string(),
   volume: z.string(),
-  marketCap: z.string(),
+  tradingVolume24h: z.string(), // Trading volume, not market cap
 });
 
 // OKX candle data schema

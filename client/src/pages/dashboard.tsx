@@ -67,16 +67,16 @@ export default function Dashboard() {
     }
   }, [marketData]);
 
-  // Gabungkan candlestick dari REST dengan ticker terakhir dari WebSocket
+  // Prioritize WebSocket real-time ticker data, fallback to REST for historical data
   const restData = (solData as any)?.data;
   const wsTicker = lastTickerRef.current?.ticker;
 
-  const displaySolData = restData
+  const displaySolData = wsTicker && restData
     ? { 
         ...restData,
-        ticker: wsTicker || restData.ticker,
+        ticker: wsTicker, // Always use WebSocket ticker for real-time updates
       }
-    : lastTickerRef.current;
+    : restData || lastTickerRef.current;
   const isDataLoading = solLoading && !marketData;
 
   return (
@@ -155,6 +155,7 @@ export default function Dashboard() {
             {displaySolData?.candles && (
               <div>📊 Candles: 1H({(displaySolData.candles['1H'] || []).length}) 4H({(displaySolData.candles['4H'] || []).length}) 1D({(displaySolData.candles['1D'] || []).length})</div>
             )}
+            <div>⚡ Data Source: {wsTicker ? 'WebSocket + REST' : 'REST only'}</div>
             {(healthError || metricsError || solError) && (
               <div className="text-red-600">⚠️ Some API endpoints have errors</div>
             )}

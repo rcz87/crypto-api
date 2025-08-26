@@ -45,7 +45,7 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes (August 2025)
 
-## Latest Updates - TradingView Integration
+## Latest Updates - TradingView Integration & OKX Optimizations
 - **Professional Chart**: Successfully integrated TradingView free embedded widget
 - **Chart Implementation**: `client/src/components/TradingViewWidget.tsx`
 - **Data Source**: SOL/USDT pair from OKX exchange via TradingView
@@ -53,6 +53,12 @@ Preferred communication style: Simple, everyday language.
 - **Features**: Advanced candlestick charts, volume analysis, technical indicators
 - **UI Cleanup**: Removed flickering debug panel by eliminating real-time data display
 - **Performance**: No custom chart rendering needed, leverages TradingView's optimized system
+
+### Performance Optimizations
+- **Order Book Depth**: Upgraded WebSocket from books5 to books (10 levels) for consistency
+- **Historical Data**: Increased candlestick limits (1H: 50, 4H: 50, 1D: 60 bars)
+- **WebSocket Priority**: Frontend now prioritizes WebSocket ticker over REST API
+- **Data Accuracy**: Fixed market cap calculation to clarify it's trading volume
 
 ## Production Deployment Status
 - **Custom Domain**: Successfully deployed at `https://guardiansofthegreentoken.com`
