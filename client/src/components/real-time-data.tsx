@@ -139,35 +139,98 @@ export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealT
           </div>
         </div>
 
-        {/* Order Book Preview */}
-        <div className="border border-gray-200 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Order Book (Top 5)</h3>
-          <div className="space-y-2">
-            {orderBook.asks.slice(0, 3).map((ask, index) => (
-              <div key={`ask-${index}`} className="flex justify-between items-center text-xs">
-                <span className="text-red-600 font-mono" data-testid={`ask-price-${index}`}>
-                  {parseFloat(ask.price).toFixed(2)}
-                </span>
-                <span className="text-gray-500 font-mono" data-testid={`ask-size-${index}`}>
-                  {parseFloat(ask.size).toLocaleString()}
-                </span>
-              </div>
-            ))}
-            <div className="border-t border-gray-200 py-1">
-              <div className="text-center text-xs font-medium text-gray-900">
-                Spread: <span data-testid="text-spread">${orderBook.spread}</span>
-              </div>
-            </div>
-            {orderBook.bids.slice(0, 3).map((bid, index) => (
-              <div key={`bid-${index}`} className="flex justify-between items-center text-xs">
-                <span className="text-green-600 font-mono" data-testid={`bid-price-${index}`}>
-                  {parseFloat(bid.price).toFixed(2)}
-                </span>
-                <span className="text-gray-500 font-mono" data-testid={`bid-size-${index}`}>
-                  {parseFloat(bid.size).toLocaleString()}
-                </span>
-              </div>
-            ))}
+        {/* Professional Order Book */}
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="bg-gray-900 text-white px-4 py-3">
+            <h3 className="text-sm font-semibold">Order Book</h3>
+          </div>
+          
+          {/* Header */}
+          <div className="grid grid-cols-3 gap-4 px-4 py-2 bg-gray-50 text-xs font-medium text-gray-600 border-b">
+            <div className="text-left">Price (USDT)</div>
+            <div className="text-right">Amount (SOL)</div>
+            <div className="text-right">Total</div>
+          </div>
+
+          <div className="max-h-80 overflow-y-auto">
+            {/* Calculate max size for volume bars */}
+            {(() => {
+              const allSizes = [...orderBook.asks, ...orderBook.bids].map(item => parseFloat(item.size));
+              const maxSize = Math.max(...allSizes);
+              
+              return (
+                <>
+                  {/* Asks (Sell Orders) - Show in reverse order */}
+                  {orderBook.asks.slice(0, 15).reverse().map((ask, index) => {
+                    const sizePercent = (parseFloat(ask.size) / maxSize) * 100;
+                    const cumulativeTotal = orderBook.asks.slice(0, orderBook.asks.length - index).reduce((sum, a) => sum + parseFloat(a.size), 0);
+                    
+                    return (
+                      <div key={`ask-${index}`} className="relative group hover:bg-red-50 transition-colors">
+                        {/* Volume Bar Background */}
+                        <div 
+                          className="absolute right-0 top-0 h-full bg-red-100 opacity-30"
+                          style={{ width: `${sizePercent}%` }}
+                        />
+                        
+                        <div className="relative grid grid-cols-3 gap-4 px-4 py-1 text-xs font-mono">
+                          <div className="text-red-600 font-semibold" data-testid={`ask-price-${index}`}>
+                            {parseFloat(ask.price).toFixed(2)}
+                          </div>
+                          <div className="text-right text-gray-800" data-testid={`ask-size-${index}`}>
+                            {parseFloat(ask.size).toLocaleString(undefined, { maximumFractionDigits: 3 })}
+                          </div>
+                          <div className="text-right text-gray-600">
+                            {cumulativeTotal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Spread */}
+                  <div className="border-t border-b border-gray-300 bg-gray-100 py-2">
+                    <div className="text-center text-xs font-medium text-gray-800">
+                      <span className="text-gray-600">Spread:</span>{' '}
+                      <span className="text-orange-600 font-semibold" data-testid="text-spread">
+                        ${orderBook.spread}
+                      </span>
+                      <span className="text-gray-500 ml-2">
+                        ({((parseFloat(orderBook.spread) / parseFloat(orderBook.bids[0]?.price || '1')) * 100).toFixed(3)}%)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Bids (Buy Orders) */}
+                  {orderBook.bids.slice(0, 15).map((bid, index) => {
+                    const sizePercent = (parseFloat(bid.size) / maxSize) * 100;
+                    const cumulativeTotal = orderBook.bids.slice(0, index + 1).reduce((sum, b) => sum + parseFloat(b.size), 0);
+                    
+                    return (
+                      <div key={`bid-${index}`} className="relative group hover:bg-green-50 transition-colors">
+                        {/* Volume Bar Background */}
+                        <div 
+                          className="absolute right-0 top-0 h-full bg-green-100 opacity-30"
+                          style={{ width: `${sizePercent}%` }}
+                        />
+                        
+                        <div className="relative grid grid-cols-3 gap-4 px-4 py-1 text-xs font-mono">
+                          <div className="text-green-600 font-semibold" data-testid={`bid-price-${index}`}>
+                            {parseFloat(bid.price).toFixed(2)}
+                          </div>
+                          <div className="text-right text-gray-800" data-testid={`bid-size-${index}`}>
+                            {parseFloat(bid.size).toLocaleString(undefined, { maximumFractionDigits: 3 })}
+                          </div>
+                          <div className="text-right text-gray-600">
+                            {cumulativeTotal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              );
+            })()}
           </div>
         </div>
       </CardContent>

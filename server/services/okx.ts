@@ -102,7 +102,7 @@ export class OKXService {
     }
   }
 
-  async getOrderBook(symbol: string = 'SOL-USDT', depth: number = 10): Promise<OrderBookData> {
+  async getOrderBook(symbol: string = 'SOL-USDT', depth: number = 20): Promise<OrderBookData> {
     try {
       const response = await this.client.get(`/api/v5/market/books?instId=${symbol}&sz=${depth}`);
       
@@ -162,7 +162,7 @@ export class OKXService {
         this.getCandles('SOL-USDT', '1H', 50), // Increased from 24 to 50
         this.getCandles('SOL-USDT', '4H', 50), // Increased from 24 to 50  
         this.getCandles('SOL-USDT', '1D', 60), // Increased from 30 to 60
-        this.getOrderBook('SOL-USDT', 10),
+        this.getOrderBook('SOL-USDT', 20), // Increased to 20 levels for better depth
         this.getRecentTrades('SOL-USDT', 30), // Increased from 20 to 30
       ]);
 
