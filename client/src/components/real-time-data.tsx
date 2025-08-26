@@ -10,7 +10,16 @@ interface RealTimeDataProps {
 }
 
 const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: RealTimeDataProps) => {
-  if (isLoading || !solData) {
+  // Debug log
+  console.log('💡 RealTimeData Component:', { 
+    isLoading, 
+    hasSolData: !!solData, 
+    hasOrderBook: !!solData?.orderBook,
+    orderBookAsks: solData?.orderBook?.asks?.length,
+    orderBookBids: solData?.orderBook?.bids?.length
+  });
+
+  if (isLoading && !solData) {
     return (
       <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
         <CardHeader className="px-6 py-4 border-b border-gray-200">
@@ -45,10 +54,10 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
     );
   }
 
-  const { ticker, orderBook } = solData;
+  const { ticker, orderBook } = solData || {};
   
-  // Safe checks for ticker data
-  if (!ticker || !orderBook) {
+  // More lenient check - show data if we have either ticker OR orderBook
+  if (!ticker && !orderBook) {
     return (
       <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
         <CardHeader className="px-6 py-4 border-b border-gray-200">
@@ -66,10 +75,10 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
     );
   }
   
-  const isPositive = ticker.change24h && (ticker.change24h.startsWith('+') || !ticker.change24h.startsWith('-'));
-  const changeValue = ticker.change24h ? ticker.change24h.replace(/[+%]/g, '') : '0';
+  const isPositive = ticker?.change24h && (ticker?.change24h.startsWith('+') || !ticker?.change24h.startsWith('-'));
+  const changeValue = ticker?.change24h ? ticker?.change24h.replace(/[+%]/g, '') : '0';
 
-  const lastUpdateTime = new Date(solData.lastUpdate).toLocaleString();
+  const lastUpdateTime = solData?.lastUpdate ? new Date(solData.lastUpdate).toLocaleString() : 'Unknown';
 
   return (
     <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -92,7 +101,7 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-500" data-testid="text-symbol">
-              {ticker.symbol || 'SOL-USDT'}
+              {ticker?.symbol || 'SOL-USDT'}
             </span>
             <span className="text-xs text-gray-400">
               Last updated: <span data-testid="text-last-update">{lastUpdateTime}</span>
@@ -100,13 +109,13 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-3xl font-bold text-gray-900" data-testid="text-price">
-              ${ticker.price || '0.00'}
+              ${ticker?.price || '0.00'}
             </span>
             <span className={`px-2 py-1 rounded text-sm font-medium flex items-center ${
               isPositive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
             }`}>
               {isPositive ? <ArrowUp className="w-4 h-4 mr-1" /> : <ArrowDown className="w-4 h-4 mr-1" />}
-              <span data-testid="text-change24h">{ticker.change24h || '0%'}</span>
+              <span data-testid="text-change24h">{ticker?.change24h || '0%'}</span>
             </span>
           </div>
         </div>
@@ -116,25 +125,25 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">24h High</p>
             <p className="text-lg font-semibold text-gray-900" data-testid="text-high24h">
-              ${ticker.high24h}
+              ${ticker?.high24h || '0.00'}
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">24h Low</p>
             <p className="text-lg font-semibold text-gray-900" data-testid="text-low24h">
-              ${ticker.low24h}
+              ${ticker?.low24h || '0.00'}
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Volume</p>
             <p className="text-lg font-semibold text-gray-900" data-testid="text-volume">
-              {parseFloat(ticker.volume).toLocaleString()} SOL
+              {parseFloat(ticker?.volume || '0').toLocaleString()} SOL
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Trading Vol</p>
             <p className="text-lg font-semibold text-gray-900" data-testid="text-trading-volume">
-              ${parseFloat(ticker.tradingVolume24h || '0').toLocaleString()}
+              ${parseFloat(ticker?.tradingVolume24h || '0').toLocaleString()}
             </p>
           </div>
         </div>
@@ -154,16 +163,16 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
 
           <div className="max-h-80 overflow-y-auto bg-gray-50">
             {/* Calculate max size for volume bars */}
-            {(() => {
-              const allSizes = [...orderBook.asks, ...orderBook.bids].map(item => parseFloat(item.size));
+            {orderBook && (() => {
+              const allSizes = [...(orderBook.asks || []), ...(orderBook.bids || [])].map(item => parseFloat(item.size));
               const maxSize = Math.max(...allSizes) || 1;
               
               return (
                 <>
                   {/* Asks (Sell Orders) - Show in reverse order */}
-                  {orderBook.asks.slice(0, 12).reverse().map((ask, index) => {
+                  {(orderBook.asks || []).slice(0, 12).reverse().map((ask, index) => {
                     const sizePercent = (parseFloat(ask.size) / maxSize) * 100;
-                    const cumulativeTotal = orderBook.asks.slice(0, orderBook.asks.length - index).reduce((sum, a) => sum + parseFloat(a.size), 0);
+                    const cumulativeTotal = (orderBook.asks || []).slice(0, (orderBook.asks?.length || 0) - index).reduce((sum, a) => sum + parseFloat(a.size), 0);
                     
                     return (
                       <div 
@@ -205,9 +214,9 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                   </div>
 
                   {/* Bids (Buy Orders) */}
-                  {orderBook.bids.slice(0, 12).map((bid, index) => {
+                  {(orderBook.bids || []).slice(0, 12).map((bid, index) => {
                     const sizePercent = (parseFloat(bid.size) / maxSize) * 100;
-                    const cumulativeTotal = orderBook.bids.slice(0, index + 1).reduce((sum, b) => sum + parseFloat(b.size), 0);
+                    const cumulativeTotal = (orderBook.bids || []).slice(0, index + 1).reduce((sum, b) => sum + parseFloat(b.size), 0);
                     
                     return (
                       <div 
