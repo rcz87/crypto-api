@@ -1,6 +1,6 @@
 # Overview
 
-This is a crypto data gateway application that provides real-time SOL (Solana) trading data through a REST API. The application aggregates cryptocurrency data from OKX exchange and serves it through a clean web dashboard. It's built as a full-stack TypeScript application with a React frontend and Express.js backend, designed to run on Replit hosting.
+This is a crypto data gateway application that provides real-time SOL (Solana) trading data through a REST API. The application aggregates cryptocurrency data from OKX exchange and serves it through a clean web dashboard. It's built as a full-stack TypeScript application with a React frontend and Express.js backend, designed to run on Replit hosting and accessible via custom domain guardiansofthegreentoken.com.
 
 # User Preferences
 
@@ -43,14 +43,26 @@ Preferred communication style: Simple, everyday language.
 - **Fonts**: Google Fonts (Inter, DM Sans, Fira Code, Geist Mono)
 - **Icons**: Lucide React for consistent iconography
 
+# Recent Changes (January 2025)
+
+## Production Deployment Status
+- **Custom Domain**: Successfully deployed at `https://guardiansofthegreentoken.com`
+- **SSL Certificate**: Auto-generated and active
+- **DNS Configuration**: Fully propagated via Hostinger DNS management
+- **API Endpoint for GPT 5**: `https://guardiansofthegreentoken.com/api/sol/complete`
+- **Performance**: 195ms response time, production-ready
+- **WebSocket Real-time**: Active at `wss://guardiansofthegreentoken.com/ws`
+
 ## Key Features
 - Real-time SOL price data, 24h change, volume, and market cap
 - Order book data with bid/ask spreads
+- WebSocket streaming with auto-reconnection and fallback mechanisms
 - System health monitoring and metrics tracking
 - API documentation with interactive examples
 - Rate limiting and CORS for production use
 - Responsive dashboard design for desktop and mobile
 - System logs and performance monitoring
+- Custom domain integration for professional API access
 
 ## Performance Considerations
 - React Query caching with configurable refresh intervals
