@@ -100,7 +100,7 @@ export function SimpleTradingChart({ data, isConnected }: SimpleTradingChartProp
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-emerald-500" />
-            <CardTitle>SOL/USDT Price Chart</CardTitle>
+            <CardTitle>SOL/USDT Professional Chart</CardTitle>
             <Badge variant={isConnected ? "default" : "destructive"} className="ml-2">
               <Activity className="h-3 w-3 mr-1" />
               {isConnected ? 'Real-time' : 'Disconnected'}
@@ -142,12 +142,12 @@ export function SimpleTradingChart({ data, isConnected }: SimpleTradingChartProp
         
         <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-4">
-            <span>📊 Real-time SOL price visualization</span>
-            <span>🔄 Updates with WebSocket data</span>
+            <span>⚡ Real-time SOL price visualization</span>
+            <span>📊 Professional canvas-based charting</span>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-emerald-500">🟢 Live Data</span>
-            <span>📈 Professional Trading Interface</span>
+            <span className="text-emerald-500">🟢 Live WebSocket Data</span>
+            <span>📈 Trading-Grade Interface</span>
           </div>
         </div>
       </CardContent>

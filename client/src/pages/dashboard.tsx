@@ -36,7 +36,7 @@ export default function Dashboard() {
   const isOnline = healthData?.data?.status === 'operational';
   
   // Use WebSocket data if available, otherwise fall back to REST API data  
-  const displaySolData = marketData?.data || solData?.data;
+  const displaySolData = marketData || solData?.data;
   const isDataLoading = solLoading && !marketData;
 
   return (
