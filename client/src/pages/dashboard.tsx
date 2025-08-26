@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
+import { useRef, useEffect } from "react";
 import { Database, AlertCircle, Radio } from "lucide-react";
 import { StatusOverview } from "@/components/status-overview";
 import { APIDocumentation } from "@/components/api-documentation";
 import { RealTimeData } from "@/components/real-time-data";
 import { SystemLogs } from "@/components/system-logs";
 import { ConfigurationPanel } from "@/components/configuration-panel";
-import { SimpleTradingChart } from "@/components/SimpleTradingChart";
+import { CandlestickChart } from "@/components/CandlestickChart";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -42,22 +43,31 @@ export default function Dashboard() {
 
   const isOnline = (healthData as any)?.data?.status === 'operational';
   
-  // Transform WebSocket data to match expected format for chart
-  const transformedMarketData = marketData && marketData.data && marketData.data[0] ? {
-    ticker: {
-      symbol: marketData.data[0].instId || 'SOL-USDT',
-      last: marketData.data[0].last,
-      high24h: marketData.data[0].high24h,
-      low24h: marketData.data[0].low24h,
-      vol24h: marketData.data[0].vol24h,
-      changePercent: marketData.data[0].changePercent || 
-        (marketData.data[0].last && marketData.data[0].open24h ? 
-          (((parseFloat(marketData.data[0].last) - parseFloat(marketData.data[0].open24h)) / parseFloat(marketData.data[0].open24h)) * 100).toFixed(2) : '0')
-    }
-  } : null;
+  // Store last valid ticker data to prevent re-renders
+  const lastTickerRef = useRef<any>(null);
 
-  // Use transformed WebSocket data if available, otherwise fall back to REST API data  
-  const displaySolData = transformedMarketData || (solData as any)?.data;
+  // Only update when we receive ticker data specifically
+  useEffect(() => {
+    if (marketData?.arg?.channel === 'tickers' && marketData.data?.length) {
+      const tickerData = marketData.data[0];
+      const transformedTicker = {
+        ticker: {
+          symbol: tickerData.instId || 'SOL-USDT',
+          last: tickerData.last,
+          high24h: tickerData.high24h,
+          low24h: tickerData.low24h,
+          vol24h: tickerData.vol24h,
+          changePercent: tickerData.changePercent || 
+            (tickerData.last && tickerData.open24h ? 
+              (((parseFloat(tickerData.last) - parseFloat(tickerData.open24h)) / parseFloat(tickerData.open24h)) * 100).toFixed(2) : '0')
+        }
+      };
+      lastTickerRef.current = transformedTicker;
+    }
+  }, [marketData]);
+
+  // Use last valid ticker data or fallback to REST API data
+  const displaySolData = lastTickerRef.current || (solData as any)?.data;
   const isDataLoading = solLoading && !marketData;
 
   return (
@@ -117,10 +127,10 @@ export default function Dashboard() {
           isLoading={healthLoading}
         />
 
-        {/* Professional Trading Chart */}
+        {/* Professional Candlestick Chart */}
         <div className="mt-8">
           <ErrorBoundary>
-            <SimpleTradingChart 
+            <CandlestickChart 
               data={displaySolData} 
               isConnected={wsConnected}
             />
@@ -129,17 +139,20 @@ export default function Dashboard() {
           {/* Temporary debug - will remove after fix */}
           <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-800">
             <div>🔍 Debug Info:</div>
-            <div>🌐 API Base: {import.meta.env.VITE_API_URL || 'using current domain'}</div>
+            <div>🌐 API Base: https://guardiansofthegreentoken.com (hardcoded)</div>
             <div>WebSocket: {wsConnected ? '✅ Connected' : '❌ Disconnected'}</div>
             <div>Raw Market Data: {marketData ? '✅ Available' : '❌ None'}</div>
-            <div>Transformed Data: {transformedMarketData ? '✅ Available' : '❌ None'}</div>
             <div>SOL API Data: {(solData as any)?.data ? '✅ Available' : '❌ None'}</div>
             <div>Final Display Data: {displaySolData ? '✅ Available' : '❌ None'}</div>
+            <div>Candles Data: {displaySolData?.candles ? '✅ Available' : '❌ None'}</div>
             {healthError && <div>⚠️ Health API Error: {(healthError as Error).message}</div>}
             {metricsError && <div>⚠️ Metrics API Error: {(metricsError as Error).message}</div>}
             {solError && <div>⚠️ SOL API Error: {(solError as Error).message}</div>}
             {displaySolData?.ticker && (
               <div>💰 Chart Data: ${displaySolData.ticker.last} | High: ${displaySolData.ticker.high24h} | Low: ${displaySolData.ticker.low24h}</div>
+            )}
+            {displaySolData?.candles && (
+              <div>📊 Candles: 1H({(displaySolData.candles['1H'] || []).length}) 4H({(displaySolData.candles['4H'] || []).length}) 1D({(displaySolData.candles['1D'] || []).length})</div>
             )}
             {marketData && (
               <div>📡 Raw WS: {marketData.data?.[0]?.last ? `$${marketData.data[0].last}` : 'No ticker data'}</div>

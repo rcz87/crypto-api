@@ -12,8 +12,8 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // Use environment variable for API base URL or fall back to current origin
-  const apiBase = import.meta.env.VITE_API_URL || window.location.origin;
+  // Always use production domain for API calls
+  const apiBase = 'https://guardiansofthegreentoken.com';
   const fullUrl = url.startsWith('http') ? url : `${apiBase}${url}`;
   
   const res = await fetch(fullUrl, {
@@ -33,8 +33,8 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // Use environment variable for API base URL or fall back to current origin
-    const apiBase = import.meta.env.VITE_API_URL || window.location.origin;
+    // Always use production domain for API calls
+    const apiBase = 'https://guardiansofthegreentoken.com';
     const endpoint = queryKey.join("/") as string;
     const fullUrl = endpoint.startsWith('http') ? endpoint : `${apiBase}${endpoint}`;
     
