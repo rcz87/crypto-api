@@ -12,7 +12,7 @@ export function SystemLogs() {
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 
-  const logs = logsData?.data || [];
+  const logs = (logsData?.data as SystemLogsType[]) || [];
 
   const refreshLogs = () => {
     refetch();
@@ -97,7 +97,7 @@ export function SystemLogs() {
                         {log.message}
                       </p>
                       <span className="text-xs text-gray-500" data-testid={`log-timestamp-${index}`}>
-                        {formatTimestamp(log.timestamp)}
+                        {formatTimestamp(log.timestamp || new Date())}
                       </span>
                     </div>
                     {log.details && (

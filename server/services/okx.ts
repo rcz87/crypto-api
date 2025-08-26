@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import { createHmac } from 'crypto';
 import { TickerData, CandleData, OrderBookData, RecentTradeData, SolCompleteData } from '@shared/schema';
 
 export class OKXService {
@@ -45,8 +46,7 @@ export class OKXService {
   }
 
   private createSignature(prehashString: string): string {
-    const crypto = require('crypto');
-    return crypto.createHmac('sha256', this.secretKey).update(prehashString).digest('base64');
+    return createHmac('sha256', this.secretKey).update(prehashString).digest('base64');
   }
 
   async getTicker(symbol: string = 'SOL-USDT'): Promise<TickerData> {
