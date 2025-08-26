@@ -391,18 +391,23 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
           </div>
         )}
 
-        {/* Market Depth Chart - Simplified Visual */}
+        {/* Market Depth Chart - Full Width Visible */}
         {orderBook && (
-          <div className="border border-gray-200 rounded-lg overflow-hidden mt-6">
+          <div className="w-full border border-gray-200 rounded-lg overflow-hidden mt-6 bg-white">
             <div className="bg-gray-900 text-white px-4 py-3">
-              <div className="flex items-center">
-                <BarChart3 className="text-blue-400 mr-2" size={16} />
-                <h3 className="text-sm font-semibold">Market Depth Chart</h3>
-                <span className="ml-2 text-xs text-gray-400">Liquidity Visualization</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <BarChart3 className="text-blue-400 mr-2" size={16} />
+                  <h3 className="text-sm font-semibold">Market Depth Chart</h3>
+                  <span className="ml-2 text-xs text-gray-400">Cumulative Volume Analysis</span>
+                </div>
+                <div className="text-xs text-green-400">
+                  📊 LIVE
+                </div>
               </div>
             </div>
             
-            <div className="bg-white p-4">
+            <div className="bg-white p-6 w-full">
               {(() => {
                 // Simplified depth chart using bars instead of SVG curves
                 const groupedBids = groupOrdersByPrecision(orderBook.bids, precision).slice(0, 15);
@@ -439,10 +444,10 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                     </div>
                     
                     {/* Visual Depth Chart using CSS */}
-                    <div className="relative h-48 border border-gray-300 rounded bg-gray-50 overflow-hidden">
+                    <div className="relative h-64 w-full border border-gray-300 rounded bg-gray-50 overflow-hidden">
                       {/* Current price line */}
                       <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-orange-500 opacity-70 z-10">
-                        <div className="absolute -top-1 -left-6 text-xs text-orange-600 font-medium">
+                        <div className="absolute -top-1 -left-6 text-xs text-orange-600 font-medium bg-white px-1 rounded">
                           Current
                         </div>
                       </div>
@@ -450,61 +455,69 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                       {/* Bids visualization (left side - green) */}
                       <div className="absolute left-0 top-0 w-1/2 h-full">
                         {bidDepth.map((bid, index) => {
-                          const heightPercent = (bid.volume / maxVolume) * 100;
-                          const widthPercent = ((maxPrice - bid.price) / (maxPrice - minPrice)) * 100;
+                          const heightPercent = Math.max((bid.volume / maxVolume) * 100, 2); // Minimum 2% height
+                          const widthPercent = Math.min(Math.max(((maxPrice - bid.price) / (maxPrice - minPrice)) * 100, 10), 100); // Min 10%, max 100%
                           
                           return (
                             <div
                               key={`bid-${index}`}
-                              className="absolute bottom-0 bg-green-500 bg-opacity-40 border-t border-green-600 transition-all duration-500"
+                              className="absolute bottom-0 bg-green-500 bg-opacity-60 border-t-2 border-green-600 transition-all duration-500 hover:bg-opacity-80 cursor-pointer"
                               style={{
                                 height: `${heightPercent}%`,
-                                width: `${Math.min(widthPercent, 100)}%`,
+                                width: `${widthPercent}%`,
                                 right: 0
                               }}
-                              title={`Price: $${bid.price.toFixed(2)}, Volume: ${bid.volume.toFixed(1)} SOL`}
+                              title={`BIDS: Price $${bid.price.toFixed(2)} | Volume ${bid.volume.toFixed(1)} SOL`}
                             />
                           );
                         })}
                         
                         {/* Bids label */}
-                        <div className="absolute bottom-2 left-2 text-xs font-medium text-green-700 bg-white bg-opacity-80 px-1 rounded">
-                          BIDS
+                        <div className="absolute bottom-2 left-2 text-xs font-bold text-green-800 bg-green-100 bg-opacity-90 px-2 py-1 rounded-full border border-green-300">
+                          BUY ORDERS
                         </div>
                       </div>
                       
                       {/* Asks visualization (right side - red) */}
                       <div className="absolute right-0 top-0 w-1/2 h-full">
                         {askDepth.map((ask, index) => {
-                          const heightPercent = (ask.volume / maxVolume) * 100;
-                          const widthPercent = ((ask.price - minPrice) / (maxPrice - minPrice)) * 100;
+                          const heightPercent = Math.max((ask.volume / maxVolume) * 100, 2); // Minimum 2% height
+                          const widthPercent = Math.min(Math.max(((ask.price - minPrice) / (maxPrice - minPrice)) * 100, 10), 100); // Min 10%, max 100%
                           
                           return (
                             <div
                               key={`ask-${index}`}
-                              className="absolute bottom-0 bg-red-500 bg-opacity-40 border-t border-red-600 transition-all duration-500"
+                              className="absolute bottom-0 bg-red-500 bg-opacity-60 border-t-2 border-red-600 transition-all duration-500 hover:bg-opacity-80 cursor-pointer"
                               style={{
                                 height: `${heightPercent}%`,
-                                width: `${Math.min(widthPercent, 100)}%`,
+                                width: `${widthPercent}%`,
                                 left: 0
                               }}
-                              title={`Price: $${ask.price.toFixed(2)}, Volume: ${ask.volume.toFixed(1)} SOL`}
+                              title={`ASKS: Price $${ask.price.toFixed(2)} | Volume ${ask.volume.toFixed(1)} SOL`}
                             />
                           );
                         })}
                         
                         {/* Asks label */}
-                        <div className="absolute bottom-2 right-2 text-xs font-medium text-red-700 bg-white bg-opacity-80 px-1 rounded">
-                          ASKS
+                        <div className="absolute bottom-2 right-2 text-xs font-bold text-red-800 bg-red-100 bg-opacity-90 px-2 py-1 rounded-full border border-red-300">
+                          SELL ORDERS
                         </div>
                       </div>
                       
                       {/* Volume scale */}
-                      <div className="absolute left-1 top-1 text-xs text-gray-500">
-                        {maxVolume.toFixed(0)}
+                      <div className="absolute left-1 top-1 text-xs font-medium text-gray-700 bg-white bg-opacity-80 px-1 rounded">
+                        {maxVolume.toFixed(0)} SOL
                       </div>
-                      <div className="absolute left-1 bottom-1 text-xs text-gray-500">
-                        0
+                      <div className="absolute left-1 bottom-6 text-xs font-medium text-gray-700 bg-white bg-opacity-80 px-1 rounded">
+                        0 SOL
+                      </div>
+                      
+                      {/* Price scale */}
+                      <div className="absolute bottom-1 left-1/4 text-xs font-medium text-gray-700 bg-white bg-opacity-80 px-1 rounded">
+                        ${minPrice.toFixed(2)}
+                      </div>
+                      <div className="absolute bottom-1 right-1/4 text-xs font-medium text-gray-700 bg-white bg-opacity-80 px-1 rounded">
+                        ${maxPrice.toFixed(2)}
                       </div>
                     </div>
                     
