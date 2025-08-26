@@ -46,8 +46,28 @@ export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealT
   }
 
   const { ticker, orderBook } = solData;
-  const isPositive = ticker.change24h.startsWith('+') || !ticker.change24h.startsWith('-');
-  const changeValue = ticker.change24h.replace(/[+%]/g, '');
+  
+  // Safe checks for ticker data
+  if (!ticker || !orderBook) {
+    return (
+      <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <CardHeader className="px-6 py-4 border-b border-gray-200">
+          <CardTitle className="text-lg font-semibold text-gray-900 flex items-center">
+            <TrendingUp className="text-primary mr-2" />
+            Live SOL Data
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="text-center text-gray-500">
+            <p>Loading market data...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  const isPositive = ticker.change24h && (ticker.change24h.startsWith('+') || !ticker.change24h.startsWith('-'));
+  const changeValue = ticker.change24h ? ticker.change24h.replace(/[+%]/g, '') : '0';
 
   const lastUpdateTime = new Date(solData.lastUpdate).toLocaleString();
 
@@ -72,7 +92,7 @@ export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealT
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-500" data-testid="text-symbol">
-              {ticker.symbol}
+              {ticker.symbol || 'SOL-USDT'}
             </span>
             <span className="text-xs text-gray-400">
               Last updated: <span data-testid="text-last-update">{lastUpdateTime}</span>
@@ -80,13 +100,13 @@ export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealT
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-3xl font-bold text-gray-900" data-testid="text-price">
-              ${ticker.price}
+              ${ticker.price || '0.00'}
             </span>
             <span className={`px-2 py-1 rounded text-sm font-medium flex items-center ${
               isPositive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
             }`}>
               {isPositive ? <ArrowUp className="w-4 h-4 mr-1" /> : <ArrowDown className="w-4 h-4 mr-1" />}
-              <span data-testid="text-change24h">{ticker.change24h}</span>
+              <span data-testid="text-change24h">{ticker.change24h || '0%'}</span>
             </span>
           </div>
         </div>
