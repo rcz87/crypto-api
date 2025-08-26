@@ -4,7 +4,7 @@ import WebSocket, { WebSocketServer } from "ws";
 import path from "path";
 import { storage } from "./storage";
 import { okxService } from "./services/okx";
-import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema } from "@shared/schema";
+import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema } from "@shared/schema";
 
 // Rate limiting middleware
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -276,6 +276,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         level: 'error',
         message: 'Volume profile request failed',
         details: `GET /api/sol/volume-profile - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // SMC Analysis endpoint
+  app.get('/api/sol/smc', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const timeframe = req.query.timeframe as string || '1H';
+      const limit = parseInt(req.query.limit as string) || 100;
+      const smcAnalysis = await okxService.getSMCAnalysis('SOL-USDT', timeframe, limit);
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const validated = smcAnalysisSchema.parse(smcAnalysis);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'SMC analysis request completed',
+        details: `GET /api/sol/smc - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/smc:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'SMC analysis request failed',
+        details: `GET /api/sol/smc - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
       
       res.status(500).json({

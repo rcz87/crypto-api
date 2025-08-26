@@ -184,6 +184,77 @@ export const insertSystemLogsSchema = createInsertSchema(systemLogs).omit({
   timestamp: true,
 });
 
+// SMC (Smart Money Concept) Analysis Schema
+export const fvgSchema = z.object({
+  id: z.string(),
+  timeframe: z.string(),
+  type: z.enum(['bullish', 'bearish']),
+  high: z.string(),
+  low: z.string(),
+  timestamp: z.string(),
+  mitigated: z.boolean(),
+  significance: z.enum(['low', 'medium', 'high']),
+});
+
+export const orderBlockSchema = z.object({
+  id: z.string(),
+  type: z.enum(['demand', 'supply']),
+  price: z.string(),
+  high: z.string(),
+  low: z.string(),
+  volume: z.string(),
+  timestamp: z.string(),
+  strength: z.enum(['weak', 'medium', 'strong']),
+  tested: z.boolean(),
+});
+
+export const structurePointSchema = z.object({
+  type: z.enum(['high', 'low']),
+  price: z.string(),
+  timestamp: z.string(),
+  significance: z.enum(['minor', 'major', 'key']),
+});
+
+export const smcAnalysisSchema = z.object({
+  timeframe: z.string(),
+  trend: z.enum(['bullish', 'bearish', 'ranging']),
+  lastBOS: z.object({
+    type: z.enum(['bullish', 'bearish']),
+    price: z.string(),
+    timestamp: z.string(),
+  }).nullable(),
+  lastCHoCH: z.object({
+    from: z.enum(['bullish', 'bearish']),
+    to: z.enum(['bullish', 'bearish']),
+    price: z.string(),
+    timestamp: z.string(),
+  }).nullable(),
+  fvgs: z.array(fvgSchema),
+  orderBlocks: z.array(orderBlockSchema),
+  eqh: z.array(structurePointSchema),
+  eql: z.array(structurePointSchema),
+  liquiditySweeps: z.array(z.object({
+    type: z.enum(['buy_side', 'sell_side']),
+    level: z.string(),
+    timestamp: z.string(),
+    confirmed: z.boolean(),
+  })),
+  marketStructure: z.enum(['bullish', 'bearish', 'ranging', 'transitioning']),
+  confidence: z.number().min(0).max(100),
+});
+
+export const smcResponseSchema = z.object({
+  success: z.boolean(),
+  data: smcAnalysisSchema,
+  timestamp: z.string(),
+});
+
+export const volumeProfileResponseSchema = z.object({
+  success: z.boolean(),
+  data: volumeProfileSchema,
+  timestamp: z.string(),
+});
+
 export type SystemMetrics = typeof systemMetrics.$inferSelect;
 export type InsertSystemMetrics = z.infer<typeof insertSystemMetricsSchema>;
 export type SystemLogs = typeof systemLogs.$inferSelect;
@@ -199,4 +270,8 @@ export type FundingRateData = z.infer<typeof fundingRateSchema>;
 export type OpenInterestData = z.infer<typeof openInterestSchema>;
 export type EnhancedOrderBookData = z.infer<typeof enhancedOrderBookSchema>;
 export type VolumeProfileData = z.infer<typeof volumeProfileSchema>;
+export type SMCAnalysisData = z.infer<typeof smcAnalysisSchema>;
+export type FVGData = z.infer<typeof fvgSchema>;
+export type OrderBlockData = z.infer<typeof orderBlockSchema>;
+export type StructurePointData = z.infer<typeof structurePointSchema>;
 export type ApiResponse = z.infer<typeof apiResponseSchema>;

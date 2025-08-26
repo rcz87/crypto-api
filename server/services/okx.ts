@@ -1,7 +1,8 @@
 import axios, { AxiosInstance } from 'axios';
 import { createHmac } from 'crypto';
 import WebSocket from 'ws';
-import { TickerData, CandleData, OrderBookData, RecentTradeData, SolCompleteData, FundingRateData, OpenInterestData, EnhancedOrderBookData, VolumeProfileData } from '@shared/schema';
+import { TickerData, CandleData, OrderBookData, RecentTradeData, SolCompleteData, FundingRateData, OpenInterestData, EnhancedOrderBookData, VolumeProfileData, SMCAnalysisData } from '@shared/schema';
+import { SMCService } from './smc';
 
 export class OKXService {
   private client: AxiosInstance;
@@ -15,11 +16,13 @@ export class OKXService {
   private maxReconnectAttempts = 10; // Increased for better reliability
   private reconnectInterval = 3000;  // Faster reconnection
   private pingInterval: NodeJS.Timeout | null = null;
+  private smcService: SMCService;
 
   constructor() {
     this.apiKey = process.env.OKX_API_KEY || '';
     this.secretKey = process.env.OKX_SECRET_KEY || '';
     this.passphrase = process.env.OKX_PASSPHRASE || '';
+    this.smcService = new SMCService();
 
     this.client = axios.create({
       baseURL: this.baseURL,
@@ -508,6 +511,38 @@ export class OKXService {
     } catch (error) {
       console.error('Error building volume profile:', error);
       throw new Error('Failed to build volume profile data');
+    }
+  }
+
+  // SMC Analysis using historical candlestick data
+  async getSMCAnalysis(symbol: string = 'SOL-USDT', timeframe: string = '1H', limit: number = 100): Promise<SMCAnalysisData> {
+    try {
+      // Get historical candlestick data for SMC analysis
+      const candlesResponse = await this.client.get(
+        `/api/v5/market/history-candles?instId=${symbol}&bar=${timeframe}&limit=${limit}`
+      );
+      
+      if (candlesResponse.data.code !== '0') {
+        throw new Error(`OKX API Error: ${candlesResponse.data.msg}`);
+      }
+
+      // Convert OKX candle format to our schema format
+      const candles = candlesResponse.data.data.map((candle: string[]) => ({
+        timestamp: candle[0],
+        open: candle[1],
+        high: candle[2],
+        low: candle[3],
+        close: candle[4],
+        volume: candle[5],
+      }));
+
+      // Perform SMC analysis using the SMC service
+      const smcAnalysis = await this.smcService.analyzeSMC(candles, timeframe);
+      
+      return smcAnalysis;
+    } catch (error) {
+      console.error('Error performing SMC analysis:', error);
+      throw new Error('Failed to perform SMC analysis');
     }
   }
 
