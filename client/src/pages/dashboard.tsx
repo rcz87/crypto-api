@@ -9,6 +9,9 @@ import { OrderFlow } from "@/components/OrderFlow";
 import { SystemLogs } from "@/components/system-logs";
 import { ConfigurationPanel } from "@/components/configuration-panel";
 import { TradingViewWidget } from "@/components/TradingViewWidget";
+import { FundingRate } from "@/components/FundingRate";
+import { OpenInterest } from "@/components/OpenInterest";
+import { VolumeProfile } from "@/components/VolumeProfile";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -236,6 +239,33 @@ export default function Dashboard() {
         {/* Order Flow & Recent Trades */}
         <div className="mt-8">
           <OrderFlow largeTradeThreshold={10000} maxTrades={60} />
+        </div>
+
+        {/* Advanced Trading Analytics */}
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Advanced Trading Analytics</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {/* Funding Rate */}
+            <div className="xl:col-span-1">
+              <ErrorBoundary>
+                <FundingRate />
+              </ErrorBoundary>
+            </div>
+
+            {/* Open Interest */}
+            <div className="xl:col-span-1">
+              <ErrorBoundary>
+                <OpenInterest />
+              </ErrorBoundary>
+            </div>
+
+            {/* Volume Profile */}
+            <div className="xl:col-span-1">
+              <ErrorBoundary>
+                <VolumeProfile />
+              </ErrorBoundary>
+            </div>
+          </div>
         </div>
 
         {/* System Logs */}

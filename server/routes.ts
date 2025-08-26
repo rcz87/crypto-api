@@ -4,7 +4,7 @@ import WebSocket, { WebSocketServer } from "ws";
 import path from "path";
 import { storage } from "./storage";
 import { okxService } from "./services/okx";
-import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema } from "@shared/schema";
+import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema } from "@shared/schema";
 
 // Rate limiting middleware
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -139,6 +139,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
         level: 'error',
         message: 'API request failed',
         details: `GET /api/sol/complete - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // SOL Funding Rate endpoint
+  app.get('/api/sol/funding', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const fundingData = await okxService.getFundingRate();
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const validated = fundingRateSchema.parse(fundingData);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Funding rate request completed',
+        details: `GET /api/sol/funding - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/funding:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Funding rate request failed',
+        details: `GET /api/sol/funding - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // SOL Open Interest endpoint
+  app.get('/api/sol/open-interest', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const oiData = await okxService.getOpenInterest();
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const validated = openInterestSchema.parse(oiData);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Open interest request completed',
+        details: `GET /api/sol/open-interest - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/open-interest:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Open interest request failed',
+        details: `GET /api/sol/open-interest - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Volume Profile endpoint
+  app.get('/api/sol/volume-profile', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const timeframe = req.query.timeframe as string || '1H';
+      const limit = parseInt(req.query.limit as string) || 100;
+      const volumeProfile = await okxService.getVolumeProfile('SOL-USDT', timeframe, limit);
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const validated = volumeProfileSchema.parse(volumeProfile);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Volume profile request completed',
+        details: `GET /api/sol/volume-profile - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/volume-profile:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Volume profile request failed',
+        details: `GET /api/sol/volume-profile - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
       
       res.status(500).json({

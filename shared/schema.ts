@@ -62,6 +62,78 @@ export const recentTradeSchema = z.object({
   timestamp: z.string(),
 });
 
+// Funding rate schema
+export const fundingRateSchema = z.object({
+  instId: z.string(),
+  fundingRate: z.string(),
+  nextFundingRate: z.string().optional(),
+  nextFundingTime: z.string(),
+  fundingTime: z.string(),
+  premium: z.string(),
+  interestRate: z.string(),
+  maxFundingRate: z.string(),
+  minFundingRate: z.string(),
+  settFundingRate: z.string(),
+  settState: z.enum(['settled', 'processing']),
+  timestamp: z.string(),
+});
+
+// Open interest schema
+export const openInterestSchema = z.object({
+  instId: z.string(),
+  instType: z.enum(['SPOT', 'MARGIN', 'SWAP', 'FUTURES', 'OPTION']),
+  oi: z.string(), // Open Interest in base currency
+  oiCcy: z.string(), // Open Interest in currency
+  oiUsd: z.string(), // Open Interest in USD
+  timestamp: z.string(),
+});
+
+// Enhanced order book schema with deeper levels
+export const enhancedOrderBookSchema = z.object({
+  asks: z.array(orderBookEntrySchema),
+  bids: z.array(orderBookEntrySchema),
+  spread: z.string(),
+  askWalls: z.array(z.object({
+    price: z.string(),
+    size: z.string(),
+    isLarge: z.boolean(),
+  })),
+  bidWalls: z.array(z.object({
+    price: z.string(),
+    size: z.string(),
+    isLarge: z.boolean(),
+  })),
+  imbalance: z.string(), // percentage
+  lastUpdate: z.string(),
+});
+
+// Volume profile schema
+export const volumeProfileSchema = z.object({
+  poc: z.string(), // Point of Control - highest volume price
+  hvnLevels: z.array(z.object({
+    price: z.string(),
+    volume: z.string(),
+    percentage: z.string(),
+  })), // High Volume Nodes
+  lvnLevels: z.array(z.object({
+    price: z.string(),
+    volume: z.string(),
+    percentage: z.string(),
+  })), // Low Volume Nodes
+  totalVolume: z.string(),
+  valueArea: z.object({
+    high: z.string(),
+    low: z.string(),
+    percentage: z.string(), // typically 70%
+  }),
+  profileRange: z.object({
+    high: z.string(),
+    low: z.string(),
+    timeframe: z.string(),
+  }),
+  lastUpdate: z.string(),
+});
+
 // Complete SOL data aggregation schema with comprehensive timeframes
 export const solCompleteDataSchema = z.object({
   ticker: tickerSchema,
@@ -123,4 +195,8 @@ export type OrderBookData = z.infer<typeof orderBookSchema>;
 export type RecentTradeData = z.infer<typeof recentTradeSchema>;
 export type SolCompleteData = z.infer<typeof solCompleteDataSchema>;
 export type HealthCheckData = z.infer<typeof healthCheckSchema>;
+export type FundingRateData = z.infer<typeof fundingRateSchema>;
+export type OpenInterestData = z.infer<typeof openInterestSchema>;
+export type EnhancedOrderBookData = z.infer<typeof enhancedOrderBookSchema>;
+export type VolumeProfileData = z.infer<typeof volumeProfileSchema>;
 export type ApiResponse = z.infer<typeof apiResponseSchema>;

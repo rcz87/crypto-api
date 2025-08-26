@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { createHmac } from 'crypto';
 import WebSocket from 'ws';
-import { TickerData, CandleData, OrderBookData, RecentTradeData, SolCompleteData } from '@shared/schema';
+import { TickerData, CandleData, OrderBookData, RecentTradeData, SolCompleteData, FundingRateData, OpenInterestData, EnhancedOrderBookData, VolumeProfileData } from '@shared/schema';
 
 export class OKXService {
   private client: AxiosInstance;
@@ -287,6 +287,227 @@ export class OKXService {
         this.reconnectAttempts = 0;
         console.log('Reconnection attempts reset, allowing new attempts');
       }, 300000);
+    }
+  }
+
+  // Get funding rate for SOL perpetual swap
+  async getFundingRate(symbol: string = 'SOL-USDT-SWAP'): Promise<FundingRateData> {
+    try {
+      const response = await this.client.get(`/api/v5/public/funding-rate?instId=${symbol}`);
+      
+      if (response.data.code !== '0') {
+        throw new Error(`OKX API Error: ${response.data.msg}`);
+      }
+
+      const fundingData = response.data.data[0];
+      
+      return {
+        instId: fundingData.instId,
+        fundingRate: fundingData.fundingRate,
+        nextFundingRate: fundingData.nextFundingRate || '',
+        nextFundingTime: fundingData.nextFundingTime,
+        fundingTime: fundingData.fundingTime,
+        premium: fundingData.premium,
+        interestRate: fundingData.interestRate,
+        maxFundingRate: fundingData.maxFundingRate,
+        minFundingRate: fundingData.minFundingRate,
+        settFundingRate: fundingData.settFundingRate,
+        settState: fundingData.settState,
+        timestamp: fundingData.ts,
+      };
+    } catch (error) {
+      console.error('Error fetching funding rate:', error);
+      throw new Error('Failed to fetch funding rate data');
+    }
+  }
+
+  // Get open interest for SOL perpetual swap
+  async getOpenInterest(symbol: string = 'SOL-USDT-SWAP'): Promise<OpenInterestData> {
+    try {
+      const response = await this.client.get(`/api/v5/public/open-interest?instType=SWAP&instId=${symbol}`);
+      
+      if (response.data.code !== '0') {
+        throw new Error(`OKX API Error: ${response.data.msg}`);
+      }
+
+      const oiData = response.data.data[0];
+      
+      return {
+        instId: oiData.instId,
+        instType: oiData.instType,
+        oi: oiData.oi,
+        oiCcy: oiData.oiCcy,
+        oiUsd: oiData.oiUsd,
+        timestamp: oiData.ts,
+      };
+    } catch (error) {
+      console.error('Error fetching open interest:', error);
+      throw new Error('Failed to fetch open interest data');
+    }
+  }
+
+  // Get enhanced order book with deeper levels and analysis
+  async getEnhancedOrderBook(symbol: string = 'SOL-USDT', depth: number = 400): Promise<EnhancedOrderBookData> {
+    try {
+      const response = await this.client.get(`/api/v5/market/books?instId=${symbol}&sz=${depth}`);
+      
+      if (response.data.code !== '0') {
+        throw new Error(`OKX API Error: ${response.data.msg}`);
+      }
+
+      const bookData = response.data.data[0];
+      const asks = bookData.asks.map((ask: string[]) => ({ price: ask[0], size: ask[1] }));
+      const bids = bookData.bids.map((bid: string[]) => ({ price: bid[0], size: bid[1] }));
+      
+      // Calculate spread
+      const bestAsk = parseFloat(asks[0]?.price || '0');
+      const bestBid = parseFloat(bids[0]?.price || '0');
+      const spread = ((bestAsk - bestBid) / bestBid * 100).toFixed(4);
+
+      // Detect large orders (walls) - orders significantly larger than average
+      const avgAskSize = asks.reduce((sum: number, ask: any) => sum + parseFloat(ask.size), 0) / asks.length;
+      const avgBidSize = bids.reduce((sum: number, bid: any) => sum + parseFloat(bid.size), 0) / bids.length;
+      const wallThreshold = 3; // 3x average size
+
+      const askWalls = asks
+        .filter((ask: any) => parseFloat(ask.size) > avgAskSize * wallThreshold)
+        .slice(0, 10)
+        .map((ask: any) => ({
+          price: ask.price,
+          size: ask.size,
+          isLarge: parseFloat(ask.size) > avgAskSize * wallThreshold * 2,
+        }));
+
+      const bidWalls = bids
+        .filter((bid: any) => parseFloat(bid.size) > avgBidSize * wallThreshold)
+        .slice(0, 10)
+        .map((bid: any) => ({
+          price: bid.price,
+          size: bid.size,
+          isLarge: parseFloat(bid.size) > avgBidSize * wallThreshold * 2,
+        }));
+
+      // Calculate order book imbalance
+      const totalBidVolume = bids.slice(0, 10).reduce((sum: number, bid: any) => sum + parseFloat(bid.size), 0);
+      const totalAskVolume = asks.slice(0, 10).reduce((sum: number, ask: any) => sum + parseFloat(ask.size), 0);
+      const imbalance = ((totalBidVolume - totalAskVolume) / (totalBidVolume + totalAskVolume) * 100).toFixed(2);
+
+      return {
+        asks: asks.slice(0, 50), // Return top 50 levels
+        bids: bids.slice(0, 50),
+        spread,
+        askWalls,
+        bidWalls,
+        imbalance,
+        lastUpdate: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('Error fetching enhanced order book:', error);
+      throw new Error('Failed to fetch enhanced order book data');
+    }
+  }
+
+  // Build volume profile from candlestick data
+  async getVolumeProfile(symbol: string = 'SOL-USDT', timeframe: string = '1H', limit: number = 100): Promise<VolumeProfileData> {
+    try {
+      // Get historical candlestick data
+      const candlesResponse = await this.client.get(
+        `/api/v5/market/history-candles?instId=${symbol}&bar=${timeframe}&limit=${limit}`
+      );
+      
+      if (candlesResponse.data.code !== '0') {
+        throw new Error(`OKX API Error: ${candlesResponse.data.msg}`);
+      }
+
+      const candles = candlesResponse.data.data;
+      
+      // Calculate volume at each price level
+      const volumeByPrice: { [price: string]: number } = {};
+      let totalVolume = 0;
+      let high = 0;
+      let low = Infinity;
+
+      candles.forEach((candle: string[]) => {
+        const [timestamp, open, high_price, low_price, close, volume] = candle;
+        const vol = parseFloat(volume);
+        const h = parseFloat(high_price);
+        const l = parseFloat(low_price);
+        
+        totalVolume += vol;
+        high = Math.max(high, h);
+        low = Math.min(low, l);
+        
+        // Distribute volume across price range (simplified VWAP approach)
+        const priceRange = h - l;
+        const steps = Math.max(1, Math.floor(priceRange / 0.01)); // 0.01 price steps
+        const volumePerStep = vol / steps;
+        
+        for (let i = 0; i < steps; i++) {
+          const price = (l + (priceRange * i / steps)).toFixed(2);
+          volumeByPrice[price] = (volumeByPrice[price] || 0) + volumePerStep;
+        }
+      });
+
+      // Find POC (Point of Control) - highest volume price
+      let maxVolume = 0;
+      let poc = '0';
+      
+      Object.entries(volumeByPrice).forEach(([price, volume]) => {
+        if (volume > maxVolume) {
+          maxVolume = volume;
+          poc = price;
+        }
+      });
+
+      // Sort by volume and identify HVN/LVN
+      const sortedPrices = Object.entries(volumeByPrice)
+        .sort(([,a], [,b]) => b - a)
+        .map(([price, volume]) => ({
+          price,
+          volume: volume.toFixed(2),
+          percentage: ((volume / totalVolume) * 100).toFixed(2),
+        }));
+
+      const hvnLevels = sortedPrices.slice(0, 5); // Top 5 high volume nodes
+      const lvnLevels = sortedPrices.slice(-5).reverse(); // Bottom 5 low volume nodes
+
+      // Calculate Value Area (typically 70% of volume)
+      const targetVolume = totalVolume * 0.7;
+      let accumulatedVolume = 0;
+      let valueAreaHigh = high;
+      let valueAreaLow = low;
+      
+      // Find 70% value area around POC
+      const pocPrice = parseFloat(poc);
+      const pricesAroundPoc = sortedPrices
+        .filter(p => Math.abs(parseFloat(p.price) - pocPrice) <= (high - low) * 0.3)
+        .sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+
+      if (pricesAroundPoc.length > 0) {
+        valueAreaHigh = parseFloat(pricesAroundPoc[pricesAroundPoc.length - 1].price);
+        valueAreaLow = parseFloat(pricesAroundPoc[0].price);
+      }
+
+      return {
+        poc,
+        hvnLevels,
+        lvnLevels,
+        totalVolume: totalVolume.toFixed(2),
+        valueArea: {
+          high: valueAreaHigh.toFixed(2),
+          low: valueAreaLow.toFixed(2),
+          percentage: '70',
+        },
+        profileRange: {
+          high: high.toFixed(2),
+          low: low.toFixed(2),
+          timeframe,
+        },
+        lastUpdate: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('Error building volume profile:', error);
+      throw new Error('Failed to build volume profile data');
     }
   }
 
