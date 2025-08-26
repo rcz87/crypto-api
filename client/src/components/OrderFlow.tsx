@@ -27,20 +27,42 @@ export const OrderFlow: React.FC<OrderFlowProps> = ({
 
   // Dengarkan pesan WebSocket bertipe market_data (channel trades)
   useEffect(() => {
+    console.log('🔄 OrderFlow WebSocket Message:', { 
+      hasMessage: !!lastMessage,
+      messageType: lastMessage?.type,
+      hasData: !!lastMessage?.data,
+      channel: lastMessage?.data?.arg?.channel,
+      dataLength: lastMessage?.data?.data?.length 
+    });
+
     if (!lastMessage || lastMessage.type !== 'market_data' || !lastMessage.data) {
       return;
     }
+    
     const payload = lastMessage.data;
+    console.log('📊 Processing market data:', { 
+      channel: payload.arg?.channel, 
+      hasTradesData: Array.isArray(payload.data),
+      dataCount: payload.data?.length 
+    });
+
     if (payload.arg?.channel === 'trades' && Array.isArray(payload.data)) {
+      console.log('💰 Raw trades data:', payload.data);
+      
       const newTrades: Trade[] = payload.data.map((t: any) => ({
         price: parseFloat(t.px),
         size: parseFloat(t.sz),
         side: t.side === 'buy' ? 'buy' : 'sell',
         timestamp: Number(t.ts),
       }));
+      
+      console.log('✅ Processed trades:', newTrades);
+      
       setTrades(prev => {
         const combined = [...newTrades, ...prev];
-        return combined.slice(0, maxTrades);
+        const result = combined.slice(0, maxTrades);
+        console.log('📈 Updated trades count:', result.length);
+        return result;
       });
     }
   }, [lastMessage, maxTrades]);
@@ -48,12 +70,22 @@ export const OrderFlow: React.FC<OrderFlowProps> = ({
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <div className="px-6 py-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold flex items-center text-gray-900">
-          <span className="mr-2">
-            <ArrowUp className="h-5 w-5 text-emerald-500" />
-          </span>
-          Order Flow &amp; Recent Trades
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold flex items-center text-gray-900">
+            <span className="mr-2">
+              <ArrowUp className="h-5 w-5 text-emerald-500" />
+            </span>
+            Order Flow &amp; Recent Trades
+          </h2>
+          <div className="flex items-center space-x-2 text-sm">
+            <div className={`w-2 h-2 rounded-full ${
+              trades.length > 0 ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+            }`} />
+            <span className={trades.length > 0 ? 'text-green-600' : 'text-gray-500'}>
+              {trades.length > 0 ? `${trades.length} trades` : 'Waiting for data...'}
+            </span>
+          </div>
+        </div>
       </div>
       <div className="h-64 overflow-y-auto border border-gray-200 rounded">
         <Table>
