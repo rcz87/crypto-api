@@ -358,6 +358,184 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/sol/funding:
+    get:
+      operationId: getSOLFundingRate
+      summary: Get SOL-USDT-SWAP funding rate data
+      description: Real-time funding rate information for SOL perpetual swap contracts including current rate, next funding time, premium, interest rate, and settlement status. Critical for derivatives trading analysis.
+      tags:
+        - Market Data
+      responses:
+        '200':
+          description: SOL funding rate data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      instId:
+                        type: string
+                        example: "SOL-USDT-SWAP"
+                      fundingRate:
+                        type: string
+                        example: "-0.0000215187911736"
+                        description: "Current funding rate (negative = shorts pay longs)"
+                      nextFundingTime:
+                        type: string
+                        example: "1756252800000"
+                        description: "Next funding settlement timestamp"
+                      premium:
+                        type: string
+                        example: "-0.0006365372374284"
+                        description: "Premium rate between mark and index price"
+                      interestRate:
+                        type: string
+                        example: "0.0001000000000000"
+                        description: "Interest component of funding rate"
+                      settState:
+                        type: string
+                        enum: ["settled", "processing"]
+                        example: "settled"
+                  timestamp:
+                    type: string
+                    example: "2025-08-26T10:42:47.898Z"
+
+  /api/sol/open-interest:
+    get:
+      operationId: getSOLOpenInterest
+      summary: Get SOL-USDT-SWAP open interest data
+      description: Current open interest data for SOL perpetual swaps showing total outstanding contracts in SOL and USD value. Essential for market sentiment and liquidity analysis.
+      tags:
+        - Market Data
+      responses:
+        '200':
+          description: SOL open interest data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      instId:
+                        type: string
+                        example: "SOL-USDT-SWAP"
+                      instType:
+                        type: string
+                        example: "SWAP"
+                      oi:
+                        type: string
+                        example: "3352778.23000000274"
+                        description: "Open interest in SOL"
+                      oiUsd:
+                        type: string
+                        example: "632065751.9196005165448"
+                        description: "Open interest value in USD"
+                  timestamp:
+                    type: string
+                    example: "2025-08-26T10:42:57.669Z"
+
+  /api/sol/volume-profile:
+    get:
+      operationId: getSOLVolumeProfile
+      summary: Get SOL volume profile analysis
+      description: Volume profile data showing Point of Control (POC), High Volume Nodes (HVN), Low Volume Nodes (LVN), and Value Area analysis. Critical for support/resistance identification.
+      tags:
+        - Market Data
+      parameters:
+        - name: timeframe
+          in: query
+          description: Timeframe for volume profile calculation
+          schema:
+            type: string
+            enum: ["5m", "15m", "30m", "1H", "4H", "1D"]
+            default: "1H"
+        - name: limit
+          in: query
+          description: Number of candles to analyze
+          schema:
+            type: integer
+            minimum: 10
+            maximum: 500
+            default: 100
+      responses:
+        '200':
+          description: SOL volume profile data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      poc:
+                        type: string
+                        example: "204.32"
+                        description: "Point of Control - highest volume price level"
+                      hvnLevels:
+                        type: array
+                        description: "High Volume Nodes - strong support/resistance levels"
+                        items:
+                          type: object
+                          properties:
+                            price:
+                              type: string
+                              example: "187.91"
+                            volume:
+                              type: string
+                              example: "2806.81"
+                            percentage:
+                              type: string
+                              example: "0.13"
+                      lvnLevels:
+                        type: array
+                        description: "Low Volume Nodes - areas of fast price movement"
+                        items:
+                          type: object
+                          properties:
+                            price:
+                              type: string
+                              example: "185.56"
+                            volume:
+                              type: string
+                              example: "194.78"
+                            percentage:
+                              type: string
+                              example: "0.01"
+                      valueArea:
+                        type: object
+                        description: "70% value area range"
+                        properties:
+                          high:
+                            type: string
+                            example: "195.22"
+                          low:
+                            type: string
+                            example: "185.34"
+                          percentage:
+                            type: string
+                            example: "70"
+                      totalVolume:
+                        type: string
+                        example: "2145788.30"
+                  timestamp:
+                    type: string
+                    example: "2025-08-26T10:42:58.371Z"
+
   /ws:
     get:
       operationId: connectWebSocket
