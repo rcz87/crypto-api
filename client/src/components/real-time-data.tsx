@@ -96,7 +96,7 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-6">
+      <CardContent className="p-6 max-h-screen overflow-hidden">
         {/* Current Price */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
@@ -149,28 +149,33 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
         </div>
 
         {/* Professional Order Book */}
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <div className="bg-gray-900 text-white px-4 py-3">
-            <h3 className="text-sm font-semibold">Order Book</h3>
-          </div>
-          
-          {/* Header */}
-          <div className="grid grid-cols-3 gap-4 px-4 py-2 bg-gray-50 text-xs font-medium text-gray-600 border-b">
-            <div className="text-left">Price (USDT)</div>
-            <div className="text-right">Amount (SOL)</div>
-            <div className="text-right">Total</div>
-          </div>
+        {orderBook && (
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-900 text-white px-4 py-3">
+              <h3 className="text-sm font-semibold">Order Book</h3>
+            </div>
+            
+            {/* Header */}
+            <div className="grid grid-cols-3 gap-4 px-4 py-2 bg-gray-50 text-xs font-medium text-gray-600 border-b">
+              <div className="text-left">Price (USDT)</div>
+              <div className="text-right">Amount (SOL)</div>
+              <div className="text-right">Total</div>
+            </div>
 
-          <div className="max-h-80 overflow-y-auto bg-gray-50">
+            <div className="h-80 overflow-y-auto bg-gray-50">
             {/* Calculate max size for volume bars */}
-            {orderBook && (() => {
+            {(() => {
+              if (!orderBook?.asks || !orderBook?.bids) {
+                return <div className="p-4 text-center text-gray-500">Loading order book...</div>;
+              }
+              
               const allSizes = [...(orderBook.asks || []), ...(orderBook.bids || [])].map(item => parseFloat(item.size));
               const maxSize = Math.max(...allSizes) || 1;
               
               return (
                 <>
                   {/* Asks (Sell Orders) - Show in reverse order */}
-                  {(orderBook.asks || []).slice(0, 12).reverse().map((ask, index) => {
+                  {(orderBook.asks || []).slice(0, 8).reverse().map((ask, index) => {
                     const sizePercent = (parseFloat(ask.size) / maxSize) * 100;
                     const cumulativeTotal = (orderBook.asks || []).slice(0, (orderBook.asks?.length || 0) - index).reduce((sum, a) => sum + parseFloat(a.size), 0);
                     
@@ -214,7 +219,7 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                   </div>
 
                   {/* Bids (Buy Orders) */}
-                  {(orderBook.bids || []).slice(0, 12).map((bid, index) => {
+                  {(orderBook.bids || []).slice(0, 8).map((bid, index) => {
                     const sizePercent = (parseFloat(bid.size) / maxSize) * 100;
                     const cumulativeTotal = (orderBook.bids || []).slice(0, index + 1).reduce((sum, b) => sum + parseFloat(b.size), 0);
                     
@@ -246,8 +251,9 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                 </>
               );
             })()}
+            </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
