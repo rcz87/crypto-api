@@ -399,15 +399,20 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
       <Card className="bg-white rounded-lg shadow-sm border border-gray-200 mt-6">
         <CardContent className="p-0">
           <div className="w-full max-w-full border-0 rounded-lg overflow-visible bg-white">
-            <div className="bg-gray-900 text-white px-4 py-3">
+            <div className="bg-black text-white px-6 py-4 border-b border-gray-600">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <BarChart3 className="text-blue-400 mr-2" size={16} />
-                  <h3 className="text-sm font-semibold">Market Depth Chart</h3>
-                  <span className="ml-2 text-xs text-gray-400">Analisis Volume Kumulatif</span>
+                  <BarChart3 className="text-yellow-400 mr-3" size={20} />
+                  <h3 className="text-lg font-bold">MARKET DEPTH</h3>
+                  <span className="ml-3 text-sm text-yellow-400">Professional Trading View</span>
                 </div>
-                <div className="text-xs text-green-400">
-                  📊 LIVE
+                <div className="flex items-center space-x-3">
+                  <div className="text-sm text-green-400 font-medium">
+                    🟢 REAL-TIME
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Binance Style
+                  </div>
                 </div>
               </div>
             </div>
@@ -442,117 +447,255 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                 
                 return (
                   <div className="space-y-4 w-full">
-                    {/* Chart Header Info */}
-                    <div className="flex justify-between items-center text-sm font-medium bg-gray-100 p-3 rounded">
-                      <span className="text-blue-600">Range Harga: ${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}</span>
-                      <span className="text-green-600">Volume Maksimal: {maxVolume.toFixed(1)} SOL</span>
-                    </div>
-                    
-                    {/* Visual Depth Chart using CSS */}
-                    <div className="relative h-80 w-full border-2 border-gray-400 rounded-lg bg-gray-50 overflow-hidden">
-                      {/* Current price line */}
-                      <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-orange-500 opacity-70 z-10">
-                        <div className="absolute -top-1 -left-6 text-xs text-orange-600 font-medium bg-white px-1 rounded">
-                          Current
+                    {/* Professional Header Info */}
+                    <div className="flex justify-between items-center bg-gradient-to-r from-gray-800 to-gray-700 p-4 rounded-t-lg border-b border-yellow-500">
+                      <div className="flex items-center space-x-6">
+                        <div className="text-center">
+                          <div className="text-xs text-gray-400">PRICE RANGE</div>
+                          <div className="text-sm font-bold text-white">${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-gray-400">MAX VOLUME</div>
+                          <div className="text-sm font-bold text-yellow-400">{maxVolume.toFixed(1)} SOL</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-gray-400">SPREAD</div>
+                          <div className="text-sm font-bold text-orange-400">${(maxPrice - minPrice).toFixed(3)}</div>
                         </div>
                       </div>
-                      
-                      {/* Bids visualization (left side - green) */}
-                      <div className="absolute left-0 top-0 w-1/2 h-full">
-                        {bidDepth.map((bid, index) => {
-                          const heightPercent = Math.max((bid.volume / maxVolume) * 100, 2); // Minimum 2% height
-                          const widthPercent = Math.min(Math.max(((maxPrice - bid.price) / (maxPrice - minPrice)) * 100, 10), 100); // Min 10%, max 100%
-                          
-                          return (
-                            <div
-                              key={`bid-${index}`}
-                              className="absolute bottom-0 bg-green-500 bg-opacity-70 border-t-2 border-green-700 transition-all duration-300 hover:bg-opacity-90 cursor-pointer shadow-sm"
-                              style={{
-                                height: `${heightPercent}%`,
-                                width: `${widthPercent}%`,
-                                right: 0
-                              }}
-                              title={`BUY ORDERS: Harga $${bid.price.toFixed(2)} | Volume ${bid.volume.toFixed(1)} SOL`}
-                            />
-                          );
-                        })}
+                      <div className="text-right">
+                        <div className="text-xs text-gray-400">MARKET</div>
+                        <div className="text-sm font-bold text-white">SOL/USDT</div>
+                      </div>
+                    </div>
+                    
+                    {/* BINANCE-STYLE DEPTH CHART - Professional SVG */}
+                    <div className="relative h-80 w-full border border-gray-300 rounded-lg bg-gradient-to-b from-gray-900 to-gray-800 overflow-hidden">
+                      {(() => {
+                        const chartWidth = 800;
+                        const chartHeight = 320;
+                        const padding = 30;
                         
-                        {/* Bids label */}
-                        <div className="absolute top-2 left-2 text-sm font-bold text-green-800 bg-green-200 bg-opacity-95 px-3 py-2 rounded-lg border-2 border-green-400 shadow-lg">
-                          💚 BUY ORDERS
-                        </div>
-                      </div>
-                      
-                      {/* Asks visualization (right side - red) */}
-                      <div className="absolute right-0 top-0 w-1/2 h-full">
-                        {askDepth.map((ask, index) => {
-                          const heightPercent = Math.max((ask.volume / maxVolume) * 100, 2); // Minimum 2% height
-                          const widthPercent = Math.min(Math.max(((ask.price - minPrice) / (maxPrice - minPrice)) * 100, 10), 100); // Min 10%, max 100%
-                          
-                          return (
-                            <div
-                              key={`ask-${index}`}
-                              className="absolute bottom-0 bg-red-500 bg-opacity-70 border-t-2 border-red-700 transition-all duration-300 hover:bg-opacity-90 cursor-pointer shadow-sm"
-                              style={{
-                                height: `${heightPercent}%`,
-                                width: `${widthPercent}%`,
-                                left: 0
-                              }}
-                              title={`SELL ORDERS: Harga $${ask.price.toFixed(2)} | Volume ${ask.volume.toFixed(1)} SOL`}
-                            />
-                          );
-                        })}
+                        // Calculate smooth curve points for both sides
+                        const bidPoints = bidDepth.map((bid, index) => {
+                          const x = padding + ((maxPrice - bid.price) / (maxPrice - minPrice)) * ((chartWidth / 2) - padding);
+                          const y = chartHeight - padding - (bid.volume / maxVolume) * (chartHeight - 2 * padding);
+                          return { x, y, price: bid.price, volume: bid.volume };
+                        });
                         
-                        {/* Asks label */}
-                        <div className="absolute top-2 right-2 text-sm font-bold text-red-800 bg-red-200 bg-opacity-95 px-3 py-2 rounded-lg border-2 border-red-400 shadow-lg">
-                          ❤️ SELL ORDERS
-                        </div>
+                        const askPoints = askDepth.map((ask, index) => {
+                          const x = (chartWidth / 2) + ((ask.price - minPrice) / (maxPrice - minPrice)) * ((chartWidth / 2) - padding);
+                          const y = chartHeight - padding - (ask.volume / maxVolume) * (chartHeight - 2 * padding);
+                          return { x, y, price: ask.price, volume: ask.volume };
+                        });
+                        
+                        // Create smooth SVG paths
+                        const createSmoothPath = (points: any[], isAsk = false) => {
+                          if (points.length < 2) return '';
+                          
+                          let path = `M ${points[0].x} ${chartHeight - padding}`;
+                          path += ` L ${points[0].x} ${points[0].y}`;
+                          
+                          // Create smooth curves between points
+                          for (let i = 1; i < points.length; i++) {
+                            const prev = points[i - 1];
+                            const curr = points[i];
+                            const controlX = (prev.x + curr.x) / 2;
+                            path += ` Q ${controlX} ${prev.y} ${curr.x} ${curr.y}`;
+                          }
+                          
+                          // Close the path for area fill
+                          const lastPoint = points[points.length - 1];
+                          path += ` L ${lastPoint.x} ${chartHeight - padding}`;
+                          path += ` Z`;
+                          
+                          return path;
+                        };
+                        
+                        const bidPath = createSmoothPath(bidPoints);
+                        const askPath = createSmoothPath(askPoints, true);
+                        
+                        return (
+                          <svg 
+                            width="100%" 
+                            height="100%" 
+                            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                            className="absolute inset-0"
+                          >
+                            {/* Dark grid lines */}
+                            <defs>
+                              <linearGradient id="bidGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+                                <stop offset="0%" style={{stopColor: '#10B981', stopOpacity: 0.1}} />
+                                <stop offset="100%" style={{stopColor: '#10B981', stopOpacity: 0.8}} />
+                              </linearGradient>
+                              <linearGradient id="askGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+                                <stop offset="0%" style={{stopColor: '#EF4444', stopOpacity: 0.1}} />
+                                <stop offset="100%" style={{stopColor: '#EF4444', stopOpacity: 0.8}} />
+                              </linearGradient>
+                            </defs>
+                            
+                            {/* Grid lines */}
+                            {[0.2, 0.4, 0.6, 0.8].map(ratio => (
+                              <line
+                                key={ratio}
+                                x1={padding}
+                                y1={padding + ratio * (chartHeight - 2 * padding)}
+                                x2={chartWidth - padding}
+                                y2={padding + ratio * (chartHeight - 2 * padding)}
+                                stroke="rgba(255,255,255,0.1)"
+                                strokeWidth={1}
+                              />
+                            ))}
+                            
+                            {/* Vertical center line */}
+                            <line
+                              x1={chartWidth / 2}
+                              y1={padding}
+                              x2={chartWidth / 2}
+                              y2={chartHeight - padding}
+                              stroke="#F59E0B"
+                              strokeWidth={2}
+                              opacity={0.8}
+                            />
+                            
+                            {/* Bid area (green - left side) */}
+                            <path
+                              d={bidPath}
+                              fill="url(#bidGradient)"
+                              stroke="#10B981"
+                              strokeWidth={2}
+                              className="transition-all duration-500"
+                            />
+                            
+                            {/* Ask area (red - right side) */}
+                            <path
+                              d={askPath}
+                              fill="url(#askGradient)"
+                              stroke="#EF4444"
+                              strokeWidth={2}
+                              className="transition-all duration-500"
+                            />
+                            
+                            {/* Interactive hover points */}
+                            {bidPoints.map((point, index) => (
+                              <circle
+                                key={`bid-${index}`}
+                                cx={point.x}
+                                cy={point.y}
+                                r={3}
+                                fill="#10B981"
+                                className="opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                              >
+                                <title>Buy: ${point.price.toFixed(2)} | {point.volume.toFixed(1)} SOL</title>
+                              </circle>
+                            ))}
+                            
+                            {askPoints.map((point, index) => (
+                              <circle
+                                key={`ask-${index}`}
+                                cx={point.x}
+                                cy={point.y}
+                                r={3}
+                                fill="#EF4444"
+                                className="opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                              >
+                                <title>Sell: ${point.price.toFixed(2)} | {point.volume.toFixed(1)} SOL</title>
+                              </circle>
+                            ))}
+                            
+                            {/* Labels and text */}
+                            <text x={padding + 10} y={padding + 20} fill="white" fontSize="12" fontWeight="bold">
+                              Volume: {maxVolume.toFixed(0)} SOL
+                            </text>
+                            
+                            <text x={padding + 50} y={chartHeight - 10} fill="white" fontSize="10">
+                              ${minPrice.toFixed(2)}
+                            </text>
+                            
+                            <text x={chartWidth - padding - 50} y={chartHeight - 10} fill="white" fontSize="10">
+                              ${maxPrice.toFixed(2)}
+                            </text>
+                            
+                            {/* Current price indicator */}
+                            <text 
+                              x={chartWidth / 2} 
+                              y={padding - 5} 
+                              fill="#F59E0B" 
+                              fontSize="12" 
+                              fontWeight="bold" 
+                              textAnchor="middle"
+                            >
+                              CURRENT PRICE
+                            </text>
+                          </svg>
+                        );
+                      })()}
+                      
+                      {/* Professional labels */}
+                      <div className="absolute top-4 left-4 bg-green-600 bg-opacity-20 backdrop-blur-sm border border-green-400 px-3 py-1 rounded-lg">
+                        <span className="text-green-300 text-sm font-bold">BIDS</span>
                       </div>
                       
-                      {/* Volume scale */}
-                      <div className="absolute left-1 top-1 text-xs font-medium text-gray-700 bg-white bg-opacity-80 px-1 rounded">
-                        {maxVolume.toFixed(0)} SOL
-                      </div>
-                      <div className="absolute left-1 bottom-6 text-xs font-medium text-gray-700 bg-white bg-opacity-80 px-1 rounded">
-                        0 SOL
-                      </div>
-                      
-                      {/* Price scale */}
-                      <div className="absolute bottom-1 left-1/4 text-xs font-medium text-gray-700 bg-white bg-opacity-80 px-1 rounded">
-                        ${minPrice.toFixed(2)}
-                      </div>
-                      <div className="absolute bottom-1 right-1/4 text-xs font-medium text-gray-700 bg-white bg-opacity-80 px-1 rounded">
-                        ${maxPrice.toFixed(2)}
+                      <div className="absolute top-4 right-4 bg-red-600 bg-opacity-20 backdrop-blur-sm border border-red-400 px-3 py-1 rounded-lg">
+                        <span className="text-red-300 text-sm font-bold">ASKS</span>
                       </div>
                     </div>
                     
-                    {/* Legend */}
-                    <div className="flex items-center justify-center space-x-8 text-sm font-medium">
-                      <div className="flex items-center">
-                        <div className="w-4 h-4 bg-green-500 bg-opacity-70 border-2 border-green-700 rounded mr-3"></div>
-                        <span className="text-gray-700">Volume Buy Kumulatif</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-4 h-4 bg-red-500 bg-opacity-70 border-2 border-red-700 rounded mr-3"></div>
-                        <span className="text-gray-700">Volume Sell Kumulatif</span>
+                    {/* Professional Legend */}
+                    <div className="bg-black p-4 rounded-b-lg">
+                      <div className="flex items-center justify-center space-x-8 text-sm">
+                        <div className="flex items-center">
+                          <div className="w-4 h-4 bg-gradient-to-r from-green-400 to-green-600 rounded mr-3 shadow-lg"></div>
+                          <span className="text-green-400 font-semibold">CUMULATIVE BIDS</span>
+                        </div>
+                        <div className="w-px h-6 bg-gray-600"></div>
+                        <div className="flex items-center">
+                          <div className="w-4 h-4 bg-gradient-to-r from-red-400 to-red-600 rounded mr-3 shadow-lg"></div>
+                          <span className="text-red-400 font-semibold">CUMULATIVE ASKS</span>
+                        </div>
+                        <div className="w-px h-6 bg-gray-600"></div>
+                        <div className="flex items-center">
+                          <div className="w-4 h-4 bg-yellow-500 rounded mr-3 shadow-lg"></div>
+                          <span className="text-yellow-400 font-semibold">CURRENT PRICE</span>
+                        </div>
                       </div>
                     </div>
                     
-                    {/* Analysis insights */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                        <div className="font-bold text-green-800 mb-1">💚 Kekuatan Buy Side</div>
-                        <div className="text-green-700 text-lg font-semibold">
-                          {((bidCumulative / (bidCumulative + askCumulative)) * 100).toFixed(1)}%
+                    {/* Professional Market Analysis */}
+                    <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 p-6 rounded-lg border border-gray-600">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-green-900 bg-opacity-30 p-4 rounded-lg border border-green-600">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-green-400 font-bold text-sm">BUY PRESSURE</span>
+                            <span className="text-green-300 text-xs">STRONG</span>
+                          </div>
+                          <div className="text-green-300 text-2xl font-bold mb-1">
+                            {((bidCumulative / (bidCumulative + askCumulative)) * 100).toFixed(1)}%
+                          </div>
+                          <div className="text-green-500 text-xs">Total: {bidCumulative.toFixed(1)} SOL</div>
                         </div>
-                        <div className="text-green-600 text-xs">dari total volume</div>
-                      </div>
-                      <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                        <div className="font-bold text-red-800 mb-1">❤️ Tekanan Sell Side</div>
-                        <div className="text-red-700 text-lg font-semibold">
-                          {((askCumulative / (bidCumulative + askCumulative)) * 100).toFixed(1)}%
+                        
+                        <div className="bg-yellow-900 bg-opacity-30 p-4 rounded-lg border border-yellow-600">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-yellow-400 font-bold text-sm">LIQUIDITY</span>
+                            <span className="text-yellow-300 text-xs">DEEP</span>
+                          </div>
+                          <div className="text-yellow-300 text-2xl font-bold mb-1">
+                            {(bidCumulative + askCumulative).toFixed(0)}
+                          </div>
+                          <div className="text-yellow-500 text-xs">Total SOL Volume</div>
                         </div>
-                        <div className="text-red-600 text-xs">dari total volume</div>
+                        
+                        <div className="bg-red-900 bg-opacity-30 p-4 rounded-lg border border-red-600">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-red-400 font-bold text-sm">SELL PRESSURE</span>
+                            <span className="text-red-300 text-xs">MODERATE</span>
+                          </div>
+                          <div className="text-red-300 text-2xl font-bold mb-1">
+                            {((askCumulative / (bidCumulative + askCumulative)) * 100).toFixed(1)}%
+                          </div>
+                          <div className="text-red-500 text-xs">Total: {askCumulative.toFixed(1)} SOL</div>
+                        </div>
                       </div>
                     </div>
                   </div>
