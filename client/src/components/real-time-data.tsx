@@ -148,35 +148,34 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
           </div>
         </div>
 
-        {/* Professional Order Book */}
+        {/* Professional Order Book - Horizontal Layout */}
         {orderBook && (
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="bg-gray-900 text-white px-4 py-3">
               <h3 className="text-sm font-semibold">Order Book</h3>
             </div>
             
-            {/* Header */}
-            <div className="grid grid-cols-3 gap-4 px-4 py-2 bg-gray-50 text-xs font-medium text-gray-600 border-b">
-              <div className="text-left">Price (USDT)</div>
-              <div className="text-right">Amount (SOL)</div>
-              <div className="text-right">Total</div>
-            </div>
-
-            <div className="h-80 overflow-y-auto bg-gray-50">
-            {/* Calculate max size for volume bars */}
-            {(() => {
-              if (!orderBook?.asks || !orderBook?.bids) {
-                return <div className="p-4 text-center text-gray-500">Loading order book...</div>;
-              }
-              
-              const allSizes = [...(orderBook.asks || []), ...(orderBook.bids || [])].map(item => parseFloat(item.size));
-              const maxSize = Math.max(...allSizes) || 1;
-              
-              return (
-                <>
-                  {/* Asks (Sell Orders) - Show in reverse order */}
-                  {(orderBook.asks || []).slice(0, 8).reverse().map((ask, index) => {
-                    const sizePercent = (parseFloat(ask.size) / maxSize) * 100;
+            <div className="grid grid-cols-2 gap-0 h-80 bg-gray-50">
+              {/* ASKS (Left Side - Sell Orders) */}
+              <div className="border-r border-gray-300">
+                {/* Header for Asks */}
+                <div className="grid grid-cols-3 gap-2 px-3 py-2 bg-red-50 text-xs font-medium text-gray-600 border-b">
+                  <div className="text-left">Price</div>
+                  <div className="text-right">Size</div>
+                  <div className="text-right">Total</div>
+                </div>
+                
+                <div className="h-64 overflow-y-auto">
+                {(() => {
+                  if (!orderBook?.asks) {
+                    return <div className="p-4 text-center text-gray-500">Loading asks...</div>;
+                  }
+                  
+                  const askSizes = (orderBook.asks || []).map(item => parseFloat(item.size));
+                  const maxAskSize = Math.max(...askSizes) || 1;
+                  
+                  return (orderBook.asks || []).slice(0, 10).reverse().map((ask, index) => {
+                    const sizePercent = (parseFloat(ask.size) / maxAskSize) * 100;
                     const cumulativeTotal = (orderBook.asks || []).slice(0, (orderBook.asks?.length || 0) - index).reduce((sum, a) => sum + parseFloat(a.size), 0);
                     
                     return (
@@ -186,11 +185,11 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                       >
                         {/* Volume Bar Background */}
                         <div 
-                          className="absolute right-0 top-0 h-full bg-red-100 opacity-30 transition-all duration-1500 ease-out"
+                          className="absolute left-0 top-0 h-full bg-red-100 opacity-30 transition-all duration-1500 ease-out"
                           style={{ width: `${sizePercent}%` }}
                         />
                         
-                        <div className="relative grid grid-cols-3 gap-2 px-3 py-1.5 text-xs font-mono transition-all duration-1000 ease-in-out">
+                        <div className="relative grid grid-cols-3 gap-2 px-3 py-1 text-xs font-mono transition-all duration-1000 ease-in-out">
                           <div className="text-red-600 font-bold transition-all duration-1000" data-testid={`ask-price-${index}`}>
                             ${ask.price}
                           </div>
@@ -203,24 +202,31 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                         </div>
                       </div>
                     );
-                  })}
+                  });
+                })()}
+                </div>
+              </div>
 
-                  {/* Spread */}
-                  <div className="border-t border-b border-gray-300 bg-gray-100 py-2 transition-all duration-500">
-                    <div className="text-center text-xs font-medium text-gray-800">
-                      <span className="text-gray-600">Spread:</span>{' '}
-                      <span className="text-orange-600 font-semibold transition-all duration-300" data-testid="text-spread">
-                        ${orderBook.spread}
-                      </span>
-                      <span className="text-gray-500 ml-2 transition-all duration-300">
-                        ({((parseFloat(orderBook.spread) / parseFloat(orderBook.bids[0]?.price || '1')) * 100).toFixed(3)}%)
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Bids (Buy Orders) */}
-                  {(orderBook.bids || []).slice(0, 8).map((bid, index) => {
-                    const sizePercent = (parseFloat(bid.size) / maxSize) * 100;
+              {/* BIDS (Right Side - Buy Orders) */}
+              <div>
+                {/* Header for Bids */}
+                <div className="grid grid-cols-3 gap-2 px-3 py-2 bg-green-50 text-xs font-medium text-gray-600 border-b">
+                  <div className="text-left">Price</div>
+                  <div className="text-right">Size</div>
+                  <div className="text-right">Total</div>
+                </div>
+                
+                <div className="h-64 overflow-y-auto">
+                {(() => {
+                  if (!orderBook?.bids) {
+                    return <div className="p-4 text-center text-gray-500">Loading bids...</div>;
+                  }
+                  
+                  const bidSizes = (orderBook.bids || []).map(item => parseFloat(item.size));
+                  const maxBidSize = Math.max(...bidSizes) || 1;
+                  
+                  return (orderBook.bids || []).slice(0, 10).map((bid, index) => {
+                    const sizePercent = (parseFloat(bid.size) / maxBidSize) * 100;
                     const cumulativeTotal = (orderBook.bids || []).slice(0, index + 1).reduce((sum, b) => sum + parseFloat(b.size), 0);
                     
                     return (
@@ -230,11 +236,11 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                       >
                         {/* Volume Bar Background */}
                         <div 
-                          className="absolute right-0 top-0 h-full bg-green-100 opacity-30 transition-all duration-1500 ease-out"
+                          className="absolute left-0 top-0 h-full bg-green-100 opacity-30 transition-all duration-1500 ease-out"
                           style={{ width: `${sizePercent}%` }}
                         />
                         
-                        <div className="relative grid grid-cols-3 gap-2 px-3 py-1.5 text-xs font-mono transition-all duration-1000 ease-in-out">
+                        <div className="relative grid grid-cols-3 gap-2 px-3 py-1 text-xs font-mono transition-all duration-1000 ease-in-out">
                           <div className="text-green-600 font-bold transition-all duration-1000" data-testid={`bid-price-${index}`}>
                             ${bid.price}
                           </div>
@@ -247,10 +253,19 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                         </div>
                       </div>
                     );
-                  })}
-                </>
-              );
-            })()}
+                  });
+                })()}
+                </div>
+              </div>
+            </div>
+            
+            {/* Spread Display at Bottom */}
+            <div className="border-t border-gray-300 bg-gray-100 py-2">
+              <div className="text-center">
+                <span className="text-xs font-medium text-gray-600">
+                  Spread: <span className="text-blue-600 font-bold">${orderBook.spread}</span>
+                </span>
+              </div>
             </div>
           </div>
         )}
