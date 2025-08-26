@@ -20,7 +20,7 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
       symbol: 'OKX:SOLUSDT', // SOL/USDT pair dari OKX
       interval: '1H',         // 1 hour candlesticks
       timezone: 'Etc/UTC',
-      theme: 'light',
+      theme: 'dark',         // Dark theme
       style: '1',            // Candlestick style
       locale: 'en',
       enable_publishing: false,
@@ -97,7 +97,7 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
         <div 
           ref={containerRef}
           id="tradingview_chart"
-          className="w-full h-[500px] bg-white border rounded-lg"
+          className="w-full h-[500px] bg-gray-900 border border-gray-700 rounded-lg"
           data-testid="tradingview-chart"
         />
         
