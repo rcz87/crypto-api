@@ -18,7 +18,7 @@ export function SMCAnalysis({ className = '' }: SMCProps) {
     data: SMCAnalysisData;
     timestamp: string;
   }>({
-    queryKey: ['/api/sol/smc', { timeframe }],
+    queryKey: [`/api/sol/smc?timeframe=${timeframe}&limit=100`],
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 
