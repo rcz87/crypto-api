@@ -6,7 +6,7 @@ import { APIDocumentation } from "@/components/api-documentation";
 import { RealTimeData } from "@/components/real-time-data";
 import { SystemLogs } from "@/components/system-logs";
 import { ConfigurationPanel } from "@/components/configuration-panel";
-import { RealCandlestickChart } from "@/components/RealCandlestickChart";
+import { TradingViewWidget } from "@/components/TradingViewWidget";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -136,10 +136,10 @@ export default function Dashboard() {
           isLoading={healthLoading}
         />
 
-        {/* Professional Candlestick Chart */}
+        {/* Professional TradingView Chart */}
         <div className="mt-8">
           <ErrorBoundary>
-            <RealCandlestickChart 
+            <TradingViewWidget 
               data={displaySolData} 
               isConnected={wsConnected}
             />
