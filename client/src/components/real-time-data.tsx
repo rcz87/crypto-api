@@ -9,7 +9,7 @@ interface RealTimeDataProps {
   isLiveStream?: boolean;
 }
 
-export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealTimeDataProps) {
+const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: RealTimeDataProps) => {
   if (isLoading || !solData) {
     return (
       <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -166,21 +166,24 @@ export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealT
                     const cumulativeTotal = orderBook.asks.slice(0, orderBook.asks.length - index).reduce((sum, a) => sum + parseFloat(a.size), 0);
                     
                     return (
-                      <div key={`ask-${index}`} className="relative group hover:bg-red-50 transition-colors">
+                      <div 
+                        key={`ask-${ask.price}-${index}`} 
+                        className="relative group hover:bg-red-50 transition-all duration-300 ease-in-out"
+                      >
                         {/* Volume Bar Background */}
                         <div 
-                          className="absolute right-0 top-0 h-full bg-red-100 opacity-30"
+                          className="absolute right-0 top-0 h-full bg-red-100 opacity-30 transition-all duration-500 ease-out"
                           style={{ width: `${sizePercent}%` }}
                         />
                         
-                        <div className="relative grid grid-cols-3 gap-4 px-4 py-1 text-xs font-mono">
-                          <div className="text-red-600 font-semibold" data-testid={`ask-price-${index}`}>
+                        <div className="relative grid grid-cols-3 gap-4 px-4 py-1 text-xs font-mono transition-all duration-300">
+                          <div className="text-red-600 font-semibold transition-colors duration-300" data-testid={`ask-price-${index}`}>
                             {parseFloat(ask.price).toFixed(2)}
                           </div>
-                          <div className="text-right text-gray-800" data-testid={`ask-size-${index}`}>
+                          <div className="text-right text-gray-800 transition-all duration-300" data-testid={`ask-size-${index}`}>
                             {parseFloat(ask.size).toLocaleString(undefined, { maximumFractionDigits: 3 })}
                           </div>
-                          <div className="text-right text-gray-600">
+                          <div className="text-right text-gray-600 transition-all duration-300">
                             {cumulativeTotal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                           </div>
                         </div>
@@ -189,13 +192,13 @@ export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealT
                   })}
 
                   {/* Spread */}
-                  <div className="border-t border-b border-gray-300 bg-gray-100 py-2">
+                  <div className="border-t border-b border-gray-300 bg-gray-100 py-2 transition-all duration-500">
                     <div className="text-center text-xs font-medium text-gray-800">
                       <span className="text-gray-600">Spread:</span>{' '}
-                      <span className="text-orange-600 font-semibold" data-testid="text-spread">
+                      <span className="text-orange-600 font-semibold transition-all duration-300" data-testid="text-spread">
                         ${orderBook.spread}
                       </span>
-                      <span className="text-gray-500 ml-2">
+                      <span className="text-gray-500 ml-2 transition-all duration-300">
                         ({((parseFloat(orderBook.spread) / parseFloat(orderBook.bids[0]?.price || '1')) * 100).toFixed(3)}%)
                       </span>
                     </div>
@@ -207,21 +210,24 @@ export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealT
                     const cumulativeTotal = orderBook.bids.slice(0, index + 1).reduce((sum, b) => sum + parseFloat(b.size), 0);
                     
                     return (
-                      <div key={`bid-${index}`} className="relative group hover:bg-green-50 transition-colors">
+                      <div 
+                        key={`bid-${bid.price}-${index}`} 
+                        className="relative group hover:bg-green-50 transition-all duration-300 ease-in-out"
+                      >
                         {/* Volume Bar Background */}
                         <div 
-                          className="absolute right-0 top-0 h-full bg-green-100 opacity-30"
+                          className="absolute right-0 top-0 h-full bg-green-100 opacity-30 transition-all duration-500 ease-out"
                           style={{ width: `${sizePercent}%` }}
                         />
                         
-                        <div className="relative grid grid-cols-3 gap-4 px-4 py-1 text-xs font-mono">
-                          <div className="text-green-600 font-semibold" data-testid={`bid-price-${index}`}>
+                        <div className="relative grid grid-cols-3 gap-4 px-4 py-1 text-xs font-mono transition-all duration-300">
+                          <div className="text-green-600 font-semibold transition-colors duration-300" data-testid={`bid-price-${index}`}>
                             {parseFloat(bid.price).toFixed(2)}
                           </div>
-                          <div className="text-right text-gray-800" data-testid={`bid-size-${index}`}>
+                          <div className="text-right text-gray-800 transition-all duration-300" data-testid={`bid-size-${index}`}>
                             {parseFloat(bid.size).toLocaleString(undefined, { maximumFractionDigits: 3 })}
                           </div>
-                          <div className="text-right text-gray-600">
+                          <div className="text-right text-gray-600 transition-all duration-300">
                             {cumulativeTotal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                           </div>
                         </div>
@@ -236,4 +242,7 @@ export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealT
       </CardContent>
     </Card>
   );
-}
+};
+
+// Export as regular component for now to avoid React.memo issues with Vite
+export const RealTimeData = RealTimeDataComponent;
