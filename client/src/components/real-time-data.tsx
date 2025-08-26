@@ -154,7 +154,8 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
   const lastUpdateTime = solData?.lastUpdate ? new Date(solData.lastUpdate).toLocaleString() : 'Unknown';
 
   return (
-    <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div>
+      <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
       <CardHeader className="px-6 py-4 border-b border-gray-200">
         <CardTitle className="text-lg font-semibold text-gray-900 flex items-center justify-between">
           <div className="flex items-center">
@@ -390,10 +391,14 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
             </div>
           </div>
         )}
+      </CardContent>
+    </Card>
 
-        {/* Market Depth Chart - Full Width Visible */}
-        {orderBook && (
-          <div className="w-full max-w-full border border-gray-200 rounded-lg overflow-visible mt-6 bg-white">
+    {/* Market Depth Chart - SECTION TERPISAH */}
+    {orderBook && (
+      <Card className="bg-white rounded-lg shadow-sm border border-gray-200 mt-6">
+        <CardContent className="p-0">
+          <div className="w-full max-w-full border-0 rounded-lg overflow-visible bg-white">
             <div className="bg-gray-900 text-white px-4 py-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
@@ -555,9 +560,10 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
               })()}
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    )}
+    </div>
   );
 };
 
