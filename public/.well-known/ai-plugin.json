@@ -2,8 +2,8 @@
   "schema_version": "v1",
   "name_for_human": "SOL Crypto Data Gateway",
   "name_for_model": "sol_crypto_gateway",
-  "description_for_human": "Real-time Solana (SOL) trading data from OKX exchange with comprehensive multi-timeframe candlestick analysis, order book depth, and WebSocket streaming for professional crypto analysis.",
-  "description_for_model": "Access comprehensive SOL-USDT trading data including real-time prices, 7-timeframe candlestick charts (5m, 15m, 30m, 1H, 4H, 1D, 1W), 50-level order book depth, recent trades, market metrics, and system health. Perfect for crypto analysis, trading decisions, and market monitoring.",
+  "description_for_human": "Advanced Solana (SOL) trading data gateway providing real-time market analysis from OKX exchange with 7-timeframe candlestick charts, comprehensive order book depth, live trade flows, system monitoring, and WebSocket streaming for professional crypto analysis and algorithmic trading.",
+  "description_for_model": "Comprehensive SOL-USDT crypto data platform with: 1) Real-time ticker (price, volume, 24h change), 2) Multi-timeframe candlestick data (5m, 15m, 30m, 1H, 4H, 1D, 1W) with 500+ data points for scalping to long-term analysis, 3) 50-level order book depth with bid/ask spreads, 4) Recent trades with buy/sell indicators, 5) System health monitoring and performance metrics, 6) Real-time logs for troubleshooting, 7) WebSocket streaming capabilities. Optimized for AI-powered crypto analysis, trading strategies, market monitoring, and financial research.",
   "auth": {
     "type": "none"
   },

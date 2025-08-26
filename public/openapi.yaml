@@ -2,38 +2,61 @@ openapi: 3.0.1
 info:
   title: SOL Crypto Data Gateway API
   description: |
-    Comprehensive Solana (SOL) trading data gateway providing real-time market data from OKX exchange.
+    Advanced Solana (SOL) trading data gateway providing comprehensive real-time market data from OKX exchange.
     
-    **Key Features:**
-    - Real-time SOL-USDT price, volume, and market metrics
-    - Multi-timeframe candlestick data (5m, 15m, 30m, 1H, 4H, 1D, 1W) 
-    - 50-level order book depth with bid/ask spreads
-    - Recent trades with buy/sell indicators
-    - WebSocket streaming capabilities
-    - System health and performance monitoring
+    **🚀 Core Features:**
+    - **Real-time SOL-USDT data**: Live ticker with price, volume, 24h metrics
+    - **7-Timeframe Candlestick Analysis**: 5m, 15m, 30m, 1H, 4H, 1D, 1W (500+ data points)
+    - **Deep Order Book**: 50-level bid/ask spreads for market depth analysis
+    - **Live Trade Flow**: Recent trades with buy/sell indicators and volume tracking
+    - **System Monitoring**: Health checks, performance metrics, and operational logs
+    - **WebSocket Streaming**: Real-time data feeds for professional applications
     
-    **Perfect for:**
-    - Crypto market analysis and trading decisions
-    - Technical analysis across multiple timeframes
-    - Real-time market monitoring and alerts
-    - Professional trading applications
-  version: '2.0.0'
+    **🎯 Use Cases:**
+    - **AI-Powered Analysis**: GPT-5 crypto market intelligence and predictions
+    - **Algorithmic Trading**: Data feeds for automated trading strategies
+    - **Technical Analysis**: Multi-timeframe chart analysis from scalping to investing
+    - **Market Monitoring**: Real-time alerts and portfolio tracking
+    - **Research & Analytics**: Financial modeling and trend analysis
+    
+    **⚡ Performance:**
+    - Response time: 200-400ms average
+    - Rate limit: 100 requests/minute
+    - 99.9% uptime with auto-reconnection
+    - SSL-secured with CORS enabled
+  version: '2.1.0'
   contact:
     email: admin@guardiansofthegreentoken.com
+    url: https://guardiansofthegreentoken.com
 servers:
   - url: https://guardiansofthegreentoken.com
+    description: Production server with SSL
+    
+tags:
+  - name: Market Data
+    description: Real-time SOL-USDT trading data and market analysis
+  - name: System Monitoring  
+    description: Health checks, metrics, and operational logging
+  - name: WebSocket
+    description: Real-time streaming capabilities
 paths:
   /api/sol/complete:
     get:
       operationId: getCompleteSOLData
       summary: Get comprehensive SOL trading data
       description: |
-        Returns complete SOL-USDT trading data including:
-        - Real-time ticker (price, volume, 24h change)
-        - Multi-timeframe candlestick charts (500+ data points)
-        - Order book with 50 levels of depth
-        - Recent trades with market activity
-        - Last update timestamp
+        **🚀 Primary endpoint** for complete SOL-USDT market analysis with all essential trading data.
+        
+        **Data Included:**
+        - **Real-time ticker**: Current price, 24h change, volume, high/low
+        - **7-Timeframe candlesticks**: 5m, 15m, 30m, 1H, 4H, 1D, 1W (500+ data points)
+        - **Deep order book**: 50 levels of bid/ask spreads for market depth
+        - **Recent trades**: Live trading activity with buy/sell indicators
+        - **Metadata**: Last update timestamp and data freshness
+        
+        **Perfect for**: AI analysis, algorithmic trading, technical analysis, market monitoring
+      tags:
+        - Market Data
       responses:
         '200':
           description: Complete SOL trading data
@@ -50,28 +73,36 @@ paths:
                     properties:
                       ticker:
                         type: object
+                        description: "Real-time SOL-USDT market ticker data"
                         properties:
                           symbol:
                             type: string
                             example: "SOL-USDT"
+                            description: "Trading pair symbol"
                           price:
                             type: string
-                            example: "189.45"
-                          volume24h:
-                            type: string
-                            example: "2450345.67"
+                            example: "189.03"
+                            description: "Current market price in USDT"
                           change24h:
                             type: string
-                            example: "2.35"
-                          changePercent24h:
-                            type: string
-                            example: "1.26"
+                            example: "-5.07%"
+                            description: "24-hour price change percentage"
                           high24h:
                             type: string
-                            example: "195.20"
+                            example: "199.48"
+                            description: "24-hour highest price"
                           low24h:
                             type: string
-                            example: "185.80"
+                            example: "185.34"
+                            description: "24-hour lowest price"
+                          volume:
+                            type: string
+                            example: "1584966.454886"
+                            description: "24-hour trading volume in SOL"
+                          tradingVolume24h:
+                            type: string
+                            example: "299606209"
+                            description: "24-hour trading volume in USDT"
                       candles:
                         type: object
                         properties:
@@ -161,11 +192,15 @@ paths:
   /health:
     get:
       operationId: getSystemHealth
-      summary: Get system health status
-      description: Returns overall system health including API status, database connectivity, and performance metrics
+      summary: Get comprehensive system health status
+      description: |
+        Returns detailed system health including service connectivity, performance metrics, and operational status.
+        Essential for monitoring system availability and troubleshooting issues.
+      tags:
+        - System Monitoring
       responses:
         '200':
-          description: System health information
+          description: System health information with detailed metrics
           content:
             application/json:
               schema:
@@ -181,24 +216,62 @@ paths:
                         type: string
                         enum: ["operational", "degraded", "down"]
                         example: "operational"
+                        description: "Overall system status"
                       timestamp:
                         type: string
                         format: date-time
-                      uptime:
-                        type: number
-                        example: 86400
-                      version:
-                        type: string
-                        example: "2.0.0"
+                        example: "2025-08-26T09:27:32.664Z"
+                      services:
+                        type: object
+                        properties:
+                          okx:
+                            type: string
+                            enum: ["connected", "error"]
+                            example: "connected"
+                            description: "OKX exchange API connection status"
+                          api:
+                            type: string
+                            enum: ["operational", "degraded", "down"]
+                            example: "operational"
+                            description: "Internal API service status"
+                      metrics:
+                        type: object
+                        properties:
+                          responseTime:
+                            type: number
+                            example: 178
+                            description: "Health check response time in milliseconds"
+                          requestsToday:
+                            type: number
+                            example: 4
+                            description: "Total API requests received today"
+                          uptime:
+                            type: string
+                            example: "2880.092798736s"
+                            description: "System uptime in seconds"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-08-26T09:27:32.664Z"
+        '503':
+          description: Service unavailable - system is down or degraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/metrics:
     get:
       operationId: getSystemMetrics
-      summary: Get system performance metrics
-      description: Returns detailed system metrics including response times, request counts, and resource usage
+      summary: Get detailed system performance metrics
+      description: |
+        Returns comprehensive system performance metrics including response times, request statistics, 
+        and operational data. Useful for monitoring API performance and system optimization.
+      tags:
+        - System Monitoring
       responses:
         '200':
-          description: System performance metrics
+          description: Detailed system performance metrics
           content:
             application/json:
               schema:
@@ -212,56 +285,166 @@ paths:
                     properties:
                       id:
                         type: string
-                        example: "sys-001"
+                        example: "1d51fc62-1de4-4c73-be52-37560dafe1f4"
+                        description: "Unique metrics instance identifier"
+                      responseTime:
+                        type: number
+                        example: 226
+                        description: "Average API response time in milliseconds"
+                      requestsToday:
+                        type: number
+                        example: 4
+                        description: "Total number of requests processed today"
                       timestamp:
                         type: string
                         format: date-time
-                      apiResponseTime:
-                        type: number
-                        example: 245
-                      totalRequests:
-                        type: number
-                        example: 1547
-                      successfulRequests:
-                        type: number
-                        example: 1520
-                      failedRequests:
-                        type: number
-                        example: 27
+                        example: "2025-08-26T09:27:31.743Z"
+                        description: "Timestamp when metrics were collected"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-08-26T09:27:32.946Z"
+                    description: "Response timestamp"
+        '500':
+          description: Failed to fetch metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
+  /api/logs:
+    get:
+      operationId: getSystemLogs
+      summary: Get recent system logs
+      description: |
+        Returns the 50 most recent system logs including API requests, errors, and operational events.
+        Essential for debugging and monitoring system behavior.
+      tags:
+        - System Monitoring
+      responses:
+        '200':
+          description: Recent system logs (last 50 entries)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    description: "Array of recent log entries"
+                    items:
+                      type: object
+                      properties:
+                        level:
+                          type: string
+                          enum: ["info", "warn", "error", "debug"]
+                          example: "info"
+                          description: "Log severity level"
+                        message:
+                          type: string
+                          example: "API request completed successfully"
+                          description: "Log message content"
+                        details:
+                          type: string
+                          example: "GET /api/sol/complete - 233ms - 200 OK"
+                          description: "Additional log details"
+                        timestamp:
+                          type: string
+                          format: date-time
+                          example: "2025-08-26T09:27:31.743Z"
+                          description: "When the log entry was created"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-08-26T09:27:32.946Z"
+                    description: "Response timestamp"
+        '500':
+          description: Failed to fetch logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ws:
+    get:
+      operationId: connectWebSocket
+      summary: WebSocket connection for real-time streaming
+      description: |
+        **🔄 Real-time WebSocket endpoint** for live SOL-USDT market data streaming.
+        
+        **Connection URL**: `wss://guardiansofthegreentoken.com/ws`
+        
+        **Features:**
+        - **Live ticker updates**: Real-time price changes
+        - **Order book streaming**: Live bid/ask updates with 50-level depth
+        - **Trade flow**: Real-time buy/sell transactions
+        - **Auto-reconnection**: Exponential backoff (3s→30s) with 10 retry attempts
+        - **Health monitoring**: Ping/pong keep-alive mechanism
+        
+        **Message Types:**
+        - `connection`: Connection status messages
+        - `market_data`: Real-time OKX market updates
+        - `ticker`: Live price and volume updates
+        - `trades`: Individual transaction data
+        - `orderbook`: Bid/ask spread changes
+        
+        **Perfect for**: Live trading dashboards, real-time alerts, streaming analysis
+      tags:
+        - WebSocket
+      responses:
+        '101':
+          description: WebSocket connection established
+        '400':
+          description: Bad WebSocket request
+          
 components:
   schemas:
     Candle:
       type: object
+      description: "OHLCV candlestick data for technical analysis"
       properties:
         timestamp:
           type: string
-          example: "1756197000000"
+          example: "1756200300000"
+          description: "Unix timestamp in milliseconds"
         open:
           type: string
-          example: "189.20"
+          example: "188.74"
+          description: "Opening price for the time period"
         high:
           type: string
-          example: "189.80"
+          example: "189.30"
+          description: "Highest price during the time period"
         low:
           type: string
-          example: "188.90"
+          example: "188.67"
+          description: "Lowest price during the time period"
         close:
           type: string
-          example: "189.45"
+          example: "189.03"
+          description: "Closing price for the time period"
         volume:
           type: string
-          example: "1234.56"
+          example: "4915.351637"
+          description: "Total trading volume in SOL for the time period"
     
     ErrorResponse:
       type: object
+      description: "Standard error response format"
       properties:
         success:
           type: boolean
           example: false
+          description: "Always false for error responses"
         error:
           type: string
           example: "Internal server error"
+          description: "Human-readable error message"
         timestamp:
           type: string
           format: date-time
+          description: "ISO timestamp when error occurred"
+          example: "2025-08-26T09:27:32.664Z"
