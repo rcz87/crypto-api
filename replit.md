@@ -114,6 +114,8 @@ Preferred communication style: Simple, everyday language.
 - **SSL Certificate**: Valid TLS 1.3 until Nov 24, 2025 with Google Frontend CDN
 - **DNS Configuration**: Fully propagated via Hostinger DNS management  
 - **API Endpoint for GPT-5**: `https://guardiansofthegreentoken.com/api/sol/complete`
+- **GPT Plugin Integration**: `https://guardiansofthegreentoken.com/.well-known/ai-plugin.json`
+- **OpenAPI Specification**: `https://guardiansofthegreentoken.com/openapi.yaml`
 - **Performance**: Sub-second response time, 23KB comprehensive data
 - **WebSocket Real-time**: Active at `wss://guardiansofthegreentoken.com/ws`
 - **CORS Verified**: Full cross-origin access with all HTTP methods

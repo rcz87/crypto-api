@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import WebSocket, { WebSocketServer } from "ws";
+import path from "path";
 import { storage } from "./storage";
 import { okxService } from "./services/okx";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema } from "@shared/schema";
@@ -183,6 +184,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: 'Failed to fetch logs',
         timestamp: new Date().toISOString(),
       });
+    }
+  });
+
+  // GPT Plugin manifest endpoint
+  app.get('/.well-known/ai-plugin.json', (req: Request, res: Response) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      const filePath = path.resolve(process.cwd(), 'public/.well-known/ai-plugin.json');
+      res.sendFile(filePath);
+    } catch (error) {
+      console.error('Error serving plugin manifest:', error);
+      res.status(500).json({ error: 'Plugin manifest not found' });
+    }
+  });
+
+  // OpenAPI specification endpoint  
+  app.get('/openapi.yaml', (req: Request, res: Response) => {
+    try {
+      res.setHeader('Content-Type', 'application/x-yaml');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      const filePath = path.resolve(process.cwd(), 'public/openapi.yaml');
+      res.sendFile(filePath);
+    } catch (error) {
+      console.error('Error serving OpenAPI spec:', error);
+      res.status(500).json({ error: 'OpenAPI specification not found' });
     }
   });
 
