@@ -66,8 +66,16 @@ export default function Dashboard() {
     }
   }, [marketData]);
 
-  // Use last valid ticker data or fallback to REST API data
-  const displaySolData = lastTickerRef.current || (solData as any)?.data;
+  // Gabungkan candlestick dari REST dengan ticker terakhir dari WebSocket
+  const restData = (solData as any)?.data;
+  const wsTicker = lastTickerRef.current?.ticker;
+
+  const displaySolData = restData
+    ? { 
+        ...restData,
+        ticker: wsTicker || restData.ticker,
+      }
+    : lastTickerRef.current;
   const isDataLoading = solLoading && !marketData;
 
   return (
