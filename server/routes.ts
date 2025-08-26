@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import WebSocket, { WebSocketServer } from "ws";
 import { storage } from "./storage";
 import { okxService } from "./services/okx";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema } from "@shared/schema";
@@ -14,7 +15,8 @@ function rateLimit(req: Request, res: Response, next: Function) {
   const now = Date.now();
   
   // Clean expired entries
-  for (const [ip, data] of rateLimitMap.entries()) {
+  const entries = Array.from(rateLimitMap.entries());
+  for (const [ip, data] of entries) {
     if (now > data.resetTime) {
       rateLimitMap.delete(ip);
     }
@@ -186,6 +188,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Setup WebSocket server for real-time data streaming
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Track connected clients
+  const connectedClients = new Set<WebSocket>();
+  
+  wss.on('connection', (ws: WebSocket, req) => {
+    const clientIp = req.socket.remoteAddress || 'unknown';
+    console.log(`WebSocket client connected: ${clientIp}`);
+    
+    connectedClients.add(ws);
+    
+    // Send initial connection success message
+    ws.send(JSON.stringify({
+      type: 'connection',
+      status: 'connected',
+      timestamp: new Date().toISOString(),
+      message: 'Connected to OKX real-time data stream'
+    }));
+    
+    // Initialize OKX WebSocket if not already connected
+    if (!okxService.isWebSocketConnected()) {
+      okxService.initWebSocket((data) => {
+        // Broadcast OKX data to all connected clients
+        const message = JSON.stringify({
+          type: 'market_data',
+          source: 'okx',
+          data: data,
+          timestamp: new Date().toISOString()
+        });
+        
+        connectedClients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(message);
+          }
+        });
+      }).catch(error => {
+        console.error('Failed to initialize OKX WebSocket:', error);
+      });
+    }
+    
+    // Handle client messages (for subscriptions, etc.)
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('WebSocket message from client:', data);
+        
+        // Echo back for now, can be extended for specific commands
+        ws.send(JSON.stringify({
+          type: 'response',
+          originalMessage: data,
+          timestamp: new Date().toISOString()
+        }));
+      } catch (error) {
+        console.error('Error parsing client message:', error);
+      }
+    });
+    
+    // Handle client disconnect
+    ws.on('close', () => {
+      connectedClients.delete(ws);
+      console.log(`WebSocket client disconnected: ${clientIp}`);
+    });
+    
+    ws.on('error', (error) => {
+      console.error(`WebSocket client error: ${error}`);
+      connectedClients.delete(ws);
+    });
+  });
+  
+  // Broadcast system status updates periodically
+  setInterval(async () => {
+    if (connectedClients.size > 0) {
+      try {
+        const metrics = await storage.getLatestMetrics();
+        const systemUpdate = JSON.stringify({
+          type: 'system_update',
+          data: {
+            connectedClients: connectedClients.size,
+            okxWebSocketStatus: okxService.isWebSocketConnected() ? 'connected' : 'disconnected',
+            metrics: metrics,
+            uptime: process.uptime()
+          },
+          timestamp: new Date().toISOString()
+        });
+        
+        connectedClients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(systemUpdate);
+          }
+        });
+      } catch (error) {
+        console.error('Error broadcasting system update:', error);
+      }
+    }
+  }, 30000); // Every 30 seconds
   
   return httpServer;
 }

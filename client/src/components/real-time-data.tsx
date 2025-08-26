@@ -1,4 +1,4 @@
-import { TrendingUp, ArrowUp, ArrowDown } from "lucide-react";
+import { TrendingUp, ArrowUp, ArrowDown, Radio } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SolCompleteData } from "@shared/schema";
@@ -6,9 +6,10 @@ import { SolCompleteData } from "@shared/schema";
 interface RealTimeDataProps {
   solData?: SolCompleteData;
   isLoading: boolean;
+  isLiveStream?: boolean;
 }
 
-export function RealTimeData({ solData, isLoading }: RealTimeDataProps) {
+export function RealTimeData({ solData, isLoading, isLiveStream = false }: RealTimeDataProps) {
   if (isLoading || !solData) {
     return (
       <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -53,9 +54,17 @@ export function RealTimeData({ solData, isLoading }: RealTimeDataProps) {
   return (
     <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
       <CardHeader className="px-6 py-4 border-b border-gray-200">
-        <CardTitle className="text-lg font-semibold text-gray-900 flex items-center">
-          <TrendingUp className="text-primary mr-2" />
-          Live SOL Data
+        <CardTitle className="text-lg font-semibold text-gray-900 flex items-center justify-between">
+          <div className="flex items-center">
+            <TrendingUp className="text-primary mr-2" />
+            Live SOL Data
+          </div>
+          {isLiveStream && (
+            <div className="flex items-center space-x-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+              <Radio className="w-3 h-3 animate-pulse" />
+              <span>Live Stream</span>
+            </div>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-6">

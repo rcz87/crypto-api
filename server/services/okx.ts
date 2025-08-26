@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { createHmac } from 'crypto';
+import WebSocket from 'ws';
 import { TickerData, CandleData, OrderBookData, RecentTradeData, SolCompleteData } from '@shared/schema';
 
 export class OKXService {
@@ -8,6 +9,11 @@ export class OKXService {
   private secretKey: string;
   private passphrase: string;
   private baseURL = 'https://www.okx.com';
+  private wsUrl = 'wss://ws.okx.com:8443/ws/v5/public';
+  private ws: WebSocket | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectInterval = 5000;
 
   constructor() {
     this.apiKey = process.env.OKX_API_KEY || '';
@@ -185,6 +191,91 @@ export class OKXService {
       console.error('OKX connection test failed:', error);
       return false;
     }
+  }
+
+  // WebSocket methods for real-time streaming
+  initWebSocket(onMessage?: (data: any) => void): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        this.ws = new WebSocket(this.wsUrl);
+        
+        this.ws.on('open', () => {
+          console.log('OKX WebSocket connected');
+          this.reconnectAttempts = 0;
+          
+          // Subscribe to SOL-USDT ticker, order book, and trades
+          const subscriptions = [
+            {
+              op: 'subscribe',
+              args: [
+                { channel: 'tickers', instId: 'SOL-USDT' },
+                { channel: 'books5', instId: 'SOL-USDT' },
+                { channel: 'trades', instId: 'SOL-USDT' }
+              ]
+            }
+          ];
+          
+          subscriptions.forEach(sub => {
+            if (this.ws?.readyState === WebSocket.OPEN) {
+              this.ws.send(JSON.stringify(sub));
+            }
+          });
+          
+          resolve();
+        });
+        
+        this.ws.on('message', (data: Buffer) => {
+          try {
+            const message = JSON.parse(data.toString());
+            if (onMessage && message.data) {
+              onMessage(message);
+            }
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+          }
+        });
+        
+        this.ws.on('error', (error) => {
+          console.error('OKX WebSocket error:', error);
+          reject(error);
+        });
+        
+        this.ws.on('close', (code, reason) => {
+          console.log(`OKX WebSocket closed: ${code} - ${reason}`);
+          this.attemptReconnect(onMessage);
+        });
+        
+      } catch (error) {
+        console.error('Failed to initialize WebSocket:', error);
+        reject(error);
+      }
+    });
+  }
+  
+  private attemptReconnect(onMessage?: (data: any) => void): void {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+      
+      setTimeout(() => {
+        this.initWebSocket(onMessage).catch(error => {
+          console.error('Reconnection failed:', error);
+        });
+      }, this.reconnectInterval);
+    } else {
+      console.error('Max reconnection attempts reached');
+    }
+  }
+  
+  closeWebSocket(): void {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+  }
+  
+  isWebSocketConnected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 }
 

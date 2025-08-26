@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Database, AlertCircle } from "lucide-react";
+import { Database, AlertCircle, Radio } from "lucide-react";
 import { StatusOverview } from "@/components/status-overview";
 import { APIDocumentation } from "@/components/api-documentation";
 import { RealTimeData } from "@/components/real-time-data";
 import { SystemLogs } from "@/components/system-logs";
 import { ConfigurationPanel } from "@/components/configuration-panel";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 export default function Dashboard() {
   const { data: healthData, isLoading: healthLoading } = useQuery({
@@ -17,12 +18,25 @@ export default function Dashboard() {
     refetchInterval: 5000,
   });
 
+  // Keep REST API as fallback, but reduce frequency since WebSocket provides real-time data
   const { data: solData, isLoading: solLoading } = useQuery({
     queryKey: ["/api/sol/complete"],
-    refetchInterval: 10000, // Refresh every 10 seconds for real-time data
+    refetchInterval: 60000, // Reduce to 1 minute as WebSocket provides real-time updates
   });
 
+  // WebSocket connection for real-time data
+  const { 
+    isConnected: wsConnected, 
+    marketData, 
+    systemStatus: wsSystemStatus,
+    connectionStatus
+  } = useWebSocket();
+
   const isOnline = healthData?.data?.status === 'operational';
+  
+  // Use WebSocket data if available, otherwise fall back to REST API data  
+  const displaySolData = marketData?.data || solData?.data;
+  const isDataLoading = solLoading && !marketData;
 
   return (
     <div className="font-inter bg-gray-50 text-gray-900 min-h-screen">
@@ -52,6 +66,21 @@ export default function Dashboard() {
                   {isOnline ? 'Online' : 'Offline'}
                 </span>
               </div>
+              
+              {/* WebSocket Status */}
+              <div className={`flex items-center space-x-2 px-3 py-1 rounded-full ${
+                wsConnected ? 'bg-blue-50' : 'bg-gray-50'
+              }`}>
+                <Radio className={`w-3 h-3 ${
+                  wsConnected ? 'text-blue-500 animate-pulse' : 'text-gray-400'
+                }`} />
+                <span className={`text-sm font-medium ${
+                  wsConnected ? 'text-blue-700' : 'text-gray-500'
+                }`}>
+                  {wsConnected ? 'Live Stream' : connectionStatus}
+                </span>
+              </div>
+              
               <span className="text-sm text-gray-500">crypto-data-gateway.replit.app</span>
             </div>
           </div>
@@ -72,8 +101,9 @@ export default function Dashboard() {
 
           {/* Real-time Data */}
           <RealTimeData 
-            solData={solData?.data} 
-            isLoading={solLoading}
+            solData={displaySolData} 
+            isLoading={isDataLoading}
+            isLiveStream={wsConnected && !!marketData}
           />
         </div>
 
