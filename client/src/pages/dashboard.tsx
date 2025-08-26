@@ -145,26 +145,18 @@ export default function Dashboard() {
             />
           </ErrorBoundary>
           
-          {/* Temporary debug - will remove after fix */}
+          {/* System Status - Static info only */}
           <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-800">
-            <div>🔍 Debug Info:</div>
+            <div>🔍 System Status:</div>
             <div>🌐 API Base: {window.location.hostname === 'localhost' ? 'localhost:5000' : 'guardiansofthegreentoken.com'}</div>
             <div>WebSocket: {wsConnected ? '✅ Connected' : '❌ Disconnected'}</div>
-            <div>Raw Market Data: {marketData ? '✅ Available' : '❌ None'}</div>
             <div>SOL API Data: {(solData as any)?.data ? '✅ Available' : '❌ None'}</div>
-            <div>Final Display Data: {displaySolData ? '✅ Available' : '❌ None'}</div>
             <div>Candles Data: {displaySolData?.candles ? '✅ Available' : '❌ None'}</div>
-            {healthError && <div>⚠️ Health API Error: {(healthError as Error).message}</div>}
-            {metricsError && <div>⚠️ Metrics API Error: {(metricsError as Error).message}</div>}
-            {solError && <div>⚠️ SOL API Error: {(solError as Error).message}</div>}
-            {displaySolData?.ticker && (
-              <div>💰 Chart Data: ${displaySolData.ticker.last} | High: ${displaySolData.ticker.high24h} | Low: ${displaySolData.ticker.low24h}</div>
-            )}
             {displaySolData?.candles && (
               <div>📊 Candles: 1H({(displaySolData.candles['1H'] || []).length}) 4H({(displaySolData.candles['4H'] || []).length}) 1D({(displaySolData.candles['1D'] || []).length})</div>
             )}
-            {marketData && (
-              <div>📡 Raw WS: {marketData.data?.[0]?.last ? `$${marketData.data[0].last}` : 'No ticker data'}</div>
+            {(healthError || metricsError || solError) && (
+              <div className="text-red-600">⚠️ Some API endpoints have errors</div>
             )}
           </div>
         </div>
