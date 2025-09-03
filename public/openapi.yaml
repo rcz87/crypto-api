@@ -1,13 +1,13 @@
 openapi: 3.1.0
 info:
-  title: SOL Crypto Data Gateway API
+  title: SOL-USDT-SWAP Futures Trading Data Gateway API
   description: |
-    Advanced Solana (SOL) trading data gateway providing comprehensive real-time market data from OKX exchange.
+    Advanced Solana (SOL) perpetual futures trading data gateway providing comprehensive real-time derivatives market data from OKX exchange.
     
     **🚀 Core Features:**
-    - **Real-time SOL-USDT data**: Live ticker with price, volume, 24h metrics
+    - **Real-time SOL-USDT-SWAP data**: Live perpetual futures ticker with mark price, funding rates, open interest
     - **7-Timeframe Candlestick Analysis**: 5m, 15m, 30m, 1H, 4H, 1D, 1W (500+ data points)
-    - **Deep Order Book**: 50-level bid/ask spreads for market depth analysis
+    - **Deep Futures Order Book**: 50-level bid/ask spreads for perpetual swap market depth analysis
     - **Live Trade Flow**: Recent trades with buy/sell indicators and volume tracking
     - **System Monitoring**: Health checks, performance metrics, and operational logs
     - **WebSocket Streaming**: Real-time data feeds for professional applications
@@ -24,8 +24,8 @@ info:
     - Rate limit: 100 requests/minute
     - 99.9% uptime with auto-reconnection
     - SSL-secured with CORS enabled
-    - Updated: 2025-09-03 with full SharpSignalEngine access
-  version: '2.4.0'
+    - Updated: 2025-09-03 - Full migration to SOL-USDT-SWAP futures with liquidation analysis & SharpSignalEngine
+  version: '3.0.0'
   contact:
     email: admin@guardiansofthegreentoken.com
     url: https://guardiansofthegreentoken.com
@@ -35,7 +35,7 @@ servers:
     
 tags:
   - name: Market Data
-    description: Real-time SOL-USDT trading data and market analysis
+    description: Real-time SOL-USDT-SWAP perpetual futures trading data and market analysis
   - name: System Monitoring  
     description: Health checks, metrics, and operational logging
   - name: WebSocket
@@ -44,13 +44,13 @@ paths:
   /api/sol/complete:
     get:
       operationId: getCompleteSOLData
-      summary: Get comprehensive SOL trading data
-      description: Primary endpoint for complete SOL-USDT market data including real-time ticker, 7-timeframe candlesticks (5m to 1W), 50-level order book depth, recent trades, and metadata. Perfect for AI analysis, algorithmic trading, and market monitoring.
+      summary: Get comprehensive SOL futures trading data
+      description: Primary endpoint for complete SOL-USDT-SWAP perpetual futures data including real-time ticker, 7-timeframe candlesticks (5m to 1W), 50-level order book depth, recent trades, funding rates, and open interest. Perfect for futures trading analysis, algorithmic trading, and derivatives market monitoring.
       tags:
         - Market Data
       responses:
         '200':
-          description: Complete SOL trading data
+          description: Complete SOL futures trading data
           content:
             application/json:
               schema:
@@ -64,16 +64,16 @@ paths:
                     properties:
                       ticker:
                         type: object
-                        description: "Real-time SOL-USDT market ticker data"
+                        description: "Real-time SOL-USDT-SWAP perpetual futures ticker data"
                         properties:
                           symbol:
                             type: string
-                            example: "SOL-USDT"
-                            description: "Trading pair symbol"
+                            example: "SOL-USDT-SWAP"
+                            description: "Perpetual futures contract symbol"
                           price:
                             type: string
                             example: "189.03"
-                            description: "Current market price in USDT"
+                            description: "Current futures mark price in USDT"
                           change24h:
                             type: string
                             example: "-5.07%"
@@ -907,6 +907,105 @@ paths:
                   timestamp:
                     type: string
                     example: "2025-08-26T10:42:57.669Z"
+
+  /api/sol/liquidation:
+    get:
+      operationId: getSOLLiquidationAnalysis
+      summary: Get SOL futures liquidation analysis
+      description: Advanced liquidation analysis for SOL-USDT-SWAP including liquidation levels, cascade risk assessment, volatility impact, and margin requirements across different leverage levels (5x-100x). Critical for futures risk management and position sizing.
+      tags:
+        - Market Data
+      parameters:
+        - name: timeframe
+          in: query
+          description: Timeframe for liquidation analysis
+          schema:
+            type: string
+            enum: ["1H", "4H", "1D"]
+            default: "1H"
+        - name: leverage
+          in: query
+          description: Leverage multiplier for liquidation calculations
+          schema:
+            type: integer
+            minimum: 2
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: SOL liquidation analysis data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      timeframe:
+                        type: string
+                        example: "1H"
+                      currentPrice:
+                        type: number
+                        example: 211.31
+                        description: "Current SOL-USDT-SWAP mark price"
+                      leverageAnalysis:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            leverage:
+                              type: number
+                              example: 10
+                            longLiquidation:
+                              type: number
+                              example: 190.18
+                              description: "Long position liquidation price"
+                            shortLiquidation:
+                              type: number
+                              example: 232.44
+                              description: "Short position liquidation price"
+                            marginRequirement:
+                              type: string
+                              example: "10.00%"
+                              description: "Initial margin requirement"
+                      cascadeRisk:
+                        type: object
+                        properties:
+                          riskLevel:
+                            type: string
+                            enum: ["low", "medium", "high", "extreme"]
+                            example: "medium"
+                          liquidationZones:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                price:
+                                  type: number
+                                  example: 200.50
+                                volume:
+                                  type: number
+                                  example: 15000000
+                                  description: "Estimated liquidation volume in USD"
+                      volatilityImpact:
+                        type: object
+                        properties:
+                          currentVolatility:
+                            type: string
+                            example: "3.8%"
+                          riskAdjustment:
+                            type: string
+                            example: "1.25x"
+                          safetyMargin:
+                            type: string
+                            example: "15%"
+                  timestamp:
+                    type: string
+                    example: "2025-09-03T16:00:00.000Z"
 
   /api/sol/volume-profile:
     get:
