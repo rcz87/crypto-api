@@ -555,6 +555,9 @@ Allow: /openapi.yaml`);
     if (!okxService.isWebSocketConnected()) {
       console.log('Initializing OKX WebSocket for new client connection');
       okxService.initWebSocket((data) => {
+        // Update WebSocket metrics on each message
+        metricsCollector.updateOkxWsStatus('up');
+        
         // Broadcast OKX data to all connected clients
         const message = JSON.stringify({
           type: 'market_data',

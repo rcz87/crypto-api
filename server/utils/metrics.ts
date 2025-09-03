@@ -133,7 +133,7 @@ class MetricsCollector {
                      (now - this.metrics.okx.lastWsMessage) < 60000; // 60s threshold for WS
     
     const memoryHealthy = metrics.memory.used < 500; // 500MB threshold
-    const cacheHealthy = parseFloat(metrics.cache.hitRatio) > 50; // 50% hit ratio threshold
+    const cacheHealthy = parseFloat(metrics.cache.hitRatio) > 30; // 30% hit ratio threshold (more realistic)
 
     const overall = restHealthy && wsHealthy && memoryHealthy ? 'ok' : 'degraded';
 

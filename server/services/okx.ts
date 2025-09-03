@@ -282,6 +282,7 @@ export class OKXService {
         this.ws.on('open', () => {
           console.log('OKX WebSocket connected');
           this.reconnectAttempts = 0;
+          metricsCollector.updateOkxWsStatus('up');
           
           // Subscribe to comprehensive SOL-USDT data streams
           const subscriptions = [
@@ -313,6 +314,7 @@ export class OKXService {
         this.ws.on('message', (data: Buffer) => {
           try {
             const message = JSON.parse(data.toString());
+            metricsCollector.updateOkxWsStatus('up'); // Update on each message received
             if (onMessage && message.data) {
               onMessage(message);
             }
