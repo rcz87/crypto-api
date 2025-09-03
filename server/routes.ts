@@ -6,6 +6,7 @@ import fs from "fs";
 import { storage } from "./storage";
 import { okxService } from "./services/okx";
 import { CVDService } from "./services/cvd";
+import { ConfluenceService } from "./services/confluence";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema } from "@shared/schema";
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
@@ -499,6 +500,75 @@ Allow: /openapi.yaml`);
         level: 'error',
         message: 'CVD analysis request failed',
         details: `GET /api/sol/cvd - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Confluence Scoring endpoint - Multi-layer Analysis
+  app.get('/api/sol/confluence', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const timeframe = req.query.timeframe as string || '1H';
+      
+      // Initialize confluence service
+      const confluenceService = new ConfluenceService();
+      
+      // Fetch all analysis data in parallel
+      const [smcData, cvdData, volumeData, fundingData, oiData] = await Promise.all([
+        okxService.getSMCAnalysis('SOL-USDT', timeframe, 100).catch(() => null),
+        new CVDService(okxService).analyzeCVD(
+          await okxService.getCandles('SOL-USDT', timeframe, 100),
+          await okxService.getRecentTrades('SOL-USDT', 200),
+          timeframe
+        ).catch(() => null),
+        okxService.getVolumeProfile('SOL-USDT', timeframe, 100).catch(() => null),
+        okxService.getFundingRate('SOL-USDT').catch(() => null),
+        okxService.getOpenInterest('SOL-USDT').catch(() => null)
+      ]);
+      
+      // Calculate confluence score
+      const confluenceScore = await confluenceService.calculateConfluenceScore(
+        smcData || undefined,
+        cvdData || undefined,
+        volumeData || undefined,
+        fundingData || undefined,
+        oiData || undefined,
+        timeframe
+      );
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Confluence analysis request completed',
+        details: `GET /api/sol/confluence - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}`,
+      });
+      
+      res.json({
+        success: true,
+        data: confluenceScore,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/confluence:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Confluence analysis request failed',
+        details: `GET /api/sol/confluence - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
       
       res.status(500).json({

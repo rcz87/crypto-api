@@ -469,6 +469,87 @@ export function CVDAnalysisComponent({ className = '' }: CVDProps) {
           </div>
         )}
 
+        {/* Enhanced Divergence Visualization */}
+        {cvd.activeDivergences && cvd.activeDivergences.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-white font-semibold">
+              <Zap className="h-4 w-4 text-yellow-400" />
+              Active Divergence Patterns ({cvd.activeDivergences.length})
+            </div>
+            
+            <div className="space-y-3">
+              {cvd.activeDivergences.slice(0, 3).map((divergence, idx) => (
+                <div key={idx} className={`p-4 rounded-lg border-2 ${
+                  divergence.type === 'bullish' || divergence.type === 'hidden_bullish' ? 
+                  'bg-green-900/20 border-green-500/50' : 'bg-red-900/20 border-red-500/50'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      {divergence.type === 'bullish' || divergence.type === 'hidden_bullish' ? (
+                        <TrendingUp className="h-5 w-5 text-green-400" />
+                      ) : (
+                        <TrendingDown className="h-5 w-5 text-red-400" />
+                      )}
+                      <span className={`font-semibold capitalize ${
+                        divergence.type === 'bullish' || divergence.type === 'hidden_bullish' ? 
+                        'text-green-400' : 'text-red-400'
+                      }`}>
+                        {divergence.type.replace('_', ' ')} Divergence
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Badge className={`border ${
+                        divergence.strength === 'strong' ? 'bg-blue-500/20 text-blue-400 border-blue-500' :
+                        divergence.strength === 'moderate' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500' :
+                        'bg-gray-500/20 text-gray-400 border-gray-500'
+                      }`}>
+                        {divergence.strength}
+                      </Badge>
+                      
+                      <Badge className={`border ${
+                        divergence.significance === 'critical' ? 'bg-red-500/20 text-red-400 border-red-500' :
+                        divergence.significance === 'major' ? 'bg-orange-500/20 text-orange-400 border-orange-500' :
+                        'bg-yellow-500/20 text-yellow-400 border-yellow-500'
+                      }`}>
+                        {divergence.significance}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm text-gray-300 mb-3">
+                    {divergence.description}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div className="bg-gray-800 p-2 rounded">
+                      <div className="text-gray-400 mb-1">Price Direction</div>
+                      <div className={`font-semibold capitalize ${
+                        divergence.priceDirection === 'up' ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {divergence.priceDirection} ↗
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-800 p-2 rounded">
+                      <div className="text-gray-400 mb-1">CVD Direction</div>
+                      <div className={`font-semibold capitalize ${
+                        divergence.cvdDirection === 'up' ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {divergence.cvdDirection} ↗
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-2 text-xs text-gray-500">
+                    Duration: {new Date(divergence.startTime).toLocaleTimeString()} - {new Date(divergence.endTime).toLocaleTimeString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Active Alerts */}
         {cvd.alerts && cvd.alerts.length > 0 && (
           <div className="space-y-3">

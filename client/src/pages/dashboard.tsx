@@ -15,6 +15,7 @@ import { VolumeProfile } from "@/components/VolumeProfile";
 import { VolumeDelta } from "@/components/VolumeDelta";
 import { SMCAnalysis } from "@/components/SMCAnalysis";
 import { CVDAnalysisComponent } from "@/components/CVDAnalysis";
+import { ConfluenceScoring } from "@/components/ConfluenceScoring";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -280,6 +281,13 @@ export default function Dashboard() {
             {/* SMC Analysis */}
             <ErrorBoundary>
               <SMCAnalysis />
+            </ErrorBoundary>
+          </div>
+
+          {/* Row 3: Advanced Confluence Scoring */}
+          <div className="mt-6">
+            <ErrorBoundary>
+              <ConfluenceScoring timeframe="1H" className="w-full" />
             </ErrorBoundary>
           </div>
         </div>
