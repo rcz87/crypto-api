@@ -233,7 +233,7 @@ export class OKXService {
 
   async getCompleteSOLData(): Promise<SolCompleteData> {
     try {
-      const [ticker, candles5m, candles15m, candles30m, candles1H, candles4H, candles1D, candles1W, orderBook, recentTrades] = await Promise.all([
+      const results = await Promise.allSettled([
         this.getTicker('SOL-USDT'),
         this.getCandles('SOL-USDT', '5m', 100),  // 5m: 8+ hours of data
         this.getCandles('SOL-USDT', '15m', 96),  // 15m: 24+ hours of data
@@ -245,6 +245,35 @@ export class OKXService {
         this.getOrderBook('SOL-USDT', 50), // Increased to 50 levels for maximum depth
         this.getRecentTrades('SOL-USDT', 30), // Increased from 20 to 30
       ]);
+
+      // Extract results with fallbacks for failed requests
+      const ticker = results[0].status === 'fulfilled' ? results[0].value : null;
+      const candles5m = results[1].status === 'fulfilled' ? results[1].value : [];
+      const candles15m = results[2].status === 'fulfilled' ? results[2].value : [];
+      const candles30m = results[3].status === 'fulfilled' ? results[3].value : [];
+      const candles1H = results[4].status === 'fulfilled' ? results[4].value : [];
+      const candles4H = results[5].status === 'fulfilled' ? results[5].value : [];
+      const candles1D = results[6].status === 'fulfilled' ? results[6].value : [];
+      const candles1W = results[7].status === 'fulfilled' ? results[7].value : [];
+      const orderBook = results[8].status === 'fulfilled' ? results[8].value : {
+        asks: [],
+        bids: [],
+        spread: '0.0000'
+      };
+      const recentTrades = results[9].status === 'fulfilled' ? results[9].value : [];
+
+      // Log any failed requests for debugging
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const endpoints = ['ticker', '5m', '15m', '30m', '1H', '4H', '1D', '1W', 'orderBook', 'trades'];
+          console.error(`Failed to fetch ${endpoints[index]}:`, result.reason);
+        }
+      });
+
+      // Ensure we have at least ticker data
+      if (!ticker) {
+        throw new Error('Critical: Failed to fetch ticker data');
+      }
 
       return {
         ticker,
