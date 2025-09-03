@@ -24,7 +24,8 @@ info:
     - Rate limit: 100 requests/minute
     - 99.9% uptime with auto-reconnection
     - SSL-secured with CORS enabled
-  version: '2.3.0'
+    - Updated: 2025-09-03 with full SharpSignalEngine access
+  version: '2.4.0'
   contact:
     email: admin@guardiansofthegreentoken.com
     url: https://guardiansofthegreentoken.com
