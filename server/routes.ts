@@ -100,6 +100,25 @@ Allow: /openapi.yaml`);
     }
   });
 
+  // OpenAPI specification endpoint - served dynamically to bypass static caching
+  app.get('/openapi.yaml', (req: Request, res: Response) => {
+    try {
+      const openapiPath = path.join(process.cwd(), 'public', 'openapi.yaml');
+      const openapiContent = fs.readFileSync(openapiPath, 'utf8');
+      
+      // Set headers to prevent caching
+      res.setHeader('Content-Type', 'application/x-yaml');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Last-Modified', new Date().toUTCString());
+      
+      res.send(openapiContent);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to load OpenAPI specification' });
+    }
+  });
+
   // Metrics endpoint for monitoring and observability
   app.get('/metrics', async (req: Request, res: Response) => {
     try {
