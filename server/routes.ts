@@ -114,21 +114,7 @@ Allow: /openapi.yaml`);
   });
 
   // OpenAPI YAML specification for GPT custom actions
-  app.get("/openapi.yaml", (req: Request, res: Response) => {
-    try {
-      const yamlPath = path.join(process.cwd(), "openapi.yaml");
-      const yamlContent = fs.readFileSync(yamlPath, "utf8");
-      res.setHeader("Content-Type", "application/x-yaml");
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      res.send(yamlContent);
-    } catch (error) {
-      console.error("Error serving OpenAPI YAML:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to load OpenAPI specification"
-      });
-    }
-  });
+  // Endpoint moved to later section - using public/openapi.yaml
 
   // GPT AI Plugin manifest
   app.get("/.well-known/ai-plugin.json", (req: Request, res: Response) => {
@@ -520,8 +506,10 @@ Allow: /openapi.yaml`);
     try {
       res.setHeader('Content-Type', 'application/x-yaml');
       res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       const filePath = path.resolve(process.cwd(), 'public/openapi.yaml');
-      res.sendFile(filePath);
+      const content = fs.readFileSync(filePath, 'utf8');
+      res.send(content);
     } catch (error) {
       console.error('Error serving OpenAPI spec:', error);
       res.status(500).json({ error: 'OpenAPI specification not found' });
