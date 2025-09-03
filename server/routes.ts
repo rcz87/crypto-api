@@ -120,20 +120,28 @@ Allow: /openapi.yaml`);
     }
   });
 
-  // OpenAPI YAML specification for GPT custom actions - HIGH PRIORITY
+  // OpenAPI YAML specification for GPT custom actions - OPTIMIZED CACHE
   app.get('/openapi.yaml', (req: Request, res: Response) => {
     try {
       const openapiPath = path.join(process.cwd(), 'public', 'openapi.yaml');
+      const stats = fs.statSync(openapiPath);
       const openapiContent = fs.readFileSync(openapiPath, 'utf8');
       
-      // Set aggressive anti-cache headers
+      // Generate ETag from file modification time and size
+      const etag = `"${stats.mtime.getTime()}-${stats.size}"`;
+      
+      // Check if client has cached version
+      const clientETag = req.headers['if-none-match'];
+      if (clientETag === etag) {
+        return res.status(304).end(); // Not Modified
+      }
+      
+      // Set smart cache headers
       res.setHeader('Content-Type', 'application/x-yaml; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-      res.setHeader('Last-Modified', new Date().toUTCString());
-      res.setHeader('ETag', `"priority-${Date.now()}"`);
-      res.setHeader('Vary', '*');
+      res.setHeader('Cache-Control', 'public, max-age=1800, must-revalidate'); // 30 min cache, always revalidate
+      res.setHeader('ETag', etag);
+      res.setHeader('Last-Modified', stats.mtime.toUTCString());
+      res.setHeader('Vary', 'Accept-Encoding');
       
       res.send(openapiContent);
     } catch (error) {
@@ -141,18 +149,27 @@ Allow: /openapi.yaml`);
     }
   });
 
-  // Alternative OpenAPI endpoint untuk GPT Custom Actions
+  // Alternative OpenAPI endpoint with same smart cache
   app.get('/api/openapi.yaml', (req: Request, res: Response) => {
     try {
       const openapiPath = path.join(process.cwd(), 'public', 'openapi.yaml');
+      const stats = fs.statSync(openapiPath);
       const openapiContent = fs.readFileSync(openapiPath, 'utf8');
       
-      // Set aggressive anti-cache headers
+      // Generate ETag from file modification time and size
+      const etag = `"api-${stats.mtime.getTime()}-${stats.size}"`;
+      
+      // Check if client has cached version
+      const clientETag = req.headers['if-none-match'];
+      if (clientETag === etag) {
+        return res.status(304).end(); // Not Modified
+      }
+      
+      // Set smart cache headers
       res.setHeader('Content-Type', 'application/x-yaml; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-      res.setHeader('ETag', `"api-${Date.now()}"`);
+      res.setHeader('Cache-Control', 'public, max-age=900, must-revalidate'); // 15 min cache for API endpoint
+      res.setHeader('ETag', etag);
+      res.setHeader('Last-Modified', stats.mtime.toUTCString());
       
       res.send(openapiContent);
     } catch (error) {

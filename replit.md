@@ -45,7 +45,20 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes (August 2025)
 
-## Latest Updates - Maximum OKX API & WebSocket Optimization (August 26, 2025)
+## Latest Updates - Smart Cache & Version Management (September 3, 2025)
+- **Smart Cache Implementation**: ETag + optimized cache headers for OpenAPI specification
+- **Auto-Version Bumping**: Automatic version increment on endpoint changes for cache invalidation
+- **Dual Endpoints**: Main (`/openapi.yaml`) and alternative (`/api/openapi.yaml`) with smart caching
+- **Performance Optimization**: 30-min cache with must-revalidate for balance of speed and freshness
+- **GPT Integration Ready**: All 16 operations (10 SOL endpoints + system endpoints) documented
+
+### Cache Strategy
+- **ETag Generation**: Based on file modification time + size for precise cache control
+- **Cache Duration**: 30 minutes main endpoint, 15 minutes API endpoint
+- **Auto-Invalidation**: Cache clears automatically when OpenAPI file changes
+- **304 Not Modified**: Efficient bandwidth usage when content unchanged
+
+## Previous Updates - Maximum OKX API & WebSocket Optimization (August 26, 2025)
 - **Enhanced WebSocket Channels**: Upgraded to 6-channel streaming for comprehensive data
 - **Connection Reliability**: Advanced reconnection with exponential backoff and ping/pong health checks
 - **Data Depth Maximized**: Increased order book depth to 50 levels for maximum market analysis
