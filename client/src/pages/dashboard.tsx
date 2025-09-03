@@ -192,7 +192,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
         {/* Status Overview */}
         <StatusOverview 
           healthData={(healthData as any)?.data} 
@@ -226,16 +226,20 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-          {/* API Documentation */}
-          <APIDocumentation />
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mt-8">
+          {/* Real-time Data - Prioritas utama */}
+          <div className="xl:order-1">
+            <RealTimeData 
+              solData={displaySolData} 
+              isLoading={isDataLoading}
+              isLiveStream={wsConnected && !!marketData}
+            />
+          </div>
 
-          {/* Real-time Data */}
-          <RealTimeData 
-            solData={displaySolData} 
-            isLoading={isDataLoading}
-            isLiveStream={wsConnected && !!marketData}
-          />
+          {/* API Documentation */}
+          <div className="xl:order-2">
+            <APIDocumentation />
+          </div>
         </div>
 
         {/* Order Flow & Recent Trades */}
@@ -246,41 +250,36 @@ export default function Dashboard() {
         {/* Advanced Trading Analytics */}
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Advanced Trading Analytics</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-5 gap-6">
+          
+          {/* Row 1: Trading Fundamentals */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             {/* Funding Rate */}
-            <div className="xl:col-span-1">
-              <ErrorBoundary>
-                <FundingRate />
-              </ErrorBoundary>
-            </div>
+            <ErrorBoundary>
+              <FundingRate />
+            </ErrorBoundary>
 
             {/* Open Interest */}
-            <div className="xl:col-span-1">
-              <ErrorBoundary>
-                <OpenInterest />
-              </ErrorBoundary>
-            </div>
+            <ErrorBoundary>
+              <OpenInterest />
+            </ErrorBoundary>
 
             {/* Volume Profile */}
-            <div className="xl:col-span-1">
-              <ErrorBoundary>
-                <VolumeProfile />
-              </ErrorBoundary>
-            </div>
+            <ErrorBoundary>
+              <VolumeProfile />
+            </ErrorBoundary>
+          </div>
 
+          {/* Row 2: Advanced Analysis */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Volume Delta (CVD) */}
-            <div className="xl:col-span-1">
-              <ErrorBoundary>
-                <VolumeDelta />
-              </ErrorBoundary>
-            </div>
+            <ErrorBoundary>
+              <VolumeDelta />
+            </ErrorBoundary>
 
             {/* SMC Analysis */}
-            <div className="xl:col-span-1">
-              <ErrorBoundary>
-                <SMCAnalysis />
-              </ErrorBoundary>
-            </div>
+            <ErrorBoundary>
+              <SMCAnalysis />
+            </ErrorBoundary>
           </div>
         </div>
 
