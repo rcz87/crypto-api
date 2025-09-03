@@ -83,7 +83,7 @@ export default function Dashboard() {
         
         lastTickerRef.current = {
           ticker: {
-            symbol: tickerData.instId || 'SOL-USDT',
+            symbol: tickerData.instId || 'SOL-USDT-SWAP',
             price: tickerData.last,
             change24h: `${parseFloat(changePercent) >= 0 ? '+' : ''}${changePercent}%`,
             high24h: tickerData.high24h,

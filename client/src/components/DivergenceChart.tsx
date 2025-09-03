@@ -266,7 +266,7 @@ export function DivergenceChart({
               <Target className="h-4 w-4 text-green-400" />
             </div>
             <div className="text-lg font-mono text-white">${currentPrice.toFixed(2)}</div>
-            <div className="text-xs text-gray-500 mt-1">SOL-USDT</div>
+            <div className="text-xs text-gray-500 mt-1">SOL-USDT-SWAP</div>
           </CardContent>
         </Card>
         

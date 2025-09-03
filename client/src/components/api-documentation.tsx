@@ -55,7 +55,7 @@ export function APIDocumentation() {
               </Button>
             </div>
             <p className="text-sm text-gray-600 mb-3">
-              Aggregates all SOL trading data from OKX including ticker, candles, order book, and recent trades.
+              Aggregates all SOL-USDT-SWAP perpetual futures data from OKX including ticker, candles, order book, funding rates, and recent trades.
             </p>
             
             <div className="bg-gray-50 rounded-lg p-3">
@@ -65,7 +65,7 @@ export function APIDocumentation() {
   "success": true,
   "data": {
     "ticker": {
-      "symbol": "SOL-USDT",
+      "symbol": "SOL-USDT-SWAP",
       "price": "67.42",
       "change24h": "2.5%"
     },

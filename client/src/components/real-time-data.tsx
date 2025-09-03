@@ -143,7 +143,7 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
           <CardTitle className="text-lg font-semibold text-gray-900 flex items-center justify-between">
             <div className="flex items-center">
               <TrendingUp className="text-primary mr-2" />
-              Live SOL Data
+              Live SOL Futures Data
             </div>
             {isLiveStream && (
               <div className="flex items-center space-x-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
@@ -158,7 +158,7 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-500" data-testid="text-symbol">
-                {ticker?.symbol || 'SOL-USDT'}
+                {ticker?.symbol || 'SOL-USDT-SWAP'}
               </span>
               <span className="text-xs text-gray-400">
                 Last updated: <span data-testid="text-last-update">{lastUpdateTime}</span>

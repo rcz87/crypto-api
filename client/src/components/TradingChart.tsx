@@ -153,7 +153,7 @@ export function TradingChart({ data, isConnected }: TradingChartProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-emerald-500" />
-            <CardTitle>SOL/USDT TradingView Chart</CardTitle>
+            <CardTitle>SOL/USDT-SWAP Futures Chart</CardTitle>
             <Badge variant={isConnected ? "default" : "destructive"} className="ml-2">
               <Activity className="h-3 w-3 mr-1" />
               {isConnected ? 'Real-time' : 'Disconnected'}
