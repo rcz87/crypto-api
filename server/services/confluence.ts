@@ -504,25 +504,29 @@ export class ConfluenceService {
     
     // Negative funding = bullish (shorts paying longs)
     // Positive funding = bearish (longs paying shorts)
-    if (rate < -0.01) return 30; // Strong bullish
-    if (rate < -0.005) return 15; // Moderate bullish
-    if (rate > 0.01) return -30; // Strong bearish
-    if (rate > 0.005) return -15; // Moderate bearish
+    if (rate < -0.0001) return 25; // Any negative is bullish
+    if (rate > 0.0001) return -25; // Any positive is bearish
     
-    return 0; // Neutral
+    // Very small rates are still meaningful
+    if (rate < 0) return 15; // Small negative still bullish
+    if (rate > 0) return -15; // Small positive still bearish
+    
+    return 10; // Exactly zero gets base score
   }
 
   private calculateOpenInterestScore(oi: OpenInterestData): number {
     const currentOI = parseFloat(oi.oiUsd || '0');
     
-    // Rising OI with price increase = bullish
-    // Rising OI with price decrease = bearish
-    // This is simplified - would need price context
-    if (currentOI > 1000000000) { // Over 1B USD OI indicates strong interest
-      return 10;
+    // Open Interest analysis based on size
+    if (currentOI > 500000000) { // Over 500M USD indicates very high interest
+      return 30; // High institutional interest
+    } else if (currentOI > 200000000) { // Over 200M USD 
+      return 20; // Moderate institutional interest
+    } else if (currentOI > 50000000) { // Over 50M USD
+      return 10; // Some institutional interest
     }
     
-    return 0;
+    return 5; // Base score for having any OI data
   }
 
   private getPOCBias(vp: VolumeProfileData): 'bullish' | 'bearish' | 'neutral' {
