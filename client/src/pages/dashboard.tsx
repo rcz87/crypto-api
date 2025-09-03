@@ -16,6 +16,7 @@ import { VolumeDelta } from "@/components/VolumeDelta";
 import { SMCAnalysis } from "@/components/SMCAnalysis";
 import { CVDAnalysisComponent } from "@/components/CVDAnalysis";
 import { ConfluenceScoring } from "@/components/ConfluenceScoring";
+import { TechnicalIndicators } from "@/components/TechnicalIndicators";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -284,7 +285,14 @@ export default function Dashboard() {
             </ErrorBoundary>
           </div>
 
-          {/* Row 3: Advanced Confluence Scoring */}
+          {/* Row 3: Technical Indicators - RSI/EMA Analysis */}
+          <div className="mt-6">
+            <ErrorBoundary>
+              <TechnicalIndicators className="w-full" />
+            </ErrorBoundary>
+          </div>
+
+          {/* Row 4: Advanced Confluence Scoring */}
           <div className="mt-6">
             <ErrorBoundary>
               <ConfluenceScoring timeframe="1H" className="w-full" />

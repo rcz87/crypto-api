@@ -7,6 +7,7 @@ import { storage } from "./storage";
 import { okxService } from "./services/okx";
 import { CVDService } from "./services/cvd";
 import { ConfluenceService } from "./services/confluence";
+import { TechnicalIndicatorsService } from "./services/technicalIndicators";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema } from "@shared/schema";
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
@@ -521,7 +522,7 @@ Allow: /openapi.yaml`);
       const confluenceService = new ConfluenceService();
       
       // Fetch all analysis data in parallel
-      const [smcData, cvdData, volumeData, fundingData, oiData] = await Promise.all([
+      const [smcData, cvdData, volumeData, fundingData, oiData, technicalData] = await Promise.all([
         okxService.getSMCAnalysis('SOL-USDT', timeframe, 100).catch(() => null),
         new CVDService(okxService).analyzeCVD(
           await okxService.getCandles('SOL-USDT', timeframe, 100),
@@ -530,16 +531,21 @@ Allow: /openapi.yaml`);
         ).catch(() => null),
         okxService.getVolumeProfile('SOL-USDT', timeframe, 100).catch(() => null),
         okxService.getFundingRate('SOL-USDT').catch(() => null),
-        okxService.getOpenInterest('SOL-USDT').catch(() => null)
+        okxService.getOpenInterest('SOL-USDT').catch(() => null),
+        new TechnicalIndicatorsService().analyzeTechnicalIndicators(
+          await okxService.getCandles('SOL-USDT', timeframe, 100),
+          timeframe
+        ).catch(() => null)
       ]);
       
-      // Calculate confluence score
+      // Calculate confluence score with technical indicators
       const confluenceScore = await confluenceService.calculateConfluenceScore(
         smcData || undefined,
         cvdData || undefined,
         volumeData || undefined,
         fundingData || undefined,
         oiData || undefined,
+        technicalData || undefined,
         timeframe
       );
       
@@ -569,6 +575,58 @@ Allow: /openapi.yaml`);
         level: 'error',
         message: 'Confluence analysis request failed',
         details: `GET /api/sol/confluence - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Technical Indicators endpoint - RSI/EMA Professional Analysis
+  app.get('/api/sol/technical', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const timeframe = req.query.timeframe as string || '1H';
+      const limit = parseInt(req.query.limit as string) || 100;
+      
+      // Initialize technical indicators service
+      const technicalService = new TechnicalIndicatorsService();
+      
+      // Get candles data for technical analysis
+      const candles = await okxService.getCandles('SOL-USDT', timeframe, limit);
+      
+      // Perform technical indicators analysis
+      const technicalAnalysis = await technicalService.analyzeTechnicalIndicators(candles, timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Technical indicators analysis request completed',
+        details: `GET /api/sol/technical - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+      });
+      
+      res.json({
+        success: true,
+        data: technicalAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/technical:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Technical indicators analysis request failed',
+        details: `GET /api/sol/technical - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
       
       res.status(500).json({

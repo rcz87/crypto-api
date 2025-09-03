@@ -5,6 +5,7 @@ import {
   OpenInterestData,
   SMCAnalysisData 
 } from "@shared/schema";
+import { TechnicalIndicatorsAnalysis } from "./technicalIndicators";
 import { z } from "zod";
 
 export interface ConfluenceScore {
@@ -18,6 +19,7 @@ export interface ConfluenceScore {
     volumeProfile: number;
     funding: number;
     openInterest: number;
+    technicalIndicators: number;
   };
   signals: {
     type: string;
@@ -42,6 +44,7 @@ export class ConfluenceService {
     volumeProfile?: VolumeProfileData,
     fundingRate?: FundingRateData,
     openInterest?: OpenInterestData,
+    technicalIndicators?: TechnicalIndicatorsAnalysis,
     timeframe: string = '1H'
   ): Promise<ConfluenceScore> {
     
@@ -51,7 +54,8 @@ export class ConfluenceService {
       cvd: 0,
       volumeProfile: 0,
       funding: 0,
-      openInterest: 0
+      openInterest: 0,
+      technicalIndicators: 0
     };
 
     // 1. SMC Analysis Scoring (25% weight)
@@ -177,6 +181,68 @@ export class ConfluenceService {
           confidence: 65
         });
       }
+    }
+
+    // 6. Technical Indicators Scoring (20% weight) - RSI/EMA Analysis
+    if (technicalIndicators) {
+      const techScore = this.calculateTechnicalIndicatorsScore(technicalIndicators);
+      components.technicalIndicators = techScore;
+      
+      // Overall momentum signal
+      signals.push({
+        type: technicalIndicators.momentum.overall,
+        source: 'Technical Indicators',
+        weight: 20,
+        confidence: technicalIndicators.confidence.overall
+      });
+
+      // RSI signals
+      if (technicalIndicators.rsi.signal !== 'neutral') {
+        const rsiWeight = technicalIndicators.rsi.strength === 'strong' ? 18 : 
+                         technicalIndicators.rsi.strength === 'moderate' ? 12 : 8;
+        
+        signals.push({
+          type: technicalIndicators.rsi.signal === 'oversold' ? 'bullish' : 'bearish',
+          source: 'RSI Analysis',
+          weight: rsiWeight,
+          confidence: technicalIndicators.confidence.rsiQuality
+        });
+      }
+
+      // EMA crossover signals
+      if (technicalIndicators.ema.crossover.status !== 'neutral') {
+        signals.push({
+          type: technicalIndicators.ema.crossover.status === 'golden_cross' ? 'bullish' : 'bearish',
+          source: 'EMA Crossover',
+          weight: 15,
+          confidence: technicalIndicators.ema.crossover.confidence
+        });
+      }
+
+      // RSI divergence signals
+      if (technicalIndicators.rsi.divergence.detected) {
+        signals.push({
+          type: technicalIndicators.rsi.divergence.type || 'neutral',
+          source: 'RSI Divergence',
+          weight: 16,
+          confidence: 85
+        });
+      }
+
+      // Additional technical signals from the indicators service
+      technicalIndicators.signals.forEach(signal => {
+        const signalType = signal.type.includes('oversold') || signal.type.includes('golden') ? 'bullish' :
+                          signal.type.includes('overbought') || signal.type.includes('death') ? 'bearish' : 'neutral';
+        
+        if (signalType !== 'neutral') {
+          signals.push({
+            type: signalType,
+            source: `Technical Signal: ${signal.type}`,
+            weight: signal.strength === 'strong' ? 14 : signal.strength === 'moderate' ? 10 : 6,
+            confidence: signal.confidence
+          });
+        }
+      });
     }
 
     // Calculate overall confluence
@@ -388,5 +454,58 @@ export class ConfluenceService {
     } else {
       return 'high';
     }
+  }
+
+  private calculateTechnicalIndicatorsScore(tech: TechnicalIndicatorsAnalysis): number {
+    let score = 0;
+    
+    // RSI Analysis (40% of technical score)
+    if (tech.rsi.signal === 'oversold') {
+      score += tech.rsi.strength === 'strong' ? 40 : tech.rsi.strength === 'moderate' ? 25 : 15;
+    } else if (tech.rsi.signal === 'overbought') {
+      score -= tech.rsi.strength === 'strong' ? 40 : tech.rsi.strength === 'moderate' ? 25 : 15;
+    }
+    
+    // RSI trend direction (15% of technical score)
+    if (tech.rsi.trend === 'bullish') score += 15;
+    else if (tech.rsi.trend === 'bearish') score -= 15;
+    
+    // RSI divergence (20% of technical score)
+    if (tech.rsi.divergence.detected) {
+      const divScore = tech.rsi.divergence.strength === 'strong' ? 20 : 
+                      tech.rsi.divergence.strength === 'moderate' ? 12 : 8;
+      
+      if (tech.rsi.divergence.type === 'bullish') score += divScore;
+      else if (tech.rsi.divergence.type === 'bearish') score -= divScore;
+    }
+    
+    // EMA Analysis (25% of technical score)
+    if (tech.ema.crossover.status === 'golden_cross') {
+      score += tech.ema.crossover.strength === 'strong' ? 25 : 
+               tech.ema.crossover.strength === 'moderate' ? 18 : 12;
+    } else if (tech.ema.crossover.status === 'death_cross') {
+      score -= tech.ema.crossover.strength === 'strong' ? 25 : 
+               tech.ema.crossover.strength === 'moderate' ? 18 : 12;
+    }
+    
+    // EMA trend consistency bonus/penalty
+    if (tech.ema.trend.direction === 'bullish' && tech.ema.trend.consistency > 70) {
+      score += 10;
+    } else if (tech.ema.trend.direction === 'bearish' && tech.ema.trend.consistency > 70) {
+      score -= 10;
+    }
+    
+    // Overall momentum confirmation
+    if (tech.momentum.overall === 'bullish' && tech.momentum.confluenceScore > 70) {
+      score += 15;
+    } else if (tech.momentum.overall === 'bearish' && tech.momentum.confluenceScore < 30) {
+      score -= 15;
+    }
+    
+    // Quality adjustment based on confidence
+    const qualityMultiplier = (tech.confidence.overall + tech.confidence.rsiQuality + tech.confidence.emaQuality) / 300;
+    score *= qualityMultiplier;
+    
+    return Math.max(-100, Math.min(100, Math.round(score)));
   }
 }
