@@ -17,6 +17,7 @@ import { SMCAnalysis } from "@/components/SMCAnalysis";
 import { CVDAnalysisComponent } from "@/components/CVDAnalysis";
 import { ConfluenceScoring } from "@/components/ConfluenceScoring";
 import { TechnicalIndicators } from "@/components/TechnicalIndicators";
+import { FibonacciAnalysis } from "@/components/FibonacciAnalysis";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -292,7 +293,14 @@ export default function Dashboard() {
             </ErrorBoundary>
           </div>
 
-          {/* Row 4: Advanced Confluence Scoring */}
+          {/* Row 4: Fibonacci Analysis - Professional Retracements & Extensions */}
+          <div className="mt-6">
+            <ErrorBoundary>
+              <FibonacciAnalysis className="w-full" />
+            </ErrorBoundary>
+          </div>
+
+          {/* Row 5: Advanced Confluence Scoring */}
           <div className="mt-6">
             <ErrorBoundary>
               <ConfluenceScoring timeframe="1H" className="w-full" />

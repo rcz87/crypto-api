@@ -8,6 +8,7 @@ import { okxService } from "./services/okx";
 import { CVDService } from "./services/cvd";
 import { ConfluenceService } from "./services/confluence";
 import { TechnicalIndicatorsService } from "./services/technicalIndicators";
+import { FibonacciService } from "./services/fibonacci";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema } from "@shared/schema";
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
@@ -522,7 +523,7 @@ Allow: /openapi.yaml`);
       const confluenceService = new ConfluenceService();
       
       // Fetch all analysis data in parallel
-      const [smcData, cvdData, volumeData, fundingData, oiData, technicalData] = await Promise.all([
+      const [smcData, cvdData, volumeData, fundingData, oiData, technicalData, fibonacciData] = await Promise.all([
         okxService.getSMCAnalysis('SOL-USDT', timeframe, 100).catch(() => null),
         new CVDService(okxService).analyzeCVD(
           await okxService.getCandles('SOL-USDT', timeframe, 100),
@@ -535,10 +536,14 @@ Allow: /openapi.yaml`);
         new TechnicalIndicatorsService().analyzeTechnicalIndicators(
           await okxService.getCandles('SOL-USDT', timeframe, 100),
           timeframe
+        ).catch(() => null),
+        new FibonacciService().analyzeFibonacci(
+          await okxService.getCandles('SOL-USDT', timeframe, 100),
+          timeframe
         ).catch(() => null)
       ]);
       
-      // Calculate confluence score with technical indicators
+      // Calculate confluence score with all 7 layers
       const confluenceScore = await confluenceService.calculateConfluenceScore(
         smcData || undefined,
         cvdData || undefined,
@@ -546,6 +551,7 @@ Allow: /openapi.yaml`);
         fundingData || undefined,
         oiData || undefined,
         technicalData || undefined,
+        fibonacciData || undefined,
         timeframe
       );
       
@@ -627,6 +633,58 @@ Allow: /openapi.yaml`);
         level: 'error',
         message: 'Technical indicators analysis request failed',
         details: `GET /api/sol/technical - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Fibonacci Analysis endpoint - Professional Fibonacci Retracements & Extensions
+  app.get('/api/sol/fibonacci', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const timeframe = req.query.timeframe as string || '1H';
+      const limit = parseInt(req.query.limit as string) || 100;
+      
+      // Initialize fibonacci service
+      const fibonacciService = new FibonacciService();
+      
+      // Get candles data for fibonacci analysis
+      const candles = await okxService.getCandles('SOL-USDT', timeframe, limit);
+      
+      // Perform fibonacci analysis
+      const fibonacciAnalysis = await fibonacciService.analyzeFibonacci(candles, timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Fibonacci analysis request completed',
+        details: `GET /api/sol/fibonacci - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+      });
+      
+      res.json({
+        success: true,
+        data: fibonacciAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/fibonacci:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Fibonacci analysis request failed',
+        details: `GET /api/sol/fibonacci - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
       
       res.status(500).json({

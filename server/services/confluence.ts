@@ -6,6 +6,7 @@ import {
   SMCAnalysisData 
 } from "@shared/schema";
 import { TechnicalIndicatorsAnalysis } from "./technicalIndicators";
+import { FibonacciAnalysis } from "./fibonacci";
 import { z } from "zod";
 
 export interface ConfluenceScore {
@@ -20,6 +21,7 @@ export interface ConfluenceScore {
     funding: number;
     openInterest: number;
     technicalIndicators: number;
+    fibonacci: number;
   };
   signals: {
     type: string;
@@ -45,6 +47,7 @@ export class ConfluenceService {
     fundingRate?: FundingRateData,
     openInterest?: OpenInterestData,
     technicalIndicators?: TechnicalIndicatorsAnalysis,
+    fibonacciAnalysis?: FibonacciAnalysis,
     timeframe: string = '1H'
   ): Promise<ConfluenceScore> {
     
@@ -55,7 +58,8 @@ export class ConfluenceService {
       volumeProfile: 0,
       funding: 0,
       openInterest: 0,
-      technicalIndicators: 0
+      technicalIndicators: 0,
+      fibonacci: 0
     };
 
     // 1. SMC Analysis Scoring (25% weight)
@@ -239,6 +243,71 @@ export class ConfluenceService {
             type: signalType,
             source: `Technical Signal: ${signal.type}`,
             weight: signal.strength === 'strong' ? 14 : signal.strength === 'moderate' ? 10 : 6,
+            confidence: signal.confidence
+          });
+        }
+      });
+    }
+
+    // 7. Fibonacci Analysis Scoring (18% weight) - Golden Zones & Key Levels
+    if (fibonacciAnalysis) {
+      const fibScore = this.calculateFibonacciScore(fibonacciAnalysis);
+      components.fibonacci = fibScore;
+      
+      // Overall Fibonacci confluence signal
+      signals.push({
+        type: fibonacciAnalysis.trend.direction,
+        source: 'Fibonacci Analysis',
+        weight: 18,
+        confidence: fibonacciAnalysis.confluence.score
+      });
+
+      // Golden Zone signals
+      if (fibonacciAnalysis.keyZones.goldenZone.isActive) {
+        signals.push({
+          type: fibonacciAnalysis.trend.direction === 'bullish' ? 'bullish' : 'bearish',
+          source: 'Fibonacci Golden Zone',
+          weight: 20,
+          confidence: 88
+        });
+      }
+
+      // Fibonacci level respect signals
+      const respectedLevels = fibonacciAnalysis.retracements.filter(level => level.isRespected && level.significance !== 'minor');
+      if (respectedLevels.length > 0) {
+        signals.push({
+          type: fibonacciAnalysis.trend.direction,
+          source: 'Fibonacci Level Respect',
+          weight: 16,
+          confidence: Math.min(90, 60 + (respectedLevels.length * 10))
+        });
+      }
+
+      // Extension target signals
+      fibonacciAnalysis.extensions.forEach(ext => {
+        const currentPrice = fibonacciAnalysis.currentPrice.value;
+        const distance = Math.abs(currentPrice - ext.price) / currentPrice;
+        
+        if (distance < 0.05) { // Within 5% of extension target
+          signals.push({
+            type: 'bullish', // Extensions typically bullish targets
+            source: `Fibonacci ${ext.name} Extension`,
+            weight: ext.projection === 'conservative' ? 15 : ext.projection === 'moderate' ? 12 : 8,
+            confidence: ext.probability
+          });
+        }
+      });
+
+      // Active Fibonacci signals
+      fibonacciAnalysis.signals.forEach(signal => {
+        const fibSignalType = signal.type === 'bounce_support' || signal.type === 'extension_target' ? 'bullish' :
+                             signal.type === 'break_resistance' ? 'bearish' : 'neutral';
+        
+        if (fibSignalType !== 'neutral') {
+          signals.push({
+            type: fibSignalType,
+            source: `Fibonacci Signal: ${signal.type}`,
+            weight: signal.strength === 'strong' ? 17 : signal.strength === 'moderate' ? 12 : 8,
             confidence: signal.confidence
           });
         }
@@ -504,6 +573,59 @@ export class ConfluenceService {
     
     // Quality adjustment based on confidence
     const qualityMultiplier = (tech.confidence.overall + tech.confidence.rsiQuality + tech.confidence.emaQuality) / 300;
+    score *= qualityMultiplier;
+    
+    return Math.max(-100, Math.min(100, Math.round(score)));
+  }
+
+  private calculateFibonacciScore(fib: FibonacciAnalysis): number {
+    let score = 0;
+    
+    // Trend analysis (30% of fibonacci score)
+    if (fib.trend.direction === 'bullish') {
+      score += fib.trend.strength === 'strong' ? 30 : fib.trend.strength === 'moderate' ? 20 : 10;
+    } else if (fib.trend.direction === 'bearish') {
+      score -= fib.trend.strength === 'strong' ? 30 : fib.trend.strength === 'moderate' ? 20 : 10;
+    }
+    
+    // Golden Zone activity (25% of fibonacci score)
+    if (fib.keyZones.goldenZone.isActive) {
+      const zoneBonus = fib.keyZones.goldenZone.strength === 'strong' ? 25 : 
+                       fib.keyZones.goldenZone.strength === 'moderate' ? 18 : 12;
+      
+      if (fib.trend.direction === 'bullish') score += zoneBonus;
+      else if (fib.trend.direction === 'bearish') score -= zoneBonus;
+    }
+    
+    // Institutional Zone activity (20% of fibonacci score)
+    if (fib.keyZones.institutionalZone.isActive) {
+      const instBonus = fib.keyZones.institutionalZone.strength === 'strong' ? 20 : 15;
+      
+      if (fib.trend.direction === 'bullish') score += instBonus;
+      else if (fib.trend.direction === 'bearish') score -= instBonus;
+    }
+    
+    // Level respect quality (15% of fibonacci score)
+    const respectRate = fib.confidence.levelRespect;
+    if (respectRate > 70) score += 15;
+    else if (respectRate > 50) score += 10;
+    else if (respectRate > 30) score += 5;
+    
+    // Active Fibonacci signals (10% of fibonacci score)
+    const strongSignals = fib.signals.filter(s => s.strength === 'strong').length;
+    const moderateSignals = fib.signals.filter(s => s.strength === 'moderate').length;
+    
+    const signalBonus = (strongSignals * 6) + (moderateSignals * 3);
+    
+    if (fib.trend.direction === 'bullish') score += Math.min(10, signalBonus);
+    else if (fib.trend.direction === 'bearish') score -= Math.min(10, signalBonus);
+    
+    // Confluence quality adjustment
+    const confluenceMultiplier = fib.confluence.score / 100;
+    score *= confluenceMultiplier;
+    
+    // Overall confidence adjustment
+    const qualityMultiplier = fib.confidence.overall / 100;
     score *= qualityMultiplier;
     
     return Math.max(-100, Math.min(100, Math.round(score)));
