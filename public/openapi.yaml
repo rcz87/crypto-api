@@ -24,7 +24,7 @@ info:
     - Rate limit: 100 requests/minute
     - 99.9% uptime with auto-reconnection
     - SSL-secured with CORS enabled
-  version: '2.1.0'
+  version: '2.1.1'
   contact:
     email: admin@guardiansofthegreentoken.com
     url: https://guardiansofthegreentoken.com
