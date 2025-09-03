@@ -5,7 +5,8 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { okxService } from "./services/okx";
-import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema } from "@shared/schema";
+import { CVDService } from "./services/cvd";
+import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema } from "@shared/schema";
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
 import { backpressureManager } from "./utils/websocket";
@@ -440,6 +441,64 @@ Allow: /openapi.yaml`);
         level: 'error',
         message: 'SMC analysis request failed',
         details: `GET /api/sol/smc - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // CVD Analysis endpoint - Volume Delta Professional Analysis
+  app.get('/api/sol/cvd', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const timeframe = req.query.timeframe as string || '1H';
+      const limit = parseInt(req.query.limit as string) || 100;
+      
+      // Initialize CVD service with OKX service
+      const cvdService = new CVDService(okxService);
+      
+      // Get candles and trades data for CVD analysis
+      const [candles, trades] = await Promise.all([
+        okxService.getCandles('SOL-USDT', timeframe, limit),
+        okxService.getRecentTrades('SOL-USDT', 200) // Get 200 recent trades for analysis
+      ]);
+      
+      // Perform CVD analysis
+      const cvdAnalysis = await cvdService.analyzeCVD(candles, trades, timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const validated = cvdResponseSchema.parse({
+        success: true,
+        data: cvdAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'CVD analysis request completed',
+        details: `GET /api/sol/cvd - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+      });
+      
+      res.json(validated);
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/cvd:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'CVD analysis request failed',
+        details: `GET /api/sol/cvd - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
       
       res.status(500).json({

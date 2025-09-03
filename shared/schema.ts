@@ -326,4 +326,172 @@ export type OrderBlockData = z.infer<typeof orderBlockSchema>;
 export type StructurePointData = z.infer<typeof structurePointSchema>;
 export type NearestZoneData = z.infer<typeof nearestZoneSchema>;
 export type TradingScenarioData = z.infer<typeof tradingScenarioSchema>;
+// Volume Delta (CVD) Analysis Schemas - Professional Trading Analysis
+export const volumeDeltaBarSchema = z.object({
+  timestamp: z.string(),
+  price: z.string(),
+  buyVolume: z.string(),
+  sellVolume: z.string(),
+  netVolume: z.string(), // buyVolume - sellVolume
+  totalVolume: z.string(),
+  cumulativeDelta: z.string(),
+  aggressionRatio: z.number(), // buyVolume / totalVolume (0-1)
+  isAbsorption: z.boolean(),
+  isDistribution: z.boolean(),
+});
+
+export const buyerSellerAggressionSchema = z.object({
+  timeframe: z.string(),
+  buyerAggression: z.object({
+    percentage: z.number(), // 0-100
+    strength: z.enum(['weak', 'moderate', 'strong', 'extreme']),
+    volume: z.string(),
+    averageSize: z.string(),
+  }),
+  sellerAggression: z.object({
+    percentage: z.number(), // 0-100  
+    strength: z.enum(['weak', 'moderate', 'strong', 'extreme']),
+    volume: z.string(),
+    averageSize: z.string(),
+  }),
+  dominantSide: z.enum(['buyers', 'sellers', 'balanced']),
+  imbalanceRatio: z.number(), // ratio between buy/sell aggression
+  marketPressure: z.enum(['buying_pressure', 'selling_pressure', 'neutral', 'accumulation', 'distribution']),
+});
+
+export const cvdDivergenceSchema = z.object({
+  type: z.enum(['bullish', 'bearish', 'hidden_bullish', 'hidden_bearish']),
+  strength: z.enum(['weak', 'moderate', 'strong']),
+  startTime: z.string(),
+  endTime: z.string(),
+  priceDirection: z.enum(['up', 'down']),
+  cvdDirection: z.enum(['up', 'down']),
+  significance: z.enum(['minor', 'major', 'critical']),
+  confirmed: z.boolean(),
+  description: z.string(),
+});
+
+export const absorptionPatternSchema = z.object({
+  type: z.enum(['buy_absorption', 'sell_absorption', 'two_way_absorption']),
+  startTime: z.string(),
+  endTime: z.string(),
+  priceRange: z.object({
+    high: z.string(),
+    low: z.string(),
+    width: z.string(),
+  }),
+  volumeAbsorbed: z.string(),
+  efficiency: z.number(), // 0-100, how much volume for price movement
+  strength: z.enum(['weak', 'moderate', 'strong', 'institutional']),
+  implication: z.enum(['support', 'resistance', 'reversal_zone', 'continuation']),
+});
+
+export const flowAnalysisSchema = z.object({
+  trend: z.enum(['accumulation', 'distribution', 'neutral', 'rotation']),
+  phase: z.enum(['markup', 'markdown', 'reaccumulation', 'redistribution', 'ranging']),
+  strength: z.enum(['weak', 'moderate', 'strong']),
+  duration: z.string(), // time period of current flow
+  volumeProfile: z.object({
+    totalBuyVolume: z.string(),
+    totalSellVolume: z.string(),
+    netFlow: z.string(),
+    flowDirection: z.enum(['inflow', 'outflow', 'neutral']),
+  }),
+  institutionalFootprint: z.object({
+    detected: z.boolean(),
+    confidence: z.number(), // 0-100
+    patterns: z.array(z.string()),
+  }),
+});
+
+export const cvdAnalysisSchema = z.object({
+  timeframe: z.string(),
+  currentCVD: z.string(),
+  previousCVD: z.string(),
+  deltaChange: z.string(),
+  percentageChange: z.number(),
+  
+  // Historical data points for charting
+  cvdHistory: z.array(volumeDeltaBarSchema),
+  
+  // Aggression analysis
+  buyerSellerAggression: buyerSellerAggressionSchema,
+  
+  // Divergence detection
+  activeDivergences: z.array(cvdDivergenceSchema),
+  recentDivergences: z.array(cvdDivergenceSchema),
+  
+  // Absorption patterns
+  absorptionPatterns: z.array(absorptionPatternSchema),
+  
+  // Flow analysis
+  flowAnalysis: flowAnalysisSchema,
+  
+  // Smart money indicators
+  smartMoneySignals: z.object({
+    accumulation: z.object({
+      detected: z.boolean(),
+      strength: z.enum(['weak', 'moderate', 'strong']),
+      timeframe: z.string(),
+    }),
+    distribution: z.object({
+      detected: z.boolean(),
+      strength: z.enum(['weak', 'moderate', 'strong']),
+      timeframe: z.string(),
+    }),
+    manipulation: z.object({
+      detected: z.boolean(),
+      type: z.enum(['stop_hunt', 'liquidity_grab', 'false_breakout']),
+      confidence: z.number(),
+    }),
+  }),
+  
+  // Real-time metrics
+  realTimeMetrics: z.object({
+    currentBuyPressure: z.number(), // 0-100
+    currentSellPressure: z.number(), // 0-100
+    momentum: z.enum(['bullish', 'bearish', 'neutral']),
+    velocity: z.number(), // rate of CVD change
+    acceleration: z.number(), // rate of velocity change
+  }),
+  
+  // Multi-timeframe analysis
+  multiTimeframeAlignment: z.record(z.object({
+    cvd: z.string(),
+    trend: z.enum(['bullish', 'bearish', 'neutral']),
+    strength: z.enum(['weak', 'moderate', 'strong']),
+  })),
+  
+  // Confidence scoring
+  confidence: z.object({
+    overall: z.number(), // 0-100
+    dataQuality: z.number(), // 0-100 
+    signalClarity: z.number(), // 0-100
+    timeframeSynergy: z.number(), // 0-100
+  }),
+  
+  // Alerts and signals
+  alerts: z.array(z.object({
+    type: z.enum(['divergence', 'absorption', 'flow_change', 'smart_money']),
+    priority: z.enum(['low', 'medium', 'high', 'critical']),
+    message: z.string(),
+    timestamp: z.string(),
+  })),
+  
+  lastUpdate: z.string(),
+  dataAge: z.number(),
+});
+
+export const cvdResponseSchema = z.object({
+  success: z.boolean(),
+  data: cvdAnalysisSchema,
+  timestamp: z.string(),
+});
+
+export type VolumeDeltaBar = z.infer<typeof volumeDeltaBarSchema>;
+export type BuyerSellerAggression = z.infer<typeof buyerSellerAggressionSchema>;
+export type CVDDivergence = z.infer<typeof cvdDivergenceSchema>;
+export type AbsorptionPattern = z.infer<typeof absorptionPatternSchema>;
+export type FlowAnalysis = z.infer<typeof flowAnalysisSchema>;
+export type CVDAnalysis = z.infer<typeof cvdAnalysisSchema>;
 export type ApiResponse = z.infer<typeof apiResponseSchema>;

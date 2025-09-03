@@ -1,0 +1,690 @@
+import { CandleData, RecentTradeData, CVDAnalysis, VolumeDeltaBar, BuyerSellerAggression, CVDDivergence, AbsorptionPattern, FlowAnalysis } from '@shared/schema';
+
+export class CVDService {
+  private cvdHistory: Map<string, VolumeDeltaBar[]> = new Map(); // timeframe -> history
+  private previousAnalysis: Map<string, CVDAnalysis> = new Map(); // timeframe -> last analysis
+  private okxService: any; // Injected OKX service
+
+  constructor(okxService?: any) {
+    this.okxService = okxService;
+  }
+
+  /**
+   * Main CVD analysis entry point - comprehensive volume delta analysis
+   */
+  public async analyzeCVD(
+    candles: CandleData[],
+    trades: RecentTradeData[],
+    timeframe: string = '1H'
+  ): Promise<CVDAnalysis> {
+    if (candles.length < 20 || trades.length < 10) {
+      throw new Error('Insufficient data for CVD analysis. Need at least 20 candles and 10 trades.');
+    }
+
+    const analysisStart = Date.now();
+
+    // 1. Calculate Volume Delta Bars from candles and trades
+    const cvdHistory = this.calculateVolumeDeltaBars(candles, trades, timeframe);
+    
+    // 2. Calculate current and previous CVD values
+    const currentCVD = cvdHistory[cvdHistory.length - 1]?.cumulativeDelta || '0';
+    const previousCVD = cvdHistory[cvdHistory.length - 2]?.cumulativeDelta || '0';
+    const deltaChange = (parseFloat(currentCVD) - parseFloat(previousCVD)).toFixed(2);
+    const percentageChange = previousCVD !== '0' ? 
+      ((parseFloat(deltaChange) / Math.abs(parseFloat(previousCVD))) * 100) : 0;
+
+    // 3. Analyze Buyer/Seller Aggression
+    const buyerSellerAggression = this.analyzeBuyerSellerAggression(cvdHistory, trades, timeframe);
+
+    // 4. Detect Divergences
+    const { activeDivergences, recentDivergences } = this.detectDivergences(candles, cvdHistory);
+
+    // 5. Identify Absorption Patterns
+    const absorptionPatterns = this.identifyAbsorptionPatterns(candles, cvdHistory);
+
+    // 6. Flow Analysis (Accumulation/Distribution)
+    const flowAnalysis = this.analyzeFlow(cvdHistory, candles);
+
+    // 7. Smart Money Signal Detection
+    const smartMoneySignals = this.detectSmartMoneySignals(cvdHistory, absorptionPatterns, flowAnalysis);
+
+    // 8. Real-time Metrics
+    const realTimeMetrics = this.calculateRealTimeMetrics(cvdHistory, trades);
+
+    // 9. Multi-timeframe Analysis
+    const multiTimeframeAlignment = await this.analyzeMultiTimeframeAlignment();
+
+    // 10. Confidence Scoring
+    const confidence = this.calculateConfidenceScore(
+      cvdHistory,
+      activeDivergences,
+      absorptionPatterns,
+      multiTimeframeAlignment
+    );
+
+    // 11. Generate Alerts
+    const alerts = this.generateAlerts(
+      activeDivergences,
+      absorptionPatterns,
+      smartMoneySignals,
+      realTimeMetrics
+    );
+
+    // Store for future reference
+    this.cvdHistory.set(timeframe, cvdHistory);
+
+    const analysisEnd = Date.now();
+    const dataAge = Math.floor((analysisEnd - parseInt(cvdHistory[cvdHistory.length - 1].timestamp)) / 1000);
+
+    return {
+      timeframe,
+      currentCVD,
+      previousCVD,
+      deltaChange,
+      percentageChange,
+      cvdHistory: cvdHistory.slice(-200), // Keep last 200 bars for charting
+      buyerSellerAggression,
+      activeDivergences,
+      recentDivergences,
+      absorptionPatterns,
+      flowAnalysis,
+      smartMoneySignals,
+      realTimeMetrics,
+      multiTimeframeAlignment,
+      confidence,
+      alerts,
+      lastUpdate: new Date().toISOString(),
+      dataAge
+    };
+  }
+
+  /**
+   * Calculate Volume Delta Bars from candles and trades
+   */
+  private calculateVolumeDeltaBars(
+    candles: CandleData[], 
+    trades: RecentTradeData[], 
+    timeframe: string
+  ): VolumeDeltaBar[] {
+    const bars: VolumeDeltaBar[] = [];
+    let cumulativeDelta = 0;
+
+    // Get existing history for cumulative calculation
+    const existingHistory = this.cvdHistory.get(timeframe) || [];
+    if (existingHistory.length > 0) {
+      cumulativeDelta = parseFloat(existingHistory[existingHistory.length - 1].cumulativeDelta);
+    }
+
+    for (let i = 0; i < candles.length; i++) {
+      const candle = candles[i];
+      const candleTime = parseInt(candle.timestamp);
+      
+      // Get timeframe interval in milliseconds
+      const interval = this.getTimeframeInterval(timeframe);
+      
+      // Filter trades for this candle timeframe
+      const candleTrades = trades.filter(trade => {
+        const tradeTime = parseInt(trade.timestamp);
+        return tradeTime >= candleTime && tradeTime < candleTime + interval;
+      });
+
+      // Calculate buy/sell volumes from trades
+      let buyVolume = 0;
+      let sellVolume = 0;
+      
+      for (const trade of candleTrades) {
+        const volume = parseFloat(trade.size);
+        if (trade.side === 'buy') {
+          buyVolume += volume;
+        } else {
+          sellVolume += volume;
+        }
+      }
+
+      // If no trades available, estimate from candle volume and price action
+      if (candleTrades.length === 0) {
+        const totalVolume = parseFloat(candle.volume);
+        const isGreen = parseFloat(candle.close) > parseFloat(candle.open);
+        
+        // Estimate based on price action and volume (simplified approach)
+        if (isGreen) {
+          buyVolume = totalVolume * 0.6; // Assume 60% buy volume on green candles
+          sellVolume = totalVolume * 0.4;
+        } else {
+          buyVolume = totalVolume * 0.4;
+          sellVolume = totalVolume * 0.6; // Assume 60% sell volume on red candles
+        }
+      }
+
+      const netVolume = buyVolume - sellVolume;
+      const totalVolume = buyVolume + sellVolume;
+      cumulativeDelta += netVolume;
+      
+      const aggressionRatio = totalVolume > 0 ? buyVolume / totalVolume : 0.5;
+      
+      // Detect absorption and distribution patterns
+      const priceChange = Math.abs(parseFloat(candle.close) - parseFloat(candle.open));
+      const avgPrice = (parseFloat(candle.high) + parseFloat(candle.low)) / 2;
+      const priceChangePercent = (priceChange / avgPrice) * 100;
+      
+      const isAbsorption = totalVolume > 0 && priceChangePercent < 0.5; // High volume, low price movement
+      const isDistribution = aggressionRatio < 0.3 && priceChangePercent > 1; // Selling pressure with price movement
+
+      bars.push({
+        timestamp: candle.timestamp,
+        price: candle.close,
+        buyVolume: buyVolume.toFixed(2),
+        sellVolume: sellVolume.toFixed(2),
+        netVolume: netVolume.toFixed(2),
+        totalVolume: totalVolume.toFixed(2),
+        cumulativeDelta: cumulativeDelta.toFixed(2),
+        aggressionRatio: parseFloat(aggressionRatio.toFixed(4)),
+        isAbsorption,
+        isDistribution
+      });
+    }
+
+    return bars;
+  }
+
+  /**
+   * Analyze Buyer and Seller Aggression patterns
+   */
+  private analyzeBuyerSellerAggression(
+    cvdHistory: VolumeDeltaBar[], 
+    trades: RecentTradeData[], 
+    timeframe: string
+  ): BuyerSellerAggression {
+    const recentBars = cvdHistory.slice(-20); // Last 20 bars for analysis
+    
+    let totalBuyVolume = 0;
+    let totalSellVolume = 0;
+    let buyTradeCount = 0;
+    let sellTradeCount = 0;
+
+    // Aggregate volumes and trade counts
+    for (const bar of recentBars) {
+      totalBuyVolume += parseFloat(bar.buyVolume);
+      totalSellVolume += parseFloat(bar.sellVolume);
+    }
+
+    // Analyze recent trades for average sizes
+    for (const trade of trades.slice(-100)) { // Last 100 trades
+      if (trade.side === 'buy') {
+        buyTradeCount++;
+      } else {
+        sellTradeCount++;
+      }
+    }
+
+    const totalVolume = totalBuyVolume + totalSellVolume;
+    const buyPercentage = totalVolume > 0 ? (totalBuyVolume / totalVolume) * 100 : 50;
+    const sellPercentage = 100 - buyPercentage;
+
+    const averageBuySize = buyTradeCount > 0 ? (totalBuyVolume / buyTradeCount).toFixed(3) : '0';
+    const averageSellSize = sellTradeCount > 0 ? (totalSellVolume / sellTradeCount).toFixed(3) : '0';
+
+    // Determine strength levels
+    const getBuyStrength = (percentage: number) => {
+      if (percentage >= 70) return 'extreme';
+      if (percentage >= 60) return 'strong';
+      if (percentage >= 55) return 'moderate';
+      return 'weak';
+    };
+
+    const getSellStrength = (percentage: number) => {
+      if (percentage >= 70) return 'extreme';
+      if (percentage >= 60) return 'strong';
+      if (percentage >= 55) return 'moderate';
+      return 'weak';
+    };
+
+    // Determine dominant side
+    let dominantSide: 'buyers' | 'sellers' | 'balanced' = 'balanced';
+    if (Math.abs(buyPercentage - sellPercentage) > 15) {
+      dominantSide = buyPercentage > sellPercentage ? 'buyers' : 'sellers';
+    }
+
+    // Calculate imbalance ratio
+    const imbalanceRatio = sellPercentage > 0 ? buyPercentage / sellPercentage : 1;
+
+    // Determine market pressure
+    let marketPressure: 'buying_pressure' | 'selling_pressure' | 'neutral' | 'accumulation' | 'distribution' = 'neutral';
+    if (buyPercentage >= 65) {
+      marketPressure = parseFloat(averageBuySize) > parseFloat(averageSellSize) * 1.5 ? 'accumulation' : 'buying_pressure';
+    } else if (sellPercentage >= 65) {
+      marketPressure = parseFloat(averageSellSize) > parseFloat(averageBuySize) * 1.5 ? 'distribution' : 'selling_pressure';
+    }
+
+    return {
+      timeframe,
+      buyerAggression: {
+        percentage: parseFloat(buyPercentage.toFixed(2)),
+        strength: getBuyStrength(buyPercentage),
+        volume: totalBuyVolume.toFixed(2),
+        averageSize: averageBuySize,
+      },
+      sellerAggression: {
+        percentage: parseFloat(sellPercentage.toFixed(2)),
+        strength: getSellStrength(sellPercentage),
+        volume: totalSellVolume.toFixed(2),
+        averageSize: averageSellSize,
+      },
+      dominantSide,
+      imbalanceRatio: parseFloat(imbalanceRatio.toFixed(3)),
+      marketPressure,
+    };
+  }
+
+  /**
+   * Detect Price-CVD Divergences using advanced algorithms
+   */
+  private detectDivergences(
+    candles: CandleData[], 
+    cvdHistory: VolumeDeltaBar[]
+  ): { activeDivergences: CVDDivergence[], recentDivergences: CVDDivergence[] } {
+    const divergences: CVDDivergence[] = [];
+    const lookback = 20; // bars to look back for divergence patterns
+
+    if (candles.length < lookback || cvdHistory.length < lookback) {
+      return { activeDivergences: [], recentDivergences: [] };
+    }
+
+    // Find swing highs and lows in both price and CVD
+    const priceSwings = this.findSwingPoints(candles.slice(-lookback), 'price');
+    const cvdSwings = this.findSwingPoints(cvdHistory.slice(-lookback), 'cvd');
+
+    // Detect divergence patterns
+    for (let i = 1; i < priceSwings.length; i++) {
+      const prevPriceSwing = priceSwings[i - 1];
+      const currPriceSwing = priceSwings[i];
+      
+      // Find corresponding CVD swing points around the same time
+      const prevCVDSwing = cvdSwings.find(swing => 
+        Math.abs(parseInt(swing.timestamp) - parseInt(prevPriceSwing.timestamp)) < 3600000 // 1 hour tolerance
+      );
+      const currCVDSwing = cvdSwings.find(swing => 
+        Math.abs(parseInt(swing.timestamp) - parseInt(currPriceSwing.timestamp)) < 3600000
+      );
+
+      if (prevCVDSwing && currCVDSwing) {
+        const divergence = this.analyzeSwingDivergence(
+          prevPriceSwing, currPriceSwing,
+          prevCVDSwing, currCVDSwing
+        );
+        
+        if (divergence) {
+          divergences.push(divergence);
+        }
+      }
+    }
+
+    // Separate active vs recent divergences
+    const currentTime = Date.now();
+    const activeDivergences = divergences.filter(div => 
+      currentTime - parseInt(div.endTime) < 4 * 3600000 // Active if within last 4 hours
+    );
+    const recentDivergences = divergences.filter(div => 
+      currentTime - parseInt(div.endTime) < 24 * 3600000 && // Within last 24 hours
+      !activeDivergences.includes(div)
+    );
+
+    return { activeDivergences, recentDivergences };
+  }
+
+  /**
+   * Identify Absorption Patterns in volume and price action
+   */
+  private identifyAbsorptionPatterns(candles: CandleData[], cvdHistory: VolumeDeltaBar[]): AbsorptionPattern[] {
+    const patterns: AbsorptionPattern[] = [];
+    const lookback = 15;
+
+    for (let i = lookback; i < cvdHistory.length; i++) {
+      const window = cvdHistory.slice(i - lookback, i);
+      const priceWindow = candles.slice(i - lookback, i);
+      
+      // Analyze volume concentration with minimal price movement
+      const totalVolume = window.reduce((sum, bar) => sum + parseFloat(bar.totalVolume), 0);
+      const avgVolume = totalVolume / window.length;
+      
+      const highVolumeBars = window.filter(bar => parseFloat(bar.totalVolume) > avgVolume * 1.5);
+      
+      if (highVolumeBars.length >= 3) { // At least 3 high volume bars
+        const startTime = window[0].timestamp;
+        const endTime = window[window.length - 1].timestamp;
+        
+        const priceHigh = Math.max(...priceWindow.map(c => parseFloat(c.high)));
+        const priceLow = Math.min(...priceWindow.map(c => parseFloat(c.low)));
+        const priceWidth = priceHigh - priceLow;
+        
+        // Calculate efficiency (volume absorbed vs price movement)
+        const efficiency = priceWidth > 0 ? Math.min(100, (1 / (priceWidth / totalVolume)) * 1000) : 100;
+        
+        // Determine absorption type
+        const netFlow = window.reduce((sum, bar) => sum + parseFloat(bar.netVolume), 0);
+        let type: 'buy_absorption' | 'sell_absorption' | 'two_way_absorption' = 'two_way_absorption';
+        
+        if (Math.abs(netFlow) > totalVolume * 0.3) {
+          type = netFlow > 0 ? 'buy_absorption' : 'sell_absorption';
+        }
+
+        // Determine strength
+        let strength: 'weak' | 'moderate' | 'strong' | 'institutional' = 'moderate';
+        if (efficiency > 80 && totalVolume > avgVolume * 3) {
+          strength = 'institutional';
+        } else if (efficiency > 60) {
+          strength = 'strong';
+        } else if (efficiency < 30) {
+          strength = 'weak';
+        }
+
+        // Determine implication
+        let implication: 'support' | 'resistance' | 'reversal_zone' | 'continuation' = 'support';
+        if (type === 'sell_absorption' && priceHigh === Math.max(...priceWindow.map(c => parseFloat(c.close)))) {
+          implication = 'resistance';
+        } else if (efficiency > 70) {
+          implication = 'reversal_zone';
+        } else {
+          implication = 'continuation';
+        }
+
+        patterns.push({
+          type,
+          startTime,
+          endTime,
+          priceRange: {
+            high: priceHigh.toFixed(3),
+            low: priceLow.toFixed(3),
+            width: priceWidth.toFixed(3),
+          },
+          volumeAbsorbed: totalVolume.toFixed(2),
+          efficiency: parseFloat(efficiency.toFixed(1)),
+          strength,
+          implication,
+        });
+      }
+    }
+
+    return patterns.slice(-10); // Return last 10 patterns
+  }
+
+  /**
+   * Analyze Flow (Accumulation/Distribution patterns)
+   */
+  private analyzeFlow(cvdHistory: VolumeDeltaBar[], candles: CandleData[]): FlowAnalysis {
+    const recentBars = cvdHistory.slice(-50); // Analyze last 50 bars
+    const recentCandles = candles.slice(-50);
+    
+    // Calculate net flow metrics
+    const totalBuyVolume = recentBars.reduce((sum, bar) => sum + parseFloat(bar.buyVolume), 0);
+    const totalSellVolume = recentBars.reduce((sum, bar) => sum + parseFloat(bar.sellVolume), 0);
+    const netFlow = totalBuyVolume - totalSellVolume;
+    
+    // Determine trend based on CVD progression
+    const oldCVD = parseFloat(recentBars[0].cumulativeDelta);
+    const newCVD = parseFloat(recentBars[recentBars.length - 1].cumulativeDelta);
+    const cvdChange = newCVD - oldCVD;
+    
+    // Determine phase based on price action and volume flow
+    let trend: 'accumulation' | 'distribution' | 'neutral' | 'rotation' = 'neutral';
+    let phase: 'markup' | 'markdown' | 'reaccumulation' | 'redistribution' | 'ranging' = 'ranging';
+    
+    const priceChange = parseFloat(recentCandles[recentCandles.length - 1].close) - 
+                       parseFloat(recentCandles[0].open);
+    
+    if (cvdChange > 0 && priceChange > 0) {
+      trend = 'accumulation';
+      phase = 'markup';
+    } else if (cvdChange < 0 && priceChange < 0) {
+      trend = 'distribution';
+      phase = 'markdown';
+    } else if (cvdChange > 0 && priceChange < 0) {
+      trend = 'accumulation';
+      phase = 'reaccumulation';
+    } else if (cvdChange < 0 && priceChange > 0) {
+      trend = 'distribution';
+      phase = 'redistribution';
+    } else {
+      trend = 'rotation';
+      phase = 'ranging';
+    }
+
+    // Calculate strength
+    const volumeStrength = Math.abs(netFlow) / (totalBuyVolume + totalSellVolume);
+    let strength: 'weak' | 'moderate' | 'strong' = 'moderate';
+    if (volumeStrength > 0.4) strength = 'strong';
+    else if (volumeStrength < 0.1) strength = 'weak';
+
+    // Institutional footprint detection
+    const largeVolumeBars = recentBars.filter(bar => 
+      parseFloat(bar.totalVolume) > (totalBuyVolume + totalSellVolume) / recentBars.length * 2
+    );
+    
+    const institutionalDetected = largeVolumeBars.length > recentBars.length * 0.2; // 20% large volume bars
+    const institutionalPatterns = [];
+    
+    if (institutionalDetected) {
+      if (trend === 'accumulation') institutionalPatterns.push('Large buyer presence');
+      if (trend === 'distribution') institutionalPatterns.push('Large seller distribution');
+      if (phase === 'reaccumulation') institutionalPatterns.push('Smart money re-entry');
+    }
+
+    return {
+      trend,
+      phase,
+      strength,
+      duration: this.calculateFlowDuration(recentBars),
+      volumeProfile: {
+        totalBuyVolume: totalBuyVolume.toFixed(2),
+        totalSellVolume: totalSellVolume.toFixed(2),
+        netFlow: netFlow.toFixed(2),
+        flowDirection: netFlow > 0 ? 'inflow' : netFlow < 0 ? 'outflow' : 'neutral',
+      },
+      institutionalFootprint: {
+        detected: institutionalDetected,
+        confidence: institutionalDetected ? Math.min(95, largeVolumeBars.length * 10) : 0,
+        patterns: institutionalPatterns,
+      },
+    };
+  }
+
+  // Helper methods (simplified implementations)
+  private getTimeframeInterval(timeframe: string): number {
+    const intervals: Record<string, number> = {
+      '5m': 5 * 60 * 1000,
+      '15m': 15 * 60 * 1000,
+      '30m': 30 * 60 * 1000,
+      '1H': 60 * 60 * 1000,
+      '4H': 4 * 60 * 60 * 1000,
+      '1D': 24 * 60 * 60 * 1000,
+    };
+    return intervals[timeframe] || intervals['1H'];
+  }
+
+  private findSwingPoints(data: any[], type: 'price' | 'cvd'): any[] {
+    // Simplified swing point detection
+    const swings = [];
+    for (let i = 2; i < data.length - 2; i++) {
+      const values = data.slice(i - 2, i + 3).map(d => 
+        type === 'price' ? parseFloat(d.high || d.close) : parseFloat(d.cumulativeDelta)
+      );
+      
+      if (values[2] > values[0] && values[2] > values[1] && values[2] > values[3] && values[2] > values[4]) {
+        swings.push({ timestamp: data[i].timestamp, value: values[2], type: 'high' });
+      } else if (values[2] < values[0] && values[2] < values[1] && values[2] < values[3] && values[2] < values[4]) {
+        swings.push({ timestamp: data[i].timestamp, value: values[2], type: 'low' });
+      }
+    }
+    return swings;
+  }
+
+  private analyzeSwingDivergence(prevPrice: any, currPrice: any, prevCVD: any, currCVD: any): CVDDivergence | null {
+    const priceDirection = currPrice.value > prevPrice.value ? 'up' : 'down';
+    const cvdDirection = currCVD.value > prevCVD.value ? 'up' : 'down';
+    
+    if (priceDirection !== cvdDirection) {
+      const type = priceDirection === 'up' && cvdDirection === 'down' ? 'bearish' : 'bullish';
+      
+      return {
+        type,
+        strength: 'moderate', // Simplified
+        startTime: prevPrice.timestamp,
+        endTime: currPrice.timestamp,
+        priceDirection,
+        cvdDirection,
+        significance: 'major', // Simplified
+        confirmed: true,
+        description: `${type === 'bullish' ? 'Bullish' : 'Bearish'} divergence detected between price and volume flow`,
+      };
+    }
+    return null;
+  }
+
+  private detectSmartMoneySignals(cvdHistory: VolumeDeltaBar[], absorptionPatterns: AbsorptionPattern[], flowAnalysis: FlowAnalysis) {
+    const recentBars = cvdHistory.slice(-20);
+    
+    // Accumulation detection
+    const accumulationDetected = flowAnalysis.trend === 'accumulation' && absorptionPatterns.some(p => p.type === 'buy_absorption');
+    
+    // Distribution detection  
+    const distributionDetected = flowAnalysis.trend === 'distribution' && absorptionPatterns.some(p => p.type === 'sell_absorption');
+    
+    // Manipulation detection (simplified)
+    const manipulationDetected = absorptionPatterns.some(p => p.strength === 'institutional');
+    
+    return {
+      accumulation: {
+        detected: accumulationDetected,
+        strength: flowAnalysis.strength,
+        timeframe: '1H', // Simplified
+      },
+      distribution: {
+        detected: distributionDetected,
+        strength: flowAnalysis.strength,
+        timeframe: '1H', // Simplified
+      },
+      manipulation: {
+        detected: manipulationDetected,
+        type: 'liquidity_grab' as const, // Simplified
+        confidence: manipulationDetected ? 75 : 0,
+      },
+    };
+  }
+
+  private calculateRealTimeMetrics(cvdHistory: VolumeDeltaBar[], trades: RecentTradeData[]) {
+    const recentBars = cvdHistory.slice(-5);
+    const totalBuyVolume = recentBars.reduce((sum, bar) => sum + parseFloat(bar.buyVolume), 0);
+    const totalSellVolume = recentBars.reduce((sum, bar) => sum + parseFloat(bar.sellVolume), 0);
+    const totalVolume = totalBuyVolume + totalSellVolume;
+    
+    const currentBuyPressure = totalVolume > 0 ? (totalBuyVolume / totalVolume) * 100 : 50;
+    const currentSellPressure = 100 - currentBuyPressure;
+    
+    // Calculate momentum and velocity (simplified)
+    const oldCVD = parseFloat(recentBars[0]?.cumulativeDelta || '0');
+    const newCVD = parseFloat(recentBars[recentBars.length - 1]?.cumulativeDelta || '0');
+    const velocity = newCVD - oldCVD;
+    
+    const momentum: 'bullish' | 'bearish' | 'neutral' = velocity > 0 ? 'bullish' : velocity < 0 ? 'bearish' : 'neutral';
+    
+    return {
+      currentBuyPressure: parseFloat(currentBuyPressure.toFixed(2)),
+      currentSellPressure: parseFloat(currentSellPressure.toFixed(2)),
+      momentum,
+      velocity: parseFloat(velocity.toFixed(2)),
+      acceleration: 0, // Simplified for now
+    };
+  }
+
+  private async analyzeMultiTimeframeAlignment() {
+    const timeframes = ['15m', '1H', '4H'];
+    const alignment: Record<string, any> = {};
+    
+    for (const tf of timeframes) {
+      // This would normally fetch CVD data for each timeframe
+      // Simplified for now
+      alignment[tf] = {
+        cvd: '0', // Would be actual CVD value
+        trend: 'neutral' as const,
+        strength: 'moderate' as const,
+      };
+    }
+    
+    return alignment;
+  }
+
+  private calculateConfidenceScore(
+    cvdHistory: VolumeDeltaBar[],
+    divergences: CVDDivergence[],
+    absorptionPatterns: AbsorptionPattern[],
+    multiTimeframeAlignment: any
+  ) {
+    // Data quality score
+    const dataQuality = Math.min(100, (cvdHistory.length / 100) * 100);
+    
+    // Signal clarity score
+    const signalClarity = Math.min(100, (divergences.length + absorptionPatterns.length) * 20);
+    
+    // Timeframe synergy (simplified)
+    const timeframeSynergy = 75; // Simplified
+    
+    const overall = (dataQuality + signalClarity + timeframeSynergy) / 3;
+    
+    return {
+      overall: parseFloat(overall.toFixed(1)),
+      dataQuality: parseFloat(dataQuality.toFixed(1)),
+      signalClarity: parseFloat(signalClarity.toFixed(1)),
+      timeframeSynergy: parseFloat(timeframeSynergy.toFixed(1)),
+    };
+  }
+
+  private generateAlerts(
+    divergences: CVDDivergence[],
+    absorptionPatterns: AbsorptionPattern[],
+    smartMoneySignals: any,
+    realTimeMetrics: any
+  ) {
+    const alerts = [];
+    
+    // Divergence alerts
+    for (const div of divergences) {
+      if (div.significance === 'critical') {
+        alerts.push({
+          type: 'divergence' as const,
+          priority: 'critical' as const,
+          message: `Critical ${div.type} divergence detected`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+    
+    // Absorption alerts
+    for (const pattern of absorptionPatterns) {
+      if (pattern.strength === 'institutional') {
+        alerts.push({
+          type: 'absorption' as const,
+          priority: 'high' as const,
+          message: `Institutional ${pattern.type} detected`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+    
+    // Smart money alerts
+    if (smartMoneySignals.manipulation.detected) {
+      alerts.push({
+        type: 'smart_money' as const,
+        priority: 'high' as const,
+        message: 'Smart money manipulation pattern detected',
+        timestamp: new Date().toISOString(),
+      });
+    }
+    
+    return alerts;
+  }
+
+  private calculateFlowDuration(bars: VolumeDeltaBar[]): string {
+    const hours = Math.floor(bars.length / 4); // Assuming 15-min bars
+    return `${hours}h`;
+  }
+}

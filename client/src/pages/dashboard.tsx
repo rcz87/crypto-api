@@ -14,6 +14,7 @@ import { OpenInterest } from "@/components/OpenInterest";
 import { VolumeProfile } from "@/components/VolumeProfile";
 import { VolumeDelta } from "@/components/VolumeDelta";
 import { SMCAnalysis } from "@/components/SMCAnalysis";
+import { CVDAnalysisComponent } from "@/components/CVDAnalysis";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -269,11 +270,11 @@ export default function Dashboard() {
             </ErrorBoundary>
           </div>
 
-          {/* Row 2: Advanced Analysis */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Volume Delta (CVD) */}
+          {/* Row 2: Professional CVD & SMC Analysis */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            {/* Professional CVD Analysis - Volume Delta with Smart Money Detection */}
             <ErrorBoundary>
-              <VolumeDelta />
+              <CVDAnalysisComponent className="col-span-1" />
             </ErrorBoundary>
 
             {/* SMC Analysis */}
