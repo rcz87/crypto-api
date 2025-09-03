@@ -1,0 +1,77 @@
+You are working on a TypeScript/React crypto dashboard project. 
+The key files are:
+
+- schema.ts → defines types like SMCAnalysisData
+- smc.ts (backend) → endpoint /api/sol/smc returns Smart Money Concepts data
+- SMCAnalysis.tsx (frontend component) → fetches and displays SMC data
+- okx.ts → data fetcher for SOL from OKX
+- routes.ts → defines API routes
+
+Current SMCAnalysis.tsx already shows:
+- Trend (bullish, bearish, ranging) with confidence
+- Market structure (last BOS, CHoCH)
+- Liquidity zones (buy/sell)
+- Fair Value Gaps (FVGs) with significance
+- Order Blocks (demand/supply with strength)
+- Equal highs/lows (EQH/EQL counts)
+- Liquidity sweeps
+- Human-readable analysis string
+- Last update timestamp
+- Timeframe selector (5m–1D)
+
+### Task: Maximize the SMC analysis features for professional trading
+Please refactor and extend the backend (smc.ts) and frontend (SMCAnalysis.tsx) to include:
+
+1. **Confluence Score**
+   - Compute a weighted score (0–100) from multiple signals: trend, structureBreak, liquidity zones, order flow bias/strength, proximity to OB/FVG.
+   - Display it prominently as a badge with color (green = bullish, red = bearish, gray = neutral).
+
+2. **Multi-timeframe Alignment**
+   - Fetch/analyze multiple timeframes (15m, 1H, 4H) together.
+   - Show a compact summary like: “15m = bullish, 1H = ranging, 4H = bearish”.
+   - Add color-coded bars for quick glance.
+
+3. **Nearest Zones Context**
+   - For FVGs and Order Blocks: compute nearest above and below current price.
+   - Show distance (%) and mark significance.
+   - Add hover tooltip with details.
+
+4. **Derivatives Integration**
+   - Merge open interest (from /api/sol/open-interest) and funding rate (from /api/sol/funding).
+   - Add indicators like:
+     - “OI ↑ + Price ↓” → absorption / distribution
+     - Extreme funding → squeeze risk
+   - Include in the confluence score.
+
+5. **Regime & Session Awareness**
+   - Detect trending vs ranging regime based on ATR and structure.
+   - Add session markers (Asia, London, NY).
+   - Show current session in UI, e.g., “London Open”.
+
+6. **Enhanced Analysis Output**
+   - Generate 2 alternative scenarios: bullish path vs bearish path.
+   - Each scenario: trigger level, invalidation level, and target zone.
+   - Render in a collapsible card.
+
+7. **Backend & Schema Update**
+   - Extend SMCAnalysisData type with:
+     confluenceScore: number
+     multiTimeframe: Record<string, "bullish"|"bearish"|"ranging">
+     nearestZones: { type: "OB"|"FVG"; side: "above"|"below"; price: string; distancePct: number }[]
+     regime: "trending"|"ranging"
+     session: "Asia"|"London"|"NY"
+     scenarios: { side: "bullish"|"bearish"; trigger: string; invalidation: string; target: string; note?: string }[]
+   - Update /api/sol/smc to calculate and return these fields.
+
+8. **Frontend Enhancements**
+   - Update SMCAnalysis.tsx to render all the new fields in a clean UI.
+   - Add tooltips for abbreviations (BOS, CHoCH, FVG, OB).
+   - Add “last data age” indicator: e.g. “Updated 3s ago” or “Stale 45s”.
+   - Provide error boundary with HTTP status.
+
+### Notes
+- Keep code type-safe (use enums, not raw strings).
+- Optimize React Query (staleTime, retry, refetchOnWindowFocus = false).
+- Maintain clean UI/UX with badges, cards, and tooltips.
+
+Deliver full modified code for smc.ts (backend) and SMCAnalysis.tsx (frontend).

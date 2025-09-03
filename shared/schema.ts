@@ -215,6 +215,24 @@ export const structurePointSchema = z.object({
   significance: z.enum(['minor', 'major', 'key']),
 });
 
+// Enhanced SMC Analysis Schema with professional trading features
+export const nearestZoneSchema = z.object({
+  type: z.enum(['OB', 'FVG']),
+  side: z.enum(['above', 'below']),
+  price: z.string(),
+  distancePct: z.number(),
+  significance: z.enum(['low', 'medium', 'high']),
+});
+
+export const tradingScenarioSchema = z.object({
+  side: z.enum(['bullish', 'bearish']),
+  trigger: z.string(),
+  invalidation: z.string(),
+  target: z.string(),
+  note: z.string().optional(),
+  probability: z.number(), // 0-100
+});
+
 export const smcAnalysisSchema = z.object({
   timeframe: z.string(),
   trend: z.enum(['bullish', 'bearish', 'ranging']),
@@ -241,6 +259,38 @@ export const smcAnalysisSchema = z.object({
   })),
   marketStructure: z.enum(['bullish', 'bearish', 'ranging', 'transitioning']),
   confidence: z.number().min(0).max(100),
+  // NEW: Enhanced Professional Trading Features
+  confluenceScore: z.number().min(0).max(100),
+  multiTimeframe: z.record(z.enum(['bullish', 'bearish', 'ranging'])),
+  nearestZones: z.array(nearestZoneSchema),
+  regime: z.enum(['trending', 'ranging']),
+  session: z.enum(['Asia', 'London', 'NY']),
+  scenarios: z.array(tradingScenarioSchema),
+  derivatives: z.object({
+    openInterest: z.object({
+      value: z.string(),
+      change24h: z.string(),
+      trend: z.enum(['increasing', 'decreasing', 'stable']),
+    }),
+    fundingRate: z.object({
+      current: z.string(),
+      next: z.string(),
+      sentiment: z.enum(['bullish', 'bearish', 'neutral']),
+      extremeLevel: z.boolean(),
+    }),
+    flowAnalysis: z.object({
+      signal: z.enum(['absorption', 'distribution', 'neutral']),
+      strength: z.enum(['weak', 'medium', 'strong']),
+      description: z.string(),
+    }),
+  }),
+  atr: z.object({
+    value: z.string(),
+    percentile: z.number(),
+    volatilityRegime: z.enum(['low', 'normal', 'high']),
+  }),
+  lastUpdate: z.string(),
+  dataAge: z.number(), // in seconds
 });
 
 export const smcResponseSchema = z.object({
@@ -274,4 +324,6 @@ export type SMCAnalysisData = z.infer<typeof smcAnalysisSchema>;
 export type FVGData = z.infer<typeof fvgSchema>;
 export type OrderBlockData = z.infer<typeof orderBlockSchema>;
 export type StructurePointData = z.infer<typeof structurePointSchema>;
+export type NearestZoneData = z.infer<typeof nearestZoneSchema>;
+export type TradingScenarioData = z.infer<typeof tradingScenarioSchema>;
 export type ApiResponse = z.infer<typeof apiResponseSchema>;
