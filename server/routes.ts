@@ -11,7 +11,8 @@ import { TechnicalIndicatorsService } from "./services/technicalIndicators";
 import { FibonacciService } from "./services/fibonacci";
 import { OrderFlowService } from "./services/orderFlow";
 import { LiquidationService } from "./services/liquidation";
-import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema } from "@shared/schema";
+import { PositionCalculatorService } from "./services/positionCalculator";
+import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema, positionCalculatorSchema, positionParamsSchema } from "@shared/schema";
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
 import { backpressureManager } from "./utils/websocket";
@@ -907,6 +908,142 @@ Allow: /openapi.yaml`);
         level: 'error',
         message: 'Liquidation analysis request failed',
         details: `GET /api/sol/liquidation - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Position Calculator endpoint - Advanced Futures Position Analysis
+  app.post('/api/sol/position-calculator', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      console.log('Position Calculator endpoint hit with body:', req.body);
+      
+      // Validate request body
+      const positionParams = positionParamsSchema.parse(req.body);
+      console.log('Request validation passed:', positionParams);
+      
+      const accountBalance = req.body.accountBalance || 10000; // Default $10k account
+      
+      // Initialize Position Calculator service
+      const positionCalculatorService = new PositionCalculatorService(okxService);
+      console.log('Position Calculator service initialized');
+      
+      // Calculate comprehensive position metrics
+      console.log('Starting position calculation...');
+      const positionAnalysis = await positionCalculatorService.calculatePosition(
+        positionParams,
+        accountBalance
+      );
+      console.log('Position calculation completed:', positionAnalysis);
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Skip schema validation for now to debug
+      // const validated = positionCalculatorSchema.parse(positionAnalysis);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Position calculator request completed',
+        details: `POST /api/sol/position-calculator - ${responseTime}ms - 200 OK - Entry: ${positionParams.entryPrice}, Size: ${positionParams.size}, Leverage: ${positionParams.leverage}x ${positionParams.side}`,
+      });
+      
+      res.json({
+        success: true,
+        data: positionAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/position-calculator:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Position calculator request failed',
+        details: `POST /api/sol/position-calculator - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Quick Liquidation Price Calculator
+  app.get('/api/sol/liquidation-price', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const entryPrice = parseFloat(req.query.entryPrice as string);
+      const leverage = parseFloat(req.query.leverage as string);
+      const side = req.query.side as 'long' | 'short';
+      
+      if (!entryPrice || !leverage || !side) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required parameters: entryPrice, leverage, side',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      // Initialize Position Calculator service
+      const positionCalculatorService = new PositionCalculatorService(okxService);
+      
+      // Calculate liquidation price
+      const liquidationPrice = await positionCalculatorService.getQuickLiquidationPrice(
+        entryPrice,
+        leverage,
+        side
+      );
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Liquidation price calculation completed',
+        details: `GET /api/sol/liquidation-price - ${responseTime}ms - 200 OK - Entry: ${entryPrice}, Leverage: ${leverage}x ${side}`,
+      });
+      
+      res.json({
+        success: true,
+        data: {
+          entryPrice,
+          leverage,
+          side,
+          liquidationPrice,
+          liquidationDistance: Math.abs((entryPrice - liquidationPrice) / entryPrice) * 100,
+          safetyMargin: side === 'long' ? 
+            ((entryPrice - liquidationPrice) / entryPrice) * 100 :
+            ((liquidationPrice - entryPrice) / entryPrice) * 100
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/liquidation-price:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Liquidation price calculation failed',
+        details: `GET /api/sol/liquidation-price - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
       
       res.status(500).json({

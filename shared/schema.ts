@@ -495,3 +495,93 @@ export type AbsorptionPattern = z.infer<typeof absorptionPatternSchema>;
 export type FlowAnalysis = z.infer<typeof flowAnalysisSchema>;
 export type CVDAnalysis = z.infer<typeof cvdAnalysisSchema>;
 export type ApiResponse = z.infer<typeof apiResponseSchema>;
+
+// Position Calculator Schemas
+export const positionParamsSchema = z.object({
+  entryPrice: z.number().positive(),
+  currentPrice: z.number().positive().optional(),
+  size: z.number().positive(),
+  leverage: z.number().min(1).max(100),
+  side: z.enum(['long', 'short']),
+  marginMode: z.enum(['isolated', 'cross']).default('isolated'),
+});
+
+export const marginCalculationSchema = z.object({
+  initialMargin: z.number(),
+  maintenanceMargin: z.number(),
+  freeMargin: z.number(),
+  marginRatio: z.number(),
+  liquidationPrice: z.number(),
+  marginCall: z.number(),
+});
+
+export const pnlCalculationSchema = z.object({
+  unrealizedPnL: z.number(),
+  realizedPnL: z.number(),
+  totalPnL: z.number(),
+  pnlPercentage: z.number(),
+  roe: z.number(),
+});
+
+export const riskMetricsSchema = z.object({
+  riskLevel: z.enum(['low', 'medium', 'high', 'extreme']),
+  liquidationDistance: z.number(),
+  timeToLiquidation: z.number().optional(),
+  maxDrawdown: z.number(),
+  sharpeRatio: z.number(),
+  valueAtRisk: z.number(),
+});
+
+export const positionSizingSchema = z.object({
+  optimalSize: z.number(),
+  maxSafeSize: z.number(),
+  kellySize: z.number(),
+  fixedRatioSize: z.number(),
+  riskPercentage: z.number(),
+});
+
+export const leverageAnalysisSchema = z.object({
+  currentLeverage: z.number(),
+  effectiveLeverage: z.number(),
+  maxSafeLeverage: z.number(),
+  leverageRisk: z.enum(['low', 'medium', 'high', 'extreme']),
+  recommendations: z.array(z.string()),
+});
+
+export const positionCalculatorSchema = z.object({
+  position: positionParamsSchema,
+  margin: marginCalculationSchema,
+  pnl: pnlCalculationSchema,
+  risk: riskMetricsSchema,
+  sizing: positionSizingSchema,
+  leverage: leverageAnalysisSchema,
+  scenarios: z.object({
+    bullish: z.object({
+      price: z.number(),
+      pnl: z.number(),
+      margin: z.number(),
+    }),
+    bearish: z.object({
+      price: z.number(),
+      pnl: z.number(),
+      margin: z.number(),
+    }),
+    liquidation: z.object({
+      price: z.number(),
+      time: z.number().optional(),
+    }),
+  }),
+  recommendations: z.object({
+    action: z.enum(['hold', 'reduce', 'close', 'add']),
+    reason: z.string(),
+    urgency: z.enum(['low', 'medium', 'high', 'critical']),
+  }),
+});
+
+export type PositionParams = z.infer<typeof positionParamsSchema>;
+export type MarginCalculation = z.infer<typeof marginCalculationSchema>;
+export type PnLCalculation = z.infer<typeof pnlCalculationSchema>;
+export type RiskMetrics = z.infer<typeof riskMetricsSchema>;
+export type PositionSizing = z.infer<typeof positionSizingSchema>;
+export type LeverageAnalysis = z.infer<typeof leverageAnalysisSchema>;
+export type PositionCalculatorResult = z.infer<typeof positionCalculatorSchema>;
