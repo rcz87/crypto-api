@@ -7,7 +7,11 @@ import { SystemLogs as SystemLogsType } from "@shared/schema";
 export function SystemLogs() {
   const queryClient = useQueryClient();
   
-  const { data: logsData, isLoading, refetch } = useQuery({
+  const { data: logsData, isLoading, refetch } = useQuery<{
+    success: boolean;
+    data: SystemLogsType[];
+    timestamp: string;
+  }>({
     queryKey: ["/api/logs"],
     refetchInterval: 10000, // Refresh every 10 seconds
   });
