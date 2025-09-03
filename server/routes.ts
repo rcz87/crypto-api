@@ -55,7 +55,67 @@ function corsMiddleware(req: Request, res: Response, next: Function) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Apply middleware (CORS already handled in index.ts)
+  // SEO routes MUST be registered FIRST before any middleware
+  // This ensures they're not caught by Vite's catch-all route
+  
+  // Robots.txt for search engines (HIGH PRIORITY)
+  app.get('/robots.txt', (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(`User-agent: *
+Allow: /
+Allow: /api/
+Allow: /.well-known/
+
+Sitemap: https://guardiansofthegreentoken.com/sitemap.xml
+
+# API endpoints for crawlers
+Allow: /api/sol/complete
+Allow: /health
+Allow: /api/metrics
+Allow: /.well-known/ai-plugin.json
+Allow: /openapi.yaml`);
+  });
+
+  // Sitemap.xml for search engines
+  app.get('/sitemap.xml', (req: Request, res: Response) => {
+    const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://guardiansofthegreentoken.com/</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://guardiansofthegreentoken.com/api/sol/complete</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>minutely</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://guardiansofthegreentoken.com/health</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>minutely</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://guardiansofthegreentoken.com/.well-known/ai-plugin.json</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://guardiansofthegreentoken.com/openapi.yaml</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>`;
+    res.setHeader('Content-Type', 'application/xml');
+    res.send(sitemap);
+  });
+
+  // Apply middleware AFTER SEO routes (CORS already handled in index.ts)
   app.use('/api', rateLimit);
   
   // Health check endpoint

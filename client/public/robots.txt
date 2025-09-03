@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+Allow: /api/
+Allow: /.well-known/
+
+Sitemap: https://guardiansofthegreentoken.com/sitemap.xml
+
+# API endpoints for crawlers
+Allow: /api/sol/complete
+Allow: /health
+Allow: /api/metrics
+Allow: /.well-known/ai-plugin.json
+Allow: /openapi.yaml
+
+# Optimized for GPT-5 and search engines
+# SOL Crypto Data Gateway - Real-time Solana Trading Data
