@@ -908,6 +908,156 @@ paths:
                     type: string
                     example: "2025-08-26T10:42:57.669Z"
 
+  /api/sol/position-calculator:
+    post:
+      operationId: calculateSOLPosition
+      summary: Calculate comprehensive SOL futures position metrics
+      description: |
+        Advanced position calculator for SOL-USDT-SWAP futures providing institutional-grade risk analysis, margin calculations, PnL projections, and position sizing recommendations. 
+        
+        **Features:**
+        - **Margin Calculations**: Initial margin, maintenance margin, liquidation price with fees
+        - **Risk Analysis**: Risk level assessment, liquidation distance, Value at Risk (VaR)
+        - **Position Sizing**: Optimal size, Kelly criterion, max safe size recommendations
+        - **Leverage Analysis**: Current vs recommended leverage with risk assessment
+        - **Scenario Modeling**: Bullish/bearish price scenarios with PnL projections
+        - **Trading Recommendations**: Action recommendations (hold/reduce/close) with urgency levels
+      tags:
+        - Market Data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - entryPrice
+                - size
+                - leverage
+                - side
+                - marginMode
+              properties:
+                entryPrice:
+                  type: number
+                  description: Entry price for the position
+                  example: 210.50
+                  minimum: 0.01
+                size:
+                  type: number
+                  description: Position size in SOL contracts
+                  example: 10
+                  minimum: 0.01
+                leverage:
+                  type: integer
+                  description: Leverage multiplier (2x-100x)
+                  example: 10
+                  minimum: 2
+                  maximum: 100
+                side:
+                  type: string
+                  description: Position direction
+                  enum: ["long", "short"]
+                  example: "long"
+                marginMode:
+                  type: string
+                  description: Margin mode for the position
+                  enum: ["isolated", "cross"]
+                  example: "isolated"
+                accountBalance:
+                  type: number
+                  description: Account balance in USDT (optional, defaults to 10000)
+                  example: 10000
+                  minimum: 100
+      responses:
+        '200':
+          description: Comprehensive position analysis with risk metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      position:
+                        type: object
+                        properties:
+                          entryPrice:
+                            type: number
+                            example: 210.50
+                          size:
+                            type: number
+                            example: 10
+                          leverage:
+                            type: integer
+                            example: 10
+                          side:
+                            type: string
+                            example: "long"
+                          marginMode:
+                            type: string
+                            example: "isolated"
+                          currentPrice:
+                            type: number
+                            example: 210.50
+                      margin:
+                        type: object
+                        properties:
+                          initialMargin:
+                            type: number
+                            example: 210.50
+                            description: "Required initial margin in USDT"
+                          liquidationPrice:
+                            type: number
+                            example: 200.08
+                            description: "Liquidation price including fees"
+                          marginCall:
+                            type: number
+                            example: 202.16
+                            description: "Margin call warning price"
+                      risk:
+                        type: object
+                        properties:
+                          riskLevel:
+                            type: string
+                            enum: ["low", "medium", "high", "extreme"]
+                            example: "extreme"
+                          liquidationDistance:
+                            type: number
+                            example: 4.95
+                            description: "Distance to liquidation in percentage"
+                          valueAtRisk:
+                            type: number
+                            example: 1650
+                            description: "95% VaR in USDT"
+                      recommendations:
+                        type: object
+                        properties:
+                          action:
+                            type: string
+                            enum: ["hold", "reduce", "close"]
+                            example: "close"
+                          reason:
+                            type: string
+                            example: "Liquidation risk extremely high - immediate action required"
+                          urgency:
+                            type: string
+                            enum: ["low", "medium", "high", "critical"]
+                            example: "critical"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-09-03T16:35:55.583Z"
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/sol/liquidation:
     get:
       operationId: getSOLLiquidationAnalysis
