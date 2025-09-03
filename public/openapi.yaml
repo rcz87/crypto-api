@@ -24,7 +24,7 @@ info:
     - Rate limit: 100 requests/minute
     - 99.9% uptime with auto-reconnection
     - SSL-secured with CORS enabled
-  version: '2.2.0'
+  version: '2.3.0'
   contact:
     email: admin@guardiansofthegreentoken.com
     url: https://guardiansofthegreentoken.com
@@ -172,6 +172,468 @@ paths:
                         type: string
                         format: date-time
                         example: "2025-08-26T08:30:00.000Z"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                
+  /api/sol/confluence:
+    get:
+      operationId: getConfluenceScoring
+      summary: Get 8-layer SharpSignalEngine confluence analysis
+      description: Advanced 8-layer confluence scoring system combining Smart Money Concepts (SMC), Cumulative Volume Delta (CVD), Volume Profile, Funding Rate, Open Interest, Technical Indicators, Fibonacci, and Order Flow for comprehensive market analysis with overall trend strength and signals.
+      tags:
+        - Market Data
+      parameters:
+        - name: timeframe
+          in: query
+          description: Analysis timeframe
+          required: false
+          schema:
+            type: string
+            enum: ["5m", "15m", "30m", "1H", "4H", "1D", "1W"]
+            default: "1H"
+      responses:
+        '200':
+          description: Complete 8-layer confluence analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      overall:
+                        type: number
+                        example: 42
+                        description: "Overall confluence score (0-100)"
+                      trend:
+                        type: string
+                        enum: ["bullish", "bearish", "neutral"]
+                        example: "bullish"
+                      strength:
+                        type: string
+                        enum: ["weak", "moderate", "strong"]
+                        example: "moderate"
+                      confidence:
+                        type: number
+                        example: 75
+                        description: "Analysis confidence percentage"
+                      components:
+                        type: object
+                        properties:
+                          smc:
+                            type: number
+                            example: 10
+                            description: "Smart Money Concepts score"
+                          cvd:
+                            type: number
+                            example: 15
+                            description: "Cumulative Volume Delta score"
+                          volumeProfile:
+                            type: number
+                            example: 50
+                            description: "Volume Profile analysis score"
+                          funding:
+                            type: number
+                            example: 15
+                            description: "Funding rate score"
+                          openInterest:
+                            type: number
+                            example: 30
+                            description: "Open Interest score"
+                          technicalIndicators:
+                            type: number
+                            example: 37
+                            description: "Technical indicators score"
+                          fibonacci:
+                            type: number
+                            example: 61
+                            description: "Fibonacci analysis score"
+                          orderFlow:
+                            type: number
+                            example: 15
+                            description: "Order flow analysis score"
+                      signals:
+                        type: array
+                        description: "Individual analysis signals"
+                        items:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                              example: "bullish"
+                            source:
+                              type: string
+                              example: "Technical Indicators"
+                            weight:
+                              type: number
+                              example: 20
+                            confidence:
+                              type: number
+                              example: 85
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                
+  /api/sol/technical:
+    get:
+      operationId: getTechnicalIndicators
+      summary: Get comprehensive technical indicators analysis
+      description: Professional technical analysis including RSI, MACD, Bollinger Bands, momentum indicators, and trend analysis with historical data and signal interpretation for algorithmic trading and market analysis.
+      tags:
+        - Market Data
+      parameters:
+        - name: timeframe
+          in: query
+          description: Analysis timeframe
+          required: false
+          schema:
+            type: string
+            enum: ["5m", "15m", "30m", "1H", "4H", "1D", "1W"]
+            default: "1H"
+      responses:
+        '200':
+          description: Complete technical indicators analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      timeframe:
+                        type: string
+                        example: "1H"
+                      rsi:
+                        type: object
+                        properties:
+                          current:
+                            type: number
+                            example: 52.73
+                          period:
+                            type: number
+                            example: 14
+                          signal:
+                            type: string
+                            enum: ["buy", "sell", "neutral"]
+                            example: "neutral"
+                          strength:
+                            type: string
+                            enum: ["weak", "moderate", "strong"]
+                            example: "weak"
+                          trend:
+                            type: string
+                            enum: ["bullish", "bearish", "neutral"]
+                            example: "bullish"
+                          divergence:
+                            type: object
+                            properties:
+                              detected:
+                                type: boolean
+                                example: false
+                      macd:
+                        type: object
+                        properties:
+                          macd:
+                            type: number
+                            example: 1.23
+                          signal:
+                            type: number
+                            example: 0.98
+                          histogram:
+                            type: number
+                            example: 0.25
+                          trend:
+                            type: string
+                            example: "bullish"
+                      bollingerBands:
+                        type: object
+                        properties:
+                          upper:
+                            type: number
+                            example: 215.45
+                          middle:
+                            type: number
+                            example: 210.22
+                          lower:
+                            type: number
+                            example: 204.99
+                          position:
+                            type: string
+                            example: "middle"
+                          squeeze:
+                            type: boolean
+                            example: false
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                
+  /api/sol/cvd:
+    get:
+      operationId: getCVDAnalysis
+      summary: Get Cumulative Volume Delta (CVD) analysis
+      description: Professional CVD analysis showing buying vs selling pressure through cumulative volume delta calculations, historical CVD trends, and institutional order flow patterns for smart money tracking.
+      tags:
+        - Market Data
+      parameters:
+        - name: timeframe
+          in: query
+          description: Analysis timeframe
+          required: false
+          schema:
+            type: string
+            enum: ["5m", "15m", "30m", "1H", "4H", "1D", "1W"]
+            default: "1H"
+      responses:
+        '200':
+          description: Complete CVD analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      timeframe:
+                        type: string
+                        example: "1H"
+                      currentCVD:
+                        type: string
+                        example: "103498.95"
+                        description: "Current cumulative volume delta"
+                      previousCVD:
+                        type: string
+                        example: "97005.41"
+                        description: "Previous period CVD"
+                      deltaChange:
+                        type: string
+                        example: "6493.54"
+                        description: "CVD change from previous period"
+                      percentageChange:
+                        type: number
+                        example: 6.69
+                        description: "Percentage change in CVD"
+                      cvdHistory:
+                        type: array
+                        description: "Historical CVD data points"
+                        items:
+                          type: object
+                          properties:
+                            timestamp:
+                              type: string
+                              example: "1756904400000"
+                            price:
+                              type: string
+                              example: "211.48"
+                            buyVolume:
+                              type: string
+                              example: "88.68"
+                            sellVolume:
+                              type: string
+                              example: "200.87"
+                            netVolume:
+                              type: string
+                              example: "-112.19"
+                            totalVolume:
+                              type: string
+                              example: "289.55"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                
+  /api/sol/fibonacci:
+    get:
+      operationId: getFibonacciAnalysis
+      summary: Get Fibonacci retracement and extension analysis
+      description: Advanced Fibonacci analysis including retracements, extensions, swing point identification, trend phase analysis, and confluence zones for precise entry/exit levels and market structure analysis.
+      tags:
+        - Market Data
+      parameters:
+        - name: timeframe
+          in: query
+          description: Analysis timeframe
+          required: false
+          schema:
+            type: string
+            enum: ["5m", "15m", "30m", "1H", "4H", "1D", "1W"]
+            default: "1H"
+      responses:
+        '200':
+          description: Complete Fibonacci analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      timeframe:
+                        type: string
+                        example: "1H"
+                      trend:
+                        type: object
+                        properties:
+                          direction:
+                            type: string
+                            enum: ["bullish", "bearish", "neutral"]
+                            example: "bullish"
+                          strength:
+                            type: string
+                            enum: ["weak", "moderate", "strong"]
+                            example: "strong"
+                          phase:
+                            type: string
+                            example: "impulse"
+                      swingPoints:
+                        type: object
+                        properties:
+                          current:
+                            type: object
+                            properties:
+                              high:
+                                type: object
+                                properties:
+                                  price:
+                                    type: number
+                                    example: 206.67
+                                  timestamp:
+                                    type: string
+                                    example: "1756605600000"
+                                  type:
+                                    type: string
+                                    example: "high"
+                                  strength:
+                                    type: string
+                                    example: "strong"
+                              low:
+                                type: object
+                                properties:
+                                  price:
+                                    type: number
+                                    example: 201.5
+                                  timestamp:
+                                    type: string
+                                    example: "1756648800000"
+                                  type:
+                                    type: string
+                                    example: "low"
+                                  strength:
+                                    type: string
+                                    example: "strong"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                
+  /api/sol/order-flow:
+    get:
+      operationId: getOrderFlowAnalysis
+      summary: Get real-time order flow and market microstructure analysis
+      description: Professional order flow analysis including trade imbalances, aggressive vs passive orders, large trade detection, bid-ask dynamics, and institutional flow patterns for advanced market microstructure insights.
+      tags:
+        - Market Data
+      parameters:
+        - name: timeframe
+          in: query
+          description: Analysis timeframe
+          required: false
+          schema:
+            type: string
+            enum: ["5m", "15m", "30m", "1H", "4H", "1D", "1W"]
+            default: "1H"
+      responses:
+        '200':
+          description: Complete order flow analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      timeframe:
+                        type: string
+                        example: "1H"
+                      currentImbalance:
+                        type: object
+                        properties:
+                          timestamp:
+                            type: string
+                            example: "2025-09-03T13:57:05.889Z"
+                          imbalanceRatio:
+                            type: number
+                            example: 0.65
+                            description: "Order flow imbalance ratio"
+                          strength:
+                            type: string
+                            enum: ["weak", "moderate", "strong"]
+                            example: "moderate"
+                          significance:
+                            type: string
+                            enum: ["minor", "moderate", "major"]
+                            example: "moderate"
+                          prediction:
+                            type: string
+                            enum: ["bullish", "bearish", "neutral"]
+                            example: "bullish"
+                      recentTrades:
+                        type: object
+                        properties:
+                          total:
+                            type: number
+                            example: 50
+                          buyVolume:
+                            type: number
+                            example: 30.4
+                          sellVolume:
+                            type: number
+                            example: 65.12
+                          netVolume:
+                            type: number
+                            example: -34.72
+                          avgTradeSize:
+                            type: number
+                            example: 1.91
+                          largeTradeCount:
+                            type: number
+                            example: 5
+                          aggressiveBuyRatio:
+                            type: number
+                            example: 0.28
         '500':
           description: Server error
           content:
