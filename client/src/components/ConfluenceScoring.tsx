@@ -31,6 +31,9 @@ interface ConfluenceScore {
     volumeProfile: number;
     funding: number;
     openInterest: number;
+    technicalIndicators: number;
+    fibonacci: number;
+    orderFlow: number;
   };
   signals: {
     type: string;
@@ -114,12 +117,15 @@ export function ConfluenceScoring({ timeframe = '1H', className = '' }: Confluen
 
   const getComponentIcon = (component: string) => {
     switch (component) {
-      case 'smc': return <BarChart3 className="h-4 w-4" />;
-      case 'cvd': return <Activity className="h-4 w-4" />;
-      case 'volumeProfile': return <Target className="h-4 w-4" />;
-      case 'funding': return <TrendingUp className="h-4 w-4" />;
-      case 'openInterest': return <Eye className="h-4 w-4" />;
-      default: return <Activity className="h-4 w-4" />;
+      case 'smc': return <BarChart3 className="h-4 w-4 text-blue-400" />;
+      case 'cvd': return <Activity className="h-4 w-4 text-purple-400" />;
+      case 'volumeProfile': return <Target className="h-4 w-4 text-green-400" />;
+      case 'funding': return <TrendingUp className="h-4 w-4 text-yellow-400" />;
+      case 'openInterest': return <Eye className="h-4 w-4 text-red-400" />;
+      case 'technicalIndicators': return <Gauge className="h-4 w-4 text-orange-400" />;
+      case 'fibonacci': return <Target className="h-4 w-4 text-cyan-400" />;
+      case 'orderFlow': return <Activity className="h-4 w-4 text-pink-400" />;
+      default: return <Activity className="h-4 w-4 text-gray-400" />;
     }
   };
 
@@ -254,7 +260,11 @@ export function ConfluenceScoring({ timeframe = '1H', className = '' }: Confluen
                        key === 'cvd' ? 'Volume Delta' :
                        key === 'volumeProfile' ? 'Volume Profile' :
                        key === 'funding' ? 'Funding Rate' :
-                       'Open Interest'}
+                       key === 'openInterest' ? 'Open Interest' :
+                       key === 'technicalIndicators' ? 'RSI/EMA Technical' :
+                       key === 'fibonacci' ? 'Fibonacci Analysis' :
+                       key === 'orderFlow' ? 'Order Flow Analysis' :
+                       key}
                     </span>
                   </div>
                   <span className={`text-sm font-semibold ${
