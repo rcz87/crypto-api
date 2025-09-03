@@ -12,7 +12,8 @@ import { FibonacciService } from "./services/fibonacci";
 import { OrderFlowService } from "./services/orderFlow";
 import { LiquidationService } from "./services/liquidation";
 import { PositionCalculatorService } from "./services/positionCalculator";
-import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema, positionCalculatorSchema, positionParamsSchema } from "@shared/schema";
+import { RiskManagementService, type PortfolioPosition } from "./services/riskManagement";
+import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema, positionCalculatorSchema, positionParamsSchema, riskDashboardSchema } from "@shared/schema";
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
 import { backpressureManager } from "./utils/websocket";
@@ -972,6 +973,90 @@ Allow: /openapi.yaml`);
         level: 'error',
         message: 'Position calculator request failed',
         details: `POST /api/sol/position-calculator - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Risk Management Dashboard - Comprehensive Portfolio Risk Analysis
+  app.post('/api/sol/risk-dashboard', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      console.log('Risk Dashboard endpoint hit with body:', req.body);
+      
+      // Validate request body
+      const { positions, accountBalance = 10000, riskLimits } = req.body;
+      
+      if (!positions || !Array.isArray(positions)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing or invalid positions array',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      // Validate positions structure
+      const validatedPositions: PortfolioPosition[] = positions.map((pos: any) => ({
+        symbol: pos.symbol || 'SOL-USDT-SWAP',
+        side: pos.side,
+        size: parseFloat(pos.size),
+        entryPrice: parseFloat(pos.entryPrice),
+        currentPrice: parseFloat(pos.currentPrice || pos.entryPrice),
+        leverage: parseInt(pos.leverage),
+        marginMode: pos.marginMode || 'isolated',
+        unrealizedPnl: parseFloat(pos.unrealizedPnl || 0),
+        liquidationPrice: parseFloat(pos.liquidationPrice || 0),
+        liquidationDistance: parseFloat(pos.liquidationDistance || 0),
+        riskWeight: parseFloat(pos.riskWeight || 1),
+      }));
+      
+      console.log('Validated positions:', validatedPositions);
+      
+      // Initialize Risk Management service
+      const riskManagementService = new RiskManagementService(okxService);
+      
+      // Generate comprehensive risk dashboard
+      console.log('Generating risk dashboard...');
+      const riskDashboard = await riskManagementService.generateRiskDashboard(
+        validatedPositions,
+        accountBalance,
+        riskLimits
+      );
+      
+      console.log('Risk dashboard generated successfully');
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Risk dashboard request completed',
+        details: `POST /api/sol/risk-dashboard - ${responseTime}ms - 200 OK - Positions: ${validatedPositions.length}, Balance: $${accountBalance}`,
+      });
+      
+      res.json({
+        success: true,
+        data: riskDashboard,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/risk-dashboard:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Risk dashboard request failed',
+        details: `POST /api/sol/risk-dashboard - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
       
       res.status(500).json({

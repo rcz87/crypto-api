@@ -585,3 +585,124 @@ export type RiskMetrics = z.infer<typeof riskMetricsSchema>;
 export type PositionSizing = z.infer<typeof positionSizingSchema>;
 export type LeverageAnalysis = z.infer<typeof leverageAnalysisSchema>;
 export type PositionCalculatorResult = z.infer<typeof positionCalculatorSchema>;
+
+// Risk Management Dashboard Schemas
+export const portfolioRiskMetricsSchema = z.object({
+  portfolioValue: z.number(),
+  totalExposure: z.number(),
+  marginUtilization: z.number(),
+  valueAtRisk: z.object({
+    daily: z.number(),
+    weekly: z.number(),
+    confidence95: z.number(),
+    confidence99: z.number(),
+  }),
+  maxDrawdown: z.object({
+    current: z.number(),
+    estimated: z.number(),
+    historical: z.number(),
+  }),
+  riskScore: z.number().min(0).max(100),
+  riskLevel: z.enum(['conservative', 'moderate', 'aggressive', 'extreme']),
+});
+
+export const portfolioPositionSchema = z.object({
+  symbol: z.string(),
+  side: z.enum(['long', 'short']),
+  size: z.number(),
+  entryPrice: z.number(),
+  currentPrice: z.number(),
+  leverage: z.number(),
+  marginMode: z.enum(['isolated', 'cross']),
+  unrealizedPnl: z.number(),
+  liquidationPrice: z.number(),
+  liquidationDistance: z.number(),
+  riskWeight: z.number(),
+});
+
+export const marketRiskFactorsSchema = z.object({
+  volatilityRegime: z.enum(['low', 'normal', 'high', 'extreme']),
+  volatilityPercentile: z.number(),
+  marketTrend: z.enum(['bullish', 'bearish', 'sideways']),
+  fundingRateImpact: z.number(),
+  openInterestChange24h: z.number(),
+  correlationRisk: z.number(),
+  liquidityRisk: z.enum(['low', 'medium', 'high']),
+});
+
+export const riskAlertsSchema = z.object({
+  marginCallWarnings: z.array(z.object({
+    position: z.string(),
+    currentMargin: z.number(),
+    requiredMargin: z.number(),
+    timeToMarginCall: z.string(),
+    severity: z.enum(['warning', 'critical']),
+  })),
+  liquidationWarnings: z.array(z.object({
+    position: z.string(),
+    liquidationDistance: z.number(),
+    estimatedTime: z.string(),
+    severity: z.enum(['warning', 'danger', 'critical']),
+  })),
+  concentrationRisk: z.array(z.object({
+    type: z.enum(['position', 'sector', 'leverage']),
+    description: z.string(),
+    riskLevel: z.number(),
+    recommendation: z.string(),
+  })),
+  marketAlerts: z.array(z.object({
+    type: z.enum(['volatility', 'funding', 'liquidity', 'correlation']),
+    message: z.string(),
+    impact: z.enum(['low', 'medium', 'high']),
+    action: z.string(),
+  })),
+});
+
+export const riskComplianceSchema = z.object({
+  riskLimits: z.object({
+    maxDrawdown: z.object({
+      limit: z.number(),
+      current: z.number(),
+      status: z.enum(['safe', 'warning', 'breach']),
+    }),
+    maxLeverage: z.object({
+      limit: z.number(),
+      current: z.number(),
+      status: z.enum(['safe', 'warning', 'breach']),
+    }),
+    maxExposure: z.object({
+      limit: z.number(),
+      current: z.number(),
+      status: z.enum(['safe', 'warning', 'breach']),
+    }),
+    varLimit: z.object({
+      limit: z.number(),
+      current: z.number(),
+      status: z.enum(['safe', 'warning', 'breach']),
+    }),
+  }),
+  overallCompliance: z.enum(['compliant', 'warning', 'non_compliant']),
+});
+
+export const riskDashboardSchema = z.object({
+  timestamp: z.string(),
+  accountBalance: z.number(),
+  portfolioMetrics: portfolioRiskMetricsSchema,
+  positions: z.array(portfolioPositionSchema),
+  marketFactors: marketRiskFactorsSchema,
+  alerts: riskAlertsSchema,
+  recommendations: z.object({
+    overall: z.string(),
+    positions: z.array(z.string()),
+    riskAdjustments: z.array(z.string()),
+    urgentActions: z.array(z.string()),
+  }),
+  compliance: riskComplianceSchema,
+});
+
+export type PortfolioRiskMetrics = z.infer<typeof portfolioRiskMetricsSchema>;
+export type PortfolioPosition = z.infer<typeof portfolioPositionSchema>;
+export type MarketRiskFactors = z.infer<typeof marketRiskFactorsSchema>;
+export type RiskAlerts = z.infer<typeof riskAlertsSchema>;
+export type RiskCompliance = z.infer<typeof riskComplianceSchema>;
+export type RiskDashboardData = z.infer<typeof riskDashboardSchema>;
