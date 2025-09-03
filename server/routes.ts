@@ -532,8 +532,8 @@ Allow: /openapi.yaml`);
           timeframe
         ).catch(() => null),
         okxService.getVolumeProfile('SOL-USDT', timeframe, 100).catch(() => null),
-        okxService.getFundingRate('SOL-USDT').catch(() => null),
-        okxService.getOpenInterest('SOL-USDT').catch(() => null),
+        okxService.getFundingRate('SOL-USDT-SWAP').catch(() => null),
+        okxService.getOpenInterest('SOL-USDT-SWAP').catch(() => null),
         new TechnicalIndicatorsService().analyzeTechnicalIndicators(
           await okxService.getCandles('SOL-USDT', timeframe, 100),
           timeframe
@@ -544,7 +544,7 @@ Allow: /openapi.yaml`);
         ).catch(() => null),
         new OrderFlowService().analyzeOrderFlow(
           await okxService.getRecentTrades('SOL-USDT', 200),
-          await okxService.getOrderBook('SOL-USDT', 20),
+          await okxService.getEnhancedOrderBook('SOL-USDT', 50),
           timeframe
         ).catch(() => null)
       ]);
@@ -716,7 +716,7 @@ Allow: /openapi.yaml`);
       // Get trades and order book data
       const [trades, orderBook] = await Promise.all([
         okxService.getRecentTrades('SOL-USDT', tradeLimit),
-        okxService.getOrderBook('SOL-USDT', 20) // Get top 20 levels
+        okxService.getEnhancedOrderBook('SOL-USDT', 50) // Get enhanced order book with 50 levels
       ]);
       
       // Perform order flow analysis
