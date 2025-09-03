@@ -100,24 +100,7 @@ Allow: /openapi.yaml`);
     }
   });
 
-  // OpenAPI specification endpoint - served dynamically to bypass static caching
-  app.get('/openapi.yaml', (req: Request, res: Response) => {
-    try {
-      const openapiPath = path.join(process.cwd(), 'public', 'openapi.yaml');
-      const openapiContent = fs.readFileSync(openapiPath, 'utf8');
-      
-      // Set headers to prevent caching
-      res.setHeader('Content-Type', 'application/x-yaml');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-      res.setHeader('Last-Modified', new Date().toUTCString());
-      
-      res.send(openapiContent);
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to load OpenAPI specification' });
-    }
-  });
+  // Duplicate OpenAPI endpoints removed - moved to high priority section
 
   // Metrics endpoint for monitoring and observability
   app.get('/metrics', async (req: Request, res: Response) => {
@@ -137,8 +120,45 @@ Allow: /openapi.yaml`);
     }
   });
 
-  // OpenAPI YAML specification for GPT custom actions
-  // Endpoint moved to later section - using public/openapi.yaml
+  // OpenAPI YAML specification for GPT custom actions - HIGH PRIORITY
+  app.get('/openapi.yaml', (req: Request, res: Response) => {
+    try {
+      const openapiPath = path.join(process.cwd(), 'public', 'openapi.yaml');
+      const openapiContent = fs.readFileSync(openapiPath, 'utf8');
+      
+      // Set aggressive anti-cache headers
+      res.setHeader('Content-Type', 'application/x-yaml; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Last-Modified', new Date().toUTCString());
+      res.setHeader('ETag', `"priority-${Date.now()}"`);
+      res.setHeader('Vary', '*');
+      
+      res.send(openapiContent);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to load OpenAPI specification' });
+    }
+  });
+
+  // Alternative OpenAPI endpoint untuk GPT Custom Actions
+  app.get('/api/openapi.yaml', (req: Request, res: Response) => {
+    try {
+      const openapiPath = path.join(process.cwd(), 'public', 'openapi.yaml');
+      const openapiContent = fs.readFileSync(openapiPath, 'utf8');
+      
+      // Set aggressive anti-cache headers
+      res.setHeader('Content-Type', 'application/x-yaml; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('ETag', `"api-${Date.now()}"`);
+      
+      res.send(openapiContent);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to load OpenAPI specification' });
+    }
+  });
 
   // GPT AI Plugin manifest
   app.get("/.well-known/ai-plugin.json", (req: Request, res: Response) => {
