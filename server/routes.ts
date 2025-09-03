@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import WebSocket, { WebSocketServer } from "ws";
 import path from "path";
+import fs from "fs";
 import { storage } from "./storage";
 import { okxService } from "./services/okx";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema } from "@shared/schema";
@@ -108,6 +109,40 @@ Allow: /openapi.yaml`);
         success: false,
         error: 'Failed to retrieve metrics',
         timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // OpenAPI YAML specification for GPT custom actions
+  app.get("/openapi.yaml", (req: Request, res: Response) => {
+    try {
+      const yamlPath = path.join(process.cwd(), "openapi.yaml");
+      const yamlContent = fs.readFileSync(yamlPath, "utf8");
+      res.setHeader("Content-Type", "application/x-yaml");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.send(yamlContent);
+    } catch (error) {
+      console.error("Error serving OpenAPI YAML:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to load OpenAPI specification"
+      });
+    }
+  });
+
+  // GPT AI Plugin manifest
+  app.get("/.well-known/ai-plugin.json", (req: Request, res: Response) => {
+    try {
+      const pluginPath = path.join(process.cwd(), ".well-known/ai-plugin.json");
+      const pluginContent = fs.readFileSync(pluginPath, "utf8");
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.json(JSON.parse(pluginContent));
+    } catch (error) {
+      console.error("Error serving AI plugin manifest:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to load AI plugin manifest"
       });
     }
   });

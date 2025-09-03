@@ -1,0 +1,583 @@
+openapi: 3.1.0
+info:
+  title: SOL Crypto Trading Data Gateway
+  description: |
+    Comprehensive real-time SOL (Solana) trading data gateway providing market analysis, order book depth, smart money concepts, and live trade flows from OKX exchange. 
+    
+    Designed for AI-powered crypto analysis with sub-50ms response times and enterprise-grade reliability.
+  version: "1.0.0"
+  contact:
+    name: SOL Trading Gateway
+    url: https://guardiansofthegreentoken.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://guardiansofthegreentoken.com
+    description: Production server with custom domain
+
+security: []
+
+paths:
+  /api/sol/complete:
+    get:
+      operationId: getCompleteSOLData
+      summary: Get comprehensive SOL trading data
+      description: |
+        Returns complete real-time SOL/USDT trading data including:
+        - Real-time ticker (price, 24h change, volume)
+        - Order book depth with bid/ask spreads
+        - Recent trades with buy/sell indicators
+        - Multi-timeframe candlestick data (5m, 15m, 30m, 1H, 4H, 1D, 1W)
+        - Smart Money Concepts (SMC) analysis
+        - Market depth visualization data
+        
+        Perfect for comprehensive market analysis and AI-driven trading insights.
+      responses:
+        '200':
+          description: Complete SOL trading data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      ticker:
+                        type: object
+                        properties:
+                          symbol:
+                            type: string
+                            example: "SOL-USDT"
+                          price:
+                            type: string
+                            example: "202.45"
+                          change24h:
+                            type: string
+                            example: "3.24"
+                          changePercent24h:
+                            type: string
+                            example: "1.63"
+                          volume24h:
+                            type: string
+                            example: "45287639.82"
+                          high24h:
+                            type: string
+                            example: "205.80"
+                          low24h:
+                            type: string
+                            example: "196.12"
+                      orderBook:
+                        type: object
+                        properties:
+                          bids:
+                            type: array
+                            items:
+                              type: array
+                              items:
+                                type: string
+                          asks:
+                            type: array
+                            items:
+                              type: array
+                              items:
+                                type: string
+                          timestamp:
+                            type: string
+                            format: date-time
+                      trades:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            price:
+                              type: string
+                            size:
+                              type: string
+                            side:
+                              type: string
+                              enum: [buy, sell]
+                            timestamp:
+                              type: string
+                              format: date-time
+                      candles:
+                        type: object
+                        properties:
+                          5m:
+                            type: array
+                            items:
+                              type: array
+                              items:
+                                type: string
+                          15m:
+                            type: array
+                            items:
+                              type: array
+                              items:
+                                type: string
+                          30m:
+                            type: array
+                            items:
+                              type: array
+                              items:
+                                type: string
+                          1H:
+                            type: array
+                            items:
+                              type: array
+                              items:
+                                type: string
+                          4H:
+                            type: array
+                            items:
+                              type: array
+                              items:
+                                type: string
+                          1D:
+                            type: array
+                            items:
+                              type: array
+                              items:
+                                type: string
+                          1W:
+                            type: array
+                            items:
+                              type: array
+                              items:
+                                type: string
+                      smc:
+                        type: object
+                        properties:
+                          timeframe:
+                            type: string
+                            example: "1H"
+                          trend:
+                            type: string
+                            enum: [bullish, bearish, neutral]
+                          structure:
+                            type: string
+                            enum: [BOS, CHoCH, neutral]
+                          keyLevels:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                price:
+                                  type: string
+                                type:
+                                  type: string
+                                  enum: [support, resistance]
+                                strength:
+                                  type: string
+                                  enum: [weak, medium, strong]
+                  timestamp:
+                    type: string
+                    format: date-time
+        '429':
+          description: Rate limit exceeded (100 requests per minute)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/sol/funding:
+    get:
+      operationId: getSOLFundingRate
+      summary: Get SOL funding rate data
+      description: |
+        Returns current and historical funding rate data for SOL perpetual futures.
+        Funding rates indicate market sentiment and can signal potential price movements.
+      responses:
+        '200':
+          description: SOL funding rate data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      instId:
+                        type: string
+                        example: "SOL-USDT-SWAP"
+                      fundingRate:
+                        type: string
+                        example: "0.0001"
+                      nextFundingRate:
+                        type: string
+                        example: "0.00012"
+                      nextFundingTime:
+                        type: string
+                        format: date-time
+                      timestamp:
+                        type: string
+                        format: date-time
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/sol/open-interest:
+    get:
+      operationId: getSOLOpenInterest
+      summary: Get SOL open interest data
+      description: |
+        Returns open interest data for SOL futures, indicating market participation and potential volatility.
+        High open interest with rising prices suggests strong bullish sentiment.
+      responses:
+        '200':
+          description: SOL open interest data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      instId:
+                        type: string
+                        example: "SOL-USDT-SWAP"
+                      oi:
+                        type: string
+                        example: "12584792.5"
+                      oiCcy:
+                        type: string
+                        example: "2547856432.85"
+                      timestamp:
+                        type: string
+                        format: date-time
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/sol/volume-profile:
+    get:
+      operationId: getSOLVolumeProfile
+      summary: Get SOL volume profile analysis
+      description: |
+        Returns volume profile data showing price levels with highest trading activity.
+        Includes Point of Control (POC) and value area analysis for support/resistance identification.
+      responses:
+        '200':
+          description: SOL volume profile data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      poc:
+                        type: string
+                        example: "202.45"
+                        description: "Point of Control - price level with highest volume"
+                      valueAreaHigh:
+                        type: string
+                        example: "205.80"
+                      valueAreaLow:
+                        type: string
+                        example: "198.20"
+                      volumeProfile:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            price:
+                              type: string
+                            volume:
+                              type: string
+                      timestamp:
+                        type: string
+                        format: date-time
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/sol/smc:
+    get:
+      operationId: getSOLSmartMoneyConcepts
+      summary: Get SOL Smart Money Concepts analysis
+      description: |
+        Returns advanced Smart Money Concepts (SMC) analysis including:
+        - Market structure analysis (BOS/CHoCH detection)
+        - Trend identification across multiple timeframes
+        - Key support and resistance levels
+        - Order block identification
+        - Liquidity grab analysis
+        
+        Perfect for institutional-style trading analysis.
+      responses:
+        '200':
+          description: SOL Smart Money Concepts analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      timeframe:
+                        type: string
+                        example: "1H"
+                      trend:
+                        type: string
+                        enum: [bullish, bearish, neutral]
+                        example: "bullish"
+                      structure:
+                        type: string
+                        enum: [BOS, CHoCH, neutral]
+                        example: "BOS"
+                        description: "Break of Structure or Change of Character"
+                      keyLevels:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            price:
+                              type: string
+                              example: "200.50"
+                            type:
+                              type: string
+                              enum: [support, resistance, order_block]
+                            strength:
+                              type: string
+                              enum: [weak, medium, strong]
+                            timeframe:
+                              type: string
+                              example: "1H"
+                      liquidityLevels:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            price:
+                              type: string
+                            type:
+                              type: string
+                              enum: [buy_liquidity, sell_liquidity]
+                            volume:
+                              type: string
+                      analysis:
+                        type: string
+                        example: "Strong bullish momentum with BOS confirmed. Key resistance at 205.80."
+                      timestamp:
+                        type: string
+                        format: date-time
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /healthz:
+    get:
+      operationId: getHealthStatus
+      summary: Get system health status
+      description: |
+        Returns comprehensive system health status including:
+        - API response times and performance metrics
+        - WebSocket connection status
+        - Cache performance and hit ratios
+        - Memory usage and system uptime
+        
+        Used for monitoring system reliability and performance.
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded]
+                    example: "healthy"
+                  uptime:
+                    type: number
+                    example: 3600
+                  memory:
+                    type: object
+                    properties:
+                      used:
+                        type: number
+                      total:
+                        type: number
+                      percentage:
+                        type: number
+                  services:
+                    type: object
+                    properties:
+                      okx_api:
+                        type: string
+                        enum: [operational, degraded, down]
+                      websocket:
+                        type: string
+                        enum: [operational, degraded, down]
+                      cache:
+                        type: string
+                        enum: [operational, degraded, down]
+                  timestamp:
+                    type: string
+                    format: date-time
+        '503':
+          description: System is degraded or unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "degraded"
+                  issues:
+                    type: array
+                    items:
+                      type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /metrics:
+    get:
+      operationId: getSystemMetrics
+      summary: Get detailed system metrics
+      description: |
+        Returns comprehensive system performance metrics including:
+        - HTTP request latencies (P50, P95, P99)
+        - Cache hit/miss ratios and performance
+        - WebSocket connection statistics
+        - API call success rates and error counts
+        
+        Perfect for performance monitoring and optimization analysis.
+      responses:
+        '200':
+          description: System metrics data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      uptime:
+                        type: number
+                        example: 3600
+                      memory:
+                        type: object
+                        properties:
+                          used:
+                            type: number
+                          total:
+                            type: number
+                          percentage:
+                            type: number
+                      http:
+                        type: object
+                        properties:
+                          requests_total:
+                            type: number
+                          requests_per_minute:
+                            type: number
+                          avg_response_time:
+                            type: number
+                          p95_response_time:
+                            type: number
+                          error_rate:
+                            type: number
+                      cache:
+                        type: object
+                        properties:
+                          hit_ratio:
+                            type: number
+                            example: 0.75
+                          size:
+                            type: number
+                          hits:
+                            type: number
+                          misses:
+                            type: number
+                      websocket:
+                        type: object
+                        properties:
+                          active_connections:
+                            type: number
+                          total_connections:
+                            type: number
+                          reconnect_rate:
+                            type: number
+                      timestamp:
+                        type: string
+                        format: date-time
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "Rate limit exceeded. Please try again later."
+        code:
+          type: string
+          example: "RATE_LIMIT_EXCEEDED"
+        timestamp:
+          type: string
+          format: date-time
+
+  securitySchemes: {}
+
+tags:
+  - name: Trading Data
+    description: Real-time SOL trading data and market analysis
+  - name: Market Analysis
+    description: Advanced market analysis including SMC and volume profile
+  - name: System Monitoring
+    description: Health checks and performance metrics
+
+externalDocs:
+  description: SOL Trading Gateway Documentation
+  url: https://guardiansofthegreentoken.com

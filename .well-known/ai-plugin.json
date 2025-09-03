@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "name_for_model": "sol_crypto_gateway",
+  "name_for_human": "SOL Crypto Trading Gateway",
+  "description_for_model": "Access comprehensive real-time SOL (Solana) trading data including price, volume, order book depth, smart money concepts analysis, funding rates, open interest, and volume profile. Provides enterprise-grade crypto market analysis with sub-50ms response times from OKX exchange data.",
+  "description_for_human": "Real-time SOL crypto trading data with advanced market analysis, order book depth, and smart money concepts.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://guardiansofthegreentoken.com/openapi.yaml"
+  },
+  "logo_url": "https://guardiansofthegreentoken.com/logo.png",
+  "contact_email": "support@guardiansofthegreentoken.com",
+  "legal_info_url": "https://guardiansofthegreentoken.com/legal"
+}
