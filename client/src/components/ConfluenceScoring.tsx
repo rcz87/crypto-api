@@ -61,8 +61,10 @@ export function ConfluenceScoring({ timeframe = '1H', className = '' }: Confluen
     timestamp: string;
   }>({
     queryKey: [`/api/sol/confluence`, timeframe],
-    queryFn: async () => {
-      const response = await fetch(`/api/sol/confluence?timeframe=${timeframe}`);
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`/api/sol/confluence?timeframe=${timeframe}`, {
+        signal // AbortController signal for cleanup
+      });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: Failed to fetch confluence data`);
       }
@@ -72,6 +74,7 @@ export function ConfluenceScoring({ timeframe = '1H', className = '' }: Confluen
     staleTime: 15000,
     retry: 2,
     refetchOnWindowFocus: false,
+    refetchIntervalInBackground: false, // Stop refetching when tab is not active
   });
 
   const confluence = confluenceData?.data;

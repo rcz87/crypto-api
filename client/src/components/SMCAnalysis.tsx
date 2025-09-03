@@ -39,8 +39,10 @@ export function SMCAnalysis({ className = '' }: SMCProps) {
     timestamp: string;
   }>({
     queryKey: [`/api/sol/smc`, timeframe],
-    queryFn: async () => {
-      const response = await fetch(`/api/sol/smc?timeframe=${timeframe}&limit=100`);
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`/api/sol/smc?timeframe=${timeframe}&limit=100`, {
+        signal // AbortController signal for cleanup
+      });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: Failed to fetch SMC data`);
       }
@@ -50,6 +52,7 @@ export function SMCAnalysis({ className = '' }: SMCProps) {
     staleTime: 8000, // Consider stale after 8 seconds
     retry: 3,
     refetchOnWindowFocus: false,
+    refetchIntervalInBackground: false, // Stop refetching when tab is not active
   });
 
   useEffect(() => {

@@ -13,7 +13,18 @@ export function SystemLogs() {
     timestamp: string;
   }>({
     queryKey: ["/api/logs"],
+    queryFn: async ({ signal }) => {
+      const response = await fetch('/api/logs', {
+        signal // AbortController signal for cleanup
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch logs`);
+      }
+      return response.json();
+    },
     refetchInterval: 10000, // Refresh every 10 seconds
+    refetchIntervalInBackground: false, // Stop refetching when tab is not active
+    refetchOnWindowFocus: false,
   });
 
   const logs = (logsData?.data as SystemLogsType[]) || [];

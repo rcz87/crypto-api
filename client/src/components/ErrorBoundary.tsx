@@ -24,6 +24,20 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.warn('Component error caught:', error, errorInfo);
+    
+    // Enhanced error logging for debugging
+    if (error.message?.includes('AbortError') || error.message?.includes('NetworkError')) {
+      console.log('Network/Abort error - component was likely unmounted during fetch');
+      return; // Don't log these as serious errors
+    }
+    
+    // Log serious component errors
+    console.error('Serious component error:', {
+      error: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+      timestamp: new Date().toISOString()
+    });
   }
 
   private handleReset = () => {

@@ -24,7 +24,18 @@ export function FundingRate() {
     timestamp: string;
   }>({
     queryKey: ['/api/sol/funding'],
+    queryFn: async ({ signal }) => {
+      const response = await fetch('/api/sol/funding', {
+        signal // AbortController signal for cleanup
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch funding data`);
+      }
+      return response.json();
+    },
     refetchInterval: 30000, // Refresh every 30 seconds
+    refetchIntervalInBackground: false, // Stop refetching when tab is not active
+    refetchOnWindowFocus: false,
   });
 
   if (isLoading) {

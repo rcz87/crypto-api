@@ -97,8 +97,10 @@ export function TechnicalIndicators({ className = '' }: TechnicalIndicatorsProps
     timestamp: string;
   }>({
     queryKey: [`/api/sol/technical`, timeframe],
-    queryFn: async () => {
-      const response = await fetch(`/api/sol/technical?timeframe=${timeframe}&limit=100`);
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`/api/sol/technical?timeframe=${timeframe}&limit=100`, {
+        signal // AbortController signal for cleanup
+      });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: Failed to fetch technical indicators data`);
       }
@@ -108,6 +110,7 @@ export function TechnicalIndicators({ className = '' }: TechnicalIndicatorsProps
     staleTime: 8000, // Consider stale after 8 seconds
     retry: 3,
     refetchOnWindowFocus: false,
+    refetchIntervalInBackground: false, // Stop refetching when tab is not active
   });
 
   useEffect(() => {

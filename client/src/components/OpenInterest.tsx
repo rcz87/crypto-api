@@ -19,7 +19,18 @@ export function OpenInterest() {
     timestamp: string;
   }>({
     queryKey: ['/api/sol/open-interest'],
+    queryFn: async ({ signal }) => {
+      const response = await fetch('/api/sol/open-interest', {
+        signal // AbortController signal for cleanup
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch open interest data`);
+      }
+      return response.json();
+    },
     refetchInterval: 60000, // Refresh every minute
+    refetchIntervalInBackground: false, // Stop refetching when tab is not active
+    refetchOnWindowFocus: false,
   });
 
   if (isLoading) {

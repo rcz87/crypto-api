@@ -38,8 +38,10 @@ export function CVDAnalysisComponent({ className = '' }: CVDProps) {
     timestamp: string;
   }>({
     queryKey: [`/api/sol/cvd`, timeframe],
-    queryFn: async () => {
-      const response = await fetch(`/api/sol/cvd?timeframe=${timeframe}&limit=100`);
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`/api/sol/cvd?timeframe=${timeframe}&limit=100`, {
+        signal // AbortController signal for cleanup
+      });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: Failed to fetch CVD data`);
       }
@@ -49,6 +51,7 @@ export function CVDAnalysisComponent({ className = '' }: CVDProps) {
     staleTime: 12000, // Consider stale after 12 seconds
     retry: 3,
     refetchOnWindowFocus: false,
+    refetchIntervalInBackground: false, // Stop refetching when tab is not active
   });
 
   useEffect(() => {

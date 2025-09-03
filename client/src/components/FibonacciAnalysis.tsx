@@ -91,8 +91,10 @@ export function FibonacciAnalysis({ className = '' }: FibonacciAnalysisProps) {
     timestamp: string;
   }>({
     queryKey: [`/api/sol/fibonacci`, timeframe],
-    queryFn: async () => {
-      const response = await fetch(`/api/sol/fibonacci?timeframe=${timeframe}&limit=100`);
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`/api/sol/fibonacci?timeframe=${timeframe}&limit=100`, {
+        signal // AbortController signal for cleanup
+      });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: Failed to fetch Fibonacci analysis data`);
       }
@@ -102,6 +104,7 @@ export function FibonacciAnalysis({ className = '' }: FibonacciAnalysisProps) {
     staleTime: 10000, // Consider stale after 10 seconds
     retry: 3,
     refetchOnWindowFocus: false,
+    refetchIntervalInBackground: false, // Stop refetching when tab is not active
   });
 
   useEffect(() => {

@@ -104,8 +104,10 @@ export function OrderFlowAnalysis({ className = '' }: OrderFlowAnalysisProps) {
     timestamp: string;
   }>({
     queryKey: [`/api/sol/order-flow`, timeframe],
-    queryFn: async () => {
-      const response = await fetch(`/api/sol/order-flow?timeframe=${timeframe}&tradeLimit=200`);
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`/api/sol/order-flow?timeframe=${timeframe}&tradeLimit=200`, {
+        signal // AbortController signal for cleanup
+      });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: Failed to fetch Order Flow analysis data`);
       }
@@ -115,6 +117,7 @@ export function OrderFlowAnalysis({ className = '' }: OrderFlowAnalysisProps) {
     staleTime: 6000, // Consider stale after 6 seconds
     retry: 3,
     refetchOnWindowFocus: false,
+    refetchIntervalInBackground: false, // Stop refetching when tab is not active
   });
 
   useEffect(() => {

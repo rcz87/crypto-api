@@ -34,7 +34,18 @@ export function VolumeProfile() {
     timestamp: string;
   }>({
     queryKey: ['/api/sol/volume-profile'],
+    queryFn: async ({ signal }) => {
+      const response = await fetch('/api/sol/volume-profile', {
+        signal // AbortController signal for cleanup
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch volume profile data`);
+      }
+      return response.json();
+    },
     refetchInterval: 120000, // Refresh every 2 minutes
+    refetchIntervalInBackground: false, // Stop refetching when tab is not active
+    refetchOnWindowFocus: false,
   });
 
   if (isLoading) {
