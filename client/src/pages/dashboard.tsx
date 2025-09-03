@@ -18,6 +18,7 @@ import { CVDAnalysisComponent } from "@/components/CVDAnalysis";
 import { ConfluenceScoring } from "@/components/ConfluenceScoring";
 import { TechnicalIndicators } from "@/components/TechnicalIndicators";
 import { FibonacciAnalysis } from "@/components/FibonacciAnalysis";
+import { OrderFlowAnalysis } from "@/components/OrderFlowAnalysis";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -300,7 +301,14 @@ export default function Dashboard() {
             </ErrorBoundary>
           </div>
 
-          {/* Row 5: Advanced Confluence Scoring */}
+          {/* Row 5: Order Flow Analysis - Professional Market Microstructure & Tape Reading */}
+          <div className="mt-6">
+            <ErrorBoundary>
+              <OrderFlowAnalysis className="w-full" />
+            </ErrorBoundary>
+          </div>
+
+          {/* Row 6: Advanced 8-Layer Confluence Scoring */}
           <div className="mt-6">
             <ErrorBoundary>
               <ConfluenceScoring timeframe="1H" className="w-full" />

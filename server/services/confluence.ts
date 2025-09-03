@@ -7,6 +7,7 @@ import {
 } from "@shared/schema";
 import { TechnicalIndicatorsAnalysis } from "./technicalIndicators";
 import { FibonacciAnalysis } from "./fibonacci";
+import { OrderFlowMetrics } from "./orderFlow";
 import { z } from "zod";
 
 export interface ConfluenceScore {
@@ -22,6 +23,7 @@ export interface ConfluenceScore {
     openInterest: number;
     technicalIndicators: number;
     fibonacci: number;
+    orderFlow: number;
   };
   signals: {
     type: string;
@@ -48,6 +50,7 @@ export class ConfluenceService {
     openInterest?: OpenInterestData,
     technicalIndicators?: TechnicalIndicatorsAnalysis,
     fibonacciAnalysis?: FibonacciAnalysis,
+    orderFlowMetrics?: OrderFlowMetrics,
     timeframe: string = '1H'
   ): Promise<ConfluenceScore> {
     
@@ -59,7 +62,8 @@ export class ConfluenceService {
       funding: 0,
       openInterest: 0,
       technicalIndicators: 0,
-      fibonacci: 0
+      fibonacci: 0,
+      orderFlow: 0
     };
 
     // 1. SMC Analysis Scoring (25% weight)
@@ -308,6 +312,78 @@ export class ConfluenceService {
             type: fibSignalType,
             source: `Fibonacci Signal: ${signal.type}`,
             weight: signal.strength === 'strong' ? 17 : signal.strength === 'moderate' ? 12 : 8,
+            confidence: signal.confidence
+          });
+        }
+      });
+    }
+
+    // 8. Order Flow Analysis Scoring (15% weight) - Market Microstructure & Tape Reading
+    if (orderFlowMetrics) {
+      const ofScore = this.calculateOrderFlowScore(orderFlowMetrics);
+      components.orderFlow = ofScore;
+      
+      // Bid/Ask Imbalance signals
+      if (orderFlowMetrics.currentImbalance.significance !== 'minor') {
+        signals.push({
+          type: orderFlowMetrics.currentImbalance.prediction,
+          source: 'Order Flow Imbalance',
+          weight: orderFlowMetrics.currentImbalance.significance === 'critical' ? 20 : 15,
+          confidence: Math.abs(orderFlowMetrics.currentImbalance.imbalanceRatio) * 100
+        });
+      }
+
+      // Whale activity signals
+      if (orderFlowMetrics.whaleActivity.detected && orderFlowMetrics.whaleActivity.strength !== 'weak') {
+        const whaleSignalType = orderFlowMetrics.whaleActivity.direction === 'accumulation' ? 'bullish' : 
+                               orderFlowMetrics.whaleActivity.direction === 'distribution' ? 'bearish' : 'neutral';
+        
+        if (whaleSignalType !== 'neutral') {
+          signals.push({
+            type: whaleSignalType,
+            source: `Whale ${orderFlowMetrics.whaleActivity.direction}`,
+            weight: orderFlowMetrics.whaleActivity.strength === 'strong' ? 18 : 12,
+            confidence: orderFlowMetrics.whaleActivity.confidence
+          });
+        }
+      }
+
+      // Tape reading sentiment signals
+      if (orderFlowMetrics.tapeReading.marketSentiment !== 'neutral' && 
+          orderFlowMetrics.tapeReading.predictionConfidence > 60) {
+        signals.push({
+          type: orderFlowMetrics.tapeReading.marketSentiment,
+          source: 'Tape Reading Analysis',
+          weight: orderFlowMetrics.tapeReading.predictionConfidence > 80 ? 16 : 12,
+          confidence: orderFlowMetrics.tapeReading.predictionConfidence
+        });
+      }
+
+      // Flow dominance signals
+      if (orderFlowMetrics.flowAnalysis.flowStrength !== 'weak') {
+        const flowType = orderFlowMetrics.flowAnalysis.dominantFlow === 'taker_dominated' ? 'bullish' : 
+                        orderFlowMetrics.flowAnalysis.dominantFlow === 'maker_dominated' ? 'bearish' : 'neutral';
+        
+        if (flowType !== 'neutral') {
+          signals.push({
+            type: flowType,
+            source: `${orderFlowMetrics.flowAnalysis.dominantFlow} flow`,
+            weight: orderFlowMetrics.flowAnalysis.flowStrength === 'strong' ? 14 : 10,
+            confidence: orderFlowMetrics.flowAnalysis.makerTakerRatio > 0.7 ? 80 : 65
+          });
+        }
+      }
+
+      // Active order flow signals
+      orderFlowMetrics.signals.forEach(signal => {
+        const ofSignalType = signal.type.includes('buy') || signal.type.includes('bullish') || signal.type.includes('accumulation') ? 'bullish' :
+                           signal.type.includes('sell') || signal.type.includes('bearish') || signal.type.includes('distribution') ? 'bearish' : 'neutral';
+        
+        if (ofSignalType !== 'neutral') {
+          signals.push({
+            type: ofSignalType,
+            source: `Order Flow: ${signal.type}`,
+            weight: signal.strength === 'strong' ? 15 : signal.strength === 'moderate' ? 10 : 6,
             confidence: signal.confidence
           });
         }
@@ -627,6 +703,71 @@ export class ConfluenceService {
     // Overall confidence adjustment
     const qualityMultiplier = fib.confidence.overall / 100;
     score *= qualityMultiplier;
+    
+    return Math.max(-100, Math.min(100, Math.round(score)));
+  }
+
+  private calculateOrderFlowScore(of: OrderFlowMetrics): number {
+    let score = 0;
+    
+    // Bid/Ask imbalance analysis (25% of order flow score)
+    const imbalanceScore = Math.abs(of.currentImbalance.imbalanceRatio) * 25;
+    if (of.currentImbalance.prediction === 'bullish') {
+      score += imbalanceScore;
+    } else if (of.currentImbalance.prediction === 'bearish') {
+      score -= imbalanceScore;
+    }
+    
+    // Whale activity impact (25% of order flow score)
+    if (of.whaleActivity.detected) {
+      const whaleBonus = of.whaleActivity.strength === 'strong' ? 25 : 
+                        of.whaleActivity.strength === 'moderate' ? 18 : 12;
+      
+      if (of.whaleActivity.direction === 'accumulation') {
+        score += whaleBonus;
+      } else if (of.whaleActivity.direction === 'distribution') {
+        score -= whaleBonus;
+      }
+    }
+    
+    // Tape reading sentiment (20% of order flow score)
+    const tapeBonus = of.tapeReading.predictionConfidence / 100 * 20;
+    if (of.tapeReading.marketSentiment === 'bullish') {
+      score += tapeBonus;
+    } else if (of.tapeReading.marketSentiment === 'bearish') {
+      score -= tapeBonus;
+    }
+    
+    // Flow analysis (15% of order flow score)
+    if (of.flowAnalysis.flowStrength !== 'weak') {
+      const flowBonus = of.flowAnalysis.flowStrength === 'strong' ? 15 : 10;
+      
+      // Taker dominated = bullish (market orders, aggressive buying)
+      // Maker dominated = bearish (limit orders, patient selling)
+      if (of.flowAnalysis.dominantFlow === 'taker_dominated' && of.flowAnalysis.makerTakerRatio > 0.6) {
+        score += flowBonus;
+      } else if (of.flowAnalysis.dominantFlow === 'maker_dominated' && of.flowAnalysis.makerTakerRatio < 0.4) {
+        score -= flowBonus;
+      }
+    }
+    
+    // Trade volume and momentum (15% of order flow score)
+    const netVolumeRatio = of.recentTrades.netVolume / (of.recentTrades.buyVolume + of.recentTrades.sellVolume || 1);
+    const momentumBonus = Math.abs(netVolumeRatio) * 15;
+    
+    if (netVolumeRatio > 0.1) {
+      score += momentumBonus; // More buy volume
+    } else if (netVolumeRatio < -0.1) {
+      score -= momentumBonus; // More sell volume
+    }
+    
+    // Quality adjustment based on confidence
+    const qualityMultiplier = of.confidence.overall / 100;
+    score *= qualityMultiplier;
+    
+    // Data reliability adjustment
+    const reliabilityMultiplier = (of.confidence.dataQuality + of.confidence.signalReliability) / 200;
+    score *= reliabilityMultiplier;
     
     return Math.max(-100, Math.min(100, Math.round(score)));
   }

@@ -9,6 +9,7 @@ import { CVDService } from "./services/cvd";
 import { ConfluenceService } from "./services/confluence";
 import { TechnicalIndicatorsService } from "./services/technicalIndicators";
 import { FibonacciService } from "./services/fibonacci";
+import { OrderFlowService } from "./services/orderFlow";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema } from "@shared/schema";
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
@@ -523,7 +524,7 @@ Allow: /openapi.yaml`);
       const confluenceService = new ConfluenceService();
       
       // Fetch all analysis data in parallel
-      const [smcData, cvdData, volumeData, fundingData, oiData, technicalData, fibonacciData] = await Promise.all([
+      const [smcData, cvdData, volumeData, fundingData, oiData, technicalData, fibonacciData, orderFlowData] = await Promise.all([
         okxService.getSMCAnalysis('SOL-USDT', timeframe, 100).catch(() => null),
         new CVDService(okxService).analyzeCVD(
           await okxService.getCandles('SOL-USDT', timeframe, 100),
@@ -540,10 +541,15 @@ Allow: /openapi.yaml`);
         new FibonacciService().analyzeFibonacci(
           await okxService.getCandles('SOL-USDT', timeframe, 100),
           timeframe
+        ).catch(() => null),
+        new OrderFlowService().analyzeOrderFlow(
+          await okxService.getRecentTrades('SOL-USDT', 200),
+          await okxService.getOrderBook('SOL-USDT', 20),
+          timeframe
         ).catch(() => null)
       ]);
       
-      // Calculate confluence score with all 7 layers
+      // Calculate confluence score with all 8 layers
       const confluenceScore = await confluenceService.calculateConfluenceScore(
         smcData || undefined,
         cvdData || undefined,
@@ -552,6 +558,7 @@ Allow: /openapi.yaml`);
         oiData || undefined,
         technicalData || undefined,
         fibonacciData || undefined,
+        orderFlowData || undefined,
         timeframe
       );
       
@@ -685,6 +692,61 @@ Allow: /openapi.yaml`);
         level: 'error',
         message: 'Fibonacci analysis request failed',
         details: `GET /api/sol/fibonacci - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Order Flow Analysis endpoint - Professional Market Microstructure & Tape Reading
+  app.get('/api/sol/order-flow', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const timeframe = req.query.timeframe as string || '1H';
+      const tradeLimit = parseInt(req.query.tradeLimit as string) || 200;
+      
+      // Initialize order flow service
+      const orderFlowService = new OrderFlowService();
+      
+      // Get trades and order book data
+      const [trades, orderBook] = await Promise.all([
+        okxService.getRecentTrades('SOL-USDT', tradeLimit),
+        okxService.getOrderBook('SOL-USDT', 20) // Get top 20 levels
+      ]);
+      
+      // Perform order flow analysis
+      const orderFlowAnalysis = await orderFlowService.analyzeOrderFlow(trades, orderBook, timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Order flow analysis request completed',
+        details: `GET /api/sol/order-flow - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Trades: ${tradeLimit}`,
+      });
+      
+      res.json({
+        success: true,
+        data: orderFlowAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/order-flow:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Order flow analysis request failed',
+        details: `GET /api/sol/order-flow - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
       
       res.status(500).json({
