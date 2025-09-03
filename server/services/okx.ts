@@ -76,7 +76,7 @@ export class OKXService {
     return `okx:${method}:${JSON.stringify(params || {})}`;
   }
 
-  async getTicker(symbol: string = 'SOL-USDT'): Promise<TickerData> {
+  async getTicker(symbol: string = 'SOL-USDT-SWAP'): Promise<TickerData> {
     const cacheKey = this.getCacheKey('ticker', { symbol });
     
     return cache.getSingleFlight(cacheKey, async () => {
@@ -109,7 +109,7 @@ export class OKXService {
     }, TTL_CONFIG.TICKER);
   }
 
-  async getCandles(symbol: string = 'SOL-USDT', bar: string = '1H', limit: number = 24): Promise<CandleData[]> {
+  async getCandles(symbol: string = 'SOL-USDT-SWAP', bar: string = '1H', limit: number = 24): Promise<CandleData[]> {
     const cacheKey = this.getCacheKey('candles', { symbol, bar, limit });
     
     return cache.getSingleFlight(cacheKey, async () => {
@@ -137,7 +137,7 @@ export class OKXService {
     }, TTL_CONFIG.CANDLES);
   }
 
-  async getOrderBook(symbol: string = 'SOL-USDT', depth: number = 50): Promise<OrderBookData> {
+  async getOrderBook(symbol: string = 'SOL-USDT-SWAP', depth: number = 50): Promise<OrderBookData> {
     const cacheKey = this.getCacheKey('orderBook', { symbol, depth });
     
     return cache.getSingleFlight(cacheKey, async () => {
@@ -178,7 +178,7 @@ export class OKXService {
     }, TTL_CONFIG.ORDERBOOK);
   }
 
-  async getRecentTrades(symbol: string = 'SOL-USDT', limit: number = 20): Promise<RecentTradeData[]> {
+  async getRecentTrades(symbol: string = 'SOL-USDT-SWAP', limit: number = 20): Promise<RecentTradeData[]> {
     try {
       const response = await this.client.get(`/api/v5/market/trades?instId=${symbol}&limit=${limit}`);
       
@@ -201,16 +201,16 @@ export class OKXService {
   async getCompleteSOLData(): Promise<SolCompleteData> {
     try {
       const results = await Promise.allSettled([
-        this.getTicker('SOL-USDT'),
-        this.getCandles('SOL-USDT', '5m', 100),  // 5m: 8+ hours of data
-        this.getCandles('SOL-USDT', '15m', 96),  // 15m: 24+ hours of data
-        this.getCandles('SOL-USDT', '30m', 48),  // 30m: 24+ hours of data
-        this.getCandles('SOL-USDT', '1H', 72),   // 1H: 72+ hours (3+ days) of data
-        this.getCandles('SOL-USDT', '4H', 42),   // 4H: 168+ hours (7+ days) of data  
-        this.getCandles('SOL-USDT', '1D', 90),   // 1D: 90+ days (3+ months) of data
-        this.getCandles('SOL-USDT', '1W', 52),   // 1W: 52+ weeks (1+ year) of data
-        this.getOrderBook('SOL-USDT', 50), // Increased to 50 levels for maximum depth
-        this.getRecentTrades('SOL-USDT', 30), // Increased from 20 to 30
+        this.getTicker('SOL-USDT-SWAP'),
+        this.getCandles('SOL-USDT-SWAP', '5m', 100),  // 5m: 8+ hours of data
+        this.getCandles('SOL-USDT-SWAP', '15m', 96),  // 15m: 24+ hours of data
+        this.getCandles('SOL-USDT-SWAP', '30m', 48),  // 30m: 24+ hours of data
+        this.getCandles('SOL-USDT-SWAP', '1H', 72),   // 1H: 72+ hours (3+ days) of data
+        this.getCandles('SOL-USDT-SWAP', '4H', 42),   // 4H: 168+ hours (7+ days) of data  
+        this.getCandles('SOL-USDT-SWAP', '1D', 90),   // 1D: 90+ days (3+ months) of data
+        this.getCandles('SOL-USDT-SWAP', '1W', 52),   // 1W: 52+ weeks (1+ year) of data
+        this.getOrderBook('SOL-USDT-SWAP', 50), // Increased to 50 levels for maximum depth
+        this.getRecentTrades('SOL-USDT-SWAP', 30), // Increased from 20 to 30
       ]);
 
       // Extract results with fallbacks for failed requests
@@ -289,12 +289,12 @@ export class OKXService {
             {
               op: 'subscribe',
               args: [
-                { channel: 'tickers', instId: 'SOL-USDT' },
-                { channel: 'books', instId: 'SOL-USDT' },     // Real-time order book
-                { channel: 'trades', instId: 'SOL-USDT' },    // All trades
-                { channel: 'books-l2-tbt', instId: 'SOL-USDT' }, // Tick-by-tick order book updates
-                { channel: 'mark-price', instId: 'SOL-USDT' }, // Mark price for derivatives
-                { channel: 'funding-rate', instId: 'SOL-USDT' } // Funding rate data
+                { channel: 'tickers', instId: 'SOL-USDT-SWAP' },
+                { channel: 'books', instId: 'SOL-USDT-SWAP' },     // Real-time order book
+                { channel: 'trades', instId: 'SOL-USDT-SWAP' },    // All trades
+                { channel: 'books-l2-tbt', instId: 'SOL-USDT-SWAP' }, // Tick-by-tick order book updates
+                { channel: 'mark-price', instId: 'SOL-USDT-SWAP' }, // Mark price for derivatives
+                { channel: 'funding-rate', instId: 'SOL-USDT-SWAP' } // Funding rate data
               ]
             }
           ];
@@ -430,7 +430,7 @@ export class OKXService {
   }
 
   // Get enhanced order book with deeper levels and analysis
-  async getEnhancedOrderBook(symbol: string = 'SOL-USDT', depth: number = 400): Promise<EnhancedOrderBookData> {
+  async getEnhancedOrderBook(symbol: string = 'SOL-USDT-SWAP', depth: number = 400): Promise<EnhancedOrderBookData> {
     try {
       const response = await this.client.get(`/api/v5/market/books?instId=${symbol}&sz=${depth}`);
       
@@ -491,7 +491,7 @@ export class OKXService {
   }
 
   // Build volume profile from candlestick data
-  async getVolumeProfile(symbol: string = 'SOL-USDT', timeframe: string = '1H', limit: number = 100): Promise<VolumeProfileData> {
+  async getVolumeProfile(symbol: string = 'SOL-USDT-SWAP', timeframe: string = '1H', limit: number = 100): Promise<VolumeProfileData> {
     try {
       // Get historical candlestick data
       const candlesResponse = await this.client.get(
@@ -595,7 +595,7 @@ export class OKXService {
   }
 
   // SMC Analysis using historical candlestick data
-  async getSMCAnalysis(symbol: string = 'SOL-USDT', timeframe: string = '1H', limit: number = 100): Promise<SMCAnalysisData> {
+  async getSMCAnalysis(symbol: string = 'SOL-USDT-SWAP', timeframe: string = '1H', limit: number = 100): Promise<SMCAnalysisData> {
     try {
       // Get historical candlestick data for SMC analysis
       const candlesResponse = await this.client.get(

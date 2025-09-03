@@ -17,7 +17,7 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
     script.async = true;
     script.innerHTML = JSON.stringify({
       autosize: true,
-      symbol: 'OKX:SOLUSDT', // SOL/USDT pair dari OKX
+      symbol: 'OKX:SOLUSDTPERP', // SOL/USDT Perpetual Futures dari OKX
       interval: '1H',         // 1 hour candlesticks
       toolbar_bg: '#1f2937',   // Dark toolbar background
       overrides: {
@@ -76,7 +76,7 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-emerald-500" />
-            <CardTitle>SOL/USDT Professional Chart</CardTitle>
+            <CardTitle>SOL/USDT-PERP Futures Chart</CardTitle>
             <Badge variant={isConnected ? "default" : "destructive"} className="ml-2">
               <Activity className="h-3 w-3 mr-1" />
               {isConnected ? 'Real-time' : 'Disconnected'}
@@ -126,7 +126,7 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
         <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-4">
             <span>📈 Powered by TradingView</span>
-            <span>⚡ Real-time SOL data from OKX</span>
+            <span>⚡ Real-time SOL Futures data from OKX</span>
             <span>🕯️ Professional Candlestick Chart</span>
           </div>
           <div className="flex items-center gap-4">

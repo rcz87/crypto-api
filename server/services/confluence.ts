@@ -78,23 +78,30 @@ export class ConfluenceService {
         confidence: smc.confidence
       });
 
-      // Add specific SMC signals
-      if (smc.scenarios?.bullish?.probability && smc.scenarios.bullish.probability > 50) {
-        signals.push({
-          type: 'bullish',
-          source: 'SMC Scenarios',
-          weight: 15,
-          confidence: smc.scenarios.bullish.probability
-        });
-      }
-      
-      if (smc.scenarios?.bearish?.probability && smc.scenarios.bearish.probability > 50) {
-        signals.push({
-          type: 'bearish',
-          source: 'SMC Scenarios',
-          weight: 15,
-          confidence: smc.scenarios.bearish.probability
-        });
+      // Add specific SMC signals from scenarios array
+      if (smc.scenarios && smc.scenarios.length > 0) {
+        const bullishScenarios = smc.scenarios.filter(s => s.side === 'bullish' && s.probability > 50);
+        const bearishScenarios = smc.scenarios.filter(s => s.side === 'bearish' && s.probability > 50);
+        
+        if (bullishScenarios.length > 0) {
+          const avgProbability = bullishScenarios.reduce((sum, s) => sum + s.probability, 0) / bullishScenarios.length;
+          signals.push({
+            type: 'bullish',
+            source: 'SMC Scenarios',
+            weight: 15,
+            confidence: avgProbability
+          });
+        }
+        
+        if (bearishScenarios.length > 0) {
+          const avgProbability = bearishScenarios.reduce((sum, s) => sum + s.probability, 0) / bearishScenarios.length;
+          signals.push({
+            type: 'bearish',
+            source: 'SMC Scenarios',
+            weight: 15,
+            confidence: avgProbability
+          });
+        }
       }
     }
 
@@ -414,12 +421,17 @@ export class ConfluenceService {
     if (smc.trend === 'bullish') score += 30;
     else if (smc.trend === 'bearish') score -= 30;
     
-    // Scenario strength
-    const bullishProb = smc.scenarios?.bullish?.probability || 0;
-    const bearishProb = smc.scenarios?.bearish?.probability || 0;
-    
-    if (bullishProb > bearishProb) score += 20;
-    else if (bearishProb > bullishProb) score -= 20;
+    // Scenario strength from scenarios array
+    if (smc.scenarios && smc.scenarios.length > 0) {
+      const bullishScenarios = smc.scenarios.filter(s => s.side === 'bullish');
+      const bearishScenarios = smc.scenarios.filter(s => s.side === 'bearish');
+      
+      const bullishProb = bullishScenarios.reduce((sum, s) => sum + s.probability, 0) / (bullishScenarios.length || 1);
+      const bearishProb = bearishScenarios.reduce((sum, s) => sum + s.probability, 0) / (bearishScenarios.length || 1);
+      
+      if (bullishProb > bearishProb) score += 20;
+      else if (bearishProb > bullishProb) score -= 20;
+    }
     
     // Confidence - simplified since confidence might be different structure
     score += 10; // Fixed boost for having SMC data
@@ -472,9 +484,9 @@ export class ConfluenceService {
     }
     
     // Value Area Analysis - 30% of volume score
-    if (vp.valueAreaHigh && vp.valueAreaLow) {
-      const vaHigh = parseFloat(vp.valueAreaHigh);
-      const vaLow = parseFloat(vp.valueAreaLow);
+    if (vp.valueArea && vp.valueArea.high && vp.valueArea.low) {
+      const vaHigh = parseFloat(vp.valueArea.high);
+      const vaLow = parseFloat(vp.valueArea.low);
       const vaSpread = vaHigh - vaLow;
       
       if (vaSpread > 0 && vaSpread < 50) { // Reasonable value area spread

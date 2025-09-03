@@ -10,6 +10,7 @@ import { ConfluenceService } from "./services/confluence";
 import { TechnicalIndicatorsService } from "./services/technicalIndicators";
 import { FibonacciService } from "./services/fibonacci";
 import { OrderFlowService } from "./services/orderFlow";
+import { LiquidationService } from "./services/liquidation";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema } from "@shared/schema";
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
@@ -846,6 +847,71 @@ Allow: /openapi.yaml`);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch logs',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // SOL Liquidation Analysis endpoint
+  app.get('/api/sol/liquidation', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const timeframe = (req.query.timeframe as string) || '1H';
+      
+      // Get required data for liquidation analysis
+      const [currentTicker, orderBook, openInterest, fundingRate, candles] = await Promise.all([
+        okxService.getTicker(),
+        okxService.getOrderBook(),
+        okxService.getOpenInterest(),
+        okxService.getFundingRate(),
+        okxService.getCandles('SOL-USDT-SWAP', timeframe, 50)
+      ]);
+      
+      // Initialize liquidation service
+      const liquidationService = new LiquidationService();
+      
+      // Perform liquidation analysis
+      const liquidationAnalysis = await liquidationService.analyzeLiquidations(
+        parseFloat(currentTicker.price),
+        orderBook,
+        openInterest,
+        fundingRate,
+        candles,
+        timeframe
+      );
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Liquidation analysis request completed',
+        details: `GET /api/sol/liquidation - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}`,
+      });
+      
+      res.json({
+        success: true,
+        data: liquidationAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/liquidation:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Liquidation analysis request failed',
+        details: `GET /api/sol/liquidation - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
         timestamp: new Date().toISOString(),
       });
     }
