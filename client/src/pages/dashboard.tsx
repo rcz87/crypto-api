@@ -49,7 +49,7 @@ export default function Dashboard() {
   // Data validation and error handling
   useEffect(() => {
     if (solError) {
-      console.error('SOL Data API Error:', solError.message);
+      console.error('SOL Futures Data API Error:', solError.message);
     }
   }, [solError]);
 
@@ -219,7 +219,7 @@ export default function Dashboard() {
             <div>🔍 System Status:</div>
             <div>🌐 API Base: {window.location.hostname === 'localhost' ? 'localhost:5000' : 'guardiansofthegreentoken.com'}</div>
             <div>WebSocket: {wsConnected ? '✅ Connected' : '❌ Disconnected'}</div>
-            <div>SOL API Data: {(solData as any)?.data ? '✅ Available' : '❌ None'}</div>
+            <div>SOL Futures API: {(solData as any)?.data ? '✅ Available' : '❌ None'}</div>
             <div>Candles Data: {displaySolData?.candles ? '✅ Available' : '❌ None'}</div>
             {displaySolData?.candles && (
               <div>📊 Candles: 1H({(displaySolData.candles['1H'] || []).length}) 4H({(displaySolData.candles['4H'] || []).length}) 1D({(displaySolData.candles['1D'] || []).length})</div>

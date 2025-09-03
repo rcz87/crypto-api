@@ -86,7 +86,7 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
         <CardHeader className="px-6 py-4 border-b border-gray-200">
           <CardTitle className="text-lg font-semibold text-gray-900 flex items-center">
             <TrendingUp className="text-primary mr-2" />
-            Live SOL Data
+            Live SOL Futures Data
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
@@ -122,7 +122,7 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
         <CardHeader className="px-6 py-4 border-b border-gray-200">
           <CardTitle className="text-lg font-semibold text-gray-900 flex items-center">
             <TrendingUp className="text-primary mr-2" />
-            Live SOL Data
+            Live SOL Futures Data
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
