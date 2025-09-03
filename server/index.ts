@@ -4,15 +4,35 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-// Enhanced CORS middleware for all origins and methods
+// Trust proxy for proper IP detection behind Replit's proxy
+app.set('trust proxy', 1);
+
+// Whitelist domains for CORS
+const allowedOrigins = [
+  'http://localhost:5000',
+  'https://guardiansofthegreentoken.com',
+  'https://bb4178d3-c004-4cff-b3e0-e4d013c0e884-00-1n57odq2i0nbm.kirk.replit.dev' // Replit domain
+];
+
+// Enhanced CORS middleware with proper origin validation
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  
+  // Check if origin is in whitelist or if it's a Replit domain
+  if (origin && (allowedOrigins.includes(origin) || origin.includes('.replit.dev'))) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+    res.header('Access-Control-Allow-Credentials', 'true');
+  } else if (!origin) {
+    // Allow requests without origin (like direct API calls)
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
-  res.header('Access-Control-Allow-Credentials', 'true');
   
   if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
+    res.status(200).end();
     return;
   }
   next();

@@ -480,7 +480,9 @@ Allow: /openapi.yaml`);
     }));
     
     // Initialize OKX WebSocket if not already connected
+    // Also reconnect if this is the first client after idle period
     if (!okxService.isWebSocketConnected()) {
+      console.log('Initializing OKX WebSocket for new client connection');
       okxService.initWebSocket((data) => {
         // Broadcast OKX data to all connected clients
         const message = JSON.stringify({
@@ -517,10 +519,23 @@ Allow: /openapi.yaml`);
       }
     });
     
-    // Handle client disconnect
+    // Handle client disconnect  
     ws.on('close', () => {
       connectedClients.delete(ws);
       console.log(`WebSocket client disconnected: ${clientIp}`);
+      
+      // Schedule OKX WebSocket closure if no clients remain
+      if (connectedClients.size === 0) {
+        console.log('No clients connected, scheduling OKX WebSocket closure in 60 seconds...');
+        setTimeout(() => {
+          if (connectedClients.size === 0) {
+            console.log('Closing OKX WebSocket due to no active clients');
+            okxService.closeWebSocket();
+          } else {
+            console.log('New clients connected, keeping OKX WebSocket open');
+          }
+        }, 60000); // 60 seconds delay
+      }
     });
     
     ws.on('error', (error) => {

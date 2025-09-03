@@ -4,6 +4,12 @@ import WebSocket from 'ws';
 import { TickerData, CandleData, OrderBookData, RecentTradeData, SolCompleteData, FundingRateData, OpenInterestData, EnhancedOrderBookData, VolumeProfileData, SMCAnalysisData } from '@shared/schema';
 import { SMCService } from './smc';
 
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  ttl: number;
+}
+
 export class OKXService {
   private client: AxiosInstance;
   private apiKey: string;
@@ -17,6 +23,17 @@ export class OKXService {
   private reconnectInterval = 3000;  // Faster reconnection
   private pingInterval: NodeJS.Timeout | null = null;
   private smcService: SMCService;
+  
+  // Simple TTL cache for API responses
+  private cache: Map<string, CacheEntry<any>> = new Map();
+  private readonly CACHE_TTL = {
+    ticker: 2500,      // 2.5 seconds
+    trades: 2000,      // 2 seconds  
+    orderBook: 1500,   // 1.5 seconds
+    candles: 90000,    // 90 seconds
+    funding: 300000,   // 5 minutes
+    openInterest: 180000, // 3 minutes
+  };
 
   constructor() {
     this.apiKey = process.env.OKX_API_KEY || '';
@@ -59,7 +76,49 @@ export class OKXService {
     return createHmac('sha256', this.secretKey).update(prehashString).digest('base64');
   }
 
+  // Cache helper methods
+  private getCacheKey(method: string, params?: any): string {
+    return `${method}_${JSON.stringify(params || {})}`;
+  }
+
+  private getFromCache<T>(cacheKey: string): T | null {
+    const entry = this.cache.get(cacheKey);
+    if (!entry) return null;
+    
+    const now = Date.now();
+    if (now > entry.timestamp + entry.ttl) {
+      this.cache.delete(cacheKey);
+      return null;
+    }
+    
+    return entry.data;
+  }
+
+  private setCache<T>(cacheKey: string, data: T, ttl: number): void {
+    this.cache.set(cacheKey, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    });
+  }
+
+  private clearExpiredCache(): void {
+    const now = Date.now();
+    for (const [key, entry] of Array.from(this.cache.entries())) {
+      if (now > entry.timestamp + entry.ttl) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
   async getTicker(symbol: string = 'SOL-USDT'): Promise<TickerData> {
+    const cacheKey = this.getCacheKey('ticker', { symbol });
+    const cached = this.getFromCache<TickerData>(cacheKey);
+    
+    if (cached) {
+      return cached;
+    }
+
     try {
       const response = await this.client.get(`/api/v5/market/ticker?instId=${symbol}`);
       
@@ -69,7 +128,7 @@ export class OKXService {
 
       const tickerData = response.data.data[0];
       
-      return {
+      const result: TickerData = {
         symbol: tickerData.instId,
         price: tickerData.last,
         change24h: ((parseFloat(tickerData.last) - parseFloat(tickerData.open24h)) / parseFloat(tickerData.open24h) * 100).toFixed(2) + '%',
@@ -78,6 +137,9 @@ export class OKXService {
         volume: tickerData.vol24h,
         tradingVolume24h: (parseFloat(tickerData.last) * parseFloat(tickerData.vol24h)).toFixed(0), // This is trading volume, not market cap
       };
+
+      this.setCache(cacheKey, result, this.CACHE_TTL.ticker);
+      return result;
     } catch (error) {
       console.error('Error fetching ticker:', error);
       throw new Error('Failed to fetch ticker data from OKX');
@@ -107,6 +169,13 @@ export class OKXService {
   }
 
   async getOrderBook(symbol: string = 'SOL-USDT', depth: number = 50): Promise<OrderBookData> {
+    const cacheKey = this.getCacheKey('orderBook', { symbol, depth });
+    const cached = this.getFromCache<OrderBookData>(cacheKey);
+    
+    if (cached) {
+      return cached;
+    }
+
     try {
       const response = await this.client.get(`/api/v5/market/books?instId=${symbol}&sz=${depth}`);
       
@@ -128,11 +197,14 @@ export class OKXService {
 
       const spread = (parseFloat(asks[0]?.price || '0') - parseFloat(bids[0]?.price || '0')).toFixed(4);
 
-      return {
+      const result: OrderBookData = {
         asks,
         bids,
         spread,
       };
+
+      this.setCache(cacheKey, result, this.CACHE_TTL.orderBook);
+      return result;
     } catch (error) {
       console.error('Error fetching order book:', error);
       throw new Error('Failed to fetch order book data from OKX');
@@ -255,11 +327,21 @@ export class OKXService {
         
         this.ws.on('error', (error) => {
           console.error('OKX WebSocket error:', error);
+          // Clear ping interval on error to prevent memory leak
+          if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+            this.pingInterval = null;
+          }
           reject(error);
         });
         
         this.ws.on('close', (code, reason) => {
           console.log(`OKX WebSocket closed: ${code} - ${reason}`);
+          // Clear ping interval on close to prevent memory leak
+          if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+            this.pingInterval = null;
+          }
           this.attemptReconnect(onMessage);
         });
         
@@ -547,6 +629,12 @@ export class OKXService {
   }
 
   private setupPingPong(): void {
+    // Clear existing ping interval before creating new one to prevent memory leak
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+    
     // Send ping every 25 seconds to keep connection alive
     this.pingInterval = setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {

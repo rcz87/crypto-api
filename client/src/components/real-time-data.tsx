@@ -2,7 +2,7 @@ import { TrendingUp, ArrowUp, ArrowDown, Radio, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SolCompleteData } from "@shared/schema";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 interface RealTimeDataProps {
   solData?: SolCompleteData;
@@ -121,6 +121,36 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
 
   const { ticker, orderBook } = solData || {};
   
+  // Memoized calculations to optimize performance
+  const groupedOrdersData = useMemo(() => {
+    if (!orderBook?.asks?.length || !orderBook?.bids?.length) {
+      return { groupedAsks: [], groupedBids: [], maxAskSize: 0, maxBidSize: 0 };
+    }
+    
+    const groupedAsks = groupOrdersByPrecision(orderBook.asks, precision);
+    const groupedBids = groupOrdersByPrecision(orderBook.bids, precision);
+    const askSizes = groupedAsks.map(item => parseFloat(item.size));
+    const bidSizes = groupedBids.map(item => parseFloat(item.size));
+    const maxAskSize = Math.max(...askSizes) || 1;
+    const maxBidSize = Math.max(...bidSizes) || 1;
+    
+    return { groupedAsks, groupedBids, maxAskSize, maxBidSize };
+  }, [orderBook, precision]);
+  
+  const buySellPercentage = useMemo(() => {
+    return calculateBuySellPercentage(orderBook);
+  }, [orderBook]);
+  
+  const priceChangeData = useMemo(() => {
+    const isPositive = ticker?.change24h && (ticker?.change24h.startsWith('+') || !ticker?.change24h.startsWith('-'));
+    const changeValue = ticker?.change24h ? ticker?.change24h.replace(/[+%]/g, '') : '0';
+    return { isPositive, changeValue };
+  }, [ticker?.change24h]);
+  
+  const lastUpdateTime = useMemo(() => {
+    return solData?.lastUpdate ? new Date(solData.lastUpdate).toLocaleString() : 'Unknown';
+  }, [solData?.lastUpdate]);
+  
   // More lenient check - show data if we have either ticker OR orderBook
   if (!ticker && !orderBook) {
     return (
@@ -140,10 +170,7 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
     );
   }
   
-  const isPositive = ticker?.change24h && (ticker?.change24h.startsWith('+') || !ticker?.change24h.startsWith('-'));
-  const changeValue = ticker?.change24h ? ticker?.change24h.replace(/[+%]/g, '') : '0';
-
-  const lastUpdateTime = solData?.lastUpdate ? new Date(solData.lastUpdate).toLocaleString() : 'Unknown';
+  const { isPositive, changeValue } = priceChangeData;
 
   return (
     <div>
@@ -243,7 +270,7 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
               
               {/* Buy/Sell Percentage Bar */}
               {(() => {
-                const { buyPercent, sellPercent } = calculateBuySellPercentage(orderBook);
+                const { buyPercent, sellPercent } = buySellPercentage;
                 return (
                   <div className="mt-2">
                     <div className="flex items-center justify-between text-xs mb-1">
@@ -277,14 +304,11 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                 
                 <div className="h-64 overflow-y-auto">
                 {(() => {
-                  if (!orderBook?.asks) {
+                  const { groupedAsks, maxAskSize } = groupedOrdersData;
+                  
+                  if (!groupedAsks.length) {
                     return <div className="p-4 text-center text-gray-500">Loading asks...</div>;
                   }
-                  
-                  // Group asks by precision
-                  const groupedAsks = groupOrdersByPrecision(orderBook.asks, precision);
-                  const askSizes = groupedAsks.map(item => parseFloat(item.size));
-                  const maxAskSize = Math.max(...askSizes) || 1;
                   
                   return groupedAsks.slice(0, 10).reverse().map((ask, index) => {
                     const sizePercent = (parseFloat(ask.size) / maxAskSize) * 100;
@@ -330,14 +354,11 @@ const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: Rea
                 
                 <div className="h-64 overflow-y-auto">
                 {(() => {
-                  if (!orderBook?.bids) {
+                  const { groupedBids, maxBidSize } = groupedOrdersData;
+                  
+                  if (!groupedBids.length) {
                     return <div className="p-4 text-center text-gray-500">Loading bids...</div>;
                   }
-                  
-                  // Group bids by precision
-                  const groupedBids = groupOrdersByPrecision(orderBook.bids, precision);
-                  const bidSizes = groupedBids.map(item => parseFloat(item.size));
-                  const maxBidSize = Math.max(...bidSizes) || 1;
                   
                   return groupedBids.slice(0, 10).reverse().map((bid, index) => {
                     const sizePercent = (parseFloat(bid.size) / maxBidSize) * 100;
