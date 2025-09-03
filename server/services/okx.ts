@@ -3,6 +3,8 @@ import { createHmac } from 'crypto';
 import WebSocket from 'ws';
 import { TickerData, CandleData, OrderBookData, RecentTradeData, SolCompleteData, FundingRateData, OpenInterestData, EnhancedOrderBookData, VolumeProfileData, SMCAnalysisData } from '@shared/schema';
 import { SMCService } from './smc';
+import { cache, TTL_CONFIG } from '../utils/cache';
+import { metricsCollector } from '../utils/metrics';
 
 interface CacheEntry<T> {
   data: T;
@@ -24,16 +26,9 @@ export class OKXService {
   private pingInterval: NodeJS.Timeout | null = null;
   private smcService: SMCService;
   
-  // Simple TTL cache for API responses
-  private cache: Map<string, CacheEntry<any>> = new Map();
-  private readonly CACHE_TTL = {
-    ticker: 2500,      // 2.5 seconds
-    trades: 2000,      // 2 seconds  
-    orderBook: 1500,   // 1.5 seconds
-    candles: 90000,    // 90 seconds
-    funding: 300000,   // 5 minutes
-    openInterest: 180000, // 3 minutes
-  };
+  // WebSocket status tracking for metrics
+  private wsConnected = false;
+  private lastWsMessage = 0;
 
   constructor() {
     this.apiKey = process.env.OKX_API_KEY || '';
@@ -76,139 +71,111 @@ export class OKXService {
     return createHmac('sha256', this.secretKey).update(prehashString).digest('base64');
   }
 
-  // Cache helper methods
+  // Cache helper method
   private getCacheKey(method: string, params?: any): string {
-    return `${method}_${JSON.stringify(params || {})}`;
-  }
-
-  private getFromCache<T>(cacheKey: string): T | null {
-    const entry = this.cache.get(cacheKey);
-    if (!entry) return null;
-    
-    const now = Date.now();
-    if (now > entry.timestamp + entry.ttl) {
-      this.cache.delete(cacheKey);
-      return null;
-    }
-    
-    return entry.data;
-  }
-
-  private setCache<T>(cacheKey: string, data: T, ttl: number): void {
-    this.cache.set(cacheKey, {
-      data,
-      timestamp: Date.now(),
-      ttl
-    });
-  }
-
-  private clearExpiredCache(): void {
-    const now = Date.now();
-    for (const [key, entry] of Array.from(this.cache.entries())) {
-      if (now > entry.timestamp + entry.ttl) {
-        this.cache.delete(key);
-      }
-    }
+    return `okx:${method}:${JSON.stringify(params || {})}`;
   }
 
   async getTicker(symbol: string = 'SOL-USDT'): Promise<TickerData> {
     const cacheKey = this.getCacheKey('ticker', { symbol });
-    const cached = this.getFromCache<TickerData>(cacheKey);
     
-    if (cached) {
-      return cached;
-    }
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        metricsCollector.updateOkxRestStatus('up');
+        const response = await this.client.get(`/api/v5/market/ticker?instId=${symbol}`);
+        
+        if (response.data.code !== '0') {
+          throw new Error(`OKX API Error: ${response.data.msg}`);
+        }
 
-    try {
-      const response = await this.client.get(`/api/v5/market/ticker?instId=${symbol}`);
-      
-      if (response.data.code !== '0') {
-        throw new Error(`OKX API Error: ${response.data.msg}`);
+        const tickerData = response.data.data[0];
+        
+        const result: TickerData = {
+          symbol: tickerData.instId,
+          price: tickerData.last,
+          change24h: ((parseFloat(tickerData.last) - parseFloat(tickerData.open24h)) / parseFloat(tickerData.open24h) * 100).toFixed(2) + '%',
+          high24h: tickerData.high24h,
+          low24h: tickerData.low24h,
+          volume: tickerData.vol24h,
+          tradingVolume24h: (parseFloat(tickerData.last) * parseFloat(tickerData.vol24h)).toFixed(0), // This is trading volume, not market cap
+        };
+
+        return result;
+      } catch (error) {
+        console.error('Error fetching ticker:', error);
+        metricsCollector.updateOkxRestStatus('down');
+        throw new Error('Failed to fetch ticker data from OKX');
       }
-
-      const tickerData = response.data.data[0];
-      
-      const result: TickerData = {
-        symbol: tickerData.instId,
-        price: tickerData.last,
-        change24h: ((parseFloat(tickerData.last) - parseFloat(tickerData.open24h)) / parseFloat(tickerData.open24h) * 100).toFixed(2) + '%',
-        high24h: tickerData.high24h,
-        low24h: tickerData.low24h,
-        volume: tickerData.vol24h,
-        tradingVolume24h: (parseFloat(tickerData.last) * parseFloat(tickerData.vol24h)).toFixed(0), // This is trading volume, not market cap
-      };
-
-      this.setCache(cacheKey, result, this.CACHE_TTL.ticker);
-      return result;
-    } catch (error) {
-      console.error('Error fetching ticker:', error);
-      throw new Error('Failed to fetch ticker data from OKX');
-    }
+    }, TTL_CONFIG.TICKER);
   }
 
   async getCandles(symbol: string = 'SOL-USDT', bar: string = '1H', limit: number = 24): Promise<CandleData[]> {
-    try {
-      const response = await this.client.get(`/api/v5/market/candles?instId=${symbol}&bar=${bar}&limit=${limit}`);
-      
-      if (response.data.code !== '0') {
-        throw new Error(`OKX API Error: ${response.data.msg}`);
-      }
+    const cacheKey = this.getCacheKey('candles', { symbol, bar, limit });
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        metricsCollector.updateOkxRestStatus('up');
+        const response = await this.client.get(`/api/v5/market/candles?instId=${symbol}&bar=${bar}&limit=${limit}`);
+        
+        if (response.data.code !== '0') {
+          throw new Error(`OKX API Error: ${response.data.msg}`);
+        }
 
-      return response.data.data.map((candle: string[]) => ({
-        timestamp: candle[0],
-        open: candle[1],
-        high: candle[2],
-        low: candle[3],
-        close: candle[4],
-        volume: candle[5],
-      }));
-    } catch (error) {
-      console.error('Error fetching candles:', error);
-      throw new Error(`Failed to fetch ${bar} candle data from OKX`);
-    }
+        return response.data.data.map((candle: string[]) => ({
+          timestamp: candle[0],
+          open: candle[1],
+          high: candle[2],
+          low: candle[3],
+          close: candle[4],
+          volume: candle[5],
+        }));
+      } catch (error) {
+        console.error('Error fetching candles:', error);
+        metricsCollector.updateOkxRestStatus('down');
+        throw new Error(`Failed to fetch ${bar} candle data from OKX`);
+      }
+    }, TTL_CONFIG.CANDLES);
   }
 
   async getOrderBook(symbol: string = 'SOL-USDT', depth: number = 50): Promise<OrderBookData> {
     const cacheKey = this.getCacheKey('orderBook', { symbol, depth });
-    const cached = this.getFromCache<OrderBookData>(cacheKey);
     
-    if (cached) {
-      return cached;
-    }
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        metricsCollector.updateOkxRestStatus('up');
+        const response = await this.client.get(`/api/v5/market/books?instId=${symbol}&sz=${depth}`);
+        
+        if (response.data.code !== '0') {
+          throw new Error(`OKX API Error: ${response.data.msg}`);
+        }
 
-    try {
-      const response = await this.client.get(`/api/v5/market/books?instId=${symbol}&sz=${depth}`);
-      
-      if (response.data.code !== '0') {
-        throw new Error(`OKX API Error: ${response.data.msg}`);
+        const orderBookData = response.data.data[0];
+        
+        const asks = orderBookData.asks.map((ask: string[]) => ({
+          price: ask[0],
+          size: ask[1],
+        }));
+
+        const bids = orderBookData.bids.map((bid: string[]) => ({
+          price: bid[0],
+          size: bid[1],
+        }));
+
+        const spread = (parseFloat(asks[0]?.price || '0') - parseFloat(bids[0]?.price || '0')).toFixed(4);
+
+        const result: OrderBookData = {
+          asks,
+          bids,
+          spread,
+        };
+
+        return result;
+      } catch (error) {
+        console.error('Error fetching order book:', error);
+        metricsCollector.updateOkxRestStatus('down');
+        throw new Error('Failed to fetch order book data from OKX');
       }
-
-      const orderBookData = response.data.data[0];
-      
-      const asks = orderBookData.asks.map((ask: string[]) => ({
-        price: ask[0],
-        size: ask[1],
-      }));
-
-      const bids = orderBookData.bids.map((bid: string[]) => ({
-        price: bid[0],
-        size: bid[1],
-      }));
-
-      const spread = (parseFloat(asks[0]?.price || '0') - parseFloat(bids[0]?.price || '0')).toFixed(4);
-
-      const result: OrderBookData = {
-        asks,
-        bids,
-        spread,
-      };
-
-      this.setCache(cacheKey, result, this.CACHE_TTL.orderBook);
-      return result;
-    } catch (error) {
-      console.error('Error fetching order book:', error);
-      throw new Error('Failed to fetch order book data from OKX');
-    }
+    }, TTL_CONFIG.ORDERBOOK);
   }
 
   async getRecentTrades(symbol: string = 'SOL-USDT', limit: number = 20): Promise<RecentTradeData[]> {

@@ -41,6 +41,22 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Import metrics collector
+import { metricsCollector } from "./utils/metrics";
+
+// Security headers middleware
+app.use((req, res, next) => {
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Content-Security-Policy', "default-src 'self' https: wss: 'unsafe-inline' 'unsafe-eval'");
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
+
+// Enhanced logging and metrics middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -54,7 +70,12 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
+    const isError = res.statusCode >= 400;
+    
+    // Record metrics for all requests
+    metricsCollector.recordHttpRequest(duration, isError);
+    
+    if (path.startsWith("/api") || path === "/healthz" || path === "/metrics") {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;

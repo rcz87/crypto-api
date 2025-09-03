@@ -5,6 +5,9 @@ import path from "path";
 import { storage } from "./storage";
 import { okxService } from "./services/okx";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema } from "@shared/schema";
+import { metricsCollector } from "./utils/metrics";
+import { cache, TTL_CONFIG } from "./utils/cache";
+import { backpressureManager } from "./utils/websocket";
 
 // Rate limiting middleware
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -74,6 +77,39 @@ Allow: /health
 Allow: /api/metrics
 Allow: /.well-known/ai-plugin.json
 Allow: /openapi.yaml`);
+  });
+
+  // Health check endpoint - critical for monitoring
+  app.get('/healthz', async (req: Request, res: Response) => {
+    try {
+      const health = metricsCollector.getHealthStatus();
+      const statusCode = health.status === 'ok' ? 200 : 503;
+      res.status(statusCode).json(health);
+    } catch (error) {
+      res.status(500).json({
+        status: 'error',
+        message: 'Health check failed',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Metrics endpoint for monitoring and observability
+  app.get('/metrics', async (req: Request, res: Response) => {
+    try {
+      const metrics = metricsCollector.getMetrics();
+      res.json({
+        success: true,
+        data: metrics,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve metrics',
+        timestamp: new Date().toISOString()
+      });
+    }
   });
 
   // Sitemap.xml for search engines
@@ -492,11 +528,14 @@ Allow: /openapi.yaml`);
           timestamp: new Date().toISOString()
         });
         
-        connectedClients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(message);
-          }
-        });
+        // Use smart broadcast with backpressure control
+        backpressureManager.smartBroadcast(connectedClients, {
+          type: 'okx_connection',
+          status: 'connected',
+          source: 'okx',
+          data: data,
+          timestamp: new Date().toISOString()
+        }, 'high'); // High priority for connection status
       }).catch(error => {
         console.error('Failed to initialize OKX WebSocket:', error);
       });
@@ -509,11 +548,11 @@ Allow: /openapi.yaml`);
         console.log('WebSocket message from client:', data);
         
         // Echo back for now, can be extended for specific commands
-        ws.send(JSON.stringify({
+        backpressureManager.safeSend(ws, {
           type: 'response',
           originalMessage: data,
           timestamp: new Date().toISOString()
-        }));
+        });
       } catch (error) {
         console.error('Error parsing client message:', error);
       }
