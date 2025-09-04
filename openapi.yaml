@@ -2,10 +2,17 @@ openapi: 3.1.0
 info:
   title: SOL Crypto Trading Data Gateway
   description: |
-    Comprehensive real-time SOL (Solana) trading data gateway providing market analysis, order book depth, smart money concepts, and live trade flows from OKX exchange. 
+    Advanced institutional-grade SOL-USDT-SWAP perpetual futures trading data gateway with 8-layer SharpSignalEngine analysis, live trading signals, and premium orderbook capabilities.
     
-    Designed for AI-powered crypto analysis with sub-50ms response times and enterprise-grade reliability.
-  version: "1.0.0"
+    Features:
+    - Real-time BUY/SELL/HOLD trading signals with risk management
+    - Multi-timeframe synchronized analysis (15M, 1H, 4H, 1D)
+    - Advanced derivatives intelligence (CVD, SMC, Order Flow, Fibonacci)
+    - Premium VIP8+ institutional analytics and liquidity heatmaps
+    - Sub-200ms response times and enterprise-grade reliability
+    
+    Perfect for AI-powered trading analysis and institutional derivatives trading.
+  version: "2.0.0"
   contact:
     name: SOL Trading Gateway
     url: https://guardiansofthegreentoken.com
@@ -405,6 +412,587 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/sol/trading-signals:
+    get:
+      operationId: getSOLTradingSignals
+      summary: Get live SOL trading signals with risk management
+      description: |
+        Returns real-time BUY/SELL/HOLD trading signals with complete risk management:
+        - Signal strength and confidence levels (0-100%)
+        - Entry, stop loss, and take profit prices
+        - 1:2 risk-reward ratios
+        - Multi-timeframe confluence analysis
+        - Real-time market conditions assessment
+        
+        Perfect for automated trading systems and AI trading decisions.
+      parameters:
+        - name: timeframe
+          in: query
+          description: Timeframe for signal analysis
+          required: false
+          schema:
+            type: string
+            enum: ['5m', '15m', '30m', '1H', '4H', '1D']
+            default: '15m'
+      responses:
+        '200':
+          description: Live trading signals with risk management
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      primary:
+                        type: object
+                        properties:
+                          signal:
+                            type: string
+                            enum: ['BUY', 'SELL', 'HOLD']
+                            example: 'BUY'
+                          confidence:
+                            type: number
+                            example: 75
+                            description: "Signal confidence percentage (0-100)"
+                          strength:
+                            type: string
+                            enum: ['weak', 'moderate', 'strong']
+                            example: 'moderate'
+                          entry:
+                            type: string
+                            example: '208.55'
+                          stopLoss:
+                            type: string
+                            example: '205.42'
+                          takeProfit1:
+                            type: string
+                            example: '214.81'
+                          takeProfit2:
+                            type: string
+                            example: '221.07'
+                          riskReward:
+                            type: string
+                            example: '1:2'
+                          reasoning:
+                            type: string
+                            example: 'Multi-timeframe confluence shows bullish momentum'
+                      timeframe:
+                        type: string
+                        example: '15m'
+                      confluenceScore:
+                        type: number
+                        example: 47
+                        description: "Overall confluence score (-100 to +100)"
+                      marketConditions:
+                        type: object
+                        properties:
+                          trend:
+                            type: string
+                            enum: ['bullish', 'bearish', 'ranging']
+                          volatility:
+                            type: string
+                            enum: ['low', 'medium', 'high']
+                          volume:
+                            type: string
+                            enum: ['low', 'medium', 'high']
+                      alerts:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                            message:
+                              type: string
+                            priority:
+                              type: string
+                              enum: ['low', 'medium', 'high']
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /api/sol/signal-history:
+    get:
+      operationId: getSOLSignalHistory
+      summary: Get historical trading signals performance
+      description: |
+        Returns historical trading signals with performance tracking:
+        - Past signals with actual outcomes
+        - Win/loss ratios and performance metrics
+        - Signal accuracy statistics
+        - Historical confluence scores
+      responses:
+        '200':
+          description: Historical trading signals data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        signal:
+                          type: string
+                          enum: ['BUY', 'SELL', 'HOLD']
+                        confidence:
+                          type: number
+                        entry:
+                          type: string
+                        outcome:
+                          type: string
+                          enum: ['win', 'loss', 'pending']
+                        pnl:
+                          type: string
+                        timestamp:
+                          type: string
+                          format: date-time
+
+  /api/sol/confluence:
+    get:
+      operationId: getSOLConfluenceAnalysis
+      summary: Get SOL confluence analysis with 8-layer scoring
+      description: |
+        Returns comprehensive confluence analysis combining multiple indicators:
+        - 8-layer SharpSignalEngine scoring
+        - Technical, fundamental, and sentiment analysis
+        - Multi-timeframe alignment
+        - Overall confluence score (-100 to +100)
+      parameters:
+        - name: timeframe
+          in: query
+          description: Timeframe for confluence analysis
+          required: false
+          schema:
+            type: string
+            enum: ['5m', '15m', '30m', '1H', '4H', '1D']
+            default: '1H'
+      responses:
+        '200':
+          description: SOL confluence analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      overallScore:
+                        type: number
+                        example: 47
+                        description: "Confluence score from -100 to +100"
+                      sentiment:
+                        type: string
+                        enum: ['bearish', 'neutral', 'bullish']
+                      layers:
+                        type: object
+                        properties:
+                          technical:
+                            type: number
+                          smc:
+                            type: number
+                          volume:
+                            type: number
+                          orderFlow:
+                            type: number
+                          fibonacci:
+                            type: number
+                          derivatives:
+                            type: number
+                          momentum:
+                            type: number
+                          sentiment:
+                            type: number
+
+  /api/sol/cvd:
+    get:
+      operationId: getSOLCVDAnalysis
+      summary: Get SOL Cumulative Volume Delta analysis
+      description: |
+        Returns advanced Volume Delta analysis for institutional trading:
+        - Cumulative Volume Delta (CVD) trends
+        - Buy/sell aggression analysis
+        - Absorption patterns and smart money detection
+        - Divergence analysis for reversal signals
+      parameters:
+        - name: timeframe
+          in: query
+          description: Timeframe for CVD analysis
+          required: false
+          schema:
+            type: string
+            enum: ['5m', '15m', '30m', '1H', '4H', '1D']
+            default: '1H'
+      responses:
+        '200':
+          description: SOL CVD analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      currentCVD:
+                        type: string
+                        example: '1245678.50'
+                      deltaChange:
+                        type: string
+                        example: '+15432.25'
+                      buyerSellerAggression:
+                        type: object
+                        properties:
+                          dominantSide:
+                            type: string
+                            enum: ['buyers', 'sellers', 'balanced']
+                          buyerAggression:
+                            type: object
+                            properties:
+                              percentage:
+                                type: number
+                              strength:
+                                type: string
+                                enum: ['weak', 'moderate', 'strong', 'extreme']
+
+  /api/sol/technical:
+    get:
+      operationId: getSOLTechnicalIndicators
+      summary: Get SOL technical indicators analysis
+      description: |
+        Returns comprehensive technical analysis including:
+        - RSI, MACD, EMA crossovers
+        - Bollinger Bands and volatility metrics
+        - Support/resistance levels
+        - Momentum oscillators and trend indicators
+      parameters:
+        - name: timeframe
+          in: query
+          description: Timeframe for technical analysis
+          required: false
+          schema:
+            type: string
+            enum: ['5m', '15m', '30m', '1H', '4H', '1D']
+            default: '1H'
+      responses:
+        '200':
+          description: SOL technical indicators
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      rsi:
+                        type: object
+                        properties:
+                          value:
+                            type: number
+                            example: 58.42
+                          signal:
+                            type: string
+                            enum: ['oversold', 'neutral', 'overbought']
+                      macd:
+                        type: object
+                        properties:
+                          line:
+                            type: number
+                          signal:
+                            type: number
+                          histogram:
+                            type: number
+                          crossover:
+                            type: string
+                            enum: ['bullish', 'bearish', 'none']
+
+  /api/sol/fibonacci:
+    get:
+      operationId: getSOLFibonacciAnalysis
+      summary: Get SOL Fibonacci retracement and extension analysis
+      description: |
+        Returns Fibonacci analysis for key trading levels:
+        - Fibonacci retracement levels (23.6%, 38.2%, 50%, 61.8%, 78.6%)
+        - Extension levels for profit targets
+        - Golden zone analysis (61.8% - 78.6%)
+        - Confluence with price action
+      parameters:
+        - name: timeframe
+          in: query
+          description: Timeframe for Fibonacci analysis
+          required: false
+          schema:
+            type: string
+            enum: ['5m', '15m', '30m', '1H', '4H', '1D']
+            default: '1H'
+      responses:
+        '200':
+          description: SOL Fibonacci analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      retracements:
+                        type: object
+                        properties:
+                          "23.6":
+                            type: string
+                            example: '205.45'
+                          "38.2":
+                            type: string
+                            example: '203.20'
+                          "50.0":
+                            type: string
+                            example: '201.50'
+                          "61.8":
+                            type: string
+                            example: '199.80'
+                          "78.6":
+                            type: string
+                            example: '197.65'
+                      goldenZone:
+                        type: object
+                        properties:
+                          high:
+                            type: string
+                          low:
+                            type: string
+                          confidence:
+                            type: number
+
+  /api/sol/order-flow:
+    get:
+      operationId: getSOLOrderFlowAnalysis
+      summary: Get SOL order flow and market microstructure analysis
+      description: |
+        Returns detailed order flow analysis:
+        - Aggressive vs passive order ratios
+        - Large order detection and whale activity
+        - Market maker vs taker analysis
+        - Liquidity absorption patterns
+      parameters:
+        - name: timeframe
+          in: query
+          description: Timeframe for order flow analysis
+          required: false
+          schema:
+            type: string
+            enum: ['5m', '15m', '30m', '1H', '4H', '1D']
+            default: '1H'
+      responses:
+        '200':
+          description: SOL order flow analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      aggressiveRatio:
+                        type: number
+                        example: 0.68
+                        description: "Ratio of aggressive orders (0-1)"
+                      whaleActivity:
+                        type: object
+                        properties:
+                          detected:
+                            type: boolean
+                          count:
+                            type: number
+                          averageSize:
+                            type: string
+                          sentiment:
+                            type: string
+                            enum: ['buying', 'selling', 'neutral']
+
+  /api/premium/institutional-analytics:
+    get:
+      operationId: getPremiumInstitutionalAnalytics
+      summary: Get premium institutional-grade analytics (VIP8+)
+      description: |
+        Returns advanced institutional analytics for VIP8+ users:
+        - Enhanced whale detection with institutional footprints
+        - Market maker flow analysis
+        - Advanced derivatives positioning
+        - Institutional-grade risk metrics
+      responses:
+        '200':
+          description: Premium institutional analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      tier:
+                        type: string
+                        example: 'VIP8'
+                      whaleDetection:
+                        type: object
+                        properties:
+                          score:
+                            type: number
+                            example: 87
+                          activity:
+                            type: string
+                            enum: ['accumulation', 'distribution', 'neutral']
+                      institutionalFlow:
+                        type: object
+                        properties:
+                          direction:
+                            type: string
+                            enum: ['inflow', 'outflow', 'neutral']
+                          confidence:
+                            type: number
+
+  /api/premium/tier-status:
+    get:
+      operationId: getPremiumTierStatus
+      summary: Get premium subscription tier status and features
+      description: |
+        Returns current premium tier status and available features:
+        - Current subscription tier (Standard, VIP1, VIP8, Institutional)
+        - Available features and analytics depth
+        - Upgrade information and pricing
+      responses:
+        '200':
+          description: Premium tier status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      currentTier:
+                        type: string
+                        enum: ['Standard', 'VIP1', 'VIP8', 'Institutional']
+                        example: 'VIP8'
+                      features:
+                        type: object
+                        properties:
+                          orderbookDepth:
+                            type: number
+                            example: 500
+                          updateFrequency:
+                            type: string
+                            example: '10ms'
+                          analytics:
+                            type: array
+                            items:
+                              type: string
+
+  /api/sol/premium-orderbook:
+    get:
+      operationId: getSOLPremiumOrderbook
+      summary: Get SOL premium orderbook with enhanced depth (VIP+ only)
+      description: |
+        Returns premium orderbook data with enhanced features:
+        - Up to 1000-level depth (tier-dependent)
+        - Sub-10ms updates for VIP8+
+        - Market maker identification
+        - Large order wall detection
+        - Institutional-grade analytics
+      responses:
+        '200':
+          description: SOL premium orderbook data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      tier:
+                        type: string
+                        example: 'VIP8'
+                      depth:
+                        type: number
+                        example: 500
+                      updateFrequency:
+                        type: string
+                        example: '10ms'
+                      orderbook:
+                        type: object
+                        properties:
+                          bids:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                price:
+                                  type: string
+                                size:
+                                  type: string
+                                isLarge:
+                                  type: boolean
+                          asks:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                price:
+                                  type: string
+                                size:
+                                  type: string
+                                isLarge:
+                                  type: boolean
+                      analytics:
+                        type: object
+                        properties:
+                          imbalance:
+                            type: string
+                          walls:
+                            type: array
+                            items:
+                              type: object
+
   /healthz:
     get:
       operationId: getHealthStatus
@@ -571,10 +1159,16 @@ components:
   securitySchemes: {}
 
 tags:
+  - name: Trading Signals
+    description: Live trading signals with risk management and entry/exit points
   - name: Trading Data
     description: Real-time SOL trading data and market analysis
-  - name: Market Analysis
-    description: Advanced market analysis including SMC and volume profile
+  - name: Advanced Analysis
+    description: Confluence, CVD, technical indicators, and Fibonacci analysis
+  - name: Smart Money Concepts
+    description: Institutional SMC analysis and order flow detection
+  - name: Premium Features
+    description: VIP+ institutional analytics and enhanced orderbook data
   - name: System Monitoring
     description: Health checks and performance metrics
 

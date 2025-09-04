@@ -139,8 +139,8 @@ Allow: /openapi.json`);
       schema_version: "v1",
       name_for_model: "SOL_Trading_Gateway",
       name_for_human: "SOL Perpetual Futures Trading Gateway",
-      description_for_model: "Professional institutional-grade SOL-USDT-SWAP perpetual futures trading data gateway with 8-layer SharpSignalEngine analysis, premium orderbook capabilities, and real-time market intelligence for derivatives trading.",
-      description_for_human: "Real-time SOL perpetual futures trading data with professional smart money analysis and institutional-grade market intelligence.",
+      description_for_model: "Advanced SOL-USDT-SWAP perpetual futures trading data gateway with LIVE TRADING SIGNALS, 8-layer SharpSignalEngine analysis, and premium institutional analytics. Provides real-time BUY/SELL/HOLD signals with entry/exit prices, risk management, multi-timeframe confluence analysis, CVD, SMC, technical indicators, Fibonacci analysis, and VIP8+ premium features for derivatives trading.",
+      description_for_human: "Real-time SOL trading signals with entry/exit points, risk management, and institutional-grade market intelligence for derivatives trading.",
       auth: { type: "none" },
       api: {
         type: "openapi",
