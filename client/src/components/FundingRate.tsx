@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, DollarSign, BarChart3, AlertTriangle, Target } from 'lucide-react';
+import { useState, useMemo } from 'react';
 
 interface FundingRateData {
   instId: string;
@@ -38,6 +39,52 @@ export function FundingRate() {
     refetchOnWindowFocus: false,
   });
 
+  // Institutional-grade analytics (moved to top for hook rules)
+  const institutionalMetrics = useMemo(() => {
+    if (!fundingData?.success) return null;
+    
+    const fundingRateValue = parseFloat(fundingData.data.fundingRate);
+    const premiumValue = parseFloat(fundingData.data.premium);
+    const absoluteFundingRate = Math.abs(fundingRateValue);
+    const annualizedFundingRate = fundingRateValue * 8760;
+    const premiumBasisPoints = Math.abs(premiumValue) * 10000;
+    
+    // Funding regime classification
+    const regimeClassification = absoluteFundingRate > 0.0005 ? 'extreme' :
+                                absoluteFundingRate > 0.0001 ? 'elevated' :
+                                absoluteFundingRate > 0.00005 ? 'normal' : 'compressed';
+    
+    // Basis trading opportunity score
+    const basisTradingScore = Math.min(100, (premiumBasisPoints / 100) * 20);
+    
+    // Funding squeeze indicator
+    const isSqueeze = absoluteFundingRate > 0.0003 && Math.abs(premiumValue) > 0.002;
+    
+    // Contango/Backwardation classification
+    const marketStructure = premiumValue > 0.001 ? 'steep_contango' :
+                           premiumValue > 0.0002 ? 'contango' :
+                           premiumValue > -0.0002 ? 'neutral' :
+                           premiumValue > -0.001 ? 'backwardation' : 'steep_backwardation';
+    
+    // Liquidation risk from funding pressure
+    const liquidationPressure = absoluteFundingRate > 0.0004 ? 'critical' :
+                                absoluteFundingRate > 0.0002 ? 'elevated' :
+                                absoluteFundingRate > 0.0001 ? 'moderate' : 'low';
+    
+    return {
+      fundingRateValue,
+      premiumValue,
+      absoluteFundingRate,
+      annualizedFundingRate,
+      premiumBasisPoints,
+      regimeClassification,
+      basisTradingScore,
+      isSqueeze,
+      marketStructure,
+      liquidationPressure
+    };
+  }, [fundingData]);
+
   if (isLoading) {
     return (
       <Card className="bg-gray-900 border-gray-800">
@@ -73,9 +120,10 @@ export function FundingRate() {
     );
   }
 
+  // Use institutional metrics data if available, fallback to direct data access
   const funding = fundingData.data;
-  const fundingRateValue = parseFloat(funding.fundingRate);
-  const premiumValue = parseFloat(funding.premium);
+  const fundingRateValue = institutionalMetrics?.fundingRateValue ?? parseFloat(funding.fundingRate);
+  const premiumValue = institutionalMetrics?.premiumValue ?? parseFloat(funding.premium);
   const interestRateValue = parseFloat(funding.interestRate);
   
   // Convert to percentage and annualized rate
@@ -179,19 +227,123 @@ export function FundingRate() {
           </div>
         </div>
 
-        {/* Interpretation */}
-        <div className="bg-gray-800/50 rounded-lg p-3">
-          <div className="text-xs text-gray-400 mb-1">Market Sentiment</div>
-          <div className="text-sm">
-            {isFundingPositive ? (
-              <span className="text-red-400">
-                📈 Longs pay shorts - Bullish sentiment dominates
-              </span>
-            ) : (
-              <span className="text-green-400">
-                📉 Shorts pay longs - Bearish sentiment dominates
-              </span>
-            )}
+        {/* Institutional Analysis */}
+        <div className="space-y-3">
+          {/* Market Structure Analysis */}
+          <div className="bg-gray-800/50 rounded-lg p-3">
+            <div className="text-xs text-gray-400 mb-2">Market Structure & Derivatives Intelligence</div>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-gray-400">Structure:</span>
+                <div className={`font-semibold ${
+                  institutionalMetrics.marketStructure.includes('steep') ? 'text-orange-400' :
+                  institutionalMetrics.marketStructure.includes('contango') ? 'text-red-400' :
+                  institutionalMetrics.marketStructure === 'neutral' ? 'text-gray-300' : 'text-green-400'
+                }`}>
+                  {institutionalMetrics.marketStructure.toUpperCase()}
+                </div>
+              </div>
+              <div>
+                <span className="text-gray-400">Regime:</span>
+                <div className={`font-semibold ${
+                  institutionalMetrics.regimeClassification === 'extreme' ? 'text-red-400' :
+                  institutionalMetrics.regimeClassification === 'elevated' ? 'text-orange-400' :
+                  institutionalMetrics.regimeClassification === 'normal' ? 'text-yellow-400' : 'text-green-400'
+                }`}>
+                  {institutionalMetrics.regimeClassification.toUpperCase()}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Advanced Risk Metrics */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 rounded-lg p-3 border border-purple-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-4 h-4 text-purple-400" />
+                <span className="text-xs text-purple-400 font-medium">Basis Trading Score</span>
+              </div>
+              <div className="text-lg font-bold text-white">
+                {institutionalMetrics.basisTradingScore.toFixed(1)}/100
+              </div>
+              <div className="text-xs text-purple-300">
+                {institutionalMetrics.basisTradingScore > 60 ? 'Strong Opportunity' :
+                 institutionalMetrics.basisTradingScore > 30 ? 'Moderate Edge' : 'Limited Edge'}
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-900/30 to-red-900/30 rounded-lg p-3 border border-orange-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="w-4 h-4 text-orange-400" />
+                <span className="text-xs text-orange-400 font-medium">Liquidation Pressure</span>
+              </div>
+              <div className={`text-lg font-bold ${
+                institutionalMetrics.liquidationPressure === 'critical' ? 'text-red-400' :
+                institutionalMetrics.liquidationPressure === 'elevated' ? 'text-orange-400' :
+                institutionalMetrics.liquidationPressure === 'moderate' ? 'text-yellow-400' : 'text-green-400'
+              }`}>
+                {institutionalMetrics.liquidationPressure.toUpperCase()}
+              </div>
+              <div className="text-xs text-orange-300">
+                Funding-induced liquidations
+              </div>
+            </div>
+          </div>
+
+          {/* Funding Squeeze Alert */}
+          {institutionalMetrics.isSqueeze && (
+            <div className="bg-gradient-to-r from-red-900/40 to-orange-900/40 rounded-lg p-3 border-2 border-red-500/50">
+              <div className="flex items-center gap-2 mb-1">
+                <BarChart3 className="w-4 h-4 text-red-400 animate-pulse" />
+                <span className="text-sm font-bold text-red-400">FUNDING SQUEEZE DETECTED</span>
+              </div>
+              <div className="text-xs text-red-300">
+                High funding rate + significant premium = potential liquidation cascade risk
+              </div>
+            </div>
+          )}
+
+          {/* Professional Trading Intelligence */}
+          <div className="bg-gray-800/50 rounded-lg p-3">
+            <div className="text-xs text-gray-400 mb-2">Institutional Intelligence</div>
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Premium (bps):</span>
+                <span className="text-white font-mono">{institutionalMetrics.premiumBasisPoints.toFixed(1)} bps</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Annualized APY:</span>
+                <span className={`font-mono ${institutionalMetrics.annualizedFundingRate > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                  {(institutionalMetrics.annualizedFundingRate * 100).toFixed(2)}%
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Carry Trade Alpha:</span>
+                <span className={`font-semibold ${
+                  Math.abs(institutionalMetrics.annualizedFundingRate) > 0.50 ? 'text-orange-400' :
+                  Math.abs(institutionalMetrics.annualizedFundingRate) > 0.20 ? 'text-yellow-400' : 'text-gray-400'
+                }`}>
+                  {Math.abs(institutionalMetrics.annualizedFundingRate) > 0.50 ? 'HIGH' :
+                   Math.abs(institutionalMetrics.annualizedFundingRate) > 0.20 ? 'MODERATE' : 'LOW'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Enhanced Market Sentiment */}
+          <div className="bg-gray-800/50 rounded-lg p-3">
+            <div className="text-xs text-gray-400 mb-1">Enhanced Market Sentiment</div>
+            <div className="text-sm">
+              {isFundingPositive ? (
+                <span className="text-red-400">
+                  📈 Longs pay shorts ({institutionalMetrics.regimeClassification} regime) - {institutionalMetrics.isSqueeze ? 'SQUEEZE RISK' : 'Bullish dominance'}
+                </span>
+              ) : (
+                <span className="text-green-400">
+                  📉 Shorts pay longs ({institutionalMetrics.regimeClassification} regime) - {institutionalMetrics.isSqueeze ? 'SQUEEZE RISK' : 'Bearish dominance'}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>
