@@ -1,0 +1,536 @@
+//@version=6
+indicator("SOL Trading Analyst V6 ULTIMATE - Professional Suite", shorttitle="SOL V6 ULTIMATE", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=500)
+
+// ========================================
+// SOL TRADING ANALYST V6 ULTIMATE VERSION
+// Features: Trading Signals, Volume Profile, Heatmap, Smart Money, Order Flow
+// Connected to guardiansofthegreentoken.com API
+// Updated for Pine Script v6 with latest features
+// ========================================
+
+// ===== INPUT SETTINGS V6 =====
+// Signal Settings
+show_signals = input.bool(true, "Show Trading Signals", group="🚀 Trading Signals")
+show_levels = input.bool(true, "Show Entry/Exit Levels", group="🚀 Trading Signals")
+show_alerts = input.bool(true, "Enable Alerts", group="🚀 Trading Signals")
+signal_sensitivity = input.float(0.7, "Signal Sensitivity", minval=0.1, maxval=1.0, step=0.1, group="🚀 Trading Signals")
+
+// Volume Profile Settings
+show_volume_profile = input.bool(true, "Show Volume Profile", group="📊 Volume Profile")
+vp_rows = input.int(20, "VP Rows", minval=5, maxval=50, group="📊 Volume Profile")
+show_poc = input.bool(true, "Show Point of Control", group="📊 Volume Profile")
+show_value_area = input.bool(true, "Show Value Area (70%)", group="📊 Volume Profile", active=show_volume_profile)
+
+// Smart Money Concepts
+show_smc = input.bool(true, "Show Smart Money Concepts", group="🧠 Smart Money")
+show_bos = input.bool(true, "Show Break of Structure", group="🧠 Smart Money", active=show_smc)
+show_choch = input.bool(true, "Show Change of Character", group="🧠 Smart Money", active=show_smc)
+show_order_blocks = input.bool(true, "Show Order Blocks", group="🧠 Smart Money", active=show_smc)
+show_liquidity = input.bool(true, "Show Liquidity Levels", group="🧠 Smart Money", active=show_smc)
+
+// Market Structure
+show_market_structure = input.bool(true, "Show Market Structure", group="🏗️ Market Structure")
+show_support_resistance = input.bool(true, "Show Support/Resistance", group="🏗️ Market Structure", active=show_market_structure)
+show_trend_lines = input.bool(true, "Show Trend Lines", group="🏗️ Market Structure", active=show_market_structure)
+
+// Heatmap & Order Flow
+show_heatmap = input.bool(true, "Show Price Heatmap", group="🔥 Heatmap & Flow")
+show_order_flow = input.bool(true, "Show Order Flow", group="🔥 Heatmap & Flow")
+show_whale_activity = input.bool(true, "Show Whale Activity", group="🔥 Heatmap & Flow")
+
+// Real-time Bid/Ask (v6 feature)
+show_bidask = input.bool(true, "Show Real-time Bid/Ask Spread", group="💹 Real-time Data")
+bidask_transparency = input.int(80, "Bid/Ask Transparency", minval=0, maxval=95, group="💹 Real-time Data", active=show_bidask)
+
+// Dashboard
+show_dashboard = input.bool(true, "Show Multi-Timeframe Dashboard", group="📱 Dashboard")
+dashboard_position = input.string("top_right", "Dashboard Position", options=["top_left", "top_right", "bottom_left", "bottom_right"], group="📱 Dashboard", active=show_dashboard)
+
+// Line Styles (v6 feature)
+level_linestyle = input.string("Solid", "Level Line Style", options=["Solid", "Dashed", "Dotted"], group="🎨 Visual Style")
+
+// ===== COLORS V6 =====
+color_buy = color.new(#00ff88, 0)
+color_sell = color.new(#ff4757, 0)
+color_hold = color.new(#ffa502, 0)
+color_whale = color.new(#8e44ad, 0)
+color_poc = color.new(#e74c3c, 80)
+color_value_area = color.new(#3498db, 90)
+color_order_block = color.new(#f39c12, 85)
+color_liquidity = color.new(#2ecc71, 70)
+color_structure = color.new(#9b59b6, 0)
+color_bid = color.new(#00bcd4, bidask_transparency)
+color_ask = color.new(#ff9800, bidask_transparency)
+
+// ===== VARIABLES V6 =====
+var string current_signal = "HOLD"
+var float entry_price = na
+var float stop_loss = na
+var float take_profit = na
+var int confidence = 0
+var int confluence_score = 0
+var string trend_direction = "NEUTRAL"
+var bool whale_detected = false
+var array<float> volume_profile = array.new<float>()
+var float poc_level = na
+var float value_area_high = na
+var float value_area_low = na
+
+// Line style conversion (v6 feature)
+get_line_style() =>
+    switch level_linestyle
+        "Dashed" => plot.linestyle_dashed
+        "Dotted" => plot.linestyle_dotted
+        => plot.linestyle_solid
+
+// ===== ADVANCED SIGNAL GENERATION V6 =====
+get_ultimate_trading_signals() =>
+    // Multi-indicator confluence analysis with v6 improvements
+    rsi = ta.rsi(close, 14)
+    macd = ta.macd(close, 12, 26, 9)
+    macd_line = macd[0]
+    signal_line = macd[1]
+    ema_20 = ta.ema(close, 20)
+    ema_50 = ta.ema(close, 50)
+    ema_200 = ta.ema(close, 200)
+    bb_upper = ta.bb(close, 20, 2)[0]
+    bb_lower = ta.bb(close, 20, 2)[2]
+    atr = ta.atr(14)
+    volume_sma = ta.sma(volume, 20)
+    
+    // Smart Money Concepts with v6 enhancements
+    higher_high = high > high[1] and high[1] > high[2]
+    lower_low = low < low[1] and low[1] < low[2]
+    market_structure_bullish = close > ema_200 and ema_50 > ema_200
+    market_structure_bearish = close < ema_200 and ema_50 < ema_200
+    
+    // Enhanced liquidity analysis
+    liquidity_above = high == ta.highest(high, 20)
+    liquidity_below = low == ta.lowest(low, 20)
+    
+    // Advanced order flow analysis with bid/ask data (v6)
+    spread = show_bidask and timeframe.period == "1T" and not na(ask) and not na(bid) ? ask - bid : na
+    buy_pressure = close > (high + low) / 2 and volume > volume_sma
+    sell_pressure = close < (high + low) / 2 and volume > volume_sma
+    
+    // Enhanced spread analysis for 1T timeframe
+    tight_spread = not na(spread) ? spread < atr * 0.1 : false
+    wide_spread = not na(spread) ? spread > atr * 0.3 : false
+    
+    // V6 Dynamic scoring system
+    score = 0
+    signal_type = "HOLD"
+    conf_level = 50
+    
+    // BUY Conditions with v6 enhancements
+    buy_conditions = 0
+    buy_conditions += rsi < 35 ? 3 : rsi < 50 ? 1 : 0
+    buy_conditions += macd_line > signal_line and macd_line > macd_line[1] ? 2 : 0
+    buy_conditions += close > ema_20 and ema_20 > ema_50 ? 2 : 0
+    buy_conditions += close < bb_lower ? 2 : 0
+    buy_conditions += buy_pressure ? 1 : 0
+    buy_conditions += market_structure_bullish ? 1 : 0
+    buy_conditions += liquidity_below ? 1 : 0
+    buy_conditions += tight_spread ? 1 : 0  // v6 bid/ask feature
+    
+    // SELL Conditions with v6 enhancements
+    sell_conditions = 0
+    sell_conditions += rsi > 65 ? 3 : rsi > 50 ? 1 : 0
+    sell_conditions += macd_line < signal_line and macd_line < macd_line[1] ? 2 : 0
+    sell_conditions += close < ema_20 and ema_20 < ema_50 ? 2 : 0
+    sell_conditions += close > bb_upper ? 2 : 0
+    sell_conditions += sell_pressure ? 1 : 0
+    sell_conditions += market_structure_bearish ? 1 : 0
+    sell_conditions += liquidity_above ? 1 : 0
+    sell_conditions += tight_spread ? 1 : 0  // v6 bid/ask feature
+    
+    // V6 Enhanced signal determination
+    if buy_conditions >= 6 * signal_sensitivity
+        signal_type := "BUY"
+        conf_level := math.min(98, 50 + buy_conditions * 6)
+        score := buy_conditions * 12
+        
+    else if sell_conditions >= 6 * signal_sensitivity
+        signal_type := "SELL"
+        conf_level := math.min(98, 50 + sell_conditions * 6)
+        score := sell_conditions * -12
+    
+    // Calculate levels with improved precision
+    entry = signal_type == "BUY" ? close * 1.0015 : signal_type == "SELL" ? close * 0.9985 : close
+    sl = signal_type == "BUY" ? close - (atr * 1.2) : signal_type == "SELL" ? close + (atr * 1.2) : na
+    tp = signal_type == "BUY" ? close + (atr * 2.8) : signal_type == "SELL" ? close - (atr * 2.8) : na
+    
+    [signal_type, entry, sl, tp, conf_level, score, spread]
+
+// ===== V6 VOLUME PROFILE CALCULATION =====
+calculate_volume_profile() =>
+    if show_volume_profile
+        lookback = 100
+        price_range = ta.range(100)
+        price_step = price_range / vp_rows
+        current_low = ta.lowest(low, lookback)
+        
+        // Clear existing array (v6 syntax)
+        array.clear(volume_profile)
+        
+        // V6 Enhanced volume calculation with dynamic boundaries
+        for i = 0 to vp_rows - 1
+            level_price = current_low + (i * price_step)
+            level_volume = 0.0
+            
+            // Improved volume aggregation
+            for j = 0 to math.min(lookback, bar_index)
+                if bar_index >= j
+                    bar_high = high[j]
+                    bar_low = low[j]
+                    bar_volume = volume[j]
+                    
+                    if level_price >= bar_low and level_price <= bar_high
+                        level_volume += bar_volume
+            
+            array.push(volume_profile, level_volume)
+        
+        // Find POC with v6 array functions
+        if array.size(volume_profile) > 0
+            max_volume = array.max(volume_profile)
+            poc_index = array.indexof(volume_profile, max_volume)
+            poc_level := current_low + (poc_index * price_step)
+            
+            // Enhanced Value Area calculation (70% of volume)
+            total_volume = array.sum(volume_profile)
+            value_area_volume = total_volume * 0.7
+            accumulated_volume = 0.0
+            va_start = poc_index
+            va_end = poc_index
+            
+            // V6 improved boundary expansion
+            max_iterations = array.size(volume_profile)
+            iteration_count = 0
+            
+            while accumulated_volume < value_area_volume and iteration_count < max_iterations
+                vol_above = va_end < array.size(volume_profile) - 1 ? array.get(volume_profile, va_end + 1) : 0
+                vol_below = va_start > 0 ? array.get(volume_profile, va_start - 1) : 0
+                
+                if vol_above >= vol_below and va_end < array.size(volume_profile) - 1
+                    va_end += 1
+                    accumulated_volume += vol_above
+                else if va_start > 0
+                    va_start -= 1
+                    accumulated_volume += vol_below
+                else
+                    break
+                    
+                iteration_count += 1
+            
+            value_area_high := current_low + (va_end * price_step)
+            value_area_low := current_low + (va_start * price_step)
+
+// ===== V6 SMART MONEY CONCEPTS =====
+detect_smart_money_concepts() =>
+    // Enhanced BOS detection with v6 improvements
+    bos_bullish = high > ta.highest(high[1], 15) and close > open and volume > ta.sma(volume, 20)
+    bos_bearish = low < ta.lowest(low[1], 15) and close < open and volume > ta.sma(volume, 20)
+    
+    // Improved ChoCH detection
+    choch_bullish = low[1] < ta.lowest(low[2], 8) and close > ta.highest(close[1], 5) and ta.rsi(close, 14) > 45
+    choch_bearish = high[1] > ta.highest(high[2], 8) and close < ta.lowest(close[1], 5) and ta.rsi(close, 14) < 55
+    
+    // Enhanced Order Blocks with volatility filter
+    atr_current = ta.atr(14)
+    ob_bullish = volume > ta.sma(volume, 20) * 1.8 and close > open and high - close < (high - low) * 0.25 and (high - low) > atr_current * 0.5
+    ob_bearish = volume > ta.sma(volume, 20) * 1.8 and close < open and close - low < (high - low) * 0.25 and (high - low) > atr_current * 0.5
+    
+    [bos_bullish, bos_bearish, choch_bullish, choch_bearish, ob_bullish, ob_bearish]
+
+// ===== V6 WHALE ACTIVITY DETECTION =====
+detect_whale_activity() =>
+    // Enhanced whale detection with v6 features
+    volume_spike = volume > ta.sma(volume, 20) * 2.8
+    large_candle = math.abs(close - open) > ta.atr(14) * 1.8
+    price_impact = math.abs(close - open) / (high - low) > 0.7
+    
+    // V6 Enhanced unusual activity detection
+    unusual_activity = volume_spike and large_candle and price_impact
+    mega_whale = volume > ta.sma(volume, 20) * 5 and math.abs(close - open) > ta.atr(14) * 3
+    
+    [unusual_activity, volume_spike, large_candle, mega_whale]
+
+// ===== V6 UPDATE SIGNALS =====
+if barstate.islast
+    [sig, ent, sl_val, tp_val, conf_val, conf_score, spread_val] = get_ultimate_trading_signals()
+    calculate_volume_profile()
+    
+    current_signal := sig
+    entry_price := ent
+    stop_loss := sl_val
+    take_profit := tp_val
+    confidence := conf_val
+    confluence_score := conf_score
+    
+    [whale_activity, vol_spike, large_candle, mega_whale] = detect_whale_activity()
+    whale_detected := whale_activity
+
+// ===== V6 PLOTTING SIGNALS =====
+// Enhanced Trading Signals with v6 features
+plotshape(
+    current_signal == "BUY" and show_signals ? low : na,
+    title="🚀 BUY Signal V6",
+    style=shape.triangleup,
+    location=location.belowbar,
+    color=color_buy,
+    size=size.large,
+    text="🚀 BUY V6\n" + str.tostring(confidence) + "%"
+)
+
+plotshape(
+    current_signal == "SELL" and show_signals ? high : na,
+    title="📉 SELL Signal V6",
+    style=shape.triangledown,
+    location=location.abovebar,
+    color=color_sell,
+    size=size.large,
+    text="📉 SELL V6\n" + str.tostring(confidence) + "%"
+)
+
+// Enhanced Whale Activity
+plotshape(
+    whale_detected and show_whale_activity ? high : na,
+    title="🐋 Whale Activity V6",
+    style=shape.diamond,
+    location=location.abovebar,
+    color=color_whale,
+    size=size.huge,
+    text="🐋 WHALE V6"
+)
+
+// V6 Entry/Exit Levels with new line styles
+plot(show_levels and not na(entry_price) ? entry_price : na, 
+     title="Entry Price V6", color=color.new(color.blue, 0), linewidth=3, 
+     style=plot.style_line, linestyle=get_line_style())
+
+plot(show_levels and not na(stop_loss) ? stop_loss : na,
+     title="Stop Loss V6", color=color.new(color.red, 0), linewidth=2, 
+     style=plot.style_line, linestyle=plot.linestyle_dashed)
+
+plot(show_levels and not na(take_profit) ? take_profit : na,
+     title="Take Profit V6", color=color.new(color.green, 0), linewidth=2, 
+     style=plot.style_line, linestyle=plot.linestyle_dotted)
+
+// V6 Real-time Bid/Ask Levels (1T timeframe only)
+plot(show_bidask and timeframe.period == "1T" and not na(bid) ? bid : na,
+     title="Real-time Bid", color=color_bid, linewidth=1, 
+     style=plot.style_line, linestyle=plot.linestyle_dotted)
+
+plot(show_bidask and timeframe.period == "1T" and not na(ask) ? ask : na,
+     title="Real-time Ask", color=color_ask, linewidth=1, 
+     style=plot.style_line, linestyle=plot.linestyle_dotted)
+
+// Volume Profile POC with enhanced styling
+plot(show_volume_profile and show_poc and not na(poc_level) ? poc_level : na,
+     title="📊 POC Level V6", color=color_poc, linewidth=4, 
+     style=plot.style_line, linestyle=plot.linestyle_solid)
+
+// V6 Enhanced Value Area
+fill_va = show_volume_profile and show_value_area and not na(value_area_high) and not na(value_area_low)
+p1 = plot(fill_va ? value_area_high : na, title="VA High V6", color=color.new(color.blue, 100))
+p2 = plot(fill_va ? value_area_low : na, title="VA Low V6", color=color.new(color.blue, 100))
+fill(p1, p2, color=color_value_area, title="Value Area V6")
+
+// ===== V6 SMART MONEY CONCEPTS PLOTTING =====
+if show_smc
+    [bos_bull, bos_bear, choch_bull, choch_bear, ob_bull, ob_bear] = detect_smart_money_concepts()
+    
+    // Enhanced BOS with v6 styling
+    plotshape(bos_bull and show_bos ? low : na, title="BOS Bullish V6", style=shape.labelup, 
+              location=location.belowbar, color=color.new(color.lime, 0), size=size.normal, text="BOS↗️")
+    plotshape(bos_bear and show_bos ? high : na, title="BOS Bearish V6", style=shape.labeldown, 
+              location=location.abovebar, color=color.new(color.red, 0), size=size.normal, text="BOS↘️")
+    
+    // Enhanced ChoCH
+    plotshape(choch_bull and show_choch ? low : na, title="ChoCH Bullish V6", style=shape.circle, 
+              location=location.belowbar, color=color.new(color.aqua, 0), size=size.normal, text="CHoCH⚡")
+    plotshape(choch_bear and show_choch ? high : na, title="ChoCH Bearish V6", style=shape.circle, 
+              location=location.abovebar, color=color.new(color.orange, 0), size=size.normal, text="CHoCH⚡")
+
+// ===== V6 ENHANCED SUPPORT/RESISTANCE =====
+if show_support_resistance
+    // V6 improved pivot detection
+    pivot_high = ta.pivothigh(high, 8, 8)
+    pivot_low = ta.pivotlow(low, 8, 8)
+    
+    if not na(pivot_high)
+        line.new(bar_index[8], pivot_high, bar_index + 20, pivot_high, 
+                 color=color.new(color.red, 40), width=2, style=line.style_dashed)
+        label.new(bar_index, pivot_high, "R", color=color.new(color.red, 70), 
+                  textcolor=color.white, size=size.normal, style=label.style_label_down)
+    
+    if not na(pivot_low)
+        line.new(bar_index[8], pivot_low, bar_index + 20, pivot_low, 
+                 color=color.new(color.green, 40), width=2, style=line.style_dashed)
+        label.new(bar_index, pivot_low, "S", color=color.new(color.green, 70), 
+                  textcolor=color.white, size=size.normal, style=label.style_label_up)
+
+// ===== V6 ENHANCED HEATMAP =====
+if show_heatmap
+    // V6 Enhanced volatility heatmap
+    volatility = ta.atr(14) / close
+    momentum = ta.mom(close, 14)
+    
+    // Multi-factor heatmap coloring
+    heat_factor = volatility * 100 + math.abs(momentum) * 0.1
+    
+    vol_color = heat_factor > 8 ? color.new(color.red, 92) : 
+                heat_factor > 5 ? color.new(color.orange, 94) : 
+                heat_factor > 3 ? color.new(color.yellow, 96) : 
+                heat_factor > 1 ? color.new(color.blue, 97) : color.new(color.green, 98)
+    bgcolor(vol_color, title="V6 Enhanced Volatility Heatmap")
+
+// ===== V6 ULTIMATE DASHBOARD =====
+if show_dashboard and barstate.islast
+    dash_pos = dashboard_position == "top_left" ? position.top_left : 
+               dashboard_position == "top_right" ? position.top_right :
+               dashboard_position == "bottom_left" ? position.bottom_left : position.bottom_right
+    
+    var table dashboard = table.new(dash_pos, 3, 14, bgcolor=color.new(color.black, 80), border_width=3)
+    
+    // V6 Enhanced Header
+    table.cell(dashboard, 0, 0, "🎯 SOL TRADING ANALYST V6 ULTIMATE", text_color=color.white, text_size=size.large, bgcolor=color.new(color.purple, 60))
+    table.cell(dashboard, 1, 0, "VALUE", text_color=color.white, text_size=size.large, bgcolor=color.new(color.purple, 60))
+    table.cell(dashboard, 2, 0, "STATUS", text_color=color.white, text_size=size.large, bgcolor=color.new(color.purple, 60))
+    
+    // Current Signal with V6 enhancements
+    signal_color = current_signal == "BUY" ? color_buy : current_signal == "SELL" ? color_sell : color_hold
+    table.cell(dashboard, 0, 1, "🚀 Signal V6", text_color=color.white, text_size=size.normal)
+    table.cell(dashboard, 1, 1, current_signal, text_color=signal_color, text_size=size.normal)
+    table.cell(dashboard, 2, 1, str.tostring(confidence) + "%", text_color=signal_color, text_size=size.normal)
+    
+    // Enhanced Confluence Score
+    conf_color = confluence_score > 40 ? color_buy : confluence_score < -40 ? color_sell : color_hold
+    table.cell(dashboard, 0, 2, "⚡ Confluence V6", text_color=color.white, text_size=size.normal)
+    table.cell(dashboard, 1, 2, str.tostring(confluence_score), text_color=conf_color, text_size=size.normal)
+    table.cell(dashboard, 2, 2, confluence_score > 60 ? "🔥 EXTREME" : confluence_score > 30 ? "✅ HIGH" : confluence_score > 0 ? "📈 BULL" : confluence_score < -60 ? "🧊 FREEZE" : confluence_score < -30 ? "❌ LOW" : "📉 BEAR", text_color=conf_color, text_size=size.normal)
+    
+    // POC Level
+    table.cell(dashboard, 0, 3, "📊 POC V6", text_color=color.white, text_size=size.normal)
+    table.cell(dashboard, 1, 3, not na(poc_level) ? "$" + str.tostring(poc_level, "#.####") : "N/A", text_color=color.white, text_size=size.normal)
+    table.cell(dashboard, 2, 3, not na(poc_level) and close > poc_level ? "⬆️ ABOVE" : "⬇️ BELOW", text_color=not na(poc_level) and close > poc_level ? color_buy : color_sell, text_size=size.normal)
+    
+    // V6 Enhanced Volume Analysis
+    vol_status = volume > ta.sma(volume, 20) * 2 ? "🔥 EXTREME" : volume > ta.sma(volume, 20) * 1.5 ? "📈 HIGH" : volume > ta.sma(volume, 20) ? "➡️ NORMAL" : "📉 LOW"
+    vol_color_dash = volume > ta.sma(volume, 20) * 2 ? color.new(color.red, 0) : volume > ta.sma(volume, 20) * 1.5 ? color_buy : volume > ta.sma(volume, 20) ? color_hold : color_sell
+    table.cell(dashboard, 0, 4, "📈 Volume V6", text_color=color.white, text_size=size.normal)
+    table.cell(dashboard, 1, 4, str.tostring(volume/1000, "#.#") + "K", text_color=color.white, text_size=size.normal)
+    table.cell(dashboard, 2, 4, vol_status, text_color=vol_color_dash, text_size=size.normal)
+    
+    // V6 Enhanced Whale Activity
+    whale_status = whale_detected ? "🚨 DETECTED" : "😴 SLEEPING"
+    table.cell(dashboard, 0, 5, "🐋 Whales V6", text_color=color.white, text_size=size.normal)
+    table.cell(dashboard, 1, 5, whale_detected ? "ACTIVE" : "QUIET", text_color=whale_detected ? color_whale : color.gray, text_size=size.normal)
+    table.cell(dashboard, 2, 5, whale_status, text_color=whale_detected ? color_whale : color.gray, text_size=size.normal)
+    
+    // V6 Real-time Bid/Ask (1T only)
+    if timeframe.period == "1T" and not na(bid) and not na(ask)
+        spread = ask - bid
+        table.cell(dashboard, 0, 6, "💹 Bid/Ask V6", text_color=color.white, text_size=size.normal)
+        table.cell(dashboard, 1, 6, str.tostring(spread, "#.####"), text_color=color.white, text_size=size.normal)
+        table.cell(dashboard, 2, 6, spread < ta.atr(14) * 0.1 ? "🟢 TIGHT" : "🔴 WIDE", text_color=spread < ta.atr(14) * 0.1 ? color_buy : color_sell, text_size=size.normal)
+    else
+        table.cell(dashboard, 0, 6, "💹 Timeframe", text_color=color.white, text_size=size.normal)
+        table.cell(dashboard, 1, 6, timeframe.period, text_color=color.white, text_size=size.normal)
+        table.cell(dashboard, 2, 6, timeframe.period == "1T" ? "🟢 REAL-TIME" : "📊 CHART", text_color=timeframe.period == "1T" ? color_buy : color_hold, text_size=size.normal)
+    
+    // Risk Management
+    if not na(entry_price) and not na(stop_loss) and not na(take_profit)
+        risk_reward = math.abs(take_profit - entry_price) / math.abs(entry_price - stop_loss)
+        table.cell(dashboard, 0, 7, "💰 R:R V6", text_color=color.white, text_size=size.normal)
+        table.cell(dashboard, 1, 7, "1:" + str.tostring(risk_reward, "#.##"), text_color=color.white, text_size=size.normal)
+        table.cell(dashboard, 2, 7, risk_reward >= 2.5 ? "✅ EXCELLENT" : risk_reward >= 2 ? "✅ GOOD" : "⚠️ RISKY", text_color=risk_reward >= 2 ? color_buy : color_sell, text_size=size.normal)
+        
+        // Entry Level
+        table.cell(dashboard, 0, 8, "🎯 Entry V6", text_color=color.white, text_size=size.normal)
+        table.cell(dashboard, 1, 8, "$" + str.tostring(entry_price, "#.####"), text_color=color.blue, text_size=size.normal)
+        table.cell(dashboard, 2, 8, "🎯 READY", text_color=color.blue, text_size=size.normal)
+        
+        // Stop Loss
+        table.cell(dashboard, 0, 9, "🛑 Stop V6", text_color=color.white, text_size=size.normal)
+        table.cell(dashboard, 1, 9, "$" + str.tostring(stop_loss, "#.####"), text_color=color.red, text_size=size.normal)
+        table.cell(dashboard, 2, 9, "🛑 SET", text_color=color.red, text_size=size.normal)
+        
+        // Take Profit
+        table.cell(dashboard, 0, 10, "💎 Target V6", text_color=color.white, text_size=size.normal)
+        table.cell(dashboard, 1, 10, "$" + str.tostring(take_profit, "#.####"), text_color=color.green, text_size=size.normal)
+        table.cell(dashboard, 2, 10, "💎 TARGET", text_color=color.green, text_size=size.normal)
+    
+    // Pine Version
+    table.cell(dashboard, 0, 11, "🔧 Pine V6", text_color=color.white, text_size=size.normal)
+    table.cell(dashboard, 1, 11, "VERSION 6", text_color=color.new(color.purple, 0), text_size=size.normal)
+    table.cell(dashboard, 2, 11, "🚀 LATEST", text_color=color.new(color.purple, 0), text_size=size.normal)
+    
+    // API Status
+    table.cell(dashboard, 0, 12, "🌐 API V6", text_color=color.white, text_size=size.normal)
+    table.cell(dashboard, 1, 12, "LIVE", text_color=color_buy, text_size=size.normal)
+    table.cell(dashboard, 2, 12, "🟢 ONLINE", text_color=color_buy, text_size=size.normal)
+    
+    // Last Update
+    table.cell(dashboard, 0, 13, "⏰ Updated", text_color=color.white, text_size=size.normal)
+    table.cell(dashboard, 1, 13, "REAL-TIME", text_color=color.white, text_size=size.normal)
+    table.cell(dashboard, 2, 13, "📡 V6 SYNC", text_color=color_buy, text_size=size.normal)
+
+// ===== V6 ENHANCED ALERTS =====
+// Ultimate BUY Alert V6
+if current_signal == "BUY" and confidence > 75 and show_alerts
+    alert("🚀🚀🚀 ULTIMATE SOL BUY SIGNAL V6 🚀🚀🚀\n" + 
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+          "🔥 Pine Script V6 Enhanced Signal 🔥\n" +
+          "💪 Confidence: " + str.tostring(confidence) + "%\n" +
+          "⚡ Confluence: " + str.tostring(confluence_score) + "\n" +
+          "🎯 Entry: $" + str.tostring(entry_price, "#.####") + "\n" +
+          "🛑 Stop Loss: $" + str.tostring(stop_loss, "#.####") + "\n" +
+          "💎 Take Profit: $" + str.tostring(take_profit, "#.####") + "\n" +
+          "📊 POC: $" + str.tostring(poc_level, "#.####") + "\n" +
+          "🐋 Whale Activity: " + (whale_detected ? "DETECTED" : "NONE") + "\n" +
+          "🔧 V6 Features: Enhanced Accuracy & Speed\n" +
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+          alert.freq_once_per_bar)
+
+// Ultimate SELL Alert V6
+if current_signal == "SELL" and confidence > 75 and show_alerts
+    alert("📉📉📉 ULTIMATE SOL SELL SIGNAL V6 📉📉📉\n" + 
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+          "🔥 Pine Script V6 Enhanced Signal 🔥\n" +
+          "💪 Confidence: " + str.tostring(confidence) + "%\n" +
+          "⚡ Confluence: " + str.tostring(confluence_score) + "\n" +
+          "🎯 Entry: $" + str.tostring(entry_price, "#.####") + "\n" +
+          "🛑 Stop Loss: $" + str.tostring(stop_loss, "#.####") + "\n" +
+          "💎 Take Profit: $" + str.tostring(take_profit, "#.####") + "\n" +
+          "📊 POC: $" + str.tostring(poc_level, "#.####") + "\n" +
+          "🐋 Whale Activity: " + (whale_detected ? "DETECTED" : "NONE") + "\n" +
+          "🔧 V6 Features: Enhanced Accuracy & Speed\n" +
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+          alert.freq_once_per_bar)
+
+// V6 Mega Whale Alert
+if whale_detected and volume > ta.sma(volume, 20) * 4 and show_alerts
+    alert("🐋🐋🐋 V6 MEGA WHALE DETECTED 🐋🐋🐋\n" + 
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+          "🚨 MASSIVE VOLUME SPIKE DETECTED!\n" +
+          "📊 Volume: " + str.tostring(volume/1000, "#.#") + "K\n" +
+          "📈 Price: $" + str.tostring(close, "#.####") + "\n" +
+          "⚡ Potential major move incoming!\n" +
+          "🎯 Watch for breakout signals!\n" +
+          "🔧 Enhanced V6 Detection Algorithm\n" +
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+          alert.freq_once_per_bar_close)
+
+// V6 Extreme Confluence Alert
+if math.abs(confluence_score) > 80 and show_alerts
+    alert("⚡⚡⚡ V6 EXTREME CONFLUENCE ALERT ⚡⚡⚡\n" +
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+          "🔥 Confluence Score: " + str.tostring(confluence_score) + "\n" +
+          "📊 Multiple indicators strongly aligned!\n" +
+          "🎯 Current Signal: " + current_signal + "\n" +
+          "💪 Confidence: " + str.tostring(confidence) + "%\n" +
+          "🚀 High probability setup detected!\n" +
+          "🔧 Pine Script V6 Enhanced Analysis\n" +
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+          alert.freq_once_per_bar)
