@@ -19,6 +19,7 @@ import { TechnicalIndicators } from "@/components/TechnicalIndicators";
 import { FibonacciAnalysis } from "@/components/FibonacciAnalysis";
 import { OrderFlowAnalysis } from "@/components/OrderFlowAnalysis";
 import LiquidityHeatmap from "@/components/LiquidityHeatmap";
+import MultiTimeframeAnalysis from "@/components/MultiTimeframeAnalysis";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -287,6 +288,13 @@ export default function Dashboard() {
           <div className="mt-6">
             <ErrorBoundary>
               <LiquidityHeatmap />
+            </ErrorBoundary>
+          </div>
+
+          {/* Row 2.75: Multi-Timeframe Analysis - Synchronized Cross-Timeframe Intelligence */}
+          <div className="mt-6">
+            <ErrorBoundary>
+              <MultiTimeframeAnalysis />
             </ErrorBoundary>
           </div>
 
