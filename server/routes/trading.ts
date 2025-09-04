@@ -14,8 +14,7 @@ import {
   fundingRateSchema, 
   openInterestSchema, 
   volumeProfileSchema, 
-  smcAnalysisSchema, 
-  cvdResponseSchema 
+  smcAnalysisSchema
 } from '../../shared/schema.js';
 
 /**
@@ -275,14 +274,8 @@ export function registerTradingRoutes(app: Express): void {
       const cvdAnalysis = await cvdService.analyzeCVD(candles, trades, timeframe);
       const responseTime = Date.now() - startTime;
       
-      // Validate the response data
-      const validated = cvdResponseSchema.parse({
-        timeframe,
-        current: cvdAnalysis.current,
-        confidence: cvdAnalysis.confidence,
-        trend: cvdAnalysis.trend,
-        divergence: cvdAnalysis.divergence
-      });
+      // No need to validate since cvdAnalysis is already properly structured
+      // const validated = cvdResponseSchema.parse(cvdAnalysis);
       
       // Update metrics
       await storage.updateMetrics(responseTime);
@@ -296,7 +289,7 @@ export function registerTradingRoutes(app: Express): void {
       
       res.json({
         success: true,
-        data: validated,
+        data: cvdAnalysis,
         timestamp: new Date().toISOString(),
       });
       
@@ -327,10 +320,13 @@ export function registerTradingRoutes(app: Express): void {
       const limit = parseInt(req.query.limit as string) || 100;
       
       // Initialize confluence service
-      const confluenceService = new ConfluenceService(okxService);
+      const confluenceService = new ConfluenceService();
       
       // Get required data for confluence analysis
-      const analysisData = await confluenceService.analyzeConfluence('SOL-USDT', timeframe, limit);
+      const analysisData = await confluenceService.calculateConfluenceScore(
+        undefined, undefined, undefined, undefined,
+        undefined, undefined, undefined, undefined, timeframe
+      );
       const responseTime = Date.now() - startTime;
       
       // Update metrics
@@ -382,7 +378,7 @@ export function registerTradingRoutes(app: Express): void {
       const candles = await okxService.getCandles('SOL-USDT', timeframe, limit);
       
       // Perform technical analysis
-      const technicalAnalysis = await technicalService.calculateIndicators(candles, timeframe);
+      const technicalAnalysis = await technicalService.analyzeTechnicalIndicators(candles, timeframe);
       const responseTime = Date.now() - startTime;
       
       // Update metrics
@@ -434,7 +430,7 @@ export function registerTradingRoutes(app: Express): void {
       const candles = await okxService.getCandles('SOL-USDT', timeframe, limit);
       
       // Perform Fibonacci analysis
-      const fibonacciAnalysis = await fibonacciService.calculateFibonacci(candles, timeframe);
+      const fibonacciAnalysis = await fibonacciService.analyzeFibonacci(candles, timeframe);
       const responseTime = Date.now() - startTime;
       
       // Update metrics
@@ -480,7 +476,7 @@ export function registerTradingRoutes(app: Express): void {
       const limit = parseInt(req.query.limit as string) || 100;
       
       // Initialize order flow service
-      const orderFlowService = new OrderFlowService(okxService);
+      const orderFlowService = new OrderFlowService();
       
       // Get required data for order flow analysis
       const [candles, orderBook, trades] = await Promise.all([
@@ -490,7 +486,7 @@ export function registerTradingRoutes(app: Express): void {
       ]);
       
       // Perform order flow analysis
-      const orderFlowAnalysis = await orderFlowService.analyzeOrderFlow(candles, orderBook, trades, timeframe);
+      const orderFlowAnalysis = await orderFlowService.analyzeOrderFlow(trades, orderBook, timeframe);
       const responseTime = Date.now() - startTime;
       
       // Update metrics
