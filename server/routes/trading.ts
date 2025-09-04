@@ -473,16 +473,16 @@ export function registerTradingRoutes(app: Express): void {
     
     try {
       const timeframe = req.query.timeframe as string || '1H';
-      const limit = parseInt(req.query.limit as string) || 100;
+      const tradeLimit = parseInt(req.query.tradeLimit as string) || parseInt(req.query.limit as string) || 200;
       
       // Initialize order flow service
       const orderFlowService = new OrderFlowService();
       
       // Get required data for order flow analysis
       const [candles, orderBook, trades] = await Promise.all([
-        okxService.getCandles('SOL-USDT', timeframe, limit),
+        okxService.getCandles('SOL-USDT', timeframe, 100),
         okxService.getOrderBook('SOL-USDT'),
-        okxService.getRecentTrades('SOL-USDT', 200)
+        okxService.getRecentTrades('SOL-USDT', tradeLimit)
       ]);
       
       // Perform order flow analysis
@@ -496,7 +496,7 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'Order flow analysis request completed',
-        details: `GET /api/sol/order-flow - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+        details: `GET /api/sol/order-flow - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, TradeLimit: ${tradeLimit}`,
       });
       
       res.json({
