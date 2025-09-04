@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { TrendingUp, TrendingDown, Zap, Shield, AlertTriangle, Eye } from 'lucide-react';
+import { TrendingUp, TrendingDown, Zap, Shield, AlertTriangle, Eye, RefreshCw } from 'lucide-react';
 
 interface HeatmapBucket {
   priceLevel: number;
@@ -66,66 +67,61 @@ interface PremiumAnalytics {
   lastUpdate: string;
 }
 
-export default function LiquidityHeatmap() {
+const LiquidityHeatmap = React.memo(() => {
   const [data, setData] = useState<PremiumAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number>(207.0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchHeatmapData = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      // Only show loading on first load
+      if (!data) setLoading(true);
+      
+      const response = await fetch('/api/premium/institutional-analytics');
+      
+      if (!response.ok) {
+        if (response.status === 403) {
+          setError('VIP8+ subscription required for advanced analytics');
+          return;
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setData(result.data);
+        setError(null);
+      } else {
+        setError(result.error || 'Failed to fetch data');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [data]);
+
+  const fetchCurrentPrice = useCallback(async () => {
+    try {
+      const response = await fetch('/api/sol/complete');
+      const result = await response.json();
+      if (result.success && result.data?.ticker?.last) {
+        setCurrentPrice(parseFloat(result.data.ticker.last));
+      }
+    } catch (err) {
+      console.warn('Failed to fetch current price:', err);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchHeatmapData = async () => {
-      try {
-        // Only show loading on first load, not on refresh
-        if (!data) setLoading(true);
-        
-        const response = await fetch('/api/premium/institutional-analytics');
-        
-        if (!response.ok) {
-          if (response.status === 403) {
-            setError('VIP8+ subscription required for advanced analytics');
-            return;
-          }
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const result = await response.json();
-        
-        if (result.success) {
-          setData(result.data);
-          setError(null);
-        } else {
-          setError(result.error || 'Failed to fetch data');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Network error');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Fetch current price
-    const fetchCurrentPrice = async () => {
-      try {
-        const response = await fetch('/api/sol/complete');
-        const result = await response.json();
-        if (result.success && result.data?.ticker?.last) {
-          setCurrentPrice(parseFloat(result.data.ticker.last));
-        }
-      } catch (err) {
-        console.warn('Failed to fetch current price:', err);
-      }
-    };
-
+    // Only fetch once on mount, no auto-refresh
     fetchHeatmapData();
     fetchCurrentPrice();
-
-    // Auto-refresh every 30 seconds (reduced frequency)
-    const interval = setInterval(() => {
-      fetchHeatmapData();
-      fetchCurrentPrice();
-    }, 30000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const getIntensityColor = (intensity: number): string => {
@@ -161,7 +157,10 @@ export default function LiquidityHeatmap() {
     }
   };
 
-  const renderHeatmapVisual = (heatmapData: HeatmapData) => {
+  const renderHeatmapVisual = useMemo(() => {
+    if (!data?.institutionalFeatures?.liquidityHeatmap) return null;
+    
+    const heatmapData = data.institutionalFeatures.liquidityHeatmap;
     const buckets = heatmapData.buckets.slice(0, 21); // Limit to 21 buckets for visualization
     
     return (
@@ -175,7 +174,7 @@ export default function LiquidityHeatmap() {
           const relativeIntensity = Math.min(100, (bucket.intensity / 5) * 100);
           
           return (
-            <TooltipProvider key={index}>
+            <TooltipProvider key={`${bucket.priceLevel}-${index}`}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div 
@@ -220,7 +219,7 @@ export default function LiquidityHeatmap() {
         })}
       </div>
     );
-  };
+  }, [data?.institutionalFeatures?.liquidityHeatmap, currentPrice]);
 
   const renderSupportResistanceLevels = (supports: LiquidityLevel[], resistances: LiquidityLevel[]) => (
     <div className="grid grid-cols-2 gap-4">
@@ -315,11 +314,24 @@ export default function LiquidityHeatmap() {
             Liquidity Heatmap
             <Badge className="ml-2 bg-purple-600">VIP8+</Badge>
             <div className="ml-auto flex items-center space-x-2 text-sm">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  fetchHeatmapData();
+                  fetchCurrentPrice();
+                }}
+                disabled={refreshing}
+                className="h-8 px-2 text-gray-400 hover:text-white"
+              >
+                <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+                <span className="ml-1">Refresh</span>
+              </Button>
               <div className={`w-2 h-2 rounded-full ${
                 data ? 'bg-green-400' : 'bg-gray-400'
-              } animate-pulse`} />
+              }`} />
               <span className="text-gray-400">
-                {data ? 'Live' : 'Connecting...'}
+                {data ? 'Manual' : 'No data'}
               </span>
             </div>
           </CardTitle>
@@ -357,7 +369,7 @@ export default function LiquidityHeatmap() {
 
               {/* Visual Heatmap - Fixed height to prevent layout shift */}
               <div className="bg-gray-800/50 rounded-lg p-4 h-64 overflow-y-auto">
-                {renderHeatmapVisual(heatmapData)}
+                {renderHeatmapVisual}
               </div>
 
               {/* Support/Resistance */}
@@ -480,4 +492,8 @@ export default function LiquidityHeatmap() {
       </div>
     </div>
   );
-}
+});
+
+LiquidityHeatmap.displayName = 'LiquidityHeatmap';
+
+export default LiquidityHeatmap;
