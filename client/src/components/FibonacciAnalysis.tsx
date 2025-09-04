@@ -100,7 +100,7 @@ export function FibonacciAnalysis({ className = '' }: FibonacciAnalysisProps) {
       }
       return response.json();
     },
-    refetchInterval: 12000, // 12 seconds
+    refetchInterval: false, // Manual refresh only
     staleTime: 10000, // Consider stale after 10 seconds
     retry: 3,
     refetchOnWindowFocus: false,

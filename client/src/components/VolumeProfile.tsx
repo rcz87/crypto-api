@@ -44,7 +44,7 @@ export function VolumeProfile() {
     };
   }>({
     queryKey: ['/api/sol/complete'],
-    refetchInterval: 5000,
+    refetchInterval: false, // Manual refresh only
     refetchIntervalInBackground: false
   });
 
@@ -63,7 +63,7 @@ export function VolumeProfile() {
       }
       return response.json();
     },
-    refetchInterval: 120000, // Refresh every 2 minutes
+    refetchInterval: false, // Manual refresh only
     refetchIntervalInBackground: false, // Stop refetching when tab is not active
     refetchOnWindowFocus: false,
   });

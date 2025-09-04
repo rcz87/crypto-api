@@ -34,7 +34,7 @@ export function FundingRate() {
       }
       return response.json();
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: false, // Manual refresh only
     refetchIntervalInBackground: false, // Stop refetching when tab is not active
     refetchOnWindowFocus: false,
   });

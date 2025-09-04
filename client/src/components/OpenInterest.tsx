@@ -29,7 +29,7 @@ export function OpenInterest() {
     };
   }>({ 
     queryKey: ['/api/sol/complete'], 
-    refetchInterval: 5000,
+    refetchInterval: false, // Manual refresh only
     refetchIntervalInBackground: false
   });
 
@@ -48,7 +48,7 @@ export function OpenInterest() {
       }
       return response.json();
     },
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: false, // Manual refresh only
     refetchIntervalInBackground: false, // Stop refetching when tab is not active
     refetchOnWindowFocus: false,
   });

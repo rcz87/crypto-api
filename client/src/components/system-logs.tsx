@@ -22,7 +22,7 @@ export function SystemLogs() {
       }
       return response.json();
     },
-    refetchInterval: 10000, // Refresh every 10 seconds
+    refetchInterval: false, // Manual refresh only
     refetchIntervalInBackground: false, // Stop refetching when tab is not active
     refetchOnWindowFocus: false,
   });

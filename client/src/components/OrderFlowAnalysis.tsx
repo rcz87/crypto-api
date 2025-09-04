@@ -113,7 +113,7 @@ export function OrderFlowAnalysis({ className = '' }: OrderFlowAnalysisProps) {
       }
       return response.json();
     },
-    refetchInterval: 8000, // 8 seconds for more frequent updates
+    refetchInterval: false, // Manual refresh only
     staleTime: 6000, // Consider stale after 6 seconds
     retry: 3,
     refetchOnWindowFocus: false,

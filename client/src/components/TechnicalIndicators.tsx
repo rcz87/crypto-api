@@ -106,7 +106,7 @@ export function TechnicalIndicators({ className = '' }: TechnicalIndicatorsProps
       }
       return response.json();
     },
-    refetchInterval: 10000, // 10 seconds
+    refetchInterval: false, // Manual refresh only
     staleTime: 8000, // Consider stale after 8 seconds
     retry: 3,
     refetchOnWindowFocus: false,

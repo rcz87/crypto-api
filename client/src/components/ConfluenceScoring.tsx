@@ -70,7 +70,7 @@ export function ConfluenceScoring({ timeframe = '1H', className = '' }: Confluen
       }
       return response.json();
     },
-    refetchInterval: 20000, // 20 seconds
+    refetchInterval: false, // Manual refresh only
     staleTime: 15000,
     retry: 2,
     refetchOnWindowFocus: false,

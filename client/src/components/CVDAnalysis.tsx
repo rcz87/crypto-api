@@ -47,7 +47,7 @@ export function CVDAnalysisComponent({ className = '' }: CVDProps) {
       }
       return response.json();
     },
-    refetchInterval: 15000, // 15 seconds - slower than SMC for heavy calculations
+    refetchInterval: false, // Manual refresh only
     staleTime: 12000, // Consider stale after 12 seconds
     retry: 3,
     refetchOnWindowFocus: false,
