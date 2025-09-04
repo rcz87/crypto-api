@@ -32,15 +32,7 @@ paths:
       operationId: getCompleteSOLData
       summary: Get comprehensive SOL trading data
       description: |
-        Returns complete real-time SOL/USDT trading data including:
-        - Real-time ticker (price, 24h change, volume)
-        - Order book depth with bid/ask spreads
-        - Recent trades with buy/sell indicators
-        - Multi-timeframe candlestick data (5m, 15m, 30m, 1H, 4H, 1D, 1W)
-        - Smart Money Concepts (SMC) analysis
-        - Market depth visualization data
-        
-        Perfect for comprehensive market analysis and AI-driven trading insights.
+        Complete SOL/USDT data: ticker, orderbook, trades, multi-timeframe candles (5m-1W), SMC analysis, and market depth.
       responses:
         '200':
           description: Complete SOL trading data
@@ -203,8 +195,7 @@ paths:
       operationId: getSOLFundingRate
       summary: Get SOL funding rate data
       description: |
-        Returns current and historical funding rate data for SOL perpetual futures.
-        Funding rates indicate market sentiment and can signal potential price movements.
+        Current and historical funding rates for SOL perpetual futures indicating market sentiment.
       responses:
         '200':
           description: SOL funding rate data
@@ -246,8 +237,7 @@ paths:
       operationId: getSOLOpenInterest
       summary: Get SOL open interest data
       description: |
-        Returns open interest data for SOL futures, indicating market participation and potential volatility.
-        High open interest with rising prices suggests strong bullish sentiment.
+        Open interest data for SOL futures showing market participation and volatility indicators.
       responses:
         '200':
           description: SOL open interest data
@@ -286,8 +276,7 @@ paths:
       operationId: getSOLVolumeProfile
       summary: Get SOL volume profile analysis
       description: |
-        Returns volume profile data showing price levels with highest trading activity.
-        Includes Point of Control (POC) and value area analysis for support/resistance identification.
+        Volume profile with POC, value areas, and high-volume price levels for support/resistance.
       responses:
         '200':
           description: SOL volume profile data
@@ -336,14 +325,7 @@ paths:
       operationId: getSOLSmartMoneyConcepts
       summary: Get SOL Smart Money Concepts analysis
       description: |
-        Returns advanced Smart Money Concepts (SMC) analysis including:
-        - Market structure analysis (BOS/CHoCH detection)
-        - Trend identification across multiple timeframes
-        - Key support and resistance levels
-        - Order block identification
-        - Liquidity grab analysis
-        
-        Perfect for institutional-style trading analysis.
+        SMC analysis: BOS/CHoCH detection, trend identification, key levels, order blocks, and liquidity analysis.
       responses:
         '200':
           description: SOL Smart Money Concepts analysis
@@ -417,14 +399,7 @@ paths:
       operationId: getSOLTradingSignals
       summary: Get live SOL trading signals with risk management
       description: |
-        Returns real-time BUY/SELL/HOLD trading signals with complete risk management:
-        - Signal strength and confidence levels (0-100%)
-        - Entry, stop loss, and take profit prices
-        - 1:2 risk-reward ratios
-        - Multi-timeframe confluence analysis
-        - Real-time market conditions assessment
-        
-        Perfect for automated trading systems and AI trading decisions.
+        Live BUY/SELL/HOLD signals with entry/exit prices, stop loss, take profit, confidence levels, and risk management.
       parameters:
         - name: timeframe
           in: query
@@ -521,11 +496,7 @@ paths:
       operationId: getSOLSignalHistory
       summary: Get historical trading signals performance
       description: |
-        Returns historical trading signals with performance tracking:
-        - Past signals with actual outcomes
-        - Win/loss ratios and performance metrics
-        - Signal accuracy statistics
-        - Historical confluence scores
+        Historical signals with outcomes, win/loss ratios, accuracy stats, and confluence scores.
       responses:
         '200':
           description: Historical trading signals data
@@ -563,11 +534,7 @@ paths:
       operationId: getSOLConfluenceAnalysis
       summary: Get SOL confluence analysis with 8-layer scoring
       description: |
-        Returns comprehensive confluence analysis combining multiple indicators:
-        - 8-layer SharpSignalEngine scoring
-        - Technical, fundamental, and sentiment analysis
-        - Multi-timeframe alignment
-        - Overall confluence score (-100 to +100)
+        8-layer SharpSignalEngine confluence scoring with multi-indicator analysis (-100 to +100 score).
       parameters:
         - name: timeframe
           in: query
@@ -623,11 +590,7 @@ paths:
       operationId: getSOLCVDAnalysis
       summary: Get SOL Cumulative Volume Delta analysis
       description: |
-        Returns advanced Volume Delta analysis for institutional trading:
-        - Cumulative Volume Delta (CVD) trends
-        - Buy/sell aggression analysis
-        - Absorption patterns and smart money detection
-        - Divergence analysis for reversal signals
+        CVD analysis with buy/sell aggression, absorption patterns, smart money detection, divergences.
       parameters:
         - name: timeframe
           in: query
@@ -677,11 +640,7 @@ paths:
       operationId: getSOLTechnicalIndicators
       summary: Get SOL technical indicators analysis
       description: |
-        Returns comprehensive technical analysis including:
-        - RSI, MACD, EMA crossovers
-        - Bollinger Bands and volatility metrics
-        - Support/resistance levels
-        - Momentum oscillators and trend indicators
+        Technical indicators: RSI, MACD, EMA, Bollinger Bands, support/resistance, momentum analysis.
       parameters:
         - name: timeframe
           in: query
@@ -732,11 +691,7 @@ paths:
       operationId: getSOLFibonacciAnalysis
       summary: Get SOL Fibonacci retracement and extension analysis
       description: |
-        Returns Fibonacci analysis for key trading levels:
-        - Fibonacci retracement levels (23.6%, 38.2%, 50%, 61.8%, 78.6%)
-        - Extension levels for profit targets
-        - Golden zone analysis (61.8% - 78.6%)
-        - Confluence with price action
+        Fibonacci retracements (23.6%-78.6%), extensions, golden zone analysis with price confluence.
       parameters:
         - name: timeframe
           in: query
@@ -793,11 +748,7 @@ paths:
       operationId: getSOLOrderFlowAnalysis
       summary: Get SOL order flow and market microstructure analysis
       description: |
-        Returns detailed order flow analysis:
-        - Aggressive vs passive order ratios
-        - Large order detection and whale activity
-        - Market maker vs taker analysis
-        - Liquidity absorption patterns
+        Order flow: aggressive/passive ratios, whale detection, maker/taker analysis, liquidity absorption.
       parameters:
         - name: timeframe
           in: query
@@ -843,11 +794,7 @@ paths:
       operationId: getPremiumInstitutionalAnalytics
       summary: Get premium institutional-grade analytics (VIP8+)
       description: |
-        Returns advanced institutional analytics for VIP8+ users:
-        - Enhanced whale detection with institutional footprints
-        - Market maker flow analysis
-        - Advanced derivatives positioning
-        - Institutional-grade risk metrics
+        VIP8+ analytics: whale detection, market maker flow, derivatives positioning, risk metrics.
       responses:
         '200':
           description: Premium institutional analytics
@@ -888,10 +835,7 @@ paths:
       operationId: getPremiumTierStatus
       summary: Get premium subscription tier status and features
       description: |
-        Returns current premium tier status and available features:
-        - Current subscription tier (Standard, VIP1, VIP8, Institutional)
-        - Available features and analytics depth
-        - Upgrade information and pricing
+        Premium tier status: current subscription level, available features, upgrade information.
       responses:
         '200':
           description: Premium tier status
@@ -929,12 +873,7 @@ paths:
       operationId: getSOLPremiumOrderbook
       summary: Get SOL premium orderbook with enhanced depth (VIP+ only)
       description: |
-        Returns premium orderbook data with enhanced features:
-        - Up to 1000-level depth (tier-dependent)
-        - Sub-10ms updates for VIP8+
-        - Market maker identification
-        - Large order wall detection
-        - Institutional-grade analytics
+        Premium orderbook: up to 1000-level depth, sub-10ms updates, market maker ID, wall detection.
       responses:
         '200':
           description: SOL premium orderbook data
@@ -998,13 +937,7 @@ paths:
       operationId: getHealthStatus
       summary: Get system health status
       description: |
-        Returns comprehensive system health status including:
-        - API response times and performance metrics
-        - WebSocket connection status
-        - Cache performance and hit ratios
-        - Memory usage and system uptime
-        
-        Used for monitoring system reliability and performance.
+        System health: API response times, WebSocket status, cache performance, memory usage.
       responses:
         '200':
           description: System is healthy
@@ -1067,13 +1000,7 @@ paths:
       operationId: getSystemMetrics
       summary: Get detailed system metrics
       description: |
-        Returns comprehensive system performance metrics including:
-        - HTTP request latencies (P50, P95, P99)
-        - Cache hit/miss ratios and performance
-        - WebSocket connection statistics
-        - API call success rates and error counts
-        
-        Perfect for performance monitoring and optimization analysis.
+        Performance metrics: HTTP latencies, cache ratios, WebSocket stats, success rates.
       responses:
         '200':
           description: System metrics data
