@@ -7,6 +7,7 @@ import { storage } from "./storage";
 import { okxService } from "./services/okx";
 import { premiumOrderbookService } from "./services/premiumOrderbook";
 import { registerSeoRoutes } from "./routes/seo";
+import { registerSystemRoutes } from "./routes/system";
 import { CVDService } from "./services/cvd";
 import { ConfluenceService } from "./services/confluence";
 import { TechnicalIndicatorsService } from "./services/technicalIndicators";
@@ -73,43 +74,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // SEO routes MUST be registered FIRST before any middleware
   // This ensures they're not caught by Vite's catch-all route
   registerSeoRoutes(app);
+  
+  // System routes (health, metrics, logs) - registered early
+  registerSystemRoutes(app);
 
   // Duplicate SEO routes removed - now handled by registerSeoRoutes()
 
-  // Health check endpoint - critical for monitoring
-  app.get('/healthz', async (req: Request, res: Response) => {
-    try {
-      const health = metricsCollector.getHealthStatus();
-      const statusCode = health.status === 'ok' ? 200 : 503;
-      res.status(statusCode).json(health);
-    } catch (error) {
-      res.status(500).json({
-        status: 'error',
-        message: 'Health check failed',
-        timestamp: new Date().toISOString()
-      });
-    }
-  });
+  // Health check endpoints moved to registerSystemRoutes()
 
   // Duplicate OpenAPI endpoints removed - moved to high priority section
 
-  // Metrics endpoint for monitoring and observability
-  app.get('/metrics', async (req: Request, res: Response) => {
-    try {
-      const metrics = metricsCollector.getMetrics();
-      res.json({
-        success: true,
-        data: metrics,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve metrics',
-        timestamp: new Date().toISOString()
-      });
-    }
-  });
+  // Metrics endpoints moved to registerSystemRoutes()
 
   // All SEO routes (robots.txt, sitemap.xml, openapi.json, etc.) moved to registerSeoRoutes()
 
@@ -118,50 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Apply middleware AFTER SEO routes
   app.use('/api', rateLimit);
   
-  // Health check endpoint
-  app.get('/health', async (req: Request, res: Response) => {
-    try {
-      const startTime = Date.now();
-      const okxConnected = await okxService.testConnection();
-      const responseTime = Date.now() - startTime;
-      
-      const healthData = {
-        status: okxConnected ? 'operational' : 'degraded' as const,
-        timestamp: new Date().toISOString(),
-        services: {
-          okx: okxConnected ? 'connected' : 'error' as const,
-          api: 'operational' as const,
-        },
-        metrics: {
-          responseTime,
-          requestsToday: await storage.getTodayRequestCount(),
-          uptime: process.uptime().toString() + 's',
-        },
-      };
-      
-      const validated = healthCheckSchema.parse(healthData);
-      res.json({
-        success: true,
-        data: validated,
-        timestamp: new Date().toISOString(),
-      });
-      
-      // Log the health check
-      await storage.addLog({
-        level: 'info',
-        message: 'Health check performed',
-        details: `Response time: ${responseTime}ms, OKX: ${okxConnected ? 'connected' : 'error'}`,
-      });
-      
-    } catch (error) {
-      console.error('Health check failed:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Health check failed',
-        timestamp: new Date().toISOString(),
-      });
-    }
-  });
+  // Health check endpoint moved to registerSystemRoutes()
   
   // Main SOL complete data endpoint
   app.get('/api/sol/complete', async (req: Request, res: Response) => {
@@ -1109,24 +1041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get system logs
-  app.get('/api/logs', async (req: Request, res: Response) => {
-    try {
-      const logs = await storage.getRecentLogs(50);
-      res.json({
-        success: true,
-        data: logs,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error('Error fetching logs:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to fetch logs',
-        timestamp: new Date().toISOString(),
-      });
-    }
-  });
+  // /api/logs endpoint moved to registerSystemRoutes()
 
   // SOL Liquidation Analysis endpoint
   app.get('/api/sol/liquidation', async (req: Request, res: Response) => {
