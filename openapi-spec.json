@@ -14,6 +14,7 @@
   "paths": {
     "/health": {
       "get": {
+        "operationId": "get_health",
         "summary": "System health check",
         "description": "Check overall system health and connectivity status",
         "responses": {
@@ -24,24 +25,24 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": {"type": "boolean"},
+                    "success": { "type": "boolean" },
                     "data": {
                       "type": "object",
                       "properties": {
-                        "status": {"type": "string"},
+                        "status": { "type": "string" },
                         "services": {
                           "type": "object",
                           "properties": {
-                            "okx": {"type": "string"},
-                            "api": {"type": "string"}
+                            "okx": { "type": "string" },
+                            "api": { "type": "string" }
                           }
                         },
                         "metrics": {
                           "type": "object",
                           "properties": {
-                            "responseTime": {"type": "number"},
-                            "requestsToday": {"type": "number"},
-                            "uptime": {"type": "string"}
+                            "responseTime": { "type": "number" },
+                            "requestsToday": { "type": "number" },
+                            "uptime": { "type": "string" }
                           }
                         }
                       }
@@ -56,6 +57,7 @@
     },
     "/api/sol/complete": {
       "get": {
+        "operationId": "getApiSolComplete",
         "summary": "Complete SOL market analysis",
         "description": "Comprehensive SOL/USDT analysis including ticker, orderbook, candlesticks, and recent trades",
         "responses": {
@@ -66,14 +68,14 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": {"type": "boolean"},
+                    "success": { "type": "boolean" },
                     "data": {
                       "type": "object",
                       "properties": {
-                        "ticker": {"type": "object"},
-                        "orderbook": {"type": "object"},
-                        "candlesticks": {"type": "object"},
-                        "trades": {"type": "array"}
+                        "ticker": { "type": "object" },
+                        "orderbook": { "type": "object" },
+                        "candlesticks": { "type": "object" },
+                        "trades": { "type": "array" }
                       }
                     }
                   }
@@ -86,6 +88,7 @@
     },
     "/api/sol/confluence": {
       "get": {
+        "operationId": "getApiSolConfluence",
         "summary": "SharpSignalEngine confluence analysis",
         "description": "8-layer institutional confluence score with trend analysis",
         "responses": {
@@ -96,14 +99,14 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": {"type": "boolean"},
+                    "success": { "type": "boolean" },
                     "data": {
                       "type": "object",
                       "properties": {
-                        "overall": {"type": "number"},
-                        "trend": {"type": "string"},
-                        "confidence": {"type": "number"},
-                        "layers": {"type": "object"}
+                        "overall": { "type": "number" },
+                        "trend": { "type": "string" },
+                        "confidence": { "type": "number" },
+                        "layers": { "type": "object" }
                       }
                     }
                   }
@@ -116,6 +119,7 @@
     },
     "/api/sol/cvd": {
       "get": {
+        "operationId": "getApiSolCvd",
         "summary": "Cumulative Volume Delta analysis",
         "description": "Advanced CVD analysis with divergence detection",
         "responses": {
@@ -126,14 +130,14 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": {"type": "boolean"},
+                    "success": { "type": "boolean" },
                     "data": {
                       "type": "object",
                       "properties": {
-                        "current": {"type": "number"},
-                        "confidence": {"type": "number"},
-                        "trend": {"type": "string"},
-                        "divergence": {"type": "object"}
+                        "current": { "type": "number" },
+                        "confidence": { "type": "number" },
+                        "trend": { "type": "string" },
+                        "divergence": { "type": "object" }
                       }
                     }
                   }
@@ -146,6 +150,7 @@
     },
     "/api/sol/smc": {
       "get": {
+        "operationId": "getApiSolSmc",
         "summary": "Smart Money Concepts analysis",
         "description": "BOS/CHoCH detection with smart money flow analysis",
         "responses": {
@@ -156,14 +161,14 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": {"type": "boolean"},
+                    "success": { "type": "boolean" },
                     "data": {
                       "type": "object",
                       "properties": {
-                        "trend": {"type": "string"},
-                        "structure": {"type": "string"},
-                        "bos": {"type": "object"},
-                        "choch": {"type": "object"}
+                        "trend": { "type": "string" },
+                        "structure": { "type": "string" },
+                        "bos": { "type": "object" },
+                        "choch": { "type": "object" }
                       }
                     }
                   }
@@ -176,6 +181,7 @@
     },
     "/api/sol/order-flow": {
       "get": {
+        "operationId": "getApiSolOrderFlow",
         "summary": "Order flow analysis",
         "description": "Advanced tape reading and order flow analysis",
         "responses": {
@@ -186,14 +192,14 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": {"type": "boolean"},
+                    "success": { "type": "boolean" },
                     "data": {
                       "type": "object",
                       "properties": {
-                        "buyPressure": {"type": "number"},
-                        "sellPressure": {"type": "number"},
-                        "flow": {"type": "string"},
-                        "whales": {"type": "array"}
+                        "buyPressure": { "type": "number" },
+                        "sellPressure": { "type": "number" },
+                        "flow": { "type": "string" },
+                        "whales": { "type": "array" }
                       }
                     }
                   }
@@ -206,6 +212,7 @@
     },
     "/api/sol/volume-profile": {
       "get": {
+        "operationId": "getApiSolVolumeProfile",
         "summary": "Volume profile analysis",
         "description": "POC, VPOC and value area analysis",
         "responses": {
@@ -217,6 +224,7 @@
     },
     "/api/sol/fibonacci": {
       "get": {
+        "operationId": "getApiSolFibonacci",
         "summary": "Fibonacci retracement levels",
         "description": "Multi-level Fibonacci analysis",
         "responses": {
@@ -228,6 +236,7 @@
     },
     "/api/sol/funding": {
       "get": {
+        "operationId": "getApiSolFunding",
         "summary": "Funding rate analysis",
         "description": "Perpetual funding rates and trends",
         "responses": {
@@ -239,6 +248,7 @@
     },
     "/api/sol/open-interest": {
       "get": {
+        "operationId": "getApiSolOpenInterest",
         "summary": "Open interest analysis",
         "description": "Derivatives positioning and open interest",
         "responses": {
@@ -250,6 +260,7 @@
     },
     "/api/sol/technical": {
       "get": {
+        "operationId": "getApiSolTechnical",
         "summary": "Technical indicators",
         "description": "Comprehensive technical analysis indicators",
         "responses": {

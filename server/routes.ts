@@ -86,7 +86,73 @@ Allow: /api/sol/complete
 Allow: /health
 Allow: /api/metrics
 Allow: /.well-known/ai-plugin.json
-Allow: /openapi.yaml`);
+Allow: /openapi.yaml
+Allow: /openapi.json`);
+  });
+
+  // OpenAPI JSON specification for GPT custom actions - HIGH PRIORITY
+  app.get('/openapi.json', (req: Request, res: Response) => {
+    try {
+      const openapiPath = path.join(process.cwd(), 'openapi-spec.json');
+      const stats = fs.statSync(openapiPath);
+      const openapiContent = fs.readFileSync(openapiPath, 'utf8');
+      
+      // Generate ETag from file modification time and size
+      const etag = `"${stats.mtime.getTime()}-${stats.size}"`;
+      
+      // Check if client has cached version
+      const clientETag = req.headers['if-none-match'];
+      if (clientETag === etag) {
+        return res.status(304).end(); // Not Modified
+      }
+      
+      // Set smart cache headers
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=1800, must-revalidate'); // 30 min cache
+      res.setHeader('ETag', etag);
+      res.setHeader('Last-Modified', stats.mtime.toUTCString());
+      res.setHeader('Vary', 'Accept-Encoding');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      
+      // Parse and send JSON
+      const jsonContent = JSON.parse(openapiContent);
+      res.json(jsonContent);
+    } catch (error) {
+      console.error('Error serving OpenAPI JSON:', error);
+      res.status(500).json({ error: 'Failed to load OpenAPI JSON specification' });
+    }
+  });
+
+  // Alternative OpenAPI JSON endpoint
+  app.get('/api/openapi.json', (req: Request, res: Response) => {
+    try {
+      const openapiPath = path.join(process.cwd(), 'openapi-spec.json');
+      const stats = fs.statSync(openapiPath);
+      const openapiContent = fs.readFileSync(openapiPath, 'utf8');
+      
+      // Generate ETag from file modification time and size
+      const etag = `"api-${stats.mtime.getTime()}-${stats.size}"`;
+      
+      // Check if client has cached version
+      const clientETag = req.headers['if-none-match'];
+      if (clientETag === etag) {
+        return res.status(304).end(); // Not Modified
+      }
+      
+      // Set smart cache headers
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=900, must-revalidate'); // 15 min cache for API endpoint
+      res.setHeader('ETag', etag);
+      res.setHeader('Last-Modified', stats.mtime.toUTCString());
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      
+      // Parse and send JSON
+      const jsonContent = JSON.parse(openapiContent);
+      res.json(jsonContent);
+    } catch (error) {
+      console.error('Error serving OpenAPI JSON via API:', error);
+      res.status(500).json({ error: 'Failed to load OpenAPI JSON specification' });
+    }
   });
 
   // Health check endpoint - critical for monitoring
@@ -181,6 +247,40 @@ Allow: /openapi.yaml`);
     }
   });
 
+
+  // OpenAPI JSON specification for GPT integration
+  app.get("/.well-known/openapi.json", (req: Request, res: Response) => {
+    try {
+      const openapiPath = path.join(process.cwd(), 'openapi-spec.json');
+      const stats = fs.statSync(openapiPath);
+      const openapiContent = fs.readFileSync(openapiPath, 'utf8');
+      
+      // Generate ETag from file modification time and size
+      const etag = `"wk-${stats.mtime.getTime()}-${stats.size}"`;
+      
+      // Check if client has cached version
+      const clientETag = req.headers['if-none-match'];
+      if (clientETag === etag) {
+        return res.status(304).end(); // Not Modified
+      }
+      
+      // Set smart cache headers
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=1800, must-revalidate'); // 30 min cache
+      res.setHeader('ETag', etag);
+      res.setHeader('Last-Modified', stats.mtime.toUTCString());
+      res.setHeader('Vary', 'Accept-Encoding');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      
+      // Parse and send JSON
+      const jsonContent = JSON.parse(openapiContent);
+      res.json(jsonContent);
+    } catch (error) {
+      console.error('Error serving OpenAPI JSON from .well-known:', error);
+      res.status(500).json({ error: 'Failed to load OpenAPI JSON specification' });
+    }
+  });
+
   // GPT AI Plugin manifest
   app.get("/.well-known/ai-plugin.json", (req: Request, res: Response) => {
     try {
@@ -237,7 +337,296 @@ Allow: /openapi.yaml`);
     res.send(sitemap);
   });
 
-  // Apply middleware AFTER SEO routes (CORS already handled in index.ts)
+  // Direct OpenAPI JSON specification (guaranteed to work)
+  app.get('/openapi', (req: Request, res: Response) => {
+    const spec = {
+      "openapi": "3.0.0",
+      "info": {
+        "title": "SOL Trading Gateway - SharpSignalEngine API",
+        "description": "Institutional-grade SOL/USDT perpetual futures trading intelligence with 8-layer analysis engine",
+        "version": "1.0.0"
+      },
+      "servers": [
+        {
+          "url": "https://guardiansofthegreentoken.com",
+          "description": "Production server"
+        }
+      ],
+      "paths": {
+        "/health": {
+          "get": {
+            "operationId": "get_health",
+            "summary": "System health check",
+            "description": "Check overall system health and connectivity status",
+            "responses": {
+              "200": {
+                "description": "System operational",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "success": {"type": "boolean"},
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "status": {"type": "string"},
+                            "services": {
+                              "type": "object",
+                              "properties": {
+                                "okx": {"type": "string"},
+                                "api": {"type": "string"}
+                              }
+                            },
+                            "metrics": {
+                              "type": "object",
+                              "properties": {
+                                "responseTime": {"type": "number"},
+                                "requestsToday": {"type": "number"},
+                                "uptime": {"type": "string"}
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/api/sol/complete": {
+          "get": {
+            "operationId": "getApiSolComplete",
+            "summary": "Complete SOL market analysis",
+            "description": "Comprehensive SOL/USDT analysis including ticker, orderbook, candlesticks, and recent trades",
+            "responses": {
+              "200": {
+                "description": "Complete market data"
+              }
+            }
+          }
+        },
+        "/api/sol/confluence": {
+          "get": {
+            "operationId": "getApiSolConfluence", 
+            "summary": "SharpSignalEngine confluence analysis",
+            "description": "8-layer institutional confluence score with trend analysis",
+            "responses": {
+              "200": {
+                "description": "Confluence analysis"
+              }
+            }
+          }
+        },
+        "/api/sol/cvd": {
+          "get": {
+            "operationId": "getApiSolCvd",
+            "summary": "Cumulative Volume Delta analysis",
+            "description": "Advanced CVD analysis with divergence detection",
+            "responses": {
+              "200": {
+                "description": "CVD analysis"
+              }
+            }
+          }
+        },
+        "/api/sol/smc": {
+          "get": {
+            "operationId": "getApiSolSmc",
+            "summary": "Smart Money Concepts analysis", 
+            "description": "BOS/CHoCH detection with smart money flow analysis",
+            "responses": {
+              "200": {
+                "description": "Smart Money analysis"
+              }
+            }
+          }
+        },
+        "/api/sol/order-flow": {
+          "get": {
+            "operationId": "getApiSolOrderFlow",
+            "summary": "Order flow analysis",
+            "description": "Advanced tape reading and order flow analysis",
+            "responses": {
+              "200": {
+                "description": "Order flow data"
+              }
+            }
+          }
+        },
+        "/api/sol/volume-profile": {
+          "get": {
+            "operationId": "getApiSolVolumeProfile",
+            "summary": "Volume profile analysis",
+            "description": "POC, VPOC and value area analysis",
+            "responses": {
+              "200": {
+                "description": "Volume profile data"
+              }
+            }
+          }
+        },
+        "/api/sol/fibonacci": {
+          "get": {
+            "operationId": "getApiSolFibonacci",
+            "summary": "Fibonacci retracement levels",
+            "description": "Multi-level Fibonacci analysis",
+            "responses": {
+              "200": {
+                "description": "Fibonacci levels"
+              }
+            }
+          }
+        },
+        "/api/sol/funding": {
+          "get": {
+            "operationId": "getApiSolFunding",
+            "summary": "Funding rate analysis",
+            "description": "Perpetual funding rates and trends",
+            "responses": {
+              "200": {
+                "description": "Funding rate data"
+              }
+            }
+          }
+        },
+        "/api/sol/open-interest": {
+          "get": {
+            "operationId": "getApiSolOpenInterest",
+            "summary": "Open interest analysis",
+            "description": "Derivatives positioning and open interest",
+            "responses": {
+              "200": {
+                "description": "Open interest data"
+              }
+            }
+          }
+        },
+        "/api/sol/technical": {
+          "get": {
+            "operationId": "getApiSolTechnical",
+            "summary": "Technical indicators",
+            "description": "Comprehensive technical analysis indicators",
+            "responses": {
+              "200": {
+                "description": "Technical indicators"
+              }
+            }
+          }
+        }
+      }
+    };
+    
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=1800, must-revalidate');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.json(spec);
+  });
+
+  // OpenAPI spec endpoint for GPT integration (BEFORE rate limiting)
+  app.get('/api/openapi', (req: Request, res: Response) => {
+    const spec = {
+      "openapi": "3.0.0",
+      "info": {
+        "title": "SOL Trading Gateway - SharpSignalEngine API",
+        "description": "Institutional-grade SOL/USDT perpetual futures trading intelligence with 8-layer analysis engine",
+        "version": "1.0.0"
+      },
+      "servers": [
+        {
+          "url": "https://guardiansofthegreentoken.com",
+          "description": "Production server"
+        }
+      ],
+      "paths": {
+        "/health": {
+          "get": {
+            "operationId": "get_health",
+            "summary": "System health check",
+            "description": "Check overall system health and connectivity status"
+          }
+        },
+        "/api/sol/complete": {
+          "get": {
+            "operationId": "getApiSolComplete",
+            "summary": "Complete SOL market analysis",
+            "description": "Comprehensive SOL/USDT analysis including ticker, orderbook, candlesticks, and recent trades"
+          }
+        },
+        "/api/sol/confluence": {
+          "get": {
+            "operationId": "getApiSolConfluence", 
+            "summary": "SharpSignalEngine confluence analysis",
+            "description": "8-layer institutional confluence score with trend analysis"
+          }
+        },
+        "/api/sol/cvd": {
+          "get": {
+            "operationId": "getApiSolCvd",
+            "summary": "Cumulative Volume Delta analysis",
+            "description": "Advanced CVD analysis with divergence detection"
+          }
+        },
+        "/api/sol/smc": {
+          "get": {
+            "operationId": "getApiSolSmc",
+            "summary": "Smart Money Concepts analysis", 
+            "description": "BOS/CHoCH detection with smart money flow analysis"
+          }
+        },
+        "/api/sol/order-flow": {
+          "get": {
+            "operationId": "getApiSolOrderFlow",
+            "summary": "Order flow analysis",
+            "description": "Advanced tape reading and order flow analysis"
+          }
+        },
+        "/api/sol/volume-profile": {
+          "get": {
+            "operationId": "getApiSolVolumeProfile",
+            "summary": "Volume profile analysis",
+            "description": "POC, VPOC and value area analysis"
+          }
+        },
+        "/api/sol/fibonacci": {
+          "get": {
+            "operationId": "getApiSolFibonacci",
+            "summary": "Fibonacci retracement levels",
+            "description": "Multi-level Fibonacci analysis"
+          }
+        },
+        "/api/sol/funding": {
+          "get": {
+            "operationId": "getApiSolFunding",
+            "summary": "Funding rate analysis",
+            "description": "Perpetual funding rates and trends"
+          }
+        },
+        "/api/sol/open-interest": {
+          "get": {
+            "operationId": "getApiSolOpenInterest",
+            "summary": "Open interest analysis",
+            "description": "Derivatives positioning and open interest"
+          }
+        },
+        "/api/sol/technical": {
+          "get": {
+            "operationId": "getApiSolTechnical",
+            "summary": "Technical indicators",
+            "description": "Comprehensive technical analysis indicators"
+          }
+        }
+      }
+    };
+    
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.json(spec);
+  });
+
+  // Apply middleware AFTER SEO routes and OpenAPI spec (CORS already handled in index.ts)
   app.use('/api', rateLimit);
   
   // Health check endpoint
@@ -817,9 +1206,112 @@ Allow: /openapi.yaml`);
     }
   });
   
-  // Get system metrics
+  // Get system metrics (also serves OpenAPI spec with ?format=openapi)
   app.get('/api/metrics', async (req: Request, res: Response) => {
     try {
+      // Check if OpenAPI spec is requested
+      if (req.query.format === 'openapi') {
+        const spec = {
+          "openapi": "3.0.0",
+          "info": {
+            "title": "SOL Trading Gateway - SharpSignalEngine API",
+            "description": "Institutional-grade SOL/USDT perpetual futures trading intelligence with 8-layer analysis engine",
+            "version": "1.0.0"
+          },
+          "servers": [
+            {
+              "url": "https://guardiansofthegreentoken.com",
+              "description": "Production server"
+            }
+          ],
+          "paths": {
+            "/health": {
+              "get": {
+                "operationId": "get_health",
+                "summary": "System health check",
+                "description": "Check overall system health and connectivity status"
+              }
+            },
+            "/api/sol/complete": {
+              "get": {
+                "operationId": "getApiSolComplete",
+                "summary": "Complete SOL market analysis",
+                "description": "Comprehensive SOL/USDT analysis including ticker, orderbook, candlesticks, and recent trades"
+              }
+            },
+            "/api/sol/confluence": {
+              "get": {
+                "operationId": "getApiSolConfluence", 
+                "summary": "SharpSignalEngine confluence analysis",
+                "description": "8-layer institutional confluence score with trend analysis"
+              }
+            },
+            "/api/sol/cvd": {
+              "get": {
+                "operationId": "getApiSolCvd",
+                "summary": "Cumulative Volume Delta analysis",
+                "description": "Advanced CVD analysis with divergence detection"
+              }
+            },
+            "/api/sol/smc": {
+              "get": {
+                "operationId": "getApiSolSmc",
+                "summary": "Smart Money Concepts analysis", 
+                "description": "BOS/CHoCH detection with smart money flow analysis"
+              }
+            },
+            "/api/sol/order-flow": {
+              "get": {
+                "operationId": "getApiSolOrderFlow",
+                "summary": "Order flow analysis",
+                "description": "Advanced tape reading and order flow analysis"
+              }
+            },
+            "/api/sol/volume-profile": {
+              "get": {
+                "operationId": "getApiSolVolumeProfile",
+                "summary": "Volume profile analysis",
+                "description": "POC, VPOC and value area analysis"
+              }
+            },
+            "/api/sol/fibonacci": {
+              "get": {
+                "operationId": "getApiSolFibonacci",
+                "summary": "Fibonacci retracement levels",
+                "description": "Multi-level Fibonacci analysis"
+              }
+            },
+            "/api/sol/funding": {
+              "get": {
+                "operationId": "getApiSolFunding",
+                "summary": "Funding rate analysis",
+                "description": "Perpetual funding rates and trends"
+              }
+            },
+            "/api/sol/open-interest": {
+              "get": {
+                "operationId": "getApiSolOpenInterest",
+                "summary": "Open interest analysis",
+                "description": "Derivatives positioning and open interest"
+              }
+            },
+            "/api/sol/technical": {
+              "get": {
+                "operationId": "getApiSolTechnical",
+                "summary": "Technical indicators",
+                "description": "Comprehensive technical analysis indicators"
+              }
+            }
+          }
+        };
+        
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.json(spec);
+        return;
+      }
+
+      // Default behavior: return metrics
       const metrics = await storage.getLatestMetrics();
       res.json({
         success: true,
@@ -831,6 +1323,116 @@ Allow: /openapi.yaml`);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch metrics',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // OpenAPI specification for GPT Actions integration
+  app.get('/api/spec', async (req: Request, res: Response) => {
+    try {
+      const spec = {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "SOL Trading Gateway - SharpSignalEngine API",
+          "description": "Institutional-grade SOL/USDT perpetual futures trading intelligence with 8-layer analysis engine",
+          "version": "1.0.0"
+        },
+        "servers": [
+          {
+            "url": "https://guardiansofthegreentoken.com",
+            "description": "Production server"
+          }
+        ],
+        "paths": {
+          "/health": {
+            "get": {
+              "operationId": "get_health",
+              "summary": "System health check",
+              "description": "Check overall system health and connectivity status"
+            }
+          },
+          "/api/sol/complete": {
+            "get": {
+              "operationId": "getApiSolComplete",
+              "summary": "Complete SOL market analysis",
+              "description": "Comprehensive SOL/USDT analysis including ticker, orderbook, candlesticks, and recent trades"
+            }
+          },
+          "/api/sol/confluence": {
+            "get": {
+              "operationId": "getApiSolConfluence", 
+              "summary": "SharpSignalEngine confluence analysis",
+              "description": "8-layer institutional confluence score with trend analysis"
+            }
+          },
+          "/api/sol/cvd": {
+            "get": {
+              "operationId": "getApiSolCvd",
+              "summary": "Cumulative Volume Delta analysis",
+              "description": "Advanced CVD analysis with divergence detection"
+            }
+          },
+          "/api/sol/smc": {
+            "get": {
+              "operationId": "getApiSolSmc",
+              "summary": "Smart Money Concepts analysis", 
+              "description": "BOS/CHoCH detection with smart money flow analysis"
+            }
+          },
+          "/api/sol/order-flow": {
+            "get": {
+              "operationId": "getApiSolOrderFlow",
+              "summary": "Order flow analysis",
+              "description": "Advanced tape reading and order flow analysis"
+            }
+          },
+          "/api/sol/volume-profile": {
+            "get": {
+              "operationId": "getApiSolVolumeProfile",
+              "summary": "Volume profile analysis",
+              "description": "POC, VPOC and value area analysis"
+            }
+          },
+          "/api/sol/fibonacci": {
+            "get": {
+              "operationId": "getApiSolFibonacci",
+              "summary": "Fibonacci retracement levels",
+              "description": "Multi-level Fibonacci analysis"
+            }
+          },
+          "/api/sol/funding": {
+            "get": {
+              "operationId": "getApiSolFunding",
+              "summary": "Funding rate analysis",
+              "description": "Perpetual funding rates and trends"
+            }
+          },
+          "/api/sol/open-interest": {
+            "get": {
+              "operationId": "getApiSolOpenInterest",
+              "summary": "Open interest analysis",
+              "description": "Derivatives positioning and open interest"
+            }
+          },
+          "/api/sol/technical": {
+            "get": {
+              "operationId": "getApiSolTechnical",
+              "summary": "Technical indicators",
+              "description": "Comprehensive technical analysis indicators"
+            }
+          }
+        }
+      };
+      
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.json(spec);
+    } catch (error) {
+      console.error('Error serving OpenAPI spec:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to serve OpenAPI specification',
         timestamp: new Date().toISOString(),
       });
     }
