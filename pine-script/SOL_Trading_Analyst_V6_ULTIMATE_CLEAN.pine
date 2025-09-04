@@ -9,32 +9,32 @@ indicator("SOL Trading Analyst V6 ULTIMATE", shorttitle="SOL V6 ULTIMATE", overl
 
 // ===== INPUT SETTINGS =====
 // Trading Signals Group
-show_signals = input.bool(true, "Show Trading Signals", group="🚀 Trading Signals")
-show_levels = input.bool(true, "Show Entry/Exit Levels", group="🚀 Trading Signals")
-show_alerts = input.bool(true, "Enable Alerts", group="🚀 Trading Signals")
-signal_sensitivity = input.float(0.7, "Signal Sensitivity", minval=0.1, maxval=1.0, step=0.1, group="🚀 Trading Signals")
+show_signals = input.bool(true, "Show Trading Signals", group="Trading Signals")
+show_levels = input.bool(true, "Show Entry/Exit Levels", group="Trading Signals")
+show_alerts = input.bool(true, "Enable Alerts", group="Trading Signals")
+signal_sensitivity = input.float(0.7, "Signal Sensitivity", minval=0.1, maxval=1.0, step=0.1, group="Trading Signals")
 
 // Volume Profile Group
-show_volume_profile = input.bool(true, "Show Volume Profile", group="📊 Volume Profile")
-vp_rows = input.int(20, "VP Rows", minval=5, maxval=50, group="📊 Volume Profile")
-show_poc = input.bool(true, "Show Point of Control", group="📊 Volume Profile")
-show_value_area = input.bool(true, "Show Value Area", group="📊 Volume Profile")
+show_volume_profile = input.bool(true, "Show Volume Profile", group="Volume Profile")
+vp_rows = input.int(20, "VP Rows", minval=5, maxval=50, group="Volume Profile")
+show_poc = input.bool(true, "Show Point of Control", group="Volume Profile")
+show_value_area = input.bool(true, "Show Value Area", group="Volume Profile")
 
 // Smart Money Group
-show_smc = input.bool(true, "Show Smart Money Concepts", group="🧠 Smart Money")
-show_bos = input.bool(true, "Show Break of Structure", group="🧠 Smart Money")
-show_choch = input.bool(true, "Show Change of Character", group="🧠 Smart Money")
+show_smc = input.bool(true, "Show Smart Money Concepts", group="Smart Money")
+show_bos = input.bool(true, "Show Break of Structure", group="Smart Money")
+show_choch = input.bool(true, "Show Change of Character", group="Smart Money")
 
 // Market Structure Group
-show_support_resistance = input.bool(true, "Show Support/Resistance", group="🏗️ Market Structure")
+show_support_resistance = input.bool(true, "Show Support/Resistance", group="Market Structure")
 
 // Order Flow Group
-show_heatmap = input.bool(true, "Show Price Heatmap", group="🔥 Order Flow")
-show_whale_activity = input.bool(true, "Show Whale Activity", group="🔥 Order Flow")
+show_heatmap = input.bool(true, "Show Price Heatmap", group="Order Flow")
+show_whale_activity = input.bool(true, "Show Whale Activity", group="Order Flow")
 
 // Dashboard Group
-show_dashboard = input.bool(true, "Show Dashboard", group="📱 Dashboard")
-dashboard_position = input.string("top_right", "Dashboard Position", options=["top_left", "top_right", "bottom_left", "bottom_right"], group="📱 Dashboard")
+show_dashboard = input.bool(true, "Show Dashboard", group="Dashboard")
+dashboard_position = input.string("top_right", "Dashboard Position", options=["top_left", "top_right", "bottom_left", "bottom_right"], group="Dashboard")
 
 // ===== COLORS =====
 color_buy = color.new(#00ff88, 0)
@@ -155,7 +155,7 @@ plotshape(
     location=location.belowbar,
     color=color_buy,
     size=size.large,
-    text="🚀 BUY V6\n" + str.tostring(confidence) + "%"
+    text="BUY V6 " + str.tostring(confidence) + "%"
 )
 
 plotshape(
@@ -165,7 +165,7 @@ plotshape(
     location=location.abovebar,
     color=color_sell,
     size=size.large,
-    text="📉 SELL V6\n" + str.tostring(confidence) + "%"
+    text="SELL V6 " + str.tostring(confidence) + "%"
 )
 
 // Whale Activity
@@ -176,7 +176,7 @@ plotshape(
     location=location.abovebar,
     color=color_whale,
     size=size.huge,
-    text="🐋 WHALE V6"
+    text="WHALE V6"
 )
 
 // Entry/Exit Levels with different line styles
@@ -248,97 +248,71 @@ if show_dashboard and barstate.islast
     var table dashboard = table.new(dash_pos, 2, 12, bgcolor=color.new(color.black, 80), border_width=2)
     
     // Header
-    table.cell(dashboard, 0, 0, "🎯 SOL ANALYST V6", text_color=color.white, text_size=size.normal, bgcolor=color.blue)
+    table.cell(dashboard, 0, 0, "SOL ANALYST V6", text_color=color.white, text_size=size.normal, bgcolor=color.blue)
     table.cell(dashboard, 1, 0, "ULTIMATE", text_color=color.white, text_size=size.normal, bgcolor=color.blue)
     
     // Signal
     signal_color = signal_type == "BUY" ? color_buy : signal_type == "SELL" ? color_sell : color_hold
-    table.cell(dashboard, 0, 1, "🚀 Signal V6", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 0, 1, "Signal V6", text_color=color.white, text_size=size.small)
     table.cell(dashboard, 1, 1, signal_type + " " + str.tostring(confidence) + "%", 
                text_color=signal_color, text_size=size.small)
     
     // Confluence
     conf_color = confluence_score > 30 ? color_buy : confluence_score < -30 ? color_sell : color_hold
-    table.cell(dashboard, 0, 2, "⚡ Confluence V6", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 0, 2, "Confluence V6", text_color=color.white, text_size=size.small)
     table.cell(dashboard, 1, 2, str.tostring(confluence_score), text_color=conf_color, text_size=size.small)
     
     // POC
-    table.cell(dashboard, 0, 3, "📊 POC V6", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 0, 3, "POC V6", text_color=color.white, text_size=size.small)
     table.cell(dashboard, 1, 3, "$" + str.tostring(poc_level, "#.##"), text_color=color.white, text_size=size.small)
     
     // Volume
-    vol_status = volume > volume_sma * 1.5 ? "🔥 HIGH" : "📊 NORMAL"
+    vol_status = volume > volume_sma * 1.5 ? "HIGH" : "NORMAL"
     vol_color_dash = volume > volume_sma * 1.5 ? color_buy : color_hold
-    table.cell(dashboard, 0, 4, "📈 Volume V6", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 0, 4, "Volume V6", text_color=color.white, text_size=size.small)
     table.cell(dashboard, 1, 4, vol_status, text_color=vol_color_dash, text_size=size.small)
     
     // Whales
-    whale_status = whale_detected ? "🚨 ACTIVE" : "😴 QUIET"
-    table.cell(dashboard, 0, 5, "🐋 Whales V6", text_color=color.white, text_size=size.small)
+    whale_status = whale_detected ? "ACTIVE" : "QUIET"
+    table.cell(dashboard, 0, 5, "Whales V6", text_color=color.white, text_size=size.small)
     table.cell(dashboard, 1, 5, whale_status, text_color=whale_detected ? color_whale : color.gray, text_size=size.small)
     
     // Risk/Reward
     if not na(entry_price) and not na(stop_loss) and not na(take_profit)
         risk_reward = math.abs(take_profit - entry_price) / math.abs(entry_price - stop_loss)
         rr_color = risk_reward >= 2 ? color_buy : risk_reward >= 1.5 ? color_hold : color_sell
-        table.cell(dashboard, 0, 6, "💰 R:R V6", text_color=color.white, text_size=size.small)
+        table.cell(dashboard, 0, 6, "R:R V6", text_color=color.white, text_size=size.small)
         table.cell(dashboard, 1, 6, "1:" + str.tostring(risk_reward, "#.#"), text_color=rr_color, text_size=size.small)
     
     // Entry Price
-    table.cell(dashboard, 0, 7, "🎯 Entry V6", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 0, 7, "Entry V6", text_color=color.white, text_size=size.small)
     table.cell(dashboard, 1, 7, not na(entry_price) ? "$" + str.tostring(entry_price, "#.##") : "N/A", 
                text_color=color_entry, text_size=size.small)
     
     // Stop Loss
-    table.cell(dashboard, 0, 8, "🛑 Stop V6", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 0, 8, "Stop V6", text_color=color.white, text_size=size.small)
     table.cell(dashboard, 1, 8, not na(stop_loss) ? "$" + str.tostring(stop_loss, "#.##") : "N/A", 
                text_color=color_stop, text_size=size.small)
     
     // Take Profit
-    table.cell(dashboard, 0, 9, "💎 Target V6", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 0, 9, "Target V6", text_color=color.white, text_size=size.small)
     table.cell(dashboard, 1, 9, not na(take_profit) ? "$" + str.tostring(take_profit, "#.##") : "N/A", 
                text_color=color_target, text_size=size.small)
     
     // Version
-    table.cell(dashboard, 0, 10, "🔧 Pine V6", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 0, 10, "Pine V6", text_color=color.white, text_size=size.small)
     table.cell(dashboard, 1, 10, "VERSION 6", text_color=color.green, text_size=size.small)
     
     // API Status
-    table.cell(dashboard, 0, 11, "🌐 API V6", text_color=color.white, text_size=size.small)
-    table.cell(dashboard, 1, 11, "🟢 LIVE", text_color=color_buy, text_size=size.small)
+    table.cell(dashboard, 0, 11, "API V6", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 1, 11, "LIVE", text_color=color_buy, text_size=size.small)
 
 // ===== ENHANCED ALERTS V6 =====
 if signal_type == "BUY" and confidence > 70 and show_alerts
-    alert("🚀🚀🚀 ULTIMATE SOL BUY SIGNAL V6 🚀🚀🚀\n" + 
-          "🔥 Pine Script V6 Enhanced Signal 🔥\n" +
-          "💪 Confidence: " + str.tostring(confidence) + "%\n" +
-          "⚡ Confluence: +" + str.tostring(confluence_score) + "\n" +
-          "🎯 Entry: $" + str.tostring(entry_price, "#.####") + "\n" +
-          "🛑 Stop Loss: $" + str.tostring(stop_loss, "#.####") + "\n" +
-          "💎 Take Profit: $" + str.tostring(take_profit, "#.####") + "\n" +
-          "📊 POC: $" + str.tostring(poc_level, "#.####") + "\n" +
-          "🐋 Whale Activity: " + (whale_detected ? "DETECTED" : "NORMAL") + "\n" +
-          "🔧 V6 Features: Enhanced Accuracy & Speed", 
-          alert.freq_once_per_bar)
+    alert("SOL BUY SIGNAL V6 - Confidence: " + str.tostring(confidence) + "% - Entry: $" + str.tostring(entry_price, "#.##") + " - Stop: $" + str.tostring(stop_loss, "#.##") + " - Target: $" + str.tostring(take_profit, "#.##"), alert.freq_once_per_bar)
 
 if signal_type == "SELL" and confidence > 70 and show_alerts
-    alert("📉📉📉 ULTIMATE SOL SELL SIGNAL V6 📉📉📉\n" + 
-          "🔥 Pine Script V6 Enhanced Signal 🔥\n" +
-          "💪 Confidence: " + str.tostring(confidence) + "%\n" +
-          "⚡ Confluence: " + str.tostring(confluence_score) + "\n" +
-          "🎯 Entry: $" + str.tostring(entry_price, "#.####") + "\n" +
-          "🛑 Stop Loss: $" + str.tostring(stop_loss, "#.####") + "\n" +
-          "💎 Take Profit: $" + str.tostring(take_profit, "#.####") + "\n" +
-          "📊 POC: $" + str.tostring(poc_level, "#.####") + "\n" +
-          "🐋 Whale Activity: " + (whale_detected ? "DETECTED" : "NORMAL") + "\n" +
-          "🔧 V6 Features: Enhanced Accuracy & Speed", 
-          alert.freq_once_per_bar)
+    alert("SOL SELL SIGNAL V6 - Confidence: " + str.tostring(confidence) + "% - Entry: $" + str.tostring(entry_price, "#.##") + " - Stop: $" + str.tostring(stop_loss, "#.##") + " - Target: $" + str.tostring(take_profit, "#.##"), alert.freq_once_per_bar)
 
 if whale_detected and show_alerts
-    alert("🐋🐋🐋 ULTIMATE WHALE ACTIVITY V6 🐋🐋🐋\n" +
-          "🚨 Massive volume spike detected on SOL\n" +
-          "📊 Volume: " + str.tostring(volume, "#") + " (Spike: " + str.tostring(volume/volume_sma, "#.#") + "x)\n" +
-          "💹 Price Action: Large candle movement\n" +
-          "⚠️ Monitor for potential breakout/breakdown\n" +
-          "🔧 V6 Enhanced Detection Algorithm", 
-          alert.freq_once_per_bar_close)
+    alert("WHALE ACTIVITY DETECTED V6 - Volume Spike: " + str.tostring(volume/volume_sma, "#.#") + "x - Monitor for potential move", alert.freq_once_per_bar_close)
