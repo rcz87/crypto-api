@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { okxService } from "./services/okx";
+import { premiumOrderbookService } from "./services/premiumOrderbook";
 import { CVDService } from "./services/cvd";
 import { ConfluenceService } from "./services/confluence";
 import { TechnicalIndicatorsService } from "./services/technicalIndicators";
@@ -1998,6 +1999,109 @@ Allow: /openapi.json`);
     } catch (error) {
       console.error('Error serving plugin manifest:', error);
       res.status(500).json({ error: 'Plugin manifest not found' });
+    }
+  });
+
+  // Premium Orderbook Metrics - VIP tier management
+  app.get('/api/sol/premium-orderbook', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    try {
+      await storage.addLog({
+        level: 'info',
+        message: 'Premium orderbook metrics request',
+        details: `GET /api/sol/premium-orderbook - Started`,
+      });
+
+      // Get premium orderbook metrics based on VIP tier
+      const metrics = premiumOrderbookService.getEnhancedMetrics('SOL-USDT-SWAP');
+      const tierConfig = premiumOrderbookService.getCurrentTierConfig();
+      const upgradeInfo = premiumOrderbookService.getUpgradeInfo();
+
+      const responseTime = Date.now() - startTime;
+      
+      await storage.addLog({
+        level: 'info',
+        message: 'Premium orderbook metrics completed',
+        details: `GET /api/sol/premium-orderbook - ${responseTime}ms - Tier: ${tierConfig.tier}`,
+      });
+      
+      res.json({
+        success: true,
+        data: {
+          tier: tierConfig.tier,
+          metrics: metrics || { message: 'No cached data available' },
+          upgrade: upgradeInfo,
+          performance: {
+            responseTime,
+            maxDepth: tierConfig.maxDepth,
+            updateRate: `${tierConfig.updateRate}ms`,
+            features: tierConfig.features
+          }
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/premium-orderbook:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Premium orderbook request failed',
+        details: `GET /api/sol/premium-orderbook - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // VIP Tier Status and Upgrade Information
+  app.get('/api/premium/tier-status', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    try {
+      const tierConfig = premiumOrderbookService.getCurrentTierConfig();
+      const upgradeInfo = premiumOrderbookService.getUpgradeInfo();
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          currentTier: {
+            tier: tierConfig.tier,
+            maxDepth: tierConfig.maxDepth,
+            updateRate: `${tierConfig.updateRate}ms`,
+            features: tierConfig.features,
+            requirements: {
+              monthlyVolume: tierConfig.monthlyVolume?.toLocaleString() || 'N/A',
+              assetRequirement: tierConfig.assetRequirement?.toLocaleString() || 'N/A'
+            }
+          },
+          upgradeInfo,
+          premiumFeatures: {
+            level2Data: tierConfig.tier !== 'standard',
+            institutionalGrade: tierConfig.tier === 'institutional',
+            marketMakerInfo: ['vip8', 'institutional'].includes(tierConfig.tier),
+            negativeFees: tierConfig.tier === 'vip8' || tierConfig.tier === 'institutional'
+          }
+        },
+        responseTime,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/premium/tier-status:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        responseTime,
+        timestamp: new Date().toISOString(),
+      });
     }
   });
 
