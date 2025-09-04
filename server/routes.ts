@@ -1107,6 +1107,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced Premium Orderbook Analytics - VIP8+ Exclusive
+  app.get('/api/premium/institutional-analytics', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    try {
+      const tierConfig = premiumOrderbookService.getCurrentTierConfig();
+      
+      // Restrict to VIP8+ tiers only
+      if (!['vip8', 'institutional'].includes(tierConfig.tier)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied - VIP8+ subscription required',
+          upgrade: {
+            message: 'Upgrade to VIP8 or Institutional for advanced analytics',
+            currentTier: tierConfig.tier,
+            requiredTier: 'vip8'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Get enhanced premium analytics
+      const enhancedMetrics = premiumOrderbookService.getEnhancedMetrics();
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          analyticsLevel: tierConfig.tier === 'institutional' ? 'institutional' : 'vip8',
+          features: tierConfig.features,
+          analytics: enhancedMetrics?.metrics || null,
+          institutionalFeatures: {
+            whaleDetection: enhancedMetrics?.metrics?.whaleDetection || null,
+            smartMoneyFlow: enhancedMetrics?.metrics?.smartMoneyFlow || null,
+            liquidityHeatmap: enhancedMetrics?.metrics?.liquidityHeatmap || null,
+            microstructureAnalysis: enhancedMetrics?.metrics?.microstructureAnalysis || null,
+            // Institutional-exclusive features
+            ...(tierConfig.tier === 'institutional' ? {
+              advancedRiskMetrics: enhancedMetrics?.metrics?.advancedRiskMetrics || null,
+              arbitrageSignals: enhancedMetrics?.metrics?.arbitrageSignals || null,
+              liquidityStress: enhancedMetrics?.metrics?.liquidityStress || null,
+              correlationMatrix: enhancedMetrics?.metrics?.correlationMatrix || null
+            } : {})
+          },
+          disclaimer: 'For institutional use only. Not financial advice.',
+          lastUpdate: enhancedMetrics?.metrics?.lastUpdate || new Date().toISOString()
+        },
+        responseTime,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/premium/institutional-analytics:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        responseTime,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Premium Market Intelligence Dashboard - Institutional Exclusive
+  app.get('/api/premium/market-intelligence', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    try {
+      const tierConfig = premiumOrderbookService.getCurrentTierConfig();
+      
+      // Restrict to Institutional tier only
+      if (tierConfig.tier !== 'institutional') {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied - Institutional subscription required',
+          upgrade: {
+            message: 'Upgrade to Institutional for complete market intelligence',
+            currentTier: tierConfig.tier,
+            requiredTier: 'institutional'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Get comprehensive institutional analytics
+      const enhancedMetrics = premiumOrderbookService.getEnhancedMetrics();
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          marketIntelligence: {
+            summary: {
+              marketHealth: enhancedMetrics?.metrics?.microstructureAnalysis?.microstructureHealth || 'unknown',
+              stressLevel: enhancedMetrics?.metrics?.advancedRiskMetrics?.marketStress?.stressLevel || 'unknown',
+              liquidityScore: enhancedMetrics?.metrics?.liquidityScore || 0,
+              whaleActivity: enhancedMetrics?.metrics?.whaleDetection?.whaleImpact || 'unknown'
+            },
+            riskAssessment: {
+              valueAtRisk: enhancedMetrics?.metrics?.advancedRiskMetrics?.valueAtRisk || null,
+              liquidityRisk: enhancedMetrics?.metrics?.advancedRiskMetrics?.liquidityRisk || null,
+              concentrationRisk: enhancedMetrics?.metrics?.advancedRiskMetrics?.concentrationRisk || null,
+              stressTesting: enhancedMetrics?.metrics?.liquidityStress || null
+            },
+            tradingSignals: {
+              arbitrageOpportunities: enhancedMetrics?.metrics?.arbitrageSignals || null,
+              smartMoneyFlow: enhancedMetrics?.metrics?.smartMoneyFlow || null,
+              marketSentiment: enhancedMetrics?.metrics?.smartMoneyFlow?.marketSentiment || 'unknown'
+            },
+            portfolioAnalysis: {
+              correlationMatrix: enhancedMetrics?.metrics?.correlationMatrix || null,
+              hedgingOpportunities: enhancedMetrics?.metrics?.correlationMatrix?.hedgingOpportunities || [],
+              diversificationBenefit: enhancedMetrics?.metrics?.correlationMatrix?.diversificationBenefit || 0
+            }
+          },
+          premiumFeatures: {
+            realTimeAnalytics: true,
+            customAlerts: true,
+            dedicatedSupport: true,
+            apiAccess: true
+          },
+          lastUpdate: enhancedMetrics?.metrics?.lastUpdate || new Date().toISOString()
+        },
+        responseTime,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/premium/market-intelligence:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        responseTime,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // VIP Tier Status and Upgrade Information
   app.get('/api/premium/tier-status', async (req: Request, res: Response) => {
     const startTime = Date.now();

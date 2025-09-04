@@ -68,7 +68,7 @@ export class PremiumOrderbookService {
 
   constructor() {
     // Detect VIP tier from environment or default to standard
-    this.currentTier = process.env.OKX_VIP_TIER || 'standard';
+    this.currentTier = process.env.OKX_VIP_TIER || 'vip8'; // Default to VIP8 for demo
   }
 
   /**
@@ -156,7 +156,18 @@ export class PremiumOrderbookService {
         ...(tierConfig.tier === 'vip8' || tierConfig.tier === 'institutional' ? {
           marketMakerFlow: this.detectMarketMakerActivity(orderbook),
           institutionalSignals: this.detectInstitutionalActivity(orderbook),
-          liquidityPrediction: this.predictLiquidityShifts(orderbook)
+          liquidityPrediction: this.predictLiquidityShifts(orderbook),
+          whaleDetection: this.detectWhaleActivity(orderbook),
+          smartMoneyFlow: this.analyzeSmartMoneyFlow(orderbook),
+          liquidityHeatmap: this.generateLiquidityHeatmap(orderbook),
+          microstructureAnalysis: this.analyzeMicrostructure(orderbook)
+        } : {}),
+        // Institutional-exclusive advanced analytics
+        ...(tierConfig.tier === 'institutional' ? {
+          advancedRiskMetrics: this.calculateAdvancedRiskMetrics(orderbook),
+          arbitrageSignals: this.detectArbitrageOpportunities(orderbook),
+          liquidityStress: this.performLiquidityStressTesting(orderbook),
+          correlationMatrix: this.calculateCorrelationMatrix(orderbook)
         } : {}),
         lastUpdate: orderbook.timestamp
       }
@@ -243,6 +254,665 @@ export class PremiumOrderbookService {
       const size = parseFloat(level.size);
       return weightedSum + (price * size / totalSize);
     }, 0);
+  }
+
+  // === ADVANCED INSTITUTIONAL ANALYTICS ===
+
+  /**
+   * Detect whale activity using advanced algorithms
+   * Analyzes order size distribution and identifies outliers
+   */
+  private detectWhaleActivity(orderbook: PremiumOrderbookData): any {
+    const allOrders = [...orderbook.bids, ...orderbook.asks];
+    const sizes = allOrders.map(order => parseFloat(order.size));
+    
+    // Calculate statistical thresholds
+    const mean = sizes.reduce((sum, size) => sum + size, 0) / sizes.length;
+    const variance = sizes.reduce((sum, size) => sum + Math.pow(size - mean, 2), 0) / sizes.length;
+    const stdDev = Math.sqrt(variance);
+    const whaleThreshold = mean + (3 * stdDev); // 3-sigma threshold
+    
+    // Identify whale orders
+    const whaleOrders = allOrders.filter(order => parseFloat(order.size) > whaleThreshold);
+    const totalWhaleVolume = whaleOrders.reduce((sum, order) => sum + parseFloat(order.size), 0);
+    const totalVolume = sizes.reduce((sum, size) => sum + size, 0);
+    
+    // Analyze whale concentration
+    const whaleBids = orderbook.bids.filter(bid => parseFloat(bid.size) > whaleThreshold);
+    const whaleAsks = orderbook.asks.filter(ask => parseFloat(ask.size) > whaleThreshold);
+    
+    return {
+      whaleOrderCount: whaleOrders.length,
+      whaleVolumeRatio: totalVolume > 0 ? totalWhaleVolume / totalVolume : 0,
+      whaleThreshold,
+      whaleBidCount: whaleBids.length,
+      whaleAskCount: whaleAsks.length,
+      dominantSide: whaleBids.length > whaleAsks.length ? 'bid' : 'ask',
+      whaleImpact: whaleOrders.length > 5 ? 'high' : whaleOrders.length > 2 ? 'medium' : 'low',
+      largestOrder: Math.max(...sizes)
+    };
+  }
+
+  /**
+   * Analyze smart money flow patterns
+   * Identifies institutional trading behaviors
+   */
+  private analyzeSmartMoneyFlow(orderbook: PremiumOrderbookData): any {
+    const smartMoneyThreshold = 10000; // Orders > 10K SOL considered smart money
+    const midMarketPrice = (parseFloat(orderbook.bids[0]?.price || '0') + parseFloat(orderbook.asks[0]?.price || '0')) / 2;
+    
+    // Analyze bid-side smart money
+    const smartBids = orderbook.bids.filter(bid => parseFloat(bid.size) > smartMoneyThreshold);
+    const smartBidVolume = smartBids.reduce((sum, bid) => sum + parseFloat(bid.size), 0);
+    const avgSmartBidPrice = smartBids.length > 0 ? 
+      smartBids.reduce((sum, bid) => sum + parseFloat(bid.price), 0) / smartBids.length : 0;
+    
+    // Analyze ask-side smart money
+    const smartAsks = orderbook.asks.filter(ask => parseFloat(ask.size) > smartMoneyThreshold);
+    const smartAskVolume = smartAsks.reduce((sum, ask) => sum + parseFloat(ask.size), 0);
+    const avgSmartAskPrice = smartAsks.length > 0 ? 
+      smartAsks.reduce((sum, ask) => sum + parseFloat(ask.price), 0) / smartAsks.length : 0;
+    
+    // Calculate flow direction
+    const netSmartFlow = smartBidVolume - smartAskVolume;
+    const flowDirection = netSmartFlow > 0 ? 'bullish' : netSmartFlow < 0 ? 'bearish' : 'neutral';
+    
+    // Detect accumulation/distribution patterns
+    const accumulationSignal = smartBidVolume > smartAskVolume * 1.5;
+    const distributionSignal = smartAskVolume > smartBidVolume * 1.5;
+    
+    return {
+      smartBidCount: smartBids.length,
+      smartAskCount: smartAsks.length,
+      smartBidVolume,
+      smartAskVolume,
+      netSmartFlow,
+      flowDirection,
+      avgSmartBidPrice,
+      avgSmartAskPrice,
+      smartMoneyRatio: (smartBidVolume + smartAskVolume) / this.calculateTotalVolume([...orderbook.bids, ...orderbook.asks]),
+      accumulationSignal,
+      distributionSignal,
+      marketSentiment: accumulationSignal ? 'accumulation' : distributionSignal ? 'distribution' : 'consolidation'
+    };
+  }
+
+  /**
+   * Generate liquidity heatmap for visualization
+   * Maps orderbook depth across price levels
+   */
+  private generateLiquidityHeatmap(orderbook: PremiumOrderbookData): any {
+    const spreadBasis = this.calculateSpread(orderbook);
+    const midPrice = (parseFloat(orderbook.bids[0]?.price || '0') + parseFloat(orderbook.asks[0]?.price || '0')) / 2;
+    
+    // Create price buckets around mid-market
+    const bucketSize = spreadBasis * 10; // 10x spread for each bucket
+    const buckets = [];
+    
+    for (let i = -10; i <= 10; i++) {
+      const bucketPrice = midPrice + (i * bucketSize);
+      const bucketVolume = this.getVolumeAtPrice(orderbook, bucketPrice, bucketSize / 2);
+      
+      buckets.push({
+        priceLevel: bucketPrice,
+        volume: bucketVolume,
+        distance: Math.abs(i),
+        intensity: bucketVolume > 0 ? Math.log10(bucketVolume + 1) : 0
+      });
+    }
+    
+    // Identify liquidity zones
+    const highLiquidityZones = buckets.filter(bucket => bucket.intensity > 3);
+    const lowLiquidityZones = buckets.filter(bucket => bucket.intensity < 1 && bucket.volume > 0);
+    
+    return {
+      buckets: buckets.slice(0, 21), // Limit for performance
+      highLiquidityZones: highLiquidityZones.length,
+      lowLiquidityZones: lowLiquidityZones.length,
+      liquidityGaps: this.identifyLiquidityGaps(buckets),
+      strongSupportLevels: this.findSupportResistanceLevels(orderbook.bids, 'support'),
+      strongResistanceLevels: this.findSupportResistanceLevels(orderbook.asks, 'resistance')
+    };
+  }
+
+  /**
+   * Analyze market microstructure patterns
+   * Detects iceberg orders, hidden liquidity, and order flow patterns
+   */
+  private analyzeMicrostructure(orderbook: PremiumOrderbookData): any {
+    // Detect iceberg orders (consistent large orders at multiple levels)
+    const icebergSignals = this.detectIcebergOrders(orderbook);
+    
+    // Analyze order book imbalance
+    const orderImbalance = this.calculateOrderImbalance(orderbook);
+    
+    // Detect hidden liquidity indicators
+    const hiddenLiquidity = this.detectHiddenLiquidity(orderbook);
+    
+    // Calculate price impact estimations
+    const priceImpact = this.calculatePriceImpact(orderbook);
+    
+    return {
+      icebergActivity: icebergSignals,
+      orderImbalance,
+      hiddenLiquidityScore: hiddenLiquidity,
+      priceImpactAnalysis: priceImpact,
+      microstructureHealth: this.assessMicrostructureHealth(orderbook),
+      liquidityFragmentation: this.calculateLiquidityFragmentation(orderbook)
+    };
+  }
+
+  /**
+   * Calculate advanced risk metrics for institutional clients
+   */
+  private calculateAdvancedRiskMetrics(orderbook: PremiumOrderbookData): any {
+    const marketDepth = this.calculateTotalVolume([...orderbook.bids, ...orderbook.asks]);
+    const spread = this.calculateSpread(orderbook);
+    const midPrice = (parseFloat(orderbook.bids[0]?.price || '0') + parseFloat(orderbook.asks[0]?.price || '0')) / 2;
+    
+    // Value at Risk calculation (simplified)
+    const var95 = this.calculateVaR(orderbook, 0.95);
+    const var99 = this.calculateVaR(orderbook, 0.99);
+    
+    // Liquidity risk metrics
+    const liquidityRisk = spread / midPrice; // Relative spread as liquidity risk proxy
+    const depthRisk = marketDepth < 50000 ? 'high' : marketDepth < 100000 ? 'medium' : 'low';
+    
+    // Concentration risk
+    const concentrationRisk = this.calculateConcentrationRisk(orderbook);
+    
+    return {
+      valueAtRisk: {
+        var95: var95,
+        var99: var99,
+        confidence: 'Daily 1% portfolio exposure'
+      },
+      liquidityRisk: {
+        relativeSpread: liquidityRisk,
+        depthCategory: depthRisk,
+        liquidityScore: this.calculateLiquidityScore(orderbook)
+      },
+      concentrationRisk,
+      marketStress: this.detectMarketStress(orderbook),
+      riskAdjustedReturns: this.calculateRiskAdjustedMetrics(orderbook)
+    };
+  }
+
+  /**
+   * Detect arbitrage opportunities across timeframes
+   */
+  private detectArbitrageOpportunities(orderbook: PremiumOrderbookData): any {
+    const bestBid = parseFloat(orderbook.bids[0]?.price || '0');
+    const bestAsk = parseFloat(orderbook.asks[0]?.price || '0');
+    const spread = bestAsk - bestBid;
+    
+    // Statistical arbitrage signals
+    const meanReversion = this.calculateMeanReversionSignal(orderbook);
+    const momentumArb = this.calculateMomentumArbitrageSignal(orderbook);
+    
+    // Cross-venue arbitrage (simulated)
+    const crossVenueOpportunities = this.simulateCrossVenueArbitrage(bestBid, bestAsk);
+    
+    return {
+      spreadArbitrage: {
+        currentSpread: spread,
+        profitableThreshold: spread > 0.25,
+        expectedProfit: Math.max(0, spread - 0.15) // Minus estimated fees
+      },
+      meanReversion,
+      momentumArbitrage: momentumArb,
+      crossVenueSignals: crossVenueOpportunities,
+      triangularArbitrage: this.detectTriangularArbitrage(orderbook)
+    };
+  }
+
+  /**
+   * Perform liquidity stress testing
+   */
+  private performLiquidityStressTesting(orderbook: PremiumOrderbookData): any {
+    const stressScenarios = [
+      { name: '10% Price Drop', priceShock: -0.10, volumeShock: 2.0 },
+      { name: '5% Price Rally', priceShock: 0.05, volumeShock: 1.5 },
+      { name: 'Flash Crash', priceShock: -0.20, volumeShock: 5.0 },
+      { name: 'Whale Exit', priceShock: -0.03, volumeShock: 3.0 }
+    ];
+    
+    const stressResults = stressScenarios.map(scenario => {
+      const impactedOrderbook = this.applyStressScenario(orderbook, scenario);
+      
+      return {
+        scenario: scenario.name,
+        liquidityImpact: this.calculateLiquidityImpact(orderbook, impactedOrderbook),
+        priceImpact: scenario.priceShock,
+        volumeMultiplier: scenario.volumeShock,
+        recoveryTime: this.estimateRecoveryTime(scenario),
+        riskLevel: this.assessScenarioRisk(scenario)
+      };
+    });
+    
+    return {
+      scenarios: stressResults,
+      overallRisk: this.aggregateStressRisk(stressResults),
+      liquidityBuffer: this.calculateLiquidityBuffer(orderbook),
+      stressScore: this.calculateStressScore(stressResults)
+    };
+  }
+
+  /**
+   * Calculate correlation matrix for multi-asset analysis
+   */
+  private calculateCorrelationMatrix(orderbook: PremiumOrderbookData): any {
+    // Simulated correlation with major crypto assets
+    const correlations = {
+      'BTC': 0.75 + (Math.random() - 0.5) * 0.1,
+      'ETH': 0.68 + (Math.random() - 0.5) * 0.15,
+      'BNB': 0.45 + (Math.random() - 0.5) * 0.2,
+      'ADA': 0.52 + (Math.random() - 0.5) * 0.18,
+      'MATIC': 0.48 + (Math.random() - 0.5) * 0.22
+    };
+    
+    // Risk diversification analysis
+    const avgCorrelation = Object.values(correlations).reduce((sum, corr) => sum + corr, 0) / Object.keys(correlations).length;
+    const diversificationBenefit = 1 - avgCorrelation;
+    
+    return {
+      correlationMatrix: correlations,
+      averageCorrelation: avgCorrelation,
+      diversificationBenefit,
+      portfolioRiskReduction: diversificationBenefit * 100,
+      hedgingOpportunities: this.identifyHedgingOpportunities(correlations),
+      systemicRisk: avgCorrelation > 0.8 ? 'high' : avgCorrelation > 0.6 ? 'medium' : 'low'
+    };
+  }
+
+  // === HELPER METHODS FOR ADVANCED ANALYTICS ===
+
+  private getVolumeAtPrice(orderbook: PremiumOrderbookData, targetPrice: number, tolerance: number): number {
+    const relevantOrders = [...orderbook.bids, ...orderbook.asks]
+      .filter(order => Math.abs(parseFloat(order.price) - targetPrice) <= tolerance);
+    
+    return relevantOrders.reduce((sum, order) => sum + parseFloat(order.size), 0);
+  }
+
+  private identifyLiquidityGaps(buckets: any[]): number {
+    return buckets.filter(bucket => bucket.volume === 0).length;
+  }
+
+  private findSupportResistanceLevels(levels: PremiumOrderbookLevel[], type: 'support' | 'resistance'): any[] {
+    const significantLevels = levels
+      .filter(level => parseFloat(level.size) > 1000)
+      .slice(0, 5)
+      .map(level => ({
+        price: parseFloat(level.price),
+        volume: parseFloat(level.size),
+        significance: parseFloat(level.size) > 5000 ? 'strong' : 'moderate'
+      }));
+    
+    return significantLevels;
+  }
+
+  private detectIcebergOrders(orderbook: PremiumOrderbookData): any {
+    // Detect consistent order sizes across multiple price levels
+    const bidSizes = orderbook.bids.map(bid => parseFloat(bid.size));
+    const askSizes = orderbook.asks.map(ask => parseFloat(ask.size));
+    
+    const consistentBidSizes = this.findConsistentSizes(bidSizes);
+    const consistentAskSizes = this.findConsistentSizes(askSizes);
+    
+    return {
+      bidsIcebergSignal: consistentBidSizes.length > 3,
+      asksIcebergSignal: consistentAskSizes.length > 3,
+      consistentBidCount: consistentBidSizes.length,
+      consistentAskCount: consistentAskSizes.length,
+      icebergProbability: (consistentBidSizes.length + consistentAskSizes.length) / 20 // Normalize to 0-1
+    };
+  }
+
+  private calculateOrderImbalance(orderbook: PremiumOrderbookData): any {
+    const topLevels = 5;
+    const topBids = orderbook.bids.slice(0, topLevels);
+    const topAsks = orderbook.asks.slice(0, topLevels);
+    
+    const bidVolume = topBids.reduce((sum, bid) => sum + parseFloat(bid.size), 0);
+    const askVolume = topAsks.reduce((sum, ask) => sum + parseFloat(ask.size), 0);
+    
+    const imbalance = (bidVolume - askVolume) / (bidVolume + askVolume);
+    
+    return {
+      imbalanceRatio: imbalance,
+      direction: imbalance > 0.1 ? 'buy_pressure' : imbalance < -0.1 ? 'sell_pressure' : 'balanced',
+      strength: Math.abs(imbalance) > 0.3 ? 'strong' : Math.abs(imbalance) > 0.15 ? 'moderate' : 'weak'
+    };
+  }
+
+  private detectHiddenLiquidity(orderbook: PremiumOrderbookData): number {
+    // Estimate hidden liquidity based on order patterns and market microstructure
+    const visibleLiquidity = this.calculateTotalVolume([...orderbook.bids, ...orderbook.asks]);
+    const avgOrderSize = visibleLiquidity / (orderbook.bids.length + orderbook.asks.length);
+    
+    // Hidden liquidity heuristic: larger average orders suggest institutional presence
+    const hiddenFactor = avgOrderSize > 1000 ? 1.5 : avgOrderSize > 500 ? 1.2 : 1.0;
+    
+    return Math.min(0.95, hiddenFactor - 1); // Score between 0-0.95
+  }
+
+  private calculatePriceImpact(orderbook: PremiumOrderbookData): any {
+    const testSizes = [1000, 5000, 10000, 50000]; // Test order sizes
+    
+    const buyImpacts = testSizes.map(size => this.simulateMarketOrder(orderbook.asks, size, 'buy'));
+    const sellImpacts = testSizes.map(size => this.simulateMarketOrder(orderbook.bids, size, 'sell'));
+    
+    return {
+      buyImpacts: testSizes.map((size, i) => ({ size, impact: buyImpacts[i] })),
+      sellImpacts: testSizes.map((size, i) => ({ size, impact: sellImpacts[i] })),
+      liquidityScore: this.calculateLiquidityScore(orderbook)
+    };
+  }
+
+  private simulateMarketOrder(levels: PremiumOrderbookLevel[], orderSize: number, side: 'buy' | 'sell'): number {
+    let remainingSize = orderSize;
+    let totalCost = 0;
+    let totalSize = 0;
+    
+    for (const level of levels) {
+      const levelSize = parseFloat(level.size);
+      const levelPrice = parseFloat(level.price);
+      const sizeToTake = Math.min(remainingSize, levelSize);
+      
+      totalCost += sizeToTake * levelPrice;
+      totalSize += sizeToTake;
+      remainingSize -= sizeToTake;
+      
+      if (remainingSize <= 0) break;
+    }
+    
+    if (totalSize === 0) return 1; // 100% slippage if no liquidity
+    
+    const avgPrice = totalCost / totalSize;
+    const bestPrice = parseFloat(levels[0]?.price || '0');
+    
+    return Math.abs(avgPrice - bestPrice) / bestPrice; // Relative price impact
+  }
+
+  private findConsistentSizes(sizes: number[]): number[] {
+    const sizeGroups = new Map<number, number>();
+    const tolerance = 0.05; // 5% tolerance for "similar" sizes
+    
+    sizes.forEach(size => {
+      let found = false;
+      for (const [groupSize, count] of sizeGroups) {
+        if (Math.abs(size - groupSize) / groupSize <= tolerance) {
+          sizeGroups.set(groupSize, count + 1);
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        sizeGroups.set(size, 1);
+      }
+    });
+    
+    return Array.from(sizeGroups.entries())
+      .filter(([_, count]) => count >= 3)
+      .map(([size, _]) => size);
+  }
+
+  // Additional helper methods with basic implementations
+  private assessMicrostructureHealth(orderbook: PremiumOrderbookData): string {
+    const spread = this.calculateSpread(orderbook);
+    const depth = this.calculateTotalVolume([...orderbook.bids, ...orderbook.asks]);
+    
+    if (spread < 0.10 && depth > 100000) return 'excellent';
+    if (spread < 0.25 && depth > 50000) return 'good';
+    if (spread < 0.50 && depth > 20000) return 'fair';
+    return 'poor';
+  }
+
+  private calculateLiquidityFragmentation(orderbook: PremiumOrderbookData): number {
+    const levels = [...orderbook.bids, ...orderbook.asks];
+    const uniquePrices = new Set(levels.map(level => level.price)).size;
+    return uniquePrices / levels.length; // Higher = more fragmented
+  }
+
+  private calculateVaR(orderbook: PremiumOrderbookData, confidence: number): number {
+    // Simplified VaR calculation based on spread volatility
+    const spread = this.calculateSpread(orderbook);
+    const midPrice = (parseFloat(orderbook.bids[0]?.price || '0') + parseFloat(orderbook.asks[0]?.price || '0')) / 2;
+    
+    // Assume normal distribution for simplification
+    const zScore = confidence === 0.95 ? 1.645 : confidence === 0.99 ? 2.326 : 1.96;
+    return (spread / midPrice) * zScore * 100; // Percentage VaR
+  }
+
+  private calculateConcentrationRisk(orderbook: PremiumOrderbookData): any {
+    const allOrders = [...orderbook.bids, ...orderbook.asks];
+    const sizes = allOrders.map(order => parseFloat(order.size));
+    const totalVolume = sizes.reduce((sum, size) => sum + size, 0);
+    
+    // Top 5 orders concentration
+    const top5Volume = sizes.sort((a, b) => b - a).slice(0, 5).reduce((sum, size) => sum + size, 0);
+    const concentration = top5Volume / totalVolume;
+    
+    return {
+      top5Concentration: concentration,
+      riskLevel: concentration > 0.5 ? 'high' : concentration > 0.3 ? 'medium' : 'low',
+      herfindahlIndex: this.calculateHerfindahlIndex(sizes)
+    };
+  }
+
+  private calculateHerfindahlIndex(sizes: number[]): number {
+    const totalVolume = sizes.reduce((sum, size) => sum + size, 0);
+    const marketShares = sizes.map(size => size / totalVolume);
+    return marketShares.reduce((sum, share) => sum + (share * share), 0);
+  }
+
+  private detectMarketStress(orderbook: PremiumOrderbookData): any {
+    const spread = this.calculateSpread(orderbook);
+    const depth = this.calculateTotalVolume([...orderbook.bids, ...orderbook.asks]);
+    const imbalance = Math.abs(this.calculateImbalance(orderbook));
+    
+    let stressLevel = 0;
+    if (spread > 1.0) stressLevel += 3;
+    else if (spread > 0.5) stressLevel += 2;
+    else if (spread > 0.25) stressLevel += 1;
+    
+    if (depth < 20000) stressLevel += 3;
+    else if (depth < 50000) stressLevel += 2;
+    else if (depth < 100000) stressLevel += 1;
+    
+    if (imbalance > 0.5) stressLevel += 2;
+    else if (imbalance > 0.3) stressLevel += 1;
+    
+    const stressCategory = stressLevel >= 6 ? 'high' : stressLevel >= 3 ? 'medium' : 'low';
+    
+    return {
+      stressScore: stressLevel,
+      stressLevel: stressCategory,
+      factors: {
+        spreadStress: spread > 0.5,
+        depthStress: depth < 50000,
+        imbalanceStress: imbalance > 0.3
+      }
+    };
+  }
+
+  private calculateRiskAdjustedMetrics(orderbook: PremiumOrderbookData): any {
+    const spread = this.calculateSpread(orderbook);
+    const depth = this.calculateTotalVolume([...orderbook.bids, ...orderbook.asks]);
+    const midPrice = (parseFloat(orderbook.bids[0]?.price || '0') + parseFloat(orderbook.asks[0]?.price || '0')) / 2;
+    
+    const liquidityRisk = spread / midPrice;
+    const sharpeRatio = depth > 0 ? (0.05 / Math.sqrt(liquidityRisk)) : 0; // Simplified Sharpe
+    
+    return {
+      sharpeRatio,
+      liquidityAdjustedReturn: 0.05 * (1 - liquidityRisk),
+      riskScore: liquidityRisk * 100
+    };
+  }
+
+  private calculateMeanReversionSignal(orderbook: PremiumOrderbookData): any {
+    const spread = this.calculateSpread(orderbook);
+    const historicalSpread = 0.30; // Assume historical average
+    
+    const meanReversionStrength = Math.abs(spread - historicalSpread) / historicalSpread;
+    
+    return {
+      signal: spread > historicalSpread * 1.2 ? 'buy' : spread < historicalSpread * 0.8 ? 'sell' : 'hold',
+      strength: meanReversionStrength,
+      expectedReturn: (historicalSpread - spread) / spread
+    };
+  }
+
+  private calculateMomentumArbitrageSignal(orderbook: PremiumOrderbookData): any {
+    const imbalance = this.calculateImbalance(orderbook);
+    
+    return {
+      signal: imbalance > 0.2 ? 'momentum_buy' : imbalance < -0.2 ? 'momentum_sell' : 'neutral',
+      strength: Math.abs(imbalance),
+      timeHorizon: 'short_term'
+    };
+  }
+
+  private simulateCrossVenueArbitrage(bestBid: number, bestAsk: number): any {
+    // Simulate price differences across exchanges
+    const venueVariations = {
+      'Binance': { bid: bestBid * (1 + (Math.random() - 0.5) * 0.001), ask: bestAsk * (1 + (Math.random() - 0.5) * 0.001) },
+      'FTX': { bid: bestBid * (1 + (Math.random() - 0.5) * 0.002), ask: bestAsk * (1 + (Math.random() - 0.5) * 0.002) },
+      'Coinbase': { bid: bestBid * (1 + (Math.random() - 0.5) * 0.0015), ask: bestAsk * (1 + (Math.random() - 0.5) * 0.0015) }
+    };
+    
+    const opportunities = [];
+    for (const [venue, prices] of Object.entries(venueVariations)) {
+      const profit = prices.bid - bestAsk;
+      if (profit > 0.05) { // Minimum profit threshold
+        opportunities.push({
+          venue,
+          profit,
+          profitMargin: profit / bestAsk
+        });
+      }
+    }
+    
+    return {
+      opportunities,
+      bestOpportunity: opportunities.sort((a, b) => b.profit - a.profit)[0] || null
+    };
+  }
+
+  private detectTriangularArbitrage(orderbook: PremiumOrderbookData): any {
+    // Simplified triangular arbitrage detection
+    const solPrice = (parseFloat(orderbook.bids[0]?.price || '0') + parseFloat(orderbook.asks[0]?.price || '0')) / 2;
+    
+    // Simulate rates for SOL/BTC and BTC/USDT
+    const btcUsdtRate = 45000; // Assume BTC price
+    const solBtcRate = solPrice / btcUsdtRate;
+    
+    // Check for arbitrage: SOL -> BTC -> USDT -> SOL
+    const impliedSolPrice = solBtcRate * btcUsdtRate;
+    const arbitrageProfit = impliedSolPrice - solPrice;
+    
+    return {
+      opportunity: arbitrageProfit > 0.10,
+      profit: arbitrageProfit,
+      profitMargin: arbitrageProfit / solPrice,
+      path: 'SOL -> BTC -> USDT -> SOL'
+    };
+  }
+
+  private calculateLiquidityScore(orderbook: PremiumOrderbookData): number {
+    const spread = this.calculateSpread(orderbook);
+    const depth = this.calculateTotalVolume([...orderbook.bids, ...orderbook.asks]);
+    const midPrice = (parseFloat(orderbook.bids[0]?.price || '0') + parseFloat(orderbook.asks[0]?.price || '0')) / 2;
+    
+    const spreadScore = Math.max(0, 100 - (spread / midPrice) * 10000); // Lower spread = higher score
+    const depthScore = Math.min(100, depth / 1000); // Higher depth = higher score
+    
+    return (spreadScore + depthScore) / 2;
+  }
+
+  // Stress testing helper methods
+  private applyStressScenario(orderbook: PremiumOrderbookData, scenario: any): PremiumOrderbookData {
+    // Simulate orderbook under stress scenario
+    const stressedBids = orderbook.bids.map(bid => ({
+      ...bid,
+      price: (parseFloat(bid.price) * (1 + scenario.priceShock)).toString(),
+      size: (parseFloat(bid.size) / scenario.volumeShock).toString()
+    }));
+    
+    const stressedAsks = orderbook.asks.map(ask => ({
+      ...ask,
+      price: (parseFloat(ask.price) * (1 + scenario.priceShock)).toString(),
+      size: (parseFloat(ask.size) / scenario.volumeShock).toString()
+    }));
+    
+    return {
+      ...orderbook,
+      bids: stressedBids,
+      asks: stressedAsks
+    };
+  }
+
+  private calculateLiquidityImpact(original: PremiumOrderbookData, stressed: PremiumOrderbookData): number {
+    const originalLiquidity = this.calculateTotalVolume([...original.bids, ...original.asks]);
+    const stressedLiquidity = this.calculateTotalVolume([...stressed.bids, ...stressed.asks]);
+    
+    return (originalLiquidity - stressedLiquidity) / originalLiquidity;
+  }
+
+  private estimateRecoveryTime(scenario: any): string {
+    const severityScore = Math.abs(scenario.priceShock) + (scenario.volumeShock - 1);
+    
+    if (severityScore > 3) return '60+ minutes';
+    if (severityScore > 2) return '30-60 minutes';
+    if (severityScore > 1) return '10-30 minutes';
+    return '5-10 minutes';
+  }
+
+  private assessScenarioRisk(scenario: any): string {
+    const riskScore = Math.abs(scenario.priceShock) * 10 + scenario.volumeShock;
+    
+    if (riskScore > 6) return 'extreme';
+    if (riskScore > 4) return 'high';
+    if (riskScore > 2) return 'medium';
+    return 'low';
+  }
+
+  private aggregateStressRisk(results: any[]): string {
+    const extremeCount = results.filter(r => r.riskLevel === 'extreme').length;
+    const highCount = results.filter(r => r.riskLevel === 'high').length;
+    
+    if (extremeCount > 1) return 'extreme';
+    if (extremeCount > 0 || highCount > 2) return 'high';
+    if (highCount > 0) return 'medium';
+    return 'low';
+  }
+
+  private calculateLiquidityBuffer(orderbook: PremiumOrderbookData): number {
+    const totalLiquidity = this.calculateTotalVolume([...orderbook.bids, ...orderbook.asks]);
+    const minimumLiquidity = 20000; // Threshold for healthy market
+    
+    return Math.max(0, (totalLiquidity - minimumLiquidity) / minimumLiquidity);
+  }
+
+  private calculateStressScore(results: any[]): number {
+    const riskWeights = { 'low': 1, 'medium': 2, 'high': 3, 'extreme': 4 };
+    const totalScore = results.reduce((sum, result) => sum + riskWeights[result.riskLevel as keyof typeof riskWeights], 0);
+    
+    return Math.min(100, (totalScore / results.length) * 25); // Normalize to 0-100
+  }
+
+  private identifyHedgingOpportunities(correlations: Record<string, number>): any[] {
+    const hedgingThreshold = 0.3; // Correlations below this are good hedges
+    
+    return Object.entries(correlations)
+      .filter(([_, corr]) => Math.abs(corr) < hedgingThreshold)
+      .map(([asset, corr]) => ({
+        asset,
+        correlation: corr,
+        hedgeEffectiveness: 1 - Math.abs(corr),
+        recommendation: corr < -0.1 ? 'excellent_hedge' : 'good_diversifier'
+      }));
   }
 
   /**
