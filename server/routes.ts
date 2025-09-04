@@ -13,6 +13,7 @@ import { OrderFlowService } from "./services/orderFlow";
 import { LiquidationService } from "./services/liquidation";
 import { PositionCalculatorService } from "./services/positionCalculator";
 import { RiskManagementService, type PortfolioPosition } from "./services/riskManagement";
+import { LiquidationHeatMapService } from "./services/liquidationHeatMap";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema, positionCalculatorSchema, positionParamsSchema, riskDashboardSchema } from "@shared/schema";
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
@@ -909,6 +910,70 @@ Allow: /openapi.yaml`);
         level: 'error',
         message: 'Liquidation analysis request failed',
         details: `GET /api/sol/liquidation - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // SOL Liquidation Heat Map - Market-wide Risk Analysis
+  app.get('/api/sol/liquidation-heatmap', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      // Get required market data
+      const [currentTicker, openInterest, fundingRate] = await Promise.all([
+        okxService.getTicker(),
+        okxService.getOpenInterest(),
+        okxService.getFundingRate()
+      ]);
+      
+      const currentPrice = parseFloat(currentTicker.price);
+      const volume24h = parseFloat(currentTicker.vol24h || '0');
+      const openInterestValue = parseFloat(openInterest.openInterest || '0');
+      const fundingRateValue = parseFloat(fundingRate.fundingRate || '0');
+      
+      // Initialize liquidation heat map service
+      const liquidationHeatMapService = new LiquidationHeatMapService();
+      
+      // Perform comprehensive market-wide liquidation analysis
+      const heatMapAnalysis = await liquidationHeatMapService.analyzeLiquidationRisk(
+        currentPrice,
+        volume24h,
+        openInterestValue,
+        fundingRateValue
+      );
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Liquidation heat map analysis completed',
+        details: `GET /api/sol/liquidation-heatmap - ${responseTime}ms - 200 OK - Price: $${currentPrice}, Risk Score: ${heatMapAnalysis.overallRiskScore}`,
+      });
+      
+      res.json({
+        success: true,
+        data: heatMapAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/liquidation-heatmap:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Liquidation heat map request failed',
+        details: `GET /api/sol/liquidation-heatmap - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
       
       res.status(500).json({

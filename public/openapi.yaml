@@ -25,7 +25,7 @@ info:
     - 99.9% uptime with auto-reconnection
     - SSL-secured with CORS enabled
     - Updated: 2025-09-03 - Full migration to SOL-USDT-SWAP futures with liquidation analysis & SharpSignalEngine
-  version: '3.0.0'
+  version: '3.1.0'
   contact:
     email: admin@guardiansofthegreentoken.com
     url: https://guardiansofthegreentoken.com
@@ -1156,6 +1156,273 @@ paths:
                   timestamp:
                     type: string
                     example: "2025-09-03T16:00:00.000Z"
+
+  /api/sol/liquidation-heatmap:
+    get:
+      operationId: getSOLLiquidationHeatMap
+      summary: Get comprehensive liquidation heat map analysis
+      description: |
+        **🔥 Institutional-Grade Market-wide Liquidation Analysis**
+        
+        Advanced liquidation heat map providing comprehensive market-wide risk assessment across all leverage levels.
+        Essential for institutional traders and risk managers to identify liquidation clusters, cascade risks,
+        and market stability threats before they materialize.
+        
+        **Key Features:**
+        - **Multi-Zone Risk Analysis**: Immediate (0-5%), Medium-term (5-15%), Long-term (15%+) risk zones
+        - **Leverage Distribution**: Position estimates across 5x, 10x, 20x, 50x, 100x leverage levels
+        - **Cascade Scenarios**: Mild, moderate, and severe liquidation cascade predictions
+        - **Heat Map Visualization**: Price level intensity mapping for risk visualization
+        - **Real-time Insights**: Market stability assessment with actionable recommendations
+        
+        **Risk Categories:**
+        - 🟢 Safe: Minimal liquidation risk, stable market conditions
+        - 🟡 Caution: Moderate risk, monitor closely
+        - 🟠 Warning: Elevated risk, consider reducing positions  
+        - 🔴 Danger: High liquidation probability, immediate action recommended
+        - ⚫ Extreme: Critical liquidation risk, exit positions immediately
+      tags:
+        - Market Data
+      responses:
+        '200':
+          description: Comprehensive liquidation heat map analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      currentPrice:
+                        type: number
+                        example: 208.33
+                        description: "Current SOL-USDT-SWAP mark price"
+                      overallRiskScore:
+                        type: integer
+                        example: 42
+                        description: "Overall market risk score (0-100)"
+                      immediateRisk:
+                        type: object
+                        description: "Immediate liquidation risk (0-5% from current price)"
+                        properties:
+                          upside:
+                            type: array
+                            description: "Long liquidation zones above current price"
+                            items:
+                              type: object
+                              properties:
+                                priceLevel:
+                                  type: number
+                                  example: 215.45
+                                zoneName:
+                                  type: string
+                                  example: "↗ 3% Zone (12.5x avg)"
+                                totalRisk:
+                                  type: integer
+                                  example: 65
+                                positionCount:
+                                  type: number
+                                  example: 1250.75
+                                averageLeverage:
+                                  type: number
+                                  example: 12.5
+                                dominantSide:
+                                  type: string
+                                  enum: ["long", "short", "balanced"]
+                                  example: "long"
+                                cascadeRisk:
+                                  type: number
+                                  example: 0.234
+                          downside:
+                            type: array
+                            description: "Short liquidation zones below current price"
+                            items:
+                              type: object
+                              properties:
+                                priceLevel:
+                                  type: number
+                                  example: 195.75
+                          netRisk:
+                            type: number
+                            example: -0.123
+                            description: "Net liquidation risk (+ = more long liq, - = more short liq)"
+                          criticalLevels:
+                            type: array
+                            items:
+                              type: number
+                            example: [200.50, 220.75]
+                            description: "Most critical liquidation price levels"
+                          significantLevels:
+                            type: array
+                            items:
+                              type: number
+                            example: [198.25, 205.80, 215.45, 225.90]
+                            description: "Significant risk concentration levels"
+                      mediumTermRisk:
+                        type: object
+                        description: "Medium-term liquidation risk (5-15% from current price)"
+                        properties:
+                          upside:
+                            type: array
+                            items:
+                              type: object
+                          downside:
+                            type: array
+                            items:
+                              type: object
+                          netRisk:
+                            type: number
+                            example: 0.087
+                          significantLevels:
+                            type: array
+                            items:
+                              type: number
+                            example: [180.25, 240.80]
+                      longTermRisk:
+                        type: object
+                        description: "Long-term liquidation risk (15%+ from current price)"
+                        properties:
+                          totalPositionsAtRisk:
+                            type: number
+                            example: 15750
+                            description: "Total positions at risk in long-term scenarios"
+                          maximumCascadeRisk:
+                            type: number
+                            example: 0.892
+                            description: "Maximum cascade liquidation probability"
+                      heatMapData:
+                        type: array
+                        description: "Heat map visualization data for charting"
+                        items:
+                          type: object
+                          properties:
+                            priceLevel:
+                              type: number
+                              example: 210.45
+                            intensity:
+                              type: integer
+                              example: 78
+                              description: "Heat intensity (0-100)"
+                            positionDensity:
+                              type: number
+                              example: 892.45
+                            riskCategory:
+                              type: string
+                              enum: ["safe", "caution", "warning", "danger", "extreme"]
+                              example: "warning"
+                            leverageBreakdown:
+                              type: object
+                              properties:
+                                low:
+                                  type: integer
+                                  example: 45
+                                  description: "1-10x leverage positions (%)"
+                                medium:
+                                  type: integer
+                                  example: 30
+                                  description: "10-25x leverage positions (%)"
+                                high:
+                                  type: integer
+                                  example: 20
+                                  description: "25-50x leverage positions (%)"
+                                extreme:
+                                  type: integer
+                                  example: 5
+                                  description: "50x+ leverage positions (%)"
+                      insights:
+                        type: object
+                        description: "Market insights and recommendations"
+                        properties:
+                          dominantLeverageRange:
+                            type: string
+                            enum: ["1-10x", "10-25x", "25-50x", "50x+"]
+                            example: "10-25x"
+                          riskConcentration:
+                            type: string
+                            enum: ["distributed", "clustered", "highly_clustered"]
+                            example: "clustered"
+                          nearestThreat:
+                            type: object
+                            properties:
+                              direction:
+                                type: string
+                                enum: ["upside", "downside"]
+                                example: "downside"
+                              distance:
+                                type: number
+                                example: 4.25
+                                description: "Distance in % from current price"
+                              severity:
+                                type: string
+                                enum: ["low", "medium", "high", "extreme"]
+                                example: "high"
+                              estimatedImpact:
+                                type: string
+                                example: "2.34% price impact, 10-30 minutes duration"
+                          marketStability:
+                            type: string
+                            enum: ["stable", "unstable", "volatile", "dangerous"]
+                            example: "unstable"
+                          recommendedAction:
+                            type: string
+                            example: "⚠️ HIGH RISK: Consider reducing leverage and setting tight stop losses"
+                      timeToNextRisk:
+                        type: string
+                        example: "4.2% move required"
+                        description: "Distance to next significant liquidation risk"
+                      cascadeScenarios:
+                        type: array
+                        description: "Potential liquidation cascade scenarios"
+                        items:
+                          type: object
+                          properties:
+                            scenario:
+                              type: string
+                              enum: ["mild", "moderate", "severe"]
+                              example: "moderate"
+                            triggerPrice:
+                              type: number
+                              example: 186.66
+                            expectedDrop:
+                              type: integer
+                              example: 12
+                              description: "Expected additional price drop (%)"
+                            affectedPositions:
+                              type: number
+                              example: 8920
+                            totalLiquidation:
+                              type: integer
+                              example: 45000000
+                              description: "Total liquidation value in USD"
+                            recoveryTime:
+                              type: string
+                              example: "2-4 hours"
+                      lastUpdate:
+                        type: string
+                        format: date-time
+                        example: "2025-09-04T02:40:15.123Z"
+                      calculationTime:
+                        type: integer
+                        example: 25
+                        description: "Analysis calculation time in milliseconds"
+                      dataConfidence:
+                        type: integer
+                        example: 87
+                        description: "Data confidence score (0-100)"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-09-04T02:40:15.123Z"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/sol/volume-profile:
     get:
