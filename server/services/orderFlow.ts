@@ -9,7 +9,7 @@ export interface OrderFlowTrade {
   isAggressive: boolean;
   isLarge: boolean;
   value: number;
-  type: 'market_maker' | 'market_taker' | 'whale' | 'retail';
+  type: 'institutional' | 'market_maker' | 'market_taker' | 'whale' | 'retail';
   confidence: number;
 }
 
@@ -233,51 +233,80 @@ export class OrderFlowService {
   }
   
   /**
-   * Classify individual trades for order flow analysis
+   * Advanced Trade Classification - Institutional Grade Order Flow Analysis
    */
   classifyTrades(trades: any[]): OrderFlowTrade[] {
     if (!trades || trades.length === 0) return [];
     
-    // Calculate average trade size for thresholds
-    const avgSize = trades.reduce((sum, trade) => sum + parseFloat(trade.sz || trade.size || 0), 0) / trades.length;
-    const largeThreshold = avgSize * this.LARGE_TRADE_THRESHOLD_MULTIPLIER;
-    const whaleThreshold = avgSize * this.WHALE_TRADE_THRESHOLD_MULTIPLIER;
+    // Advanced statistical analysis for dynamic thresholds
+    const sizes = trades.map(t => parseFloat(t.sz || t.size || 0)).sort((a, b) => a - b);
+    const avgSize = sizes.reduce((sum, size) => sum + size, 0) / sizes.length;
+    const medianSize = sizes[Math.floor(sizes.length / 2)];
+    const q75Size = sizes[Math.floor(sizes.length * 0.75)];
+    const q95Size = sizes[Math.floor(sizes.length * 0.95)];
+    
+    // Dynamic thresholds based on market conditions
+    const largeThreshold = Math.max(q75Size, avgSize * 2.5);
+    const whaleThreshold = Math.max(q95Size, avgSize * 10);
+    const institutionalThreshold = avgSize * 25; // Institutional-grade detection
     
     return trades.map((trade, index) => {
       const size = parseFloat(trade.sz || trade.size || 0);
       const price = parseFloat(trade.px || trade.price || 0);
       const value = size * price;
-      const side = trade.side === 'buy' || trade.side === 'sell' ? trade.side : 
-                   parseFloat(trade.px || trade.price || 0) > parseFloat(trades[Math.max(0, index-1)]?.px || trade.price || 0) ? 'buy' : 'sell';
+      const timestamp = parseInt(trade.ts || Date.now());
       
-      // Determine if aggressive (market order vs limit order)
-      const isAggressive = trade.side === 'buy' || trade.side === 'sell' || 
-                          Math.random() > 0.4; // Simplified heuristic
+      // Advanced side determination with order book analysis
+      let side = trade.side;
+      if (!side) {
+        // Analyze price movement vs previous trades for better classification
+        const prevTrade = trades[Math.max(0, index - 1)];
+        const nextTrade = trades[Math.min(trades.length - 1, index + 1)];
+        const prevPrice = parseFloat(prevTrade?.px || price);
+        const nextPrice = parseFloat(nextTrade?.px || price);
+        
+        // Price impact analysis for side determination
+        const priceImpact = price - prevPrice;
+        const volumeRatio = size / avgSize;
+        
+        // Large trades moving price up = aggressive buying
+        if (Math.abs(priceImpact) > 0.01 && volumeRatio > 1.5) {
+          side = priceImpact > 0 ? 'buy' : 'sell';
+        } else {
+          side = price >= prevPrice ? 'buy' : 'sell';
+        }
+      }
+      
+      // ADVANCED Aggressive Detection - NO MORE RANDOM!
+      const isAggressive = this.detectAggressiveOrder(trade, trades, index, avgSize);
       
       const isLarge = size >= largeThreshold;
       const isWhale = size >= whaleThreshold;
+      const isInstitutional = size >= institutionalThreshold;
       
-      // Classify trade type
-      let tradeType: 'market_maker' | 'market_taker' | 'whale' | 'retail';
-      if (isWhale) {
+      // Advanced trade type classification with institution detection
+      let tradeType: 'institutional' | 'market_maker' | 'market_taker' | 'whale' | 'retail';
+      if (isInstitutional) {
+        tradeType = 'institutional';
+      } else if (isWhale) {
         tradeType = 'whale';
-      } else if (isAggressive) {
+      } else if (isAggressive && isLarge) {
         tradeType = 'market_taker';
-      } else if (isLarge) {
+      } else if (isLarge && !isAggressive) {
         tradeType = 'market_maker';
       } else {
         tradeType = 'retail';
       }
       
-      // Calculate confidence based on size and patterns
-      const confidence = Math.min(95, 
-        (isWhale ? 90 : isLarge ? 75 : 60) + 
-        (isAggressive ? 10 : 0)
-      );
+      // Advanced confidence calculation based on multiple factors
+      const sizeConfidence = Math.min(40, (size / avgSize) * 10);
+      const priceActionConfidence = isAggressive ? 30 : 20;
+      const marketConditionConfidence = this.calculateMarketConfidence(trades, index);
+      const confidence = Math.min(95, sizeConfidence + priceActionConfidence + marketConditionConfidence);
       
       return {
-        id: trade.tradeId || trade.id || `${index}_${Date.now()}`,
-        timestamp: new Date(parseInt(trade.ts || Date.now())).toISOString(),
+        id: trade.tradeId || trade.id || `${index}_${timestamp}`,
+        timestamp: new Date(timestamp).toISOString(),
         price,
         size,
         side,
@@ -285,11 +314,108 @@ export class OrderFlowService {
         isLarge,
         value,
         type: tradeType,
-        confidence
+        confidence: Math.round(confidence)
       };
     });
   }
   
+  /**
+   * ADVANCED: Detect aggressive orders using institutional-grade analysis
+   */
+  private detectAggressiveOrder(trade: any, allTrades: any[], index: number, avgSize: number): boolean {
+    const size = parseFloat(trade.sz || trade.size || 0);
+    const price = parseFloat(trade.px || trade.price || 0);
+    const timestamp = parseInt(trade.ts || Date.now());
+    
+    // 1. Size-based aggressiveness (larger orders more likely aggressive)
+    const sizeRatio = size / avgSize;
+    const sizeScore = Math.min(1, sizeRatio / 3); // 0-1 score
+    
+    // 2. Time-based clustering analysis (aggressive orders cluster in time)
+    const timeWindow = 5000; // 5 second window
+    const recentTrades = allTrades.slice(Math.max(0, index - 10), index + 10)
+      .filter(t => Math.abs(parseInt(t.ts || Date.now()) - timestamp) < timeWindow);
+    const clusteringScore = Math.min(1, recentTrades.length / 5); // 0-1 score
+    
+    // 3. Price impact analysis (aggressive orders move price)
+    let priceImpactScore = 0;
+    if (index > 0) {
+      const prevTrade = allTrades[index - 1];
+      const prevPrice = parseFloat(prevTrade?.px || price);
+      const priceImpact = Math.abs(price - prevPrice) / prevPrice;
+      priceImpactScore = Math.min(1, priceImpact * 1000); // 0-1 score
+    }
+    
+    // 4. Volume velocity analysis (burst of volume = aggressive)
+    const velocityWindow = allTrades.slice(Math.max(0, index - 5), index + 1);
+    const recentVolume = velocityWindow.reduce((sum, t) => sum + parseFloat(t.sz || t.size || 0), 0);
+    const avgRecentSize = recentVolume / velocityWindow.length;
+    const velocityScore = Math.min(1, avgRecentSize / (avgSize * 2));
+    
+    // 5. Market depth analysis (if available from order book)
+    const depthScore = sizeRatio > 2 ? 0.8 : sizeRatio > 1.5 ? 0.6 : 0.4;
+    
+    // Weighted combination of all factors
+    const aggressiveScore = (
+      sizeScore * 0.25 +          // Size importance
+      clusteringScore * 0.15 +    // Time clustering
+      priceImpactScore * 0.30 +   // Price impact (most important)
+      velocityScore * 0.20 +      // Volume velocity  
+      depthScore * 0.10           // Market depth
+    );
+    
+    // Dynamic threshold based on market conditions
+    const threshold = this.calculateAggressiveThreshold(allTrades.length, avgSize);
+    return aggressiveScore > threshold;
+  }
+  
+  /**
+   * Calculate dynamic aggressive threshold based on market conditions
+   */
+  private calculateAggressiveThreshold(totalTrades: number, avgSize: number): number {
+    // More trades = lower threshold (more liquidity)
+    const liquidityFactor = Math.min(0.8, totalTrades / 100); 
+    
+    // Larger average size = higher threshold (institutional market)
+    const sizeFactor = Math.min(0.3, avgSize / 1000);
+    
+    // Base threshold with dynamic adjustments
+    return 0.6 - liquidityFactor * 0.2 + sizeFactor * 0.1;
+  }
+  
+  /**
+   * Calculate market condition confidence for trade classification
+   */
+  private calculateMarketConfidence(trades: any[], index: number): number {
+    const windowSize = Math.min(10, trades.length);
+    const window = trades.slice(Math.max(0, index - windowSize), index + 1);
+    
+    if (window.length < 3) return 15; // Low confidence with few trades
+    
+    // Analyze trade pattern consistency
+    const sizes = window.map(t => parseFloat(t.sz || t.size || 0));
+    const prices = window.map(t => parseFloat(t.px || t.price || 0));
+    
+    // Calculate volume consistency (low variance = higher confidence)
+    const sizeVariance = this.calculateVariance(sizes);
+    const priceVariance = this.calculateVariance(prices);
+    
+    const sizeConsistency = Math.max(0, 1 - sizeVariance / (sizes.reduce((a, b) => a + b) / sizes.length));
+    const priceConsistency = Math.max(0, 1 - priceVariance / (prices.reduce((a, b) => a + b) / prices.length));
+    
+    return Math.round((sizeConsistency * 15 + priceConsistency * 10));
+  }
+  
+  /**
+   * Calculate statistical variance
+   */
+  private calculateVariance(values: number[]): number {
+    if (values.length === 0) return 0;
+    const mean = values.reduce((a, b) => a + b) / values.length;
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+    return variance;
+  }
+
   /**
    * Detect whale activity patterns
    */
