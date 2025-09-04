@@ -18,6 +18,7 @@ import { ConfluenceScoring } from "@/components/ConfluenceScoring";
 import { TechnicalIndicators } from "@/components/TechnicalIndicators";
 import { FibonacciAnalysis } from "@/components/FibonacciAnalysis";
 import { OrderFlowAnalysis } from "@/components/OrderFlowAnalysis";
+import LiquidityHeatmap from "@/components/LiquidityHeatmap";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -279,6 +280,13 @@ export default function Dashboard() {
             {/* SMC Analysis */}
             <ErrorBoundary>
               <SMCAnalysis />
+            </ErrorBoundary>
+          </div>
+
+          {/* Row 2.5: Premium VIP8+ Liquidity Heatmap - Institutional Grade Analytics */}
+          <div className="mt-6">
+            <ErrorBoundary>
+              <LiquidityHeatmap />
             </ErrorBoundary>
           </div>
 
