@@ -14,12 +14,21 @@ interface OpenInterestData {
 }
 
 export function OpenInterest() {
-  // Get current price data for correlation analysis
-  const { data: priceData } = useQuery<{
+  // Get complete SOL data for institutional analytics
+  const { data: completeData } = useQuery<{
     success: boolean;
-    data: { last: string; markPx?: string; instId: string };
+    data: {
+      ticker: {
+        symbol: string;
+        price: string;
+        changePercent24h: string;
+        volume24h: string;
+        high24h: string;
+        low24h: string;
+      };
+    };
   }>({ 
-    queryKey: ['/api/sol/ticker'], 
+    queryKey: ['/api/sol/complete'], 
     refetchInterval: 5000,
     refetchIntervalInBackground: false
   });
