@@ -822,25 +822,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
-      console.log('Position Calculator endpoint hit with body:', req.body);
+      // Position Calculator endpoint
       
       // Validate request body
       const positionParams = positionParamsSchema.parse(req.body);
-      console.log('Request validation passed:', positionParams);
+      // Request validation passed
       
       const accountBalance = req.body.accountBalance || 10000; // Default $10k account
       
       // Initialize Position Calculator service
       const positionCalculatorService = new PositionCalculatorService(okxService);
-      console.log('Position Calculator service initialized');
+      // Position Calculator service initialized
       
       // Calculate comprehensive position metrics
-      console.log('Starting position calculation...');
+      // Starting position calculation
       const positionAnalysis = await positionCalculatorService.calculatePosition(
         positionParams,
         accountBalance
       );
-      console.log('Position calculation completed:', positionAnalysis);
+      // Position calculation completed
       
       const responseTime = Date.now() - startTime;
       
@@ -886,7 +886,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
-      console.log('Risk Dashboard endpoint hit with body:', req.body);
+      // Risk Dashboard endpoint
       
       // Validate request body
       const { positions, accountBalance = 10000, riskLimits } = req.body;
@@ -914,20 +914,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         riskWeight: parseFloat(pos.riskWeight || 1),
       }));
       
-      console.log('Validated positions:', validatedPositions);
+      // Validated positions
       
       // Initialize Risk Management service
       const riskManagementService = new RiskManagementService(okxService);
       
       // Generate comprehensive risk dashboard
-      console.log('Generating risk dashboard...');
+      // Generating risk dashboard
       const riskDashboard = await riskManagementService.generateRiskDashboard(
         validatedPositions,
         accountBalance,
         riskLimits
       );
       
-      console.log('Risk dashboard generated successfully');
+      // Risk dashboard generated successfully
       
       const responseTime = Date.now() - startTime;
       
@@ -1178,7 +1178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   wss.on('connection', (ws: WebSocket, req) => {
     const clientIp = req.socket.remoteAddress || 'unknown';
-    console.log(`WebSocket client connected: ${clientIp}`);
+    // WebSocket client connected
     
     connectedClients.add(ws);
     

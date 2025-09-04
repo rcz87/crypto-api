@@ -734,12 +734,12 @@ export class CVDService {
     
     // Risk level assessment
     const riskLevel = detectedPatterns.length > 2 ? 'high' : detectedPatterns.length > 0 ? 'medium' : 'low';
-    const primaryType = detectedPatterns[0] || 'none';
+    const primaryType = detectedPatterns[0] || 'stop_hunt'; // Default to valid enum value
     const confidence = Math.min(95, detectedPatterns.length * 20 + institutionalPatterns.length * 15);
     
     return {
       detected: detectedPatterns.length > 0,
-      type: primaryType,
+      type: primaryType as 'stop_hunt' | 'liquidity_grab' | 'false_breakout',
       confidence,
       patterns: detectedPatterns,
       riskLevel,
