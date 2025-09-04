@@ -20,6 +20,7 @@ import { FibonacciAnalysis } from "@/components/FibonacciAnalysis";
 import { OrderFlowAnalysis } from "@/components/OrderFlowAnalysis";
 import LiquidityHeatmap from "@/components/LiquidityHeatmap";
 import MultiTimeframeAnalysis from "@/components/MultiTimeframeAnalysis";
+import LiveTradingSignals from "@/components/LiveTradingSignals";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -295,6 +296,13 @@ export default function Dashboard() {
           <div className="mt-6">
             <ErrorBoundary>
               <MultiTimeframeAnalysis />
+            </ErrorBoundary>
+          </div>
+
+          {/* Row 2.9: Live Trading Signals - Real-time Entry/Exit Signals */}
+          <div className="mt-6">
+            <ErrorBoundary>
+              <LiveTradingSignals className="w-full" />
             </ErrorBoundary>
           </div>
 

@@ -8,6 +8,7 @@ import { FibonacciService } from '../services/fibonacci.js';
 import { OrderFlowService } from '../services/orderFlow.js';
 import { LiquidationService } from '../services/liquidation.js';
 import { LiquidationHeatMapService } from '../services/liquidationHeatMap.js';
+import { tradingSignalsService } from '../services/tradingSignals.js';
 import { storage } from '../storage.js';
 import { 
   solCompleteDataSchema, 
@@ -557,6 +558,80 @@ export function registerTradingRoutes(app: Express): void {
         success: false,
         error: error instanceof Error ? error.message : 'Internal server error',
         timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Live Trading Signals - Real-time Entry/Exit Signals
+  app.get('/api/sol/trading-signals', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const timeframe = req.query.timeframe as string || '15m';
+      
+      const signalsData = await tradingSignalsService.generateLiveSignals(timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Trading signals generated successfully',
+        details: `GET /api/sol/trading-signals - ${responseTime}ms - ${signalsData.primary.signal} signal`,
+      });
+      
+      res.status(200).json({
+        success: true,
+        data: signalsData,
+        timestamp: new Date().toISOString(),
+        responseTime
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Trading signals error:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Trading signals generation failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate trading signals',
+        timestamp: new Date().toISOString(),
+        responseTime
+      });
+    }
+  });
+
+  // Signal History
+  app.get('/api/sol/signal-history', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const history = tradingSignalsService.getSignalHistory();
+      const responseTime = Date.now() - startTime;
+      
+      res.status(200).json({
+        success: true,
+        data: history,
+        timestamp: new Date().toISOString(),
+        responseTime
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Signal history error:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch signal history',
+        timestamp: new Date().toISOString(),
+        responseTime
       });
     }
   });
