@@ -319,13 +319,51 @@ export function registerTradingRoutes(app: Express): void {
       const timeframe = req.query.timeframe as string || '1H';
       const limit = parseInt(req.query.limit as string) || 100;
       
-      // Initialize confluence service
+      // Initialize services
       const confluenceService = new ConfluenceService();
+      const cvdService = new CVDService(okxService);
+      const technicalService = new TechnicalIndicatorsService();
+      const fibonacciService = new FibonacciService();
+      const orderFlowService = new OrderFlowService();
       
-      // Get required data for confluence analysis
+      // Fetch all required data for confluence analysis in parallel
+      const [
+        smcData,
+        candlesData,
+        tradesData,
+        volumeProfileData,
+        fundingData,
+        openInterestData,
+        orderBookData
+      ] = await Promise.all([
+        okxService.getSMCAnalysis('SOL-USDT', timeframe, limit),
+        okxService.getCandles('SOL-USDT', timeframe, limit),
+        okxService.getRecentTrades('SOL-USDT', 200),
+        okxService.getVolumeProfile('SOL-USDT'),
+        okxService.getFundingRate(),
+        okxService.getOpenInterest(),
+        okxService.getOrderBook('SOL-USDT')
+      ]);
+
+      // Generate analysis from services
+      const [cvdAnalysis, technicalAnalysis, fibonacciAnalysis, orderFlowAnalysis] = await Promise.all([
+        cvdService.analyzeCVD(candlesData, tradesData, timeframe),
+        technicalService.analyzeTechnicalIndicators(candlesData, timeframe),
+        fibonacciService.analyzeFibonacci(candlesData, timeframe),
+        orderFlowService.analyzeOrderFlow(tradesData, orderBookData, timeframe)
+      ]);
+      
+      // Calculate confluence score with real data
       const analysisData = await confluenceService.calculateConfluenceScore(
-        undefined, undefined, undefined, undefined,
-        undefined, undefined, undefined, undefined, timeframe
+        smcData,
+        cvdAnalysis,
+        volumeProfileData,
+        fundingData,
+        openInterestData,
+        technicalAnalysis,
+        fibonacciAnalysis,
+        orderFlowAnalysis,
+        timeframe
       );
       const responseTime = Date.now() - startTime;
       
