@@ -75,7 +75,9 @@ export default function LiquidityHeatmap() {
   useEffect(() => {
     const fetchHeatmapData = async () => {
       try {
-        setLoading(true);
+        // Only show loading on first load, not on refresh
+        if (!data) setLoading(true);
+        
         const response = await fetch('/api/premium/institutional-analytics');
         
         if (!response.ok) {
@@ -117,11 +119,11 @@ export default function LiquidityHeatmap() {
     fetchHeatmapData();
     fetchCurrentPrice();
 
-    // Auto-refresh every 10 seconds
+    // Auto-refresh every 30 seconds (reduced frequency)
     const interval = setInterval(() => {
       fetchHeatmapData();
       fetchCurrentPrice();
-    }, 10000);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, []);
@@ -313,8 +315,12 @@ export default function LiquidityHeatmap() {
             Liquidity Heatmap
             <Badge className="ml-2 bg-purple-600">VIP8+</Badge>
             <div className="ml-auto flex items-center space-x-2 text-sm">
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-gray-400">Real-time</span>
+              <div className={`w-2 h-2 rounded-full ${
+                data ? 'bg-green-400' : 'bg-gray-400'
+              } animate-pulse`} />
+              <span className="text-gray-400">
+                {data ? 'Live' : 'Connecting...'}
+              </span>
             </div>
           </CardTitle>
         </CardHeader>
@@ -349,8 +355,8 @@ export default function LiquidityHeatmap() {
                 </div>
               </div>
 
-              {/* Visual Heatmap */}
-              <div className="bg-gray-800/50 rounded-lg p-4 max-h-64 overflow-y-auto">
+              {/* Visual Heatmap - Fixed height to prevent layout shift */}
+              <div className="bg-gray-800/50 rounded-lg p-4 h-64 overflow-y-auto">
                 {renderHeatmapVisual(heatmapData)}
               </div>
 
@@ -365,7 +371,7 @@ export default function LiquidityHeatmap() {
         </CardContent>
       </Card>
 
-      {/* Whale Detection & Smart Money */}
+      {/* Whale Detection & Smart Money - Fixed heights */}
       <div className="grid grid-cols-2 gap-4">
         {/* Whale Detection */}
         <Card className="bg-gray-900 border-gray-800">
@@ -375,9 +381,9 @@ export default function LiquidityHeatmap() {
               Whale Activity
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="h-32">
             {!whaleData ? (
-              <div className="text-center py-4">
+              <div className="text-center py-8">
                 <span className="text-gray-400">No whale data</span>
               </div>
             ) : (
@@ -427,9 +433,9 @@ export default function LiquidityHeatmap() {
               Smart Money
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="h-32">
             {!smartMoneyData ? (
-              <div className="text-center py-4">
+              <div className="text-center py-8">
                 <span className="text-gray-400">No smart money data</span>
               </div>
             ) : (
