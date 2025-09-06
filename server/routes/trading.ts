@@ -603,7 +603,71 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
-  // Technical Indicators endpoint
+  // Dynamic Technical Indicators endpoint
+  app.get('/api/:pair/technical', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      const validation = validateAndFormatPair(pair);
+      
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: validation.error,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const timeframe = req.query.timeframe as string || '1H';
+      const limit = parseInt(req.query.limit as string) || 100;
+      
+      // Initialize technical indicators service
+      const technicalService = new TechnicalIndicatorsService();
+      
+      // Get candles data for technical analysis
+      const candles = await okxService.getCandles(validation.symbol, timeframe, limit);
+      
+      // Perform technical analysis
+      const technicalAnalysis = await technicalService.analyzeTechnicalIndicators(candles, timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Technical analysis request completed',
+        details: `GET /api/${pair}/technical - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+      });
+      
+      res.json({
+        success: true,
+        data: technicalAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/technical:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Technical analysis request failed',
+        details: `GET /api/${pair}/technical - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Legacy SOL Technical Indicators endpoint
   app.get('/api/sol/technical', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
@@ -615,7 +679,7 @@ export function registerTradingRoutes(app: Express): void {
       const technicalService = new TechnicalIndicatorsService();
       
       // Get candles data for technical analysis
-      const candles = await okxService.getCandles('SOL-USDT', timeframe, limit);
+      const candles = await okxService.getCandles('SOL-USDT-SWAP', timeframe, limit);
       
       // Perform technical analysis
       const technicalAnalysis = await technicalService.analyzeTechnicalIndicators(candles, timeframe);
