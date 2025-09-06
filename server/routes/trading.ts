@@ -23,7 +23,55 @@ import {
  * Includes complete market data, technical analysis, and advanced trading intelligence
  */
 export function registerTradingRoutes(app: Express): void {
-  // Main SOL complete data endpoint
+  // Dynamic trading pair complete data endpoint - supports any pair like SOL, BTC, ETH
+  app.get('/api/:pair/complete', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      const tradingSymbol = `${pair.toUpperCase()}-USDT-SWAP`;
+      const completeData = await okxService.getCompleteData(tradingSymbol);
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const validated = solCompleteDataSchema.parse(completeData);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'API request completed successfully',
+        details: `GET /api/${pair}/complete - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/complete:', error);
+      
+      // Log error
+      await storage.addLog({
+        level: 'error',
+        message: 'API request failed',
+        details: `GET /api/${pair}/complete - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Keep legacy SOL endpoint for backward compatibility  
   app.get('/api/sol/complete', async (req: Request, res: Response) => {
     const startTime = Date.now();
     

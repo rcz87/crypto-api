@@ -594,6 +594,72 @@ export class OKXService {
     }
   }
 
+  // Generic complete data method for any trading pair
+  async getCompleteData(symbol: string): Promise<SolCompleteData> {
+    try {
+      const results = await Promise.allSettled([
+        this.getTicker(symbol),
+        this.getCandles(symbol, '5m', 100),  // 5m: 8+ hours of data
+        this.getCandles(symbol, '15m', 96),  // 15m: 24+ hours of data
+        this.getCandles(symbol, '30m', 48),  // 30m: 24+ hours of data
+        this.getCandles(symbol, '1H', 72),   // 1H: 72+ hours (3+ days) of data
+        this.getCandles(symbol, '4H', 42),   // 4H: 168+ hours (7+ days) of data  
+        this.getCandles(symbol, '1D', 90),   // 1D: 90+ days (3+ months) of data
+        this.getCandles(symbol, '1W', 52),   // 1W: 52+ weeks (1+ year) of data
+        this.getOrderBook(symbol, 50), // Increased to 50 levels for maximum depth
+        this.getRecentTrades(symbol, 30), // Increased from 20 to 30
+      ]);
+
+      // Extract results with fallbacks for failed requests
+      const ticker = results[0].status === 'fulfilled' ? results[0].value : null;
+      const candles5m = results[1].status === 'fulfilled' ? results[1].value : [];
+      const candles15m = results[2].status === 'fulfilled' ? results[2].value : [];
+      const candles30m = results[3].status === 'fulfilled' ? results[3].value : [];
+      const candles1H = results[4].status === 'fulfilled' ? results[4].value : [];
+      const candles4H = results[5].status === 'fulfilled' ? results[5].value : [];
+      const candles1D = results[6].status === 'fulfilled' ? results[6].value : [];
+      const candles1W = results[7].status === 'fulfilled' ? results[7].value : [];
+      const orderBook = results[8].status === 'fulfilled' ? results[8].value : {
+        asks: [],
+        bids: [],
+        spread: '0.0000'
+      };
+      const recentTrades = results[9].status === 'fulfilled' ? results[9].value : [];
+
+      // Log any failed requests for debugging
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const endpoints = ['ticker', '5m', '15m', '30m', '1H', '4H', '1D', '1W', 'orderBook', 'trades'];
+          console.error(`Failed to fetch ${endpoints[index]} for ${symbol}:`, result.reason);
+        }
+      });
+
+      // Ensure we have at least ticker data
+      if (!ticker) {
+        throw new Error(`Critical: Failed to fetch ticker data for ${symbol}`);
+      }
+
+      return {
+        ticker,
+        candles: {
+          '5m': candles5m,   // Scalping & micro-movements
+          '15m': candles15m, // Short-term patterns
+          '30m': candles30m, // Intraday analysis
+          '1H': candles1H,   // Day trading
+          '4H': candles4H,   // Swing trading
+          '1D': candles1D,   // Position trading
+          '1W': candles1W,   // Long-term trends
+        },
+        orderBook,
+        recentTrades,
+        lastUpdate: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error(`Error fetching complete ${symbol} data:`, error);
+      throw new Error(`Failed to fetch complete ${symbol} data`);
+    }
+  }
+
   // SMC Analysis using historical candlestick data
   async getSMCAnalysis(symbol: string = 'SOL-USDT-SWAP', timeframe: string = '1H', limit: number = 100): Promise<SMCAnalysisData> {
     try {
