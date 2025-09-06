@@ -285,14 +285,73 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
-  // SMC Analysis endpoint
+  // Dynamic SMC Analysis endpoint
+  app.get('/api/:pair/smc', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      const validation = validateAndFormatPair(pair);
+      
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: validation.error,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const timeframe = req.query.timeframe as string || '1H';
+      const limit = parseInt(req.query.limit as string) || 100;
+      const smcAnalysis = await okxService.getSMCAnalysis(validation.symbol, timeframe, limit);
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const validated = smcAnalysisSchema.parse(smcAnalysis);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'SMC analysis request completed',
+        details: `GET /api/${pair}/smc - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/smc:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'SMC analysis request failed',
+        details: `GET /api/${pair}/smc - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Legacy SOL SMC endpoint
   app.get('/api/sol/smc', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
     try {
       const timeframe = req.query.timeframe as string || '1H';
       const limit = parseInt(req.query.limit as string) || 100;
-      const smcAnalysis = await okxService.getSMCAnalysis('SOL-USDT', timeframe, limit);
+      const smcAnalysis = await okxService.getSMCAnalysis('SOL-USDT-SWAP', timeframe, limit);
       const responseTime = Date.now() - startTime;
       
       // Validate the response data
