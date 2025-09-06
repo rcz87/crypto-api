@@ -45,8 +45,62 @@ export interface StochasticResult {
   timestamp: string;
 }
 
+export interface CCIResult {
+  value: number;
+  signal: 'overbought' | 'oversold' | 'neutral';
+  strength: 'weak' | 'moderate' | 'strong';
+  trend: 'bullish' | 'bearish' | 'neutral';
+  extremeLevel: boolean; // Beyond +/-200
+  timestamp: string;
+}
+
+export interface ParabolicSARResult {
+  sar: number;
+  trend: 'bullish' | 'bearish';
+  reversal: boolean;
+  acceleration: number;
+  signal: 'buy' | 'sell' | 'hold';
+  strength: 'weak' | 'moderate' | 'strong';
+  timestamp: string;
+}
+
+export interface IchimokuResult {
+  tenkanSen: number; // Conversion Line (9-period)
+  kijunSen: number; // Base Line (26-period)
+  senkouSpanA: number; // Leading Span A
+  senkouSpanB: number; // Leading Span B
+  chikouSpan: number; // Lagging Span
+  cloud: {
+    color: 'bullish' | 'bearish' | 'neutral';
+    thickness: number;
+    support: number;
+    resistance: number;
+  };
+  signal: 'strong_buy' | 'buy' | 'sell' | 'strong_sell' | 'neutral';
+  trend: 'bullish' | 'bearish' | 'neutral';
+  timestamp: string;
+}
+
+export interface OBVResult {
+  value: number;
+  trend: 'bullish' | 'bearish' | 'neutral';
+  divergence: boolean;
+  signal: 'accumulation' | 'distribution' | 'neutral';
+  strength: 'weak' | 'moderate' | 'strong';
+  timestamp: string;
+}
+
+export interface WilliamsRResult {
+  value: number;
+  signal: 'overbought' | 'oversold' | 'neutral';
+  strength: 'weak' | 'moderate' | 'strong';
+  momentum: 'increasing' | 'decreasing' | 'stable';
+  extremeLevel: boolean; // Beyond -80/+80
+  timestamp: string;
+}
+
 export interface TechnicalSignal {
-  type: 'rsi_oversold' | 'rsi_overbought' | 'ema_crossover' | 'ema_divergence' | 'momentum_shift' | 'macd_crossover' | 'bollinger_squeeze' | 'stochastic_signal';
+  type: 'rsi_oversold' | 'rsi_overbought' | 'ema_crossover' | 'ema_divergence' | 'momentum_shift' | 'macd_crossover' | 'bollinger_squeeze' | 'stochastic_signal' | 'cci_extreme' | 'parabolic_sar_reversal' | 'ichimoku_signal' | 'obv_divergence' | 'williams_r_extreme';
   strength: 'weak' | 'moderate' | 'strong';
   confidence: number;
   timestamp: string;
@@ -477,6 +531,372 @@ export class TechnicalIndicatorsService {
         squeeze,
         position,
         signal,
+        timestamp: candles[i].timestamp
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Calculate CCI (Commodity Channel Index)
+   */
+  calculateCCI(candles: CandleData[], period: number = 20): CCIResult[] {
+    if (candles.length < period) {
+      return [];
+    }
+
+    const results: CCIResult[] = [];
+    
+    for (let i = period - 1; i < candles.length; i++) {
+      const slice = candles.slice(i - period + 1, i + 1);
+      
+      // Calculate typical prices (HLC/3)
+      const typicalPrices = slice.map(candle => 
+        (parseFloat(candle.high) + parseFloat(candle.low) + parseFloat(candle.close)) / 3
+      );
+      
+      // Calculate simple moving average of typical prices
+      const sma = typicalPrices.reduce((sum, tp) => sum + tp, 0) / period;
+      
+      // Calculate mean deviation
+      const meanDeviation = typicalPrices.reduce((sum, tp) => sum + Math.abs(tp - sma), 0) / period;
+      
+      // Calculate CCI
+      const currentTypicalPrice = typicalPrices[typicalPrices.length - 1];
+      const cci = (currentTypicalPrice - sma) / (0.015 * meanDeviation);
+      
+      // Determine signals
+      let signal: 'overbought' | 'oversold' | 'neutral' = 'neutral';
+      let strength: 'weak' | 'moderate' | 'strong' = 'weak';
+      let trend: 'bullish' | 'bearish' | 'neutral' = 'neutral';
+      
+      if (cci > 100) {
+        signal = 'overbought';
+        strength = cci > 200 ? 'strong' : cci > 150 ? 'moderate' : 'weak';
+        trend = 'bullish';
+      } else if (cci < -100) {
+        signal = 'oversold';
+        strength = cci < -200 ? 'strong' : cci < -150 ? 'moderate' : 'weak';
+        trend = 'bearish';
+      } else if (cci > 0) {
+        trend = 'bullish';
+      } else if (cci < 0) {
+        trend = 'bearish';
+      }
+      
+      const extremeLevel = Math.abs(cci) > 200;
+      
+      results.push({
+        value: Math.round(cci * 100) / 100,
+        signal,
+        strength,
+        trend,
+        extremeLevel,
+        timestamp: candles[i].timestamp
+      });
+    }
+    
+    return results;
+  }
+
+  /**
+   * Calculate Parabolic SAR
+   */
+  calculateParabolicSAR(candles: CandleData[], initialAF: number = 0.02, maxAF: number = 0.2): ParabolicSARResult[] {
+    if (candles.length < 2) {
+      return [];
+    }
+
+    const results: ParabolicSARResult[] = [];
+    let isUpTrend = parseFloat(candles[1].close) > parseFloat(candles[0].close);
+    let sar = parseFloat(candles[0][isUpTrend ? 'low' : 'high']);
+    let extremePoint = parseFloat(candles[0][isUpTrend ? 'high' : 'low']);
+    let af = initialAF;
+
+    for (let i = 1; i < candles.length; i++) {
+      const high = parseFloat(candles[i].high);
+      const low = parseFloat(candles[i].low);
+      const close = parseFloat(candles[i].close);
+      
+      // Calculate next SAR
+      const nextSAR = sar + af * (extremePoint - sar);
+      
+      let reversal = false;
+      let signal: 'buy' | 'sell' | 'hold' = 'hold';
+      
+      if (isUpTrend) {
+        // Check for trend reversal
+        if (low <= nextSAR) {
+          isUpTrend = false;
+          sar = extremePoint;
+          extremePoint = low;
+          af = initialAF;
+          reversal = true;
+          signal = 'sell';
+        } else {
+          sar = nextSAR;
+          if (high > extremePoint) {
+            extremePoint = high;
+            af = Math.min(af + initialAF, maxAF);
+          }
+        }
+      } else {
+        // Check for trend reversal
+        if (high >= nextSAR) {
+          isUpTrend = true;
+          sar = extremePoint;
+          extremePoint = high;
+          af = initialAF;
+          reversal = true;
+          signal = 'buy';
+        } else {
+          sar = nextSAR;
+          if (low < extremePoint) {
+            extremePoint = low;
+            af = Math.min(af + initialAF, maxAF);
+          }
+        }
+      }
+      
+      // Determine strength based on distance and acceleration
+      let strength: 'weak' | 'moderate' | 'strong' = 'weak';
+      const distance = Math.abs(close - sar) / close;
+      
+      if (distance > 0.05) strength = 'strong';
+      else if (distance > 0.02) strength = 'moderate';
+      
+      results.push({
+        sar: Math.round(sar * 100) / 100,
+        trend: isUpTrend ? 'bullish' : 'bearish',
+        reversal,
+        acceleration: Math.round(af * 10000) / 10000,
+        signal,
+        strength,
+        timestamp: candles[i].timestamp
+      });
+    }
+    
+    return results;
+  }
+
+  /**
+   * Calculate Williams %R
+   */
+  calculateWilliamsR(candles: CandleData[], period: number = 14): WilliamsRResult[] {
+    if (candles.length < period) {
+      return [];
+    }
+
+    const results: WilliamsRResult[] = [];
+    
+    for (let i = period - 1; i < candles.length; i++) {
+      const slice = candles.slice(i - period + 1, i + 1);
+      const highs = slice.map(c => parseFloat(c.high));
+      const lows = slice.map(c => parseFloat(c.low));
+      const currentClose = parseFloat(candles[i].close);
+      
+      const highestHigh = Math.max(...highs);
+      const lowestLow = Math.min(...lows);
+      
+      // Williams %R formula: (Highest High - Close) / (Highest High - Lowest Low) * -100
+      const williamsR = ((highestHigh - currentClose) / (highestHigh - lowestLow)) * -100;
+      
+      // Determine signals
+      let signal: 'overbought' | 'oversold' | 'neutral' = 'neutral';
+      let strength: 'weak' | 'moderate' | 'strong' = 'weak';
+      
+      if (williamsR > -20) {
+        signal = 'overbought';
+        strength = williamsR > -10 ? 'strong' : williamsR > -15 ? 'moderate' : 'weak';
+      } else if (williamsR < -80) {
+        signal = 'oversold';
+        strength = williamsR < -90 ? 'strong' : williamsR < -85 ? 'moderate' : 'weak';
+      }
+      
+      // Determine momentum
+      let momentum: 'increasing' | 'decreasing' | 'stable' = 'stable';
+      if (results.length > 0) {
+        const prevValue = results[results.length - 1].value;
+        if (williamsR > prevValue + 2) momentum = 'increasing';
+        else if (williamsR < prevValue - 2) momentum = 'decreasing';
+      }
+      
+      const extremeLevel = williamsR > -10 || williamsR < -90;
+      
+      results.push({
+        value: Math.round(williamsR * 100) / 100,
+        signal,
+        strength,
+        momentum,
+        extremeLevel,
+        timestamp: candles[i].timestamp
+      });
+    }
+    
+    return results;
+  }
+
+  /**
+   * Calculate OBV (On Balance Volume)
+   */
+  calculateOBV(candles: CandleData[]): OBVResult[] {
+    if (candles.length < 2) {
+      return [];
+    }
+
+    const results: OBVResult[] = [];
+    let obvValue = 0;
+    
+    for (let i = 1; i < candles.length; i++) {
+      const currentClose = parseFloat(candles[i].close);
+      const prevClose = parseFloat(candles[i - 1].close);
+      const volume = parseFloat(candles[i].volume || '1'); // Default volume if not available
+      
+      // OBV calculation
+      if (currentClose > prevClose) {
+        obvValue += volume;
+      } else if (currentClose < prevClose) {
+        obvValue -= volume;
+      }
+      // If prices are equal, OBV remains unchanged
+      
+      // Determine trend
+      let trend: 'bullish' | 'bearish' | 'neutral' = 'neutral';
+      let signal: 'accumulation' | 'distribution' | 'neutral' = 'neutral';
+      let strength: 'weak' | 'moderate' | 'strong' = 'weak';
+      
+      if (results.length > 5) {
+        const recentOBV = results.slice(-5).map(r => r.value);
+        const obvTrend = obvValue - recentOBV[0];
+        const priceChange = currentClose - parseFloat(candles[i - 5].close);
+        
+        // Determine trend and signals
+        if (obvTrend > 0) {
+          trend = 'bullish';
+          signal = 'accumulation';
+          strength = obvTrend > recentOBV[0] * 0.1 ? 'strong' : obvTrend > recentOBV[0] * 0.05 ? 'moderate' : 'weak';
+        } else if (obvTrend < 0) {
+          trend = 'bearish';
+          signal = 'distribution';
+          strength = Math.abs(obvTrend) > Math.abs(recentOBV[0]) * 0.1 ? 'strong' : Math.abs(obvTrend) > Math.abs(recentOBV[0]) * 0.05 ? 'moderate' : 'weak';
+        }
+        
+        // Check for divergence (simplified)
+        const divergence = (obvTrend > 0 && priceChange < 0) || (obvTrend < 0 && priceChange > 0);
+        
+        results.push({
+          value: Math.round(obvValue),
+          trend,
+          divergence,
+          signal,
+          strength,
+          timestamp: candles[i].timestamp
+        });
+      } else {
+        results.push({
+          value: Math.round(obvValue),
+          trend,
+          divergence: false,
+          signal,
+          strength,
+          timestamp: candles[i].timestamp
+        });
+      }
+    }
+    
+    return results;
+  }
+
+  /**
+   * Calculate Ichimoku Cloud
+   */
+  calculateIchimoku(candles: CandleData[], conversionPeriod: number = 9, basePeriod: number = 26, spanBPeriod: number = 52): IchimokuResult[] {
+    if (candles.length < Math.max(conversionPeriod, basePeriod, spanBPeriod) + 26) {
+      return [];
+    }
+
+    const results: IchimokuResult[] = [];
+    
+    for (let i = spanBPeriod - 1; i < candles.length; i++) {
+      // Tenkan-sen (Conversion Line): (9-period high + 9-period low) / 2
+      const conversionSlice = candles.slice(i - conversionPeriod + 1, i + 1);
+      const conversionHigh = Math.max(...conversionSlice.map(c => parseFloat(c.high)));
+      const conversionLow = Math.min(...conversionSlice.map(c => parseFloat(c.low)));
+      const tenkanSen = (conversionHigh + conversionLow) / 2;
+
+      // Kijun-sen (Base Line): (26-period high + 26-period low) / 2
+      const baseSlice = candles.slice(i - basePeriod + 1, i + 1);
+      const baseHigh = Math.max(...baseSlice.map(c => parseFloat(c.high)));
+      const baseLow = Math.min(...baseSlice.map(c => parseFloat(c.low)));
+      const kijunSen = (baseHigh + baseLow) / 2;
+
+      // Senkou Span A (Leading Span A): (Tenkan-sen + Kijun-sen) / 2 projected 26 periods ahead
+      const senkouSpanA = (tenkanSen + kijunSen) / 2;
+
+      // Senkou Span B (Leading Span B): (52-period high + 52-period low) / 2 projected 26 periods ahead
+      const spanBSlice = candles.slice(i - spanBPeriod + 1, i + 1);
+      const spanBHigh = Math.max(...spanBSlice.map(c => parseFloat(c.high)));
+      const spanBLow = Math.min(...spanBSlice.map(c => parseFloat(c.low)));
+      const senkouSpanB = (spanBHigh + spanBLow) / 2;
+
+      // Chikou Span (Lagging Span): Current close projected 26 periods back
+      const chikouIndex = i - 26;
+      const chikouSpan = chikouIndex >= 0 ? parseFloat(candles[i].close) : parseFloat(candles[i].close);
+
+      // Cloud analysis
+      const cloudTop = Math.max(senkouSpanA, senkouSpanB);
+      const cloudBottom = Math.min(senkouSpanA, senkouSpanB);
+      const cloudThickness = Math.abs(senkouSpanA - senkouSpanB);
+      const cloudColor: 'bullish' | 'bearish' | 'neutral' = 
+        senkouSpanA > senkouSpanB ? 'bullish' : senkouSpanA < senkouSpanB ? 'bearish' : 'neutral';
+
+      const currentPrice = parseFloat(candles[i].close);
+
+      // Determine signals based on Ichimoku conditions
+      let signal: 'strong_buy' | 'buy' | 'sell' | 'strong_sell' | 'neutral' = 'neutral';
+      let trend: 'bullish' | 'bearish' | 'neutral' = 'neutral';
+
+      // Price position relative to cloud
+      const priceAboveCloud = currentPrice > cloudTop;
+      const priceBelowCloud = currentPrice < cloudBottom;
+      const priceInCloud = !priceAboveCloud && !priceBelowCloud;
+
+      // TK Cross (Tenkan-Kijun Cross)
+      const tkBullish = tenkanSen > kijunSen;
+      const tkBearish = tenkanSen < kijunSen;
+
+      // Chikou Span analysis
+      const chikouAbovePrice = chikouIndex >= 0 ? chikouSpan > parseFloat(candles[chikouIndex].close) : false;
+      const chikouBelowPrice = chikouIndex >= 0 ? chikouSpan < parseFloat(candles[chikouIndex].close) : false;
+
+      // Signal determination (simplified Ichimoku strategy)
+      if (priceAboveCloud && tkBullish && cloudColor === 'bullish') {
+        signal = chikouAbovePrice ? 'strong_buy' : 'buy';
+        trend = 'bullish';
+      } else if (priceBelowCloud && tkBearish && cloudColor === 'bearish') {
+        signal = chikouBelowPrice ? 'strong_sell' : 'sell';
+        trend = 'bearish';
+      } else if (priceAboveCloud) {
+        trend = 'bullish';
+      } else if (priceBelowCloud) {
+        trend = 'bearish';
+      }
+
+      results.push({
+        tenkanSen: Math.round(tenkanSen * 100) / 100,
+        kijunSen: Math.round(kijunSen * 100) / 100,
+        senkouSpanA: Math.round(senkouSpanA * 100) / 100,
+        senkouSpanB: Math.round(senkouSpanB * 100) / 100,
+        chikouSpan: Math.round(chikouSpan * 100) / 100,
+        cloud: {
+          color: cloudColor,
+          thickness: Math.round(cloudThickness * 100) / 100,
+          support: Math.round(cloudBottom * 100) / 100,
+          resistance: Math.round(cloudTop * 100) / 100
+        },
+        signal,
+        trend,
         timestamp: candles[i].timestamp
       });
     }
