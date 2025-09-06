@@ -1,5 +1,7 @@
 import WebSocket from 'ws';
 import { metricsCollector } from './metrics';
+import { okxService } from '../services/okx.js';
+import { validateAndFormatPair } from './pairValidator.js';
 
 interface VolatilityMetrics {
   priceChangeBps: number;

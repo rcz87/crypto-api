@@ -17,12 +17,41 @@ import {
   volumeProfileSchema, 
   smcAnalysisSchema
 } from '../../shared/schema.js';
+import { validateAndFormatPair, getSupportedPairs } from '../utils/pairValidator.js';
 
 /**
- * Register all SOL trading and analysis routes
+ * Register all trading and analysis routes with multi-pair support
  * Includes complete market data, technical analysis, and advanced trading intelligence
  */
 export function registerTradingRoutes(app: Express): void {
+  // Get supported trading pairs endpoint
+  app.get('/api/pairs/supported', async (req: Request, res: Response) => {
+    try {
+      const supportedPairs = getSupportedPairs();
+      
+      res.json({
+        success: true,
+        data: {
+          pairs: supportedPairs,
+          count: supportedPairs.length,
+          format: 'BASE-USDT-SWAP',
+          examples: [
+            'BTC-USDT-SWAP',
+            'ETH-USDT-SWAP', 
+            'SOL-USDT-SWAP',
+            'ADA-USDT-SWAP'
+          ]
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get supported pairs',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
   // Dynamic trading pair complete data endpoint - supports any pair like SOL, BTC, ETH
   app.get('/api/:pair/complete', async (req: Request, res: Response) => {
     const startTime = Date.now();
