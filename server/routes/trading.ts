@@ -83,7 +83,8 @@ export function registerTradingRoutes(app: Express): void {
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
-      console.error('Error in /api/sol/complete:', error);
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/complete:`, error);
       
       // Log error
       await storage.addLog({
