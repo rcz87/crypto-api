@@ -1,0 +1,361 @@
+{
+  "info": {
+    "name": "CryptoSat Intelligence v4 Hardened API",
+    "_postman_id": "f2d9b5f6-8b02-4d7c-9f78-20250906150809",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://guardiansofthegreentoken.com"
+    },
+    {
+      "key": "apiKey",
+      "value": "YOUR_API_KEY_HERE"
+    },
+    {
+      "key": "pair",
+      "value": "BTC"
+    }
+  ],
+  "item": [
+    {
+      "name": "Get Supported Pairs",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/pairs/supported",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pairs",
+            "supported"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Complete Analysis",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/{{pair}}/complete",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "{{pair}}",
+            "complete"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "SMC Analysis",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/{{pair}}/smc",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "{{pair}}",
+            "smc"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "CVD Analysis",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/{{pair}}/cvd",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "{{pair}}",
+            "cvd"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Technical Indicators",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/{{pair}}/technical",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "{{pair}}",
+            "technical"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Funding (current/historical)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/{{pair}}/funding",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "{{pair}}",
+            "funding"
+          ],
+          "query": [
+            {
+              "key": "start",
+              "value": "2025-09-06T00:00:00Z"
+            },
+            {
+              "key": "end",
+              "value": "2025-09-06T23:59:59Z"
+            },
+            {
+              "key": "limit",
+              "value": "100"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Open Interest (current/historical)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/{{pair}}/open-interest",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "{{pair}}",
+            "open-interest"
+          ],
+          "query": [
+            {
+              "key": "start",
+              "value": "2025-09-06T00:00:00Z"
+            },
+            {
+              "key": "end",
+              "value": "2025-09-06T23:59:59Z"
+            },
+            {
+              "key": "limit",
+              "value": "100"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "SOL Complete (Legacy)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/sol/complete",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "sol",
+            "complete"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "SOL SMC (Legacy)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/sol/smc",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "sol",
+            "smc"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "SOL CVD (Legacy)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/sol/cvd",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "sol",
+            "cvd"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "SOL Funding (Legacy)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/sol/funding",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "sol",
+            "funding"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "SOL OI (Legacy)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/sol/open-interest",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "sol",
+            "open-interest"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
