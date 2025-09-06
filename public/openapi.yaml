@@ -52,10 +52,10 @@ tags:
   - name: Legacy SOL Endpoints
     description: Backward compatible SOL-specific endpoints
 
-# Global Security (optional - currently public API)
+# Global Security
 security:
-  - {}  # Public API - no auth required
-  # - ApiKeyAuth: []  # Uncomment to require API key globally
+  - ApiKeyAuth: []
+  # - BearerAuth: []  # Uncomment for private routes
 
 paths:
   /api/pairs/supported:
@@ -71,6 +71,7 @@ paths:
             RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
             RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
             RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -110,6 +111,7 @@ paths:
             RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
             RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
             RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -133,6 +135,7 @@ paths:
             RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
             RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
             RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -156,6 +159,7 @@ paths:
             RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
             RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
             RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -179,6 +183,7 @@ paths:
             RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
             RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
             RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -195,8 +200,8 @@ paths:
       tags: [Multi-Pair Analysis]
       parameters:
         - $ref: '#/components/parameters/PairParam'
-        - $ref: '#/components/parameters/StartParam'
-        - $ref: '#/components/parameters/EndParam'
+        - $ref: '#/components/parameters/TimeStartParam'
+        - $ref: '#/components/parameters/TimeEndParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -206,6 +211,7 @@ paths:
             RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
             RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
             RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -222,8 +228,8 @@ paths:
       tags: [Multi-Pair Analysis]
       parameters:
         - $ref: '#/components/parameters/PairParam'
-        - $ref: '#/components/parameters/StartParam'
-        - $ref: '#/components/parameters/EndParam'
+        - $ref: '#/components/parameters/TimeStartParam'
+        - $ref: '#/components/parameters/TimeEndParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -233,6 +239,7 @@ paths:
             RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
             RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
             RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -297,8 +304,8 @@ paths:
       description: Legacy SOL-specific funding rates data
       tags: [Legacy SOL Endpoints]
       parameters:
-        - $ref: '#/components/parameters/StartParam'
-        - $ref: '#/components/parameters/EndParam'
+        - $ref: '#/components/parameters/TimeStartParam'
+        - $ref: '#/components/parameters/TimeEndParam'
         - $ref: '#/components/parameters/LimitParam'
       responses:
         '200':
@@ -317,8 +324,8 @@ paths:
       description: Legacy SOL-specific open interest data
       tags: [Legacy SOL Endpoints]
       parameters:
-        - $ref: '#/components/parameters/StartParam'
-        - $ref: '#/components/parameters/EndParam'
+        - $ref: '#/components/parameters/TimeStartParam'
+        - $ref: '#/components/parameters/TimeEndParam'
         - $ref: '#/components/parameters/LimitParam'
       responses:
         '200':
@@ -397,7 +404,7 @@ components:
       description: Trading pair symbol (e.g., BTC, ETH, SOL)
       example: "BTC"
     
-    StartParam:
+    TimeStartParam:
       name: start
       in: query
       required: false
@@ -407,7 +414,7 @@ components:
       description: Start time for historical data (ISO 8601 format)
       example: "2025-09-01T00:00:00Z"
     
-    EndParam:
+    TimeEndParam:
       name: end
       in: query
       required: false
@@ -455,6 +462,11 @@ components:
       schema:
         type: integer
         example: 1757170800
+    RateLimit-Policy:
+      description: Rate limit policy description
+      schema:
+        type: string
+        example: "100 requests per minute per IP"
 
   # Responses
   responses:
