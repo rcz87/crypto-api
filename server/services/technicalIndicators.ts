@@ -16,8 +16,37 @@ export interface EMAResult {
   slope: number;
 }
 
+export interface MACDResult {
+  macd: number;
+  signal: number;
+  histogram: number;
+  trend: 'bullish' | 'bearish' | 'neutral';
+  crossover: 'bullish' | 'bearish' | 'neutral';
+  timestamp: string;
+}
+
+export interface BollingerBandsResult {
+  upper: number;
+  middle: number; // SMA
+  lower: number;
+  bandwidth: number;
+  squeeze: boolean;
+  position: 'above' | 'below' | 'inside';
+  signal: 'overbought' | 'oversold' | 'neutral';
+  timestamp: string;
+}
+
+export interface StochasticResult {
+  k: number; // %K (fast stochastic)
+  d: number; // %D (slow stochastic)
+  signal: 'overbought' | 'oversold' | 'neutral';
+  crossover: 'bullish' | 'bearish' | 'neutral';
+  strength: 'weak' | 'moderate' | 'strong';
+  timestamp: string;
+}
+
 export interface TechnicalSignal {
-  type: 'rsi_oversold' | 'rsi_overbought' | 'ema_crossover' | 'ema_divergence' | 'momentum_shift';
+  type: 'rsi_oversold' | 'rsi_overbought' | 'ema_crossover' | 'ema_divergence' | 'momentum_shift' | 'macd_crossover' | 'bollinger_squeeze' | 'stochastic_signal';
   strength: 'weak' | 'moderate' | 'strong';
   confidence: number;
   timestamp: string;
@@ -60,6 +89,60 @@ export interface TechnicalIndicatorsAnalysis {
       duration: string;
       consistency: number; // 0-100
     };
+  };
+
+  // MACD Analysis
+  macd: {
+    current: MACDResult;
+    signal: 'bullish' | 'bearish' | 'neutral';
+    strength: 'weak' | 'moderate' | 'strong';
+    crossover: {
+      detected: boolean;
+      type: 'bullish' | 'bearish' | 'neutral';
+      strength: 'weak' | 'moderate' | 'strong';
+      timestamp: string;
+    };
+    divergence: {
+      detected: boolean;
+      type?: 'bullish' | 'bearish';
+    };
+    historical: MACDResult[];
+  };
+
+  // Bollinger Bands Analysis
+  bollingerBands: {
+    current: BollingerBandsResult;
+    squeeze: {
+      active: boolean;
+      duration: number;
+      strength: 'weak' | 'moderate' | 'strong';
+    };
+    breakout: {
+      detected: boolean;
+      direction: 'bullish' | 'bearish' | 'neutral';
+      strength: 'weak' | 'moderate' | 'strong';
+    };
+    meanReversion: {
+      signal: 'buy' | 'sell' | 'neutral';
+      confidence: number;
+    };
+    historical: BollingerBandsResult[];
+  };
+
+  // Stochastic Analysis
+  stochastic: {
+    current: StochasticResult;
+    signal: 'overbought' | 'oversold' | 'neutral';
+    crossover: {
+      detected: boolean;
+      type: 'bullish' | 'bearish' | 'neutral';
+      strength: 'weak' | 'moderate' | 'strong';
+    };
+    divergence: {
+      detected: boolean;
+      type?: 'bullish' | 'bearish';
+    };
+    historical: StochasticResult[];
   };
   
   // Combined Signals
@@ -266,6 +349,211 @@ export class TechnicalIndicatorsService {
   }
   
   /**
+   * Calculate MACD (Moving Average Convergence Divergence)
+   */
+  calculateMACD(candles: CandleData[], fastPeriod: number = 12, slowPeriod: number = 26, signalPeriod: number = 9): MACDResult[] {
+    if (candles.length < slowPeriod + signalPeriod) {
+      return [];
+    }
+
+    const fastEMA = this.calculateEMA(candles, fastPeriod);
+    const slowEMA = this.calculateEMA(candles, slowPeriod);
+    
+    if (fastEMA.length === 0 || slowEMA.length === 0) {
+      return [];
+    }
+
+    // Calculate MACD line (fast EMA - slow EMA)
+    const macdLine: { value: number; timestamp: string }[] = [];
+    const startIndex = Math.max(0, fastEMA.length - slowEMA.length);
+    
+    for (let i = 0; i < slowEMA.length; i++) {
+      const fastIndex = startIndex + i;
+      if (fastIndex < fastEMA.length) {
+        macdLine.push({
+          value: fastEMA[fastIndex].value - slowEMA[i].value,
+          timestamp: slowEMA[i].timestamp
+        });
+      }
+    }
+
+    // Calculate Signal line (EMA of MACD line)
+    const signalLine: number[] = [];
+    if (macdLine.length >= signalPeriod) {
+      const multiplier = 2 / (signalPeriod + 1);
+      let ema = macdLine.slice(0, signalPeriod).reduce((sum, val) => sum + val.value, 0) / signalPeriod;
+      
+      for (let i = signalPeriod - 1; i < macdLine.length; i++) {
+        if (i > signalPeriod - 1) {
+          ema = (macdLine[i].value * multiplier) + (ema * (1 - multiplier));
+        }
+        signalLine.push(ema);
+      }
+    }
+
+    const results: MACDResult[] = [];
+    const signalStartIndex = macdLine.length - signalLine.length;
+
+    for (let i = 0; i < signalLine.length; i++) {
+      const macdIndex = signalStartIndex + i;
+      const macdValue = macdLine[macdIndex].value;
+      const signalValue = signalLine[i];
+      const histogram = macdValue - signalValue;
+
+      // Determine trend and crossover
+      let trend: 'bullish' | 'bearish' | 'neutral' = 'neutral';
+      let crossover: 'bullish' | 'bearish' | 'neutral' = 'neutral';
+
+      if (histogram > 0) trend = 'bullish';
+      else if (histogram < 0) trend = 'bearish';
+
+      // Detect crossover
+      if (i > 0) {
+        const prevMacd = macdLine[signalStartIndex + i - 1].value;
+        const prevSignal = signalLine[i - 1];
+        const prevHistogram = prevMacd - prevSignal;
+
+        if (histogram > 0 && prevHistogram <= 0) crossover = 'bullish';
+        else if (histogram < 0 && prevHistogram >= 0) crossover = 'bearish';
+      }
+
+      results.push({
+        macd: Math.round(macdValue * 10000) / 10000,
+        signal: Math.round(signalValue * 10000) / 10000,
+        histogram: Math.round(histogram * 10000) / 10000,
+        trend,
+        crossover,
+        timestamp: macdLine[macdIndex].timestamp
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Calculate Bollinger Bands
+   */
+  calculateBollingerBands(candles: CandleData[], period: number = 20, standardDeviations: number = 2): BollingerBandsResult[] {
+    if (candles.length < period) {
+      return [];
+    }
+
+    const closes = candles.map(c => parseFloat(c.close));
+    const results: BollingerBandsResult[] = [];
+
+    for (let i = period - 1; i < candles.length; i++) {
+      const slice = closes.slice(i - period + 1, i + 1);
+      const sma = slice.reduce((sum, close) => sum + close, 0) / period;
+      
+      // Calculate standard deviation
+      const variance = slice.reduce((sum, close) => sum + Math.pow(close - sma, 2), 0) / period;
+      const stdDev = Math.sqrt(variance);
+      
+      const upperBand = sma + (stdDev * standardDeviations);
+      const lowerBand = sma - (stdDev * standardDeviations);
+      const bandwidth = ((upperBand - lowerBand) / sma) * 100;
+      const currentPrice = closes[i];
+
+      // Determine position and signals
+      let position: 'above' | 'below' | 'inside' = 'inside';
+      let signal: 'overbought' | 'oversold' | 'neutral' = 'neutral';
+      
+      if (currentPrice > upperBand) {
+        position = 'above';
+        signal = 'overbought';
+      } else if (currentPrice < lowerBand) {
+        position = 'below';
+        signal = 'oversold';
+      }
+
+      // Detect squeeze (narrow bands)
+      const squeeze = bandwidth < 10; // Threshold for squeeze
+
+      results.push({
+        upper: Math.round(upperBand * 100) / 100,
+        middle: Math.round(sma * 100) / 100,
+        lower: Math.round(lowerBand * 100) / 100,
+        bandwidth: Math.round(bandwidth * 100) / 100,
+        squeeze,
+        position,
+        signal,
+        timestamp: candles[i].timestamp
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Calculate Stochastic Oscillator
+   */
+  calculateStochastic(candles: CandleData[], kPeriod: number = 14, dPeriod: number = 3): StochasticResult[] {
+    if (candles.length < kPeriod + dPeriod) {
+      return [];
+    }
+
+    const highs = candles.map(c => parseFloat(c.high));
+    const lows = candles.map(c => parseFloat(c.low));
+    const closes = candles.map(c => parseFloat(c.close));
+    
+    // Calculate %K values
+    const kValues: number[] = [];
+    
+    for (let i = kPeriod - 1; i < candles.length; i++) {
+      const highestHigh = Math.max(...highs.slice(i - kPeriod + 1, i + 1));
+      const lowestLow = Math.min(...lows.slice(i - kPeriod + 1, i + 1));
+      const currentClose = closes[i];
+      
+      const k = ((currentClose - lowestLow) / (highestHigh - lowestLow)) * 100;
+      kValues.push(k);
+    }
+
+    // Calculate %D values (SMA of %K)
+    const results: StochasticResult[] = [];
+    
+    for (let i = dPeriod - 1; i < kValues.length; i++) {
+      const kSlice = kValues.slice(i - dPeriod + 1, i + 1);
+      const d = kSlice.reduce((sum, k) => sum + k, 0) / dPeriod;
+      const k = kValues[i];
+
+      // Determine signals
+      let signal: 'overbought' | 'oversold' | 'neutral' = 'neutral';
+      let strength: 'weak' | 'moderate' | 'strong' = 'weak';
+      
+      if (k > 80) {
+        signal = 'overbought';
+        strength = k > 90 ? 'strong' : k > 85 ? 'moderate' : 'weak';
+      } else if (k < 20) {
+        signal = 'oversold';
+        strength = k < 10 ? 'strong' : k < 15 ? 'moderate' : 'weak';
+      }
+
+      // Detect crossover
+      let crossover: 'bullish' | 'bearish' | 'neutral' = 'neutral';
+      if (i > 0) {
+        const prevK = kValues[i - 1];
+        const prevDSlice = kValues.slice(i - dPeriod, i);
+        const prevD = prevDSlice.reduce((sum, k) => sum + k, 0) / dPeriod;
+
+        if (k > d && prevK <= prevD) crossover = 'bullish';
+        else if (k < d && prevK >= prevD) crossover = 'bearish';
+      }
+
+      const candleIndex = kPeriod - 1 + i;
+      results.push({
+        k: Math.round(k * 100) / 100,
+        d: Math.round(d * 100) / 100,
+        signal,
+        crossover,
+        strength,
+        timestamp: candles[candleIndex].timestamp
+      });
+    }
+
+    return results;
+  }
+
+  /**
    * Detect RSI divergences
    */
   detectRSIDivergence(rsiData: RSIResult[], priceData: CandleData[]): void {
@@ -375,6 +663,16 @@ export class TechnicalIndicatorsService {
     
     // Detect crossover
     const crossover = this.detectEMACrossover(fastEMA, slowEMA);
+
+    // Calculate new indicators
+    const macdResults = this.calculateMACD(candles, 12, 26, 9);
+    const currentMACD = macdResults[macdResults.length - 1];
+    
+    const bollingerResults = this.calculateBollingerBands(candles, 20, 2);
+    const currentBollinger = bollingerResults[bollingerResults.length - 1];
+    
+    const stochasticResults = this.calculateStochastic(candles, 14, 3);
+    const currentStochastic = stochasticResults[stochasticResults.length - 1];
     
     // Generate signals
     const emaData = {
@@ -386,14 +684,23 @@ export class TechnicalIndicatorsService {
     
     const signals = this.generateSignals(rsiResults, { crossover }, timeframe);
     
-    // Calculate momentum and confluence
+    // Calculate momentum and confluence with new indicators
     const rsiContribution = currentRSI ? 
       (currentRSI.signal === 'oversold' ? 80 : currentRSI.signal === 'overbought' ? 20 : 50) : 50;
     
     const emaContribution = crossover.status === 'golden_cross' ? 80 : 
                            crossover.status === 'death_cross' ? 20 : 50;
+
+    const macdContribution = currentMACD ? 
+      (currentMACD.trend === 'bullish' ? 70 : currentMACD.trend === 'bearish' ? 30 : 50) : 50;
+
+    const bollingerContribution = currentBollinger ?
+      (currentBollinger.signal === 'oversold' ? 75 : currentBollinger.signal === 'overbought' ? 25 : 50) : 50;
+
+    const stochasticContribution = currentStochastic ?
+      (currentStochastic.signal === 'oversold' ? 75 : currentStochastic.signal === 'overbought' ? 25 : 50) : 50;
     
-    const confluenceScore = Math.round((rsiContribution + emaContribution) / 2);
+    const confluenceScore = Math.round((rsiContribution + emaContribution + macdContribution + bollingerContribution + stochasticContribution) / 5);
     
     let overallMomentum: 'bullish' | 'bearish' | 'neutral' = 'neutral';
     let momentumStrength: 'weak' | 'moderate' | 'strong' = 'weak';
@@ -465,6 +772,77 @@ export class TechnicalIndicatorsService {
           duration: '1-3 periods', // Simplified
           consistency: Math.round(Math.abs(emaData.fast.slope) * 10)
         }
+      },
+      macd: {
+        current: currentMACD || {
+          macd: 0,
+          signal: 0,
+          histogram: 0,
+          trend: 'neutral' as const,
+          crossover: 'neutral' as const,
+          timestamp: new Date().toISOString()
+        },
+        signal: currentMACD?.trend || 'neutral',
+        strength: currentMACD ? (Math.abs(currentMACD.histogram) > 0.5 ? 'strong' : Math.abs(currentMACD.histogram) > 0.2 ? 'moderate' : 'weak') : 'weak',
+        crossover: {
+          detected: currentMACD?.crossover !== 'neutral',
+          type: currentMACD?.crossover || 'neutral',
+          strength: currentMACD?.crossover !== 'neutral' ? 'moderate' : 'weak',
+          timestamp: currentMACD?.timestamp || new Date().toISOString()
+        },
+        divergence: {
+          detected: false, // Will implement divergence detection later
+          type: undefined
+        },
+        historical: macdResults.slice(-20)
+      },
+      bollingerBands: {
+        current: currentBollinger || {
+          upper: 0,
+          middle: 0,
+          lower: 0,
+          bandwidth: 0,
+          squeeze: false,
+          position: 'inside' as const,
+          signal: 'neutral' as const,
+          timestamp: new Date().toISOString()
+        },
+        squeeze: {
+          active: currentBollinger?.squeeze || false,
+          duration: 1, // Simplified
+          strength: currentBollinger?.squeeze ? 'moderate' : 'weak'
+        },
+        breakout: {
+          detected: currentBollinger?.position !== 'inside',
+          direction: currentBollinger?.position === 'above' ? 'bullish' : currentBollinger?.position === 'below' ? 'bearish' : 'neutral',
+          strength: currentBollinger?.signal !== 'neutral' ? 'moderate' : 'weak'
+        },
+        meanReversion: {
+          signal: currentBollinger?.signal === 'oversold' ? 'buy' : currentBollinger?.signal === 'overbought' ? 'sell' : 'neutral',
+          confidence: currentBollinger?.signal !== 'neutral' ? 75 : 50
+        },
+        historical: bollingerResults.slice(-20)
+      },
+      stochastic: {
+        current: currentStochastic || {
+          k: 50,
+          d: 50,
+          signal: 'neutral' as const,
+          crossover: 'neutral' as const,
+          strength: 'weak' as const,
+          timestamp: new Date().toISOString()
+        },
+        signal: currentStochastic?.signal || 'neutral',
+        crossover: {
+          detected: currentStochastic?.crossover !== 'neutral',
+          type: currentStochastic?.crossover || 'neutral',
+          strength: currentStochastic?.strength || 'weak'
+        },
+        divergence: {
+          detected: false, // Will implement divergence detection later
+          type: undefined
+        },
+        historical: stochasticResults.slice(-20)
       },
       signals,
       momentum: {
