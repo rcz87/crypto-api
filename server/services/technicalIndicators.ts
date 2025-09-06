@@ -198,6 +198,90 @@ export interface TechnicalIndicatorsAnalysis {
     };
     historical: StochasticResult[];
   };
+
+  // Enhanced Indicators (Phase 1 Roadmap)
+  
+  // CCI Analysis  
+  cci: {
+    current: CCIResult;
+    signal: 'overbought' | 'oversold' | 'neutral';
+    extremeLevel: {
+      active: boolean;
+      type: 'extreme_overbought' | 'extreme_oversold' | 'normal';
+      strength: 'weak' | 'moderate' | 'strong';
+    };
+    trend: {
+      direction: 'bullish' | 'bearish' | 'neutral';
+      consistency: number;
+    };
+    historical: CCIResult[];
+  };
+
+  // Parabolic SAR Analysis
+  parabolicSAR: {
+    current: ParabolicSARResult;
+    trend: 'bullish' | 'bearish';
+    reversal: {
+      detected: boolean;
+      strength: 'weak' | 'moderate' | 'strong';
+      confidence: number;
+    };
+    acceleration: {
+      current: number;
+      trend: 'increasing' | 'decreasing' | 'stable';
+    };
+    historical: ParabolicSARResult[];
+  };
+
+  // Ichimoku Cloud Analysis
+  ichimoku: {
+    current: IchimokuResult;
+    cloud: {
+      position: 'above' | 'below' | 'inside';
+      color: 'bullish' | 'bearish' | 'neutral';
+      thickness: number;
+      strength: 'weak' | 'moderate' | 'strong';
+    };
+    signals: {
+      tkCross: 'bullish' | 'bearish' | 'neutral';
+      priceCloud: 'bullish' | 'bearish' | 'neutral';
+      chikouSpan: 'bullish' | 'bearish' | 'neutral';
+      overall: 'strong_buy' | 'buy' | 'sell' | 'strong_sell' | 'neutral';
+    };
+    historical: IchimokuResult[];
+  };
+
+  // OBV Analysis
+  obv: {
+    current: OBVResult;
+    trend: 'bullish' | 'bearish' | 'neutral';
+    divergence: {
+      detected: boolean;
+      type?: 'bullish' | 'bearish';
+      strength?: 'weak' | 'moderate' | 'strong';
+    };
+    institutionalFlow: {
+      signal: 'accumulation' | 'distribution' | 'neutral';
+      strength: 'weak' | 'moderate' | 'strong';
+      confidence: number;
+    };
+    historical: OBVResult[];
+  };
+
+  // Williams %R Analysis
+  williamsR: {
+    current: WilliamsRResult;
+    signal: 'overbought' | 'oversold' | 'neutral';
+    momentum: {
+      direction: 'increasing' | 'decreasing' | 'stable';
+      strength: 'weak' | 'moderate' | 'strong';
+    };
+    extremeLevel: {
+      active: boolean;
+      type: 'extreme_overbought' | 'extreme_oversold' | 'normal';
+    };
+    historical: WilliamsRResult[];
+  };
   
   // Combined Signals
   signals: TechnicalSignal[];
@@ -1094,6 +1178,22 @@ export class TechnicalIndicatorsService {
     const stochasticResults = this.calculateStochastic(candles, 14, 3);
     const currentStochastic = stochasticResults[stochasticResults.length - 1];
     
+    // Calculate Enhanced Indicators (Phase 1 roadmap)
+    const cciResults = this.calculateCCI(candles, 20);
+    const currentCCI = cciResults[cciResults.length - 1];
+    
+    const parabolicSARResults = this.calculateParabolicSAR(candles, 0.02, 0.2);
+    const currentParabolicSAR = parabolicSARResults[parabolicSARResults.length - 1];
+    
+    const ichimokuResults = this.calculateIchimoku(candles, 9, 26, 52);
+    const currentIchimoku = ichimokuResults[ichimokuResults.length - 1];
+    
+    const obvResults = this.calculateOBV(candles);
+    const currentOBV = obvResults[obvResults.length - 1];
+    
+    const williamsRResults = this.calculateWilliamsR(candles, 14);
+    const currentWilliamsR = williamsRResults[williamsRResults.length - 1];
+    
     // Generate signals
     const emaData = {
       fast: fastEMA[fastEMA.length - 1] || { period: 12, value: 0, timestamp: new Date().toISOString(), trend: 'neutral' as const, slope: 0 },
@@ -1119,8 +1219,28 @@ export class TechnicalIndicatorsService {
 
     const stochasticContribution = currentStochastic ?
       (currentStochastic.signal === 'oversold' ? 75 : currentStochastic.signal === 'overbought' ? 25 : 50) : 50;
+
+    // Enhanced indicators contributions
+    const cciContribution = currentCCI ?
+      (currentCCI.signal === 'oversold' ? 80 : currentCCI.signal === 'overbought' ? 20 : 50) : 50;
+
+    const parabolicSARContribution = currentParabolicSAR ?
+      (currentParabolicSAR.trend === 'bullish' ? 75 : 25) : 50;
+
+    const ichimokuContribution = currentIchimoku ?
+      (currentIchimoku.signal === 'strong_buy' ? 90 : 
+       currentIchimoku.signal === 'buy' ? 70 :
+       currentIchimoku.signal === 'sell' ? 30 :
+       currentIchimoku.signal === 'strong_sell' ? 10 : 50) : 50;
+
+    const obvContribution = currentOBV ?
+      (currentOBV.signal === 'accumulation' ? 75 : currentOBV.signal === 'distribution' ? 25 : 50) : 50;
+
+    const williamsRContribution = currentWilliamsR ?
+      (currentWilliamsR.signal === 'oversold' ? 80 : currentWilliamsR.signal === 'overbought' ? 20 : 50) : 50;
     
-    const confluenceScore = Math.round((rsiContribution + emaContribution + macdContribution + bollingerContribution + stochasticContribution) / 5);
+    const confluenceScore = Math.round((rsiContribution + emaContribution + macdContribution + bollingerContribution + stochasticContribution + 
+       cciContribution + parabolicSARContribution + ichimokuContribution + obvContribution + williamsRContribution) / 10);
     
     let overallMomentum: 'bullish' | 'bearish' | 'neutral' = 'neutral';
     let momentumStrength: 'weak' | 'moderate' | 'strong' = 'weak';
@@ -1264,6 +1384,137 @@ export class TechnicalIndicatorsService {
         },
         historical: stochasticResults.slice(-20)
       },
+
+      // Enhanced Indicators Analysis (Phase 1 roadmap)
+      cci: {
+        current: currentCCI || {
+          value: 0,
+          signal: 'neutral' as const,
+          strength: 'weak' as const,
+          trend: 'neutral' as const,
+          extremeLevel: false,
+          timestamp: new Date().toISOString()
+        },
+        signal: currentCCI?.signal || 'neutral',
+        extremeLevel: {
+          active: currentCCI?.extremeLevel || false,
+          type: currentCCI?.extremeLevel 
+            ? (currentCCI.value > 200 ? 'extreme_overbought' : 'extreme_oversold')
+            : 'normal',
+          strength: currentCCI?.strength || 'weak'
+        },
+        trend: {
+          direction: currentCCI?.trend || 'neutral',
+          consistency: currentCCI ? Math.min(95, Math.abs(currentCCI.value) / 2) : 50
+        },
+        historical: cciResults.slice(-20)
+      },
+
+      parabolicSAR: {
+        current: currentParabolicSAR || {
+          sar: 0,
+          trend: 'bullish' as const,
+          reversal: false,
+          acceleration: 0.02,
+          signal: 'hold' as const,
+          strength: 'weak' as const,
+          timestamp: new Date().toISOString()
+        },
+        trend: currentParabolicSAR?.trend || 'bullish',
+        reversal: {
+          detected: currentParabolicSAR?.reversal || false,
+          strength: currentParabolicSAR?.strength || 'weak',
+          confidence: currentParabolicSAR?.reversal ? 80 : 50
+        },
+        acceleration: {
+          current: currentParabolicSAR?.acceleration || 0.02,
+          trend: 'stable' as const // Will implement acceleration trend detection
+        },
+        historical: parabolicSARResults.slice(-20)
+      },
+
+      ichimoku: {
+        current: currentIchimoku || {
+          tenkanSen: 0,
+          kijunSen: 0,
+          senkouSpanA: 0,
+          senkouSpanB: 0,
+          chikouSpan: 0,
+          cloud: {
+            color: 'neutral' as const,
+            thickness: 0,
+            support: 0,
+            resistance: 0
+          },
+          signal: 'neutral' as const,
+          trend: 'neutral' as const,
+          timestamp: new Date().toISOString()
+        },
+        cloud: {
+          position: currentIchimoku 
+            ? (parseFloat(candles[candles.length - 1].close) > Math.max(currentIchimoku.senkouSpanA, currentIchimoku.senkouSpanB) ? 'above' 
+               : parseFloat(candles[candles.length - 1].close) < Math.min(currentIchimoku.senkouSpanA, currentIchimoku.senkouSpanB) ? 'below' 
+               : 'inside')
+            : 'inside',
+          color: currentIchimoku?.cloud.color || 'neutral',
+          thickness: currentIchimoku?.cloud.thickness || 0,
+          strength: currentIchimoku?.cloud.thickness > 1 ? 'strong' : currentIchimoku?.cloud.thickness > 0.5 ? 'moderate' : 'weak'
+        },
+        signals: {
+          tkCross: currentIchimoku?.tenkanSen > currentIchimoku?.kijunSen ? 'bullish' : 'bearish',
+          priceCloud: currentIchimoku?.trend || 'neutral',
+          chikouSpan: 'neutral' as const, // Simplified
+          overall: currentIchimoku?.signal || 'neutral'
+        },
+        historical: ichimokuResults.slice(-20)
+      },
+
+      obv: {
+        current: currentOBV || {
+          value: 0,
+          trend: 'neutral' as const,
+          divergence: false,
+          signal: 'neutral' as const,
+          strength: 'weak' as const,
+          timestamp: new Date().toISOString()
+        },
+        trend: currentOBV?.trend || 'neutral',
+        divergence: {
+          detected: currentOBV?.divergence || false,
+          type: currentOBV?.divergence ? (currentOBV.trend === 'bullish' ? 'bearish' : 'bullish') : undefined,
+          strength: currentOBV?.strength
+        },
+        institutionalFlow: {
+          signal: currentOBV?.signal || 'neutral',
+          strength: currentOBV?.strength || 'weak',
+          confidence: currentOBV?.signal !== 'neutral' ? 75 : 50
+        },
+        historical: obvResults.slice(-20)
+      },
+
+      williamsR: {
+        current: currentWilliamsR || {
+          value: -50,
+          signal: 'neutral' as const,
+          strength: 'weak' as const,
+          momentum: 'stable' as const,
+          extremeLevel: false,
+          timestamp: new Date().toISOString()
+        },
+        signal: currentWilliamsR?.signal || 'neutral',
+        momentum: {
+          direction: currentWilliamsR?.momentum || 'stable',
+          strength: currentWilliamsR?.strength || 'weak'
+        },
+        extremeLevel: {
+          active: currentWilliamsR?.extremeLevel || false,
+          type: currentWilliamsR?.extremeLevel 
+            ? (currentWilliamsR.value > -10 ? 'extreme_overbought' : 'extreme_oversold')
+            : 'normal'
+        },
+        historical: williamsRResults.slice(-20)
+      },
+
       signals,
       momentum: {
         overall: overallMomentum,
