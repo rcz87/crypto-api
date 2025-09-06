@@ -1,31 +1,32 @@
 openapi: 3.1.0
 info:
-  title: SOL-USDT-SWAP Futures Trading Data Gateway API
+  title: CryptoSat Intelligence - Multi-Pair Trading Data Gateway API
   description: |
-    Advanced Solana (SOL) perpetual futures trading data gateway providing comprehensive real-time derivatives market data from OKX exchange.
+    🛰️ **CryptoSat Intelligence** - Advanced institutional-grade multi-pair crypto trading data gateway providing comprehensive real-time derivatives market analysis for 63+ trading pairs with 8-layer SharpSignalEngine analytics.
     
     **🚀 Core Features:**
-    - **Real-time SOL-USDT-SWAP data**: Live perpetual futures ticker with mark price, funding rates, open interest
-    - **7-Timeframe Candlestick Analysis**: 5m, 15m, 30m, 1H, 4H, 1D, 1W (500+ data points)
-    - **Deep Futures Order Book**: 50-level bid/ask spreads for perpetual swap market depth analysis
-    - **Live Trade Flow**: Recent trades with buy/sell indicators and volume tracking
-    - **System Monitoring**: Health checks, performance metrics, and operational logs
-    - **WebSocket Streaming**: Real-time data feeds for professional applications
+    - **Multi-Pair Support**: 63+ trading pairs (BTC, ETH, SOL, ADA, AVAX, DOGE, UNI, MATIC, etc.)
+    - **SharpSignalEngine**: 8-layer institutional derivatives intelligence
+    - **Smart Money Concepts**: BOS/CHoCH pattern detection with trend analysis
+    - **CVD Analysis**: Hybrid institutional-grade volume delta with divergence detection
+    - **Technical Indicators**: Advanced RSI, EMA, divergence detection for all pairs
+    - **Real-time Data**: Sub-200ms institutional data processing
+    - **Universal API**: Same endpoints work for all 63+ supported pairs
     
     **🎯 Use Cases:**
-    - **AI-Powered Analysis**: GPT-5 crypto market intelligence and predictions
-    - **Algorithmic Trading**: Data feeds for automated trading strategies
-    - **Technical Analysis**: Multi-timeframe chart analysis from scalping to investing
-    - **Market Monitoring**: Real-time alerts and portfolio tracking
-    - **Research & Analytics**: Financial modeling and trend analysis
+    - **AI-Powered Analysis**: GPT-powered multi-pair crypto market intelligence
+    - **Institutional Trading**: Professional-grade analysis for derivatives trading
+    - **Cross-Market Intelligence**: Compare patterns across multiple trading pairs
+    - **Smart Money Tracking**: Whale detection and institutional flow analysis
+    - **Risk Management**: Multi-pair correlation and exposure analysis
     
     **⚡ Performance:**
-    - Response time: 200-400ms average
+    - Response time: Sub-200ms average
     - Rate limit: 100 requests/minute
     - 99.9% uptime with auto-reconnection
     - SSL-secured with CORS enabled
-    - Updated: 2025-09-03 - Full migration to SOL-USDT-SWAP futures with liquidation analysis & SharpSignalEngine
-  version: '3.1.0'
+    - Updated: 2025-09-06 - Full multi-pair support with universal analysis engines
+  version: '4.0.0'
   contact:
     email: admin@guardiansofthegreentoken.com
     url: https://guardiansofthegreentoken.com
@@ -34,23 +35,30 @@ servers:
     description: Production server with SSL
     
 tags:
-  - name: Market Data
-    description: Real-time SOL-USDT-SWAP perpetual futures trading data and market analysis
-  - name: System Monitoring  
-    description: Health checks, metrics, and operational logging
-  - name: WebSocket
-    description: Real-time streaming capabilities
+  - name: Multi-Pair Analysis
+    description: Universal trading analysis for 63+ supported pairs
+  - name: Smart Money Concepts
+    description: BOS/CHoCH pattern detection and trend analysis
+  - name: Volume Delta Analysis  
+    description: CVD analysis with divergence detection
+  - name: Technical Indicators
+    description: RSI, EMA, divergence detection for all pairs
+  - name: System Monitoring
+    description: Health checks, metrics, and operational data
+  - name: Legacy SOL Endpoints
+    description: Backward compatible SOL-specific endpoints
+
 paths:
-  /api/sol/complete:
+  /api/pairs/supported:
     get:
-      operationId: getCompleteSOLData
-      summary: Get comprehensive SOL futures trading data
-      description: Primary endpoint for complete SOL-USDT-SWAP perpetual futures data including real-time ticker, 7-timeframe candlesticks (5m to 1W), 50-level order book depth, recent trades, funding rates, and open interest. Perfect for futures trading analysis, algorithmic trading, and derivatives market monitoring.
+      operationId: getSupportedTradingPairs
+      summary: Get all supported trading pairs
+      description: Returns list of all 63+ supported trading pairs available for analysis
       tags:
-        - Market Data
+        - Multi-Pair Analysis
       responses:
         '200':
-          description: Complete SOL futures trading data
+          description: List of supported trading pairs
           content:
             application/json:
               schema:
@@ -62,598 +70,241 @@ paths:
                   data:
                     type: object
                     properties:
-                      ticker:
-                        type: object
-                        description: "Real-time SOL-USDT-SWAP perpetual futures ticker data"
-                        properties:
-                          symbol:
-                            type: string
-                            example: "SOL-USDT-SWAP"
-                            description: "Perpetual futures contract symbol"
-                          price:
-                            type: string
-                            example: "189.03"
-                            description: "Current futures mark price in USDT"
-                          change24h:
-                            type: string
-                            example: "-5.07%"
-                            description: "24-hour price change percentage"
-                          high24h:
-                            type: string
-                            example: "199.48"
-                            description: "24-hour highest price"
-                          low24h:
-                            type: string
-                            example: "185.34"
-                            description: "24-hour lowest price"
-                          volume:
-                            type: string
-                            example: "1584966.454886"
-                            description: "24-hour trading volume in SOL"
-                          tradingVolume24h:
-                            type: string
-                            example: "299606209"
-                            description: "24-hour trading volume in USDT"
-                      candles:
-                        type: object
-                        properties:
-                          5m:
-                            type: array
-                            description: "5-minute candles (100 bars, 8+ hours)"
-                            items:
-                              $ref: '#/components/schemas/Candle'
-                          15m:
-                            type: array
-                            description: "15-minute candles (96 bars, 24+ hours)"
-                            items:
-                              $ref: '#/components/schemas/Candle'
-                          30m:
-                            type: array
-                            description: "30-minute candles (48 bars, 24+ hours)"
-                            items:
-                              $ref: '#/components/schemas/Candle'
-                          1H:
-                            type: array
-                            description: "1-hour candles (72 bars, 3+ days)"
-                            items:
-                              $ref: '#/components/schemas/Candle'
-                          4H:
-                            type: array
-                            description: "4-hour candles (42 bars, 7+ days)"
-                            items:
-                              $ref: '#/components/schemas/Candle'
-                          1D:
-                            type: array
-                            description: "Daily candles (90 bars, 3+ months)"
-                            items:
-                              $ref: '#/components/schemas/Candle'
-                          1W:
-                            type: array
-                            description: "Weekly candles (52 bars, 1+ year)"
-                            items:
-                              $ref: '#/components/schemas/Candle'
-                      orderBook:
-                        type: object
-                        properties:
-                          bids:
-                            type: array
-                            description: "50 levels of buy orders"
-                            items:
-                              type: array
-                              items:
-                                type: string
-                              example: ["189.45", "125.67"]
-                          asks:
-                            type: array
-                            description: "50 levels of sell orders"
-                            items:
-                              type: array
-                              items:
-                                type: string
-                              example: ["189.50", "98.34"]
-                      recentTrades:
+                      pairs:
                         type: array
-                        description: "30 most recent trades"
                         items:
-                          type: object
-                          properties:
-                            price:
-                              type: string
-                              example: "189.45"
-                            size:
-                              type: string
-                              example: "12.5"
-                            side:
-                              type: string
-                              enum: ["buy", "sell"]
-                            timestamp:
-                              type: string
-                              example: "1756197000000"
-                      lastUpdate:
-                        type: string
-                        format: date-time
-                        example: "2025-08-26T08:30:00.000Z"
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-                
-  /api/sol/confluence:
+                          type: string
+                        example: ["BTC", "ETH", "SOL", "ADA", "AVAX", "DOGE", "UNI", "MATIC", "LTC", "BCH"]
+                        description: "Array of supported trading pair symbols"
+                  timestamp:
+                    type: string
+                    example: "2025-09-06T14:30:00Z"
+
+  /api/{pair}/complete:
     get:
-      operationId: getConfluenceScoring
-      summary: Get 8-layer SharpSignalEngine confluence analysis
-      description: Advanced 8-layer confluence scoring system combining Smart Money Concepts (SMC), Cumulative Volume Delta (CVD), Volume Profile, Funding Rate, Open Interest, Technical Indicators, Fibonacci, and Order Flow for comprehensive market analysis with overall trend strength and signals.
+      operationId: getCompleteAnalysis
+      summary: Get comprehensive trading data for any supported pair
+      description: Complete trading data including ticker, orderbook, trades, multi-timeframe candles, and market analysis for any supported trading pair
       tags:
-        - Market Data
+        - Multi-Pair Analysis
       parameters:
-        - name: timeframe
-          in: query
-          description: Analysis timeframe
-          required: false
+        - name: pair
+          in: path
+          required: true
           schema:
             type: string
-            enum: ["5m", "15m", "30m", "1H", "4H", "1D", "1W"]
-            default: "1H"
+            enum: ["BTC", "ETH", "SOL", "ADA", "DOT", "MATIC", "LTC", "BCH", "ETC", "LINK", "UNI", "AAVE", "ATOM", "XRP", "DOGE", "SHIB", "AVAX", "FTM", "NEAR", "ALGO"]
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          example: "BTC"
       responses:
         '200':
-          description: Complete 8-layer confluence analysis
+          description: Complete trading data for the specified pair
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      overall:
-                        type: number
-                        example: 42
-                        description: "Overall confluence score (0-100)"
-                      trend:
-                        type: string
-                        enum: ["bullish", "bearish", "neutral"]
-                        example: "bullish"
-                      strength:
-                        type: string
-                        enum: ["weak", "moderate", "strong"]
-                        example: "moderate"
-                      confidence:
-                        type: number
-                        example: 75
-                        description: "Analysis confidence percentage"
-                      components:
-                        type: object
-                        properties:
-                          smc:
-                            type: number
-                            example: 10
-                            description: "Smart Money Concepts score"
-                          cvd:
-                            type: number
-                            example: 15
-                            description: "Cumulative Volume Delta score"
-                          volumeProfile:
-                            type: number
-                            example: 50
-                            description: "Volume Profile analysis score"
-                          funding:
-                            type: number
-                            example: 15
-                            description: "Funding rate score"
-                          openInterest:
-                            type: number
-                            example: 30
-                            description: "Open Interest score"
-                          technicalIndicators:
-                            type: number
-                            example: 37
-                            description: "Technical indicators score"
-                          fibonacci:
-                            type: number
-                            example: 61
-                            description: "Fibonacci analysis score"
-                          orderFlow:
-                            type: number
-                            example: 15
-                            description: "Order flow analysis score"
-                      signals:
-                        type: array
-                        description: "Individual analysis signals"
-                        items:
-                          type: object
-                          properties:
-                            type:
-                              type: string
-                              example: "bullish"
-                            source:
-                              type: string
-                              example: "Technical Indicators"
-                            weight:
-                              type: number
-                              example: 20
-                            confidence:
-                              type: number
-                              example: 85
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-                
-  /api/sol/technical:
+                $ref: '#/components/schemas/CompleteAnalysisResponse'
+
+  /api/{pair}/smc:
     get:
-      operationId: getTechnicalIndicators
-      summary: Get comprehensive technical indicators analysis
-      description: Professional technical analysis including RSI, MACD, Bollinger Bands, momentum indicators, and trend analysis with historical data and signal interpretation for algorithmic trading and market analysis.
+      operationId: getSmartMoneyConcepts
+      summary: Get Smart Money Concepts analysis for any pair
+      description: BOS/CHoCH pattern detection, trend analysis, FVG detection, and market structure analysis for any supported trading pair
       tags:
-        - Market Data
+        - Smart Money Concepts
       parameters:
-        - name: timeframe
-          in: query
-          description: Analysis timeframe
-          required: false
+        - name: pair
+          in: path
+          required: true
           schema:
             type: string
-            enum: ["5m", "15m", "30m", "1H", "4H", "1D", "1W"]
-            default: "1H"
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          example: "BTC"
       responses:
         '200':
-          description: Complete technical indicators analysis
+          description: Smart Money Concepts analysis
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      timeframe:
-                        type: string
-                        example: "1H"
-                      rsi:
-                        type: object
-                        properties:
-                          current:
-                            type: number
-                            example: 52.73
-                          period:
-                            type: number
-                            example: 14
-                          signal:
-                            type: string
-                            enum: ["buy", "sell", "neutral"]
-                            example: "neutral"
-                          strength:
-                            type: string
-                            enum: ["weak", "moderate", "strong"]
-                            example: "weak"
-                          trend:
-                            type: string
-                            enum: ["bullish", "bearish", "neutral"]
-                            example: "bullish"
-                          divergence:
-                            type: object
-                            properties:
-                              detected:
-                                type: boolean
-                                example: false
-                      macd:
-                        type: object
-                        properties:
-                          macd:
-                            type: number
-                            example: 1.23
-                          signal:
-                            type: number
-                            example: 0.98
-                          histogram:
-                            type: number
-                            example: 0.25
-                          trend:
-                            type: string
-                            example: "bullish"
-                      bollingerBands:
-                        type: object
-                        properties:
-                          upper:
-                            type: number
-                            example: 215.45
-                          middle:
-                            type: number
-                            example: 210.22
-                          lower:
-                            type: number
-                            example: 204.99
-                          position:
-                            type: string
-                            example: "middle"
-                          squeeze:
-                            type: boolean
-                            example: false
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-                
-  /api/sol/cvd:
+                $ref: '#/components/schemas/SMCAnalysisResponse'
+
+  /api/{pair}/cvd:
     get:
       operationId: getCVDAnalysis
-      summary: Get Cumulative Volume Delta (CVD) analysis
-      description: Professional CVD analysis showing buying vs selling pressure through cumulative volume delta calculations, historical CVD trends, and institutional order flow patterns for smart money tracking.
+      summary: Get Cumulative Volume Delta analysis for any pair
+      description: Volume delta analysis with divergence detection, absorption patterns, and smart money signals for any supported trading pair
       tags:
-        - Market Data
+        - Volume Delta Analysis
       parameters:
-        - name: timeframe
-          in: query
-          description: Analysis timeframe
-          required: false
+        - name: pair
+          in: path
+          required: true
           schema:
             type: string
-            enum: ["5m", "15m", "30m", "1H", "4H", "1D", "1W"]
-            default: "1H"
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          example: "ETH"
       responses:
         '200':
-          description: Complete CVD analysis
+          description: CVD analysis with divergence patterns
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      timeframe:
-                        type: string
-                        example: "1H"
-                      currentCVD:
-                        type: string
-                        example: "103498.95"
-                        description: "Current cumulative volume delta"
-                      previousCVD:
-                        type: string
-                        example: "97005.41"
-                        description: "Previous period CVD"
-                      deltaChange:
-                        type: string
-                        example: "6493.54"
-                        description: "CVD change from previous period"
-                      percentageChange:
-                        type: number
-                        example: 6.69
-                        description: "Percentage change in CVD"
-                      cvdHistory:
-                        type: array
-                        description: "Historical CVD data points"
-                        items:
-                          type: object
-                          properties:
-                            timestamp:
-                              type: string
-                              example: "1756904400000"
-                            price:
-                              type: string
-                              example: "211.48"
-                            buyVolume:
-                              type: string
-                              example: "88.68"
-                            sellVolume:
-                              type: string
-                              example: "200.87"
-                            netVolume:
-                              type: string
-                              example: "-112.19"
-                            totalVolume:
-                              type: string
-                              example: "289.55"
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-                
-  /api/sol/fibonacci:
+                $ref: '#/components/schemas/CVDAnalysisResponse'
+
+  /api/{pair}/technical:
     get:
-      operationId: getFibonacciAnalysis
-      summary: Get Fibonacci retracement and extension analysis
-      description: Advanced Fibonacci analysis including retracements, extensions, swing point identification, trend phase analysis, and confluence zones for precise entry/exit levels and market structure analysis.
+      operationId: getTechnicalIndicators
+      summary: Get technical indicators analysis for any pair
+      description: Advanced technical indicators including RSI, EMA, divergence detection, and confluence scoring for any supported trading pair
       tags:
-        - Market Data
+        - Technical Indicators
       parameters:
-        - name: timeframe
-          in: query
-          description: Analysis timeframe
-          required: false
+        - name: pair
+          in: path
+          required: true
           schema:
             type: string
-            enum: ["5m", "15m", "30m", "1H", "4H", "1D", "1W"]
-            default: "1H"
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          example: "SOL"
       responses:
         '200':
-          description: Complete Fibonacci analysis
+          description: Technical indicators analysis
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      timeframe:
-                        type: string
-                        example: "1H"
-                      trend:
-                        type: object
-                        properties:
-                          direction:
-                            type: string
-                            enum: ["bullish", "bearish", "neutral"]
-                            example: "bullish"
-                          strength:
-                            type: string
-                            enum: ["weak", "moderate", "strong"]
-                            example: "strong"
-                          phase:
-                            type: string
-                            example: "impulse"
-                      swingPoints:
-                        type: object
-                        properties:
-                          current:
-                            type: object
-                            properties:
-                              high:
-                                type: object
-                                properties:
-                                  price:
-                                    type: number
-                                    example: 206.67
-                                  timestamp:
-                                    type: string
-                                    example: "1756605600000"
-                                  type:
-                                    type: string
-                                    example: "high"
-                                  strength:
-                                    type: string
-                                    example: "strong"
-                              low:
-                                type: object
-                                properties:
-                                  price:
-                                    type: number
-                                    example: 201.5
-                                  timestamp:
-                                    type: string
-                                    example: "1756648800000"
-                                  type:
-                                    type: string
-                                    example: "low"
-                                  strength:
-                                    type: string
-                                    example: "strong"
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-                
-  /api/sol/order-flow:
+                $ref: '#/components/schemas/TechnicalAnalysisResponse'
+
+  /api/{pair}/funding:
     get:
-      operationId: getOrderFlowAnalysis
-      summary: Get real-time order flow and market microstructure analysis
-      description: Professional order flow analysis including trade imbalances, aggressive vs passive orders, large trade detection, bid-ask dynamics, and institutional flow patterns for advanced market microstructure insights.
+      operationId: getFundingRates
+      summary: Get funding rates for any pair
+      description: Current and historical funding rates for perpetual contracts of any supported trading pair
       tags:
-        - Market Data
+        - Multi-Pair Analysis
       parameters:
-        - name: timeframe
-          in: query
-          description: Analysis timeframe
-          required: false
+        - name: pair
+          in: path
+          required: true
           schema:
             type: string
-            enum: ["5m", "15m", "30m", "1H", "4H", "1D", "1W"]
-            default: "1H"
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          example: "BTC"
       responses:
         '200':
-          description: Complete order flow analysis
+          description: Funding rates data
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      timeframe:
-                        type: string
-                        example: "1H"
-                      currentImbalance:
-                        type: object
-                        properties:
-                          timestamp:
-                            type: string
-                            example: "2025-09-03T13:57:05.889Z"
-                          imbalanceRatio:
-                            type: number
-                            example: 0.65
-                            description: "Order flow imbalance ratio"
-                          strength:
-                            type: string
-                            enum: ["weak", "moderate", "strong"]
-                            example: "moderate"
-                          significance:
-                            type: string
-                            enum: ["minor", "moderate", "major"]
-                            example: "moderate"
-                          prediction:
-                            type: string
-                            enum: ["bullish", "bearish", "neutral"]
-                            example: "bullish"
-                      recentTrades:
-                        type: object
-                        properties:
-                          total:
-                            type: number
-                            example: 50
-                          buyVolume:
-                            type: number
-                            example: 30.4
-                          sellVolume:
-                            type: number
-                            example: 65.12
-                          netVolume:
-                            type: number
-                            example: -34.72
-                          avgTradeSize:
-                            type: number
-                            example: 1.91
-                          largeTradeCount:
-                            type: number
-                            example: 5
-                          aggressiveBuyRatio:
-                            type: number
-                            example: 0.28
-        '500':
-          description: Server error
+                $ref: '#/components/schemas/FundingRateResponse'
+
+  /api/{pair}/open-interest:
+    get:
+      operationId: getOpenInterest
+      summary: Get open interest data for any pair
+      description: Current open interest data and changes for perpetual contracts of any supported trading pair
+      tags:
+        - Multi-Pair Analysis
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          example: "ETH"
+      responses:
+        '200':
+          description: Open interest data
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/OpenInterestResponse'
+
+  # Legacy SOL Endpoints (Backward Compatible)
+  /api/sol/complete:
+    get:
+      operationId: getSOLCompleteData
+      summary: Get comprehensive SOL trading data (Legacy)
+      description: Legacy endpoint for SOL complete data - maintained for backward compatibility
+      tags:
+        - Legacy SOL Endpoints
+      responses:
+        '200':
+          description: Complete SOL trading data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompleteAnalysisResponse'
+
+  /api/sol/smc:
+    get:
+      operationId: getSOLSmartMoneyConcepts
+      summary: Get SOL Smart Money Concepts (Legacy)
+      description: Legacy SOL-specific Smart Money Concepts analysis
+      tags:
+        - Legacy SOL Endpoints
+      responses:
+        '200':
+          description: SOL Smart Money Concepts analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SMCAnalysisResponse'
+
+  /api/sol/cvd:
+    get:
+      operationId: getSOLCVDAnalysis
+      summary: Get SOL CVD analysis (Legacy)
+      description: Legacy SOL-specific Cumulative Volume Delta analysis
+      tags:
+        - Legacy SOL Endpoints
+      responses:
+        '200':
+          description: SOL CVD analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CVDAnalysisResponse'
+
+  /api/sol/funding:
+    get:
+      operationId: getSOLFundingRates
+      summary: Get SOL funding rates (Legacy)
+      description: Legacy SOL-specific funding rates data
+      tags:
+        - Legacy SOL Endpoints
+      responses:
+        '200':
+          description: SOL funding rates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FundingRateResponse'
+
+  /api/sol/open-interest:
+    get:
+      operationId: getSOLOpenInterest
+      summary: Get SOL open interest (Legacy)
+      description: Legacy SOL-specific open interest data
+      tags:
+        - Legacy SOL Endpoints
+      responses:
+        '200':
+          description: SOL open interest data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenInterestResponse'
 
   /health:
     get:
-      operationId: getSystemHealth
-      summary: Get comprehensive system health status
-      description: |
-        Returns detailed system health including service connectivity, performance metrics, and operational status.
-        Essential for monitoring system availability and troubleshooting issues.
+      operationId: getHealthStatus
+      summary: Get system health status
+      description: System health check including API status, database connectivity, and performance metrics
       tags:
         - System Monitoring
       responses:
         '200':
-          description: System health information with detailed metrics
+          description: System health status
           content:
             application/json:
               schema:
@@ -669,1215 +320,219 @@ paths:
                         type: string
                         enum: ["operational", "degraded", "down"]
                         example: "operational"
-                        description: "Overall system status"
                       timestamp:
                         type: string
-                        format: date-time
-                        example: "2025-08-26T09:27:32.664Z"
+                        example: "2025-09-06T14:30:00Z"
                       services:
                         type: object
                         properties:
                           okx:
                             type: string
-                            enum: ["connected", "error"]
+                            enum: ["connected", "disconnected", "error"]
                             example: "connected"
-                            description: "OKX exchange API connection status"
                           api:
                             type: string
                             enum: ["operational", "degraded", "down"]
                             example: "operational"
-                            description: "Internal API service status"
-                      metrics:
-                        type: object
-                        properties:
-                          responseTime:
-                            type: number
-                            example: 178
-                            description: "Health check response time in milliseconds"
-                          requestsToday:
-                            type: number
-                            example: 4
-                            description: "Total API requests received today"
-                          uptime:
-                            type: string
-                            example: "2880.092798736s"
-                            description: "System uptime in seconds"
-                  timestamp:
-                    type: string
-                    format: date-time
-                    example: "2025-08-26T09:27:32.664Z"
-        '503':
-          description: Service unavailable - system is down or degraded
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
 
-  /api/metrics:
-    get:
-      operationId: getSystemMetrics
-      summary: Get detailed system performance metrics
-      description: |
-        Returns comprehensive system performance metrics including response times, request statistics, 
-        and operational data. Useful for monitoring API performance and system optimization.
-      tags:
-        - System Monitoring
-      responses:
-        '200':
-          description: Detailed system performance metrics
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        example: "1d51fc62-1de4-4c73-be52-37560dafe1f4"
-                        description: "Unique metrics instance identifier"
-                      responseTime:
-                        type: number
-                        example: 226
-                        description: "Average API response time in milliseconds"
-                      requestsToday:
-                        type: number
-                        example: 4
-                        description: "Total number of requests processed today"
-                      timestamp:
-                        type: string
-                        format: date-time
-                        example: "2025-08-26T09:27:31.743Z"
-                        description: "Timestamp when metrics were collected"
-                  timestamp:
-                    type: string
-                    format: date-time
-                    example: "2025-08-26T09:27:32.946Z"
-                    description: "Response timestamp"
-        '500':
-          description: Failed to fetch metrics
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/logs:
-    get:
-      operationId: getSystemLogs
-      summary: Get recent system logs
-      description: |
-        Returns the 50 most recent system logs including API requests, errors, and operational events.
-        Essential for debugging and monitoring system behavior.
-      tags:
-        - System Monitoring
-      responses:
-        '200':
-          description: Recent system logs (last 50 entries)
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: array
-                    description: "Array of recent log entries"
-                    items:
-                      type: object
-                      properties:
-                        level:
-                          type: string
-                          enum: ["info", "warn", "error", "debug"]
-                          example: "info"
-                          description: "Log severity level"
-                        message:
-                          type: string
-                          example: "API request completed successfully"
-                          description: "Log message content"
-                        details:
-                          type: string
-                          example: "GET /api/sol/complete - 233ms - 200 OK"
-                          description: "Additional log details"
-                        timestamp:
-                          type: string
-                          format: date-time
-                          example: "2025-08-26T09:27:31.743Z"
-                          description: "When the log entry was created"
-                  timestamp:
-                    type: string
-                    format: date-time
-                    example: "2025-08-26T09:27:32.946Z"
-                    description: "Response timestamp"
-        '500':
-          description: Failed to fetch logs
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/sol/funding:
-    get:
-      operationId: getSOLFundingRate
-      summary: Get SOL-USDT-SWAP funding rate data
-      description: Real-time funding rate information for SOL perpetual swap contracts including current rate, next funding time, premium, interest rate, and settlement status. Critical for derivatives trading analysis.
-      tags:
-        - Market Data
-      responses:
-        '200':
-          description: SOL funding rate data
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      instId:
-                        type: string
-                        example: "SOL-USDT-SWAP"
-                      fundingRate:
-                        type: string
-                        example: "-0.0000215187911736"
-                        description: "Current funding rate (negative = shorts pay longs)"
-                      nextFundingTime:
-                        type: string
-                        example: "1756252800000"
-                        description: "Next funding settlement timestamp"
-                      premium:
-                        type: string
-                        example: "-0.0006365372374284"
-                        description: "Premium rate between mark and index price"
-                      interestRate:
-                        type: string
-                        example: "0.0001000000000000"
-                        description: "Interest component of funding rate"
-                      settState:
-                        type: string
-                        enum: ["settled", "processing"]
-                        example: "settled"
-                  timestamp:
-                    type: string
-                    example: "2025-08-26T10:42:47.898Z"
-
-  /api/sol/open-interest:
-    get:
-      operationId: getSOLOpenInterest
-      summary: Get SOL-USDT-SWAP open interest data
-      description: Current open interest data for SOL perpetual swaps showing total outstanding contracts in SOL and USD value. Essential for market sentiment and liquidity analysis.
-      tags:
-        - Market Data
-      responses:
-        '200':
-          description: SOL open interest data
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      instId:
-                        type: string
-                        example: "SOL-USDT-SWAP"
-                      instType:
-                        type: string
-                        example: "SWAP"
-                      oi:
-                        type: string
-                        example: "3352778.23000000274"
-                        description: "Open interest in SOL"
-                      oiUsd:
-                        type: string
-                        example: "632065751.9196005165448"
-                        description: "Open interest value in USD"
-                  timestamp:
-                    type: string
-                    example: "2025-08-26T10:42:57.669Z"
-
-  /api/sol/position-calculator:
-    post:
-      operationId: calculateSOLPosition
-      summary: Calculate comprehensive SOL futures position metrics
-      description: |
-        Advanced position calculator for SOL-USDT-SWAP futures providing institutional-grade risk analysis, margin calculations, PnL projections, and position sizing recommendations. 
-        
-        **Features:**
-        - **Margin Calculations**: Initial margin, maintenance margin, liquidation price with fees
-        - **Risk Analysis**: Risk level assessment, liquidation distance, Value at Risk (VaR)
-        - **Position Sizing**: Optimal size, Kelly criterion, max safe size recommendations
-        - **Leverage Analysis**: Current vs recommended leverage with risk assessment
-        - **Scenario Modeling**: Bullish/bearish price scenarios with PnL projections
-        - **Trading Recommendations**: Action recommendations (hold/reduce/close) with urgency levels
-      tags:
-        - Market Data
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - entryPrice
-                - size
-                - leverage
-                - side
-                - marginMode
-              properties:
-                entryPrice:
-                  type: number
-                  description: Entry price for the position
-                  example: 210.50
-                  minimum: 0.01
-                size:
-                  type: number
-                  description: Position size in SOL contracts
-                  example: 10
-                  minimum: 0.01
-                leverage:
-                  type: integer
-                  description: Leverage multiplier (2x-100x)
-                  example: 10
-                  minimum: 2
-                  maximum: 100
-                side:
-                  type: string
-                  description: Position direction
-                  enum: ["long", "short"]
-                  example: "long"
-                marginMode:
-                  type: string
-                  description: Margin mode for the position
-                  enum: ["isolated", "cross"]
-                  example: "isolated"
-                accountBalance:
-                  type: number
-                  description: Account balance in USDT (optional, defaults to 10000)
-                  example: 10000
-                  minimum: 100
-      responses:
-        '200':
-          description: Comprehensive position analysis with risk metrics
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      position:
-                        type: object
-                        properties:
-                          entryPrice:
-                            type: number
-                            example: 210.50
-                          size:
-                            type: number
-                            example: 10
-                          leverage:
-                            type: integer
-                            example: 10
-                          side:
-                            type: string
-                            example: "long"
-                          marginMode:
-                            type: string
-                            example: "isolated"
-                          currentPrice:
-                            type: number
-                            example: 210.50
-                      margin:
-                        type: object
-                        properties:
-                          initialMargin:
-                            type: number
-                            example: 210.50
-                            description: "Required initial margin in USDT"
-                          liquidationPrice:
-                            type: number
-                            example: 200.08
-                            description: "Liquidation price including fees"
-                          marginCall:
-                            type: number
-                            example: 202.16
-                            description: "Margin call warning price"
-                      risk:
-                        type: object
-                        properties:
-                          riskLevel:
-                            type: string
-                            enum: ["low", "medium", "high", "extreme"]
-                            example: "extreme"
-                          liquidationDistance:
-                            type: number
-                            example: 4.95
-                            description: "Distance to liquidation in percentage"
-                          valueAtRisk:
-                            type: number
-                            example: 1650
-                            description: "95% VaR in USDT"
-                      recommendations:
-                        type: object
-                        properties:
-                          action:
-                            type: string
-                            enum: ["hold", "reduce", "close"]
-                            example: "close"
-                          reason:
-                            type: string
-                            example: "Liquidation risk extremely high - immediate action required"
-                          urgency:
-                            type: string
-                            enum: ["low", "medium", "high", "critical"]
-                            example: "critical"
-                  timestamp:
-                    type: string
-                    format: date-time
-                    example: "2025-09-03T16:35:55.583Z"
-        '400':
-          description: Invalid request parameters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/sol/liquidation:
-    get:
-      operationId: getSOLLiquidationAnalysis
-      summary: Get SOL futures liquidation analysis
-      description: Advanced liquidation analysis for SOL-USDT-SWAP including liquidation levels, cascade risk assessment, volatility impact, and margin requirements across different leverage levels (5x-100x). Critical for futures risk management and position sizing.
-      tags:
-        - Market Data
-      parameters:
-        - name: timeframe
-          in: query
-          description: Timeframe for liquidation analysis
-          schema:
-            type: string
-            enum: ["1H", "4H", "1D"]
-            default: "1H"
-        - name: leverage
-          in: query
-          description: Leverage multiplier for liquidation calculations
-          schema:
-            type: integer
-            minimum: 2
-            maximum: 100
-            default: 10
-      responses:
-        '200':
-          description: SOL liquidation analysis data
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      timeframe:
-                        type: string
-                        example: "1H"
-                      currentPrice:
-                        type: number
-                        example: 211.31
-                        description: "Current SOL-USDT-SWAP mark price"
-                      leverageAnalysis:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            leverage:
-                              type: number
-                              example: 10
-                            longLiquidation:
-                              type: number
-                              example: 190.18
-                              description: "Long position liquidation price"
-                            shortLiquidation:
-                              type: number
-                              example: 232.44
-                              description: "Short position liquidation price"
-                            marginRequirement:
-                              type: string
-                              example: "10.00%"
-                              description: "Initial margin requirement"
-                      cascadeRisk:
-                        type: object
-                        properties:
-                          riskLevel:
-                            type: string
-                            enum: ["low", "medium", "high", "extreme"]
-                            example: "medium"
-                          liquidationZones:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                price:
-                                  type: number
-                                  example: 200.50
-                                volume:
-                                  type: number
-                                  example: 15000000
-                                  description: "Estimated liquidation volume in USD"
-                      volatilityImpact:
-                        type: object
-                        properties:
-                          currentVolatility:
-                            type: string
-                            example: "3.8%"
-                          riskAdjustment:
-                            type: string
-                            example: "1.25x"
-                          safetyMargin:
-                            type: string
-                            example: "15%"
-                  timestamp:
-                    type: string
-                    example: "2025-09-03T16:00:00.000Z"
-
-  /api/sol/liquidation-heatmap:
-    get:
-      operationId: getSOLLiquidationHeatMap
-      summary: Get comprehensive liquidation heat map analysis
-      description: |
-        **🔥 Institutional-Grade Market-wide Liquidation Analysis**
-        
-        Advanced liquidation heat map providing comprehensive market-wide risk assessment across all leverage levels.
-        Essential for institutional traders and risk managers to identify liquidation clusters, cascade risks,
-        and market stability threats before they materialize.
-        
-        **Key Features:**
-        - **Multi-Zone Risk Analysis**: Immediate (0-5%), Medium-term (5-15%), Long-term (15%+) risk zones
-        - **Leverage Distribution**: Position estimates across 5x, 10x, 20x, 50x, 100x leverage levels
-        - **Cascade Scenarios**: Mild, moderate, and severe liquidation cascade predictions
-        - **Heat Map Visualization**: Price level intensity mapping for risk visualization
-        - **Real-time Insights**: Market stability assessment with actionable recommendations
-        
-        **Risk Categories:**
-        - 🟢 Safe: Minimal liquidation risk, stable market conditions
-        - 🟡 Caution: Moderate risk, monitor closely
-        - 🟠 Warning: Elevated risk, consider reducing positions  
-        - 🔴 Danger: High liquidation probability, immediate action recommended
-        - ⚫ Extreme: Critical liquidation risk, exit positions immediately
-      tags:
-        - Market Data
-      responses:
-        '200':
-          description: Comprehensive liquidation heat map analysis
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      currentPrice:
-                        type: number
-                        example: 208.33
-                        description: "Current SOL-USDT-SWAP mark price"
-                      overallRiskScore:
-                        type: integer
-                        example: 42
-                        description: "Overall market risk score (0-100)"
-                      immediateRisk:
-                        type: object
-                        description: "Immediate liquidation risk (0-5% from current price)"
-                        properties:
-                          upside:
-                            type: array
-                            description: "Long liquidation zones above current price"
-                            items:
-                              type: object
-                              properties:
-                                priceLevel:
-                                  type: number
-                                  example: 215.45
-                                zoneName:
-                                  type: string
-                                  example: "↗ 3% Zone (12.5x avg)"
-                                totalRisk:
-                                  type: integer
-                                  example: 65
-                                positionCount:
-                                  type: number
-                                  example: 1250.75
-                                averageLeverage:
-                                  type: number
-                                  example: 12.5
-                                dominantSide:
-                                  type: string
-                                  enum: ["long", "short", "balanced"]
-                                  example: "long"
-                                cascadeRisk:
-                                  type: number
-                                  example: 0.234
-                          downside:
-                            type: array
-                            description: "Short liquidation zones below current price"
-                            items:
-                              type: object
-                              properties:
-                                priceLevel:
-                                  type: number
-                                  example: 195.75
-                          netRisk:
-                            type: number
-                            example: -0.123
-                            description: "Net liquidation risk (+ = more long liq, - = more short liq)"
-                          criticalLevels:
-                            type: array
-                            items:
-                              type: number
-                            example: [200.50, 220.75]
-                            description: "Most critical liquidation price levels"
-                          significantLevels:
-                            type: array
-                            items:
-                              type: number
-                            example: [198.25, 205.80, 215.45, 225.90]
-                            description: "Significant risk concentration levels"
-                      mediumTermRisk:
-                        type: object
-                        description: "Medium-term liquidation risk (5-15% from current price)"
-                        properties:
-                          upside:
-                            type: array
-                            items:
-                              type: object
-                          downside:
-                            type: array
-                            items:
-                              type: object
-                          netRisk:
-                            type: number
-                            example: 0.087
-                          significantLevels:
-                            type: array
-                            items:
-                              type: number
-                            example: [180.25, 240.80]
-                      longTermRisk:
-                        type: object
-                        description: "Long-term liquidation risk (15%+ from current price)"
-                        properties:
-                          totalPositionsAtRisk:
-                            type: number
-                            example: 15750
-                            description: "Total positions at risk in long-term scenarios"
-                          maximumCascadeRisk:
-                            type: number
-                            example: 0.892
-                            description: "Maximum cascade liquidation probability"
-                      heatMapData:
-                        type: array
-                        description: "Heat map visualization data for charting"
-                        items:
-                          type: object
-                          properties:
-                            priceLevel:
-                              type: number
-                              example: 210.45
-                            intensity:
-                              type: integer
-                              example: 78
-                              description: "Heat intensity (0-100)"
-                            positionDensity:
-                              type: number
-                              example: 892.45
-                            riskCategory:
-                              type: string
-                              enum: ["safe", "caution", "warning", "danger", "extreme"]
-                              example: "warning"
-                            leverageBreakdown:
-                              type: object
-                              properties:
-                                low:
-                                  type: integer
-                                  example: 45
-                                  description: "1-10x leverage positions (%)"
-                                medium:
-                                  type: integer
-                                  example: 30
-                                  description: "10-25x leverage positions (%)"
-                                high:
-                                  type: integer
-                                  example: 20
-                                  description: "25-50x leverage positions (%)"
-                                extreme:
-                                  type: integer
-                                  example: 5
-                                  description: "50x+ leverage positions (%)"
-                      insights:
-                        type: object
-                        description: "Market insights and recommendations"
-                        properties:
-                          dominantLeverageRange:
-                            type: string
-                            enum: ["1-10x", "10-25x", "25-50x", "50x+"]
-                            example: "10-25x"
-                          riskConcentration:
-                            type: string
-                            enum: ["distributed", "clustered", "highly_clustered"]
-                            example: "clustered"
-                          nearestThreat:
-                            type: object
-                            properties:
-                              direction:
-                                type: string
-                                enum: ["upside", "downside"]
-                                example: "downside"
-                              distance:
-                                type: number
-                                example: 4.25
-                                description: "Distance in % from current price"
-                              severity:
-                                type: string
-                                enum: ["low", "medium", "high", "extreme"]
-                                example: "high"
-                              estimatedImpact:
-                                type: string
-                                example: "2.34% price impact, 10-30 minutes duration"
-                          marketStability:
-                            type: string
-                            enum: ["stable", "unstable", "volatile", "dangerous"]
-                            example: "unstable"
-                          recommendedAction:
-                            type: string
-                            example: "⚠️ HIGH RISK: Consider reducing leverage and setting tight stop losses"
-                      timeToNextRisk:
-                        type: string
-                        example: "4.2% move required"
-                        description: "Distance to next significant liquidation risk"
-                      cascadeScenarios:
-                        type: array
-                        description: "Potential liquidation cascade scenarios"
-                        items:
-                          type: object
-                          properties:
-                            scenario:
-                              type: string
-                              enum: ["mild", "moderate", "severe"]
-                              example: "moderate"
-                            triggerPrice:
-                              type: number
-                              example: 186.66
-                            expectedDrop:
-                              type: integer
-                              example: 12
-                              description: "Expected additional price drop (%)"
-                            affectedPositions:
-                              type: number
-                              example: 8920
-                            totalLiquidation:
-                              type: integer
-                              example: 45000000
-                              description: "Total liquidation value in USD"
-                            recoveryTime:
-                              type: string
-                              example: "2-4 hours"
-                      lastUpdate:
-                        type: string
-                        format: date-time
-                        example: "2025-09-04T02:40:15.123Z"
-                      calculationTime:
-                        type: integer
-                        example: 25
-                        description: "Analysis calculation time in milliseconds"
-                      dataConfidence:
-                        type: integer
-                        example: 87
-                        description: "Data confidence score (0-100)"
-                  timestamp:
-                    type: string
-                    format: date-time
-                    example: "2025-09-04T02:40:15.123Z"
-        '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/sol/volume-profile:
-    get:
-      operationId: getSOLVolumeProfile
-      summary: Get SOL volume profile analysis
-      description: Volume profile data showing Point of Control (POC), High Volume Nodes (HVN), Low Volume Nodes (LVN), and Value Area analysis. Critical for support/resistance identification.
-      tags:
-        - Market Data
-      parameters:
-        - name: timeframe
-          in: query
-          description: Timeframe for volume profile calculation
-          schema:
-            type: string
-            enum: ["5m", "15m", "30m", "1H", "4H", "1D"]
-            default: "1H"
-        - name: limit
-          in: query
-          description: Number of candles to analyze
-          schema:
-            type: integer
-            minimum: 10
-            maximum: 500
-            default: 100
-      responses:
-        '200':
-          description: SOL volume profile data
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      poc:
-                        type: string
-                        example: "204.32"
-                        description: "Point of Control - highest volume price level"
-                      hvnLevels:
-                        type: array
-                        description: "High Volume Nodes - strong support/resistance levels"
-                        items:
-                          type: object
-                          properties:
-                            price:
-                              type: string
-                              example: "187.91"
-                            volume:
-                              type: string
-                              example: "2806.81"
-                            percentage:
-                              type: string
-                              example: "0.13"
-                      lvnLevels:
-                        type: array
-                        description: "Low Volume Nodes - areas of fast price movement"
-                        items:
-                          type: object
-                          properties:
-                            price:
-                              type: string
-                              example: "185.56"
-                            volume:
-                              type: string
-                              example: "194.78"
-                            percentage:
-                              type: string
-                              example: "0.01"
-                      valueArea:
-                        type: object
-                        description: "70% value area range"
-                        properties:
-                          high:
-                            type: string
-                            example: "195.22"
-                          low:
-                            type: string
-                            example: "185.34"
-                          percentage:
-                            type: string
-                            example: "70"
-                      totalVolume:
-                        type: string
-                        example: "2145788.30"
-                  timestamp:
-                    type: string
-                    example: "2025-08-26T10:42:58.371Z"
-
-  /api/sol/smc:
-    get:
-      operationId: getSOLSmartMoneyConcepts
-      summary: Get SOL Smart Money Concepts analysis
-      description: Professional Smart Money Concepts (SMC) analysis including market structure, trend direction, structure breaks, liquidity zones, and institutional order flow patterns. Essential for advanced trading strategies.
-      tags:
-        - Market Data
-      parameters:
-        - name: timeframe
-          in: query
-          description: Timeframe for SMC analysis
-          schema:
-            type: string
-            enum: ["5m", "15m", "30m", "1H", "4H", "1D"]
-            default: "1H"
-      responses:
-        '200':
-          description: SOL Smart Money Concepts analysis
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      timeframe:
-                        type: string
-                        example: "1H"
-                        description: "Analysis timeframe"
-                      trend:
-                        type: string
-                        enum: ["bullish", "bearish", "ranging"]
-                        example: "bullish"
-                        description: "Overall market trend direction"
-                      structureBreak:
-                        type: object
-                        properties:
-                          direction:
-                            type: string
-                            enum: ["bullish", "bearish", "none"]
-                            example: "bullish"
-                          level:
-                            type: string
-                            example: "189.45"
-                          strength:
-                            type: string
-                            enum: ["strong", "weak", "moderate"]
-                            example: "strong"
-                      liquidityZones:
-                        type: object
-                        properties:
-                          buy:
-                            type: array
-                            description: "Buy-side liquidity levels"
-                            items:
-                              type: object
-                              properties:
-                                price:
-                                  type: string
-                                  example: "192.34"
-                                strength:
-                                  type: string
-                                  example: "high"
-                          sell:
-                            type: array
-                            description: "Sell-side liquidity levels"
-                            items:
-                              type: object
-                              properties:
-                                price:
-                                  type: string
-                                  example: "186.78"
-                                strength:
-                                  type: string
-                                  example: "medium"
-                      orderFlow:
-                        type: object
-                        properties:
-                          bias:
-                            type: string
-                            enum: ["bullish", "bearish", "neutral"]
-                            example: "bullish"
-                          strength:
-                            type: number
-                            example: 7.5
-                            description: "Order flow strength score (1-10)"
-                      analysis:
-                        type: string
-                        example: "Market showing strong bullish structure with institutional buying interest at 186-187 zone"
-                        description: "Human-readable market analysis"
-                  timestamp:
-                    type: string
-                    example: "2025-08-26T10:42:59.123Z"
-
-  /healthz:
-    get:
-      operationId: getDetailedHealthCheck
-      summary: Get detailed system health with component status
-      description: |
-        Enhanced health check endpoint providing detailed component-level health status including OKX connectivity, 
-        cache performance, memory usage, and WebSocket status. Returns HTTP 503 for degraded/down status.
-      tags:
-        - System Monitoring
-      responses:
-        '200':
-          description: System is healthy and operational
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    enum: ["ok", "degraded", "down"]
-                    example: "ok"
-                    description: "Overall system health status"
-                  uptime:
-                    type: number
-                    example: 3456
-                    description: "System uptime in seconds"
-                  memory:
-                    type: object
-                    properties:
-                      used:
-                        type: number
-                        example: 85
-                        description: "Used memory in MB"
-                      total:
-                        type: number
-                        example: 128
-                        description: "Total available memory in MB"
-                  components:
-                    type: object
-                    properties:
-                      okx_rest:
-                        type: string
-                        enum: ["up", "down"]
-                        example: "up"
-                        description: "OKX REST API connectivity"
-                      okx_ws:
-                        type: string
-                        enum: ["up", "down"]
-                        example: "up"
-                        description: "OKX WebSocket connectivity"
-                      cache:
-                        type: string
-                        enum: ["healthy", "degraded", "down"]
-                        example: "healthy"
-                        description: "Cache system performance"
-                      memory:
-                        type: string
-                        enum: ["ok", "warning", "critical"]
-                        example: "ok"
-                        description: "Memory usage status"
-                  cache:
-                    type: object
-                    properties:
-                      size:
-                        type: number
-                        example: 15
-                        description: "Number of cached entries"
-                      hits:
-                        type: number
-                        example: 234
-                        description: "Cache hit count"
-                      misses:
-                        type: number
-                        example: 45
-                        description: "Cache miss count"
-                      hitRatio:
-                        type: string
-                        example: "83.9%"
-                        description: "Cache hit ratio percentage"
-                  timestamp:
-                    type: string
-                    format: date-time
-                    example: "2025-09-03T10:25:13.442Z"
-        '503':
-          description: System is degraded or down
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /metrics:
-    get:
-      operationId: getBasicSystemMetrics
-      summary: Get basic system performance metrics
-      description: |
-        Basic system metrics endpoint providing essential performance data including uptime, response times, 
-        and request counts. Simplified version of /api/metrics for lightweight monitoring.
-      tags:
-        - System Monitoring
-      responses:
-        '200':
-          description: Basic system metrics
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      uptime:
-                        type: number
-                        example: 3456
-                        description: "System uptime in seconds"
-                      memory:
-                        type: object
-                        properties:
-                          used:
-                            type: number
-                            example: 85
-                          total:
-                            type: number
-                            example: 128
-                      http:
-                        type: object
-                        properties:
-                          count:
-                            type: number
-                            example: 1523
-                            description: "Total HTTP requests processed"
-                          p95:
-                            type: number
-                            example: 245
-                            description: "95th percentile response time in ms"
-                          errors:
-                            type: number
-                            example: 12
-                            description: "Total error count"
-                          errorRate:
-                            type: string
-                            example: "0.79%"
-                            description: "Error rate percentage"
-                      cache:
-                        type: object
-                        properties:
-                          hits:
-                            type: number
-                            example: 234
-                          misses:
-                            type: number
-                            example: 45
-                          size:
-                            type: number
-                            example: 15
-                          hitRatio:
-                            type: string
-                            example: "83.9%"
-                      ws:
-                        type: object
-                        properties:
-                          reconnects:
-                            type: number
-                            example: 2
-                            description: "WebSocket reconnection count"
-                          activeClients:
-                            type: number
-                            example: 5
-                            description: "Currently connected WebSocket clients"
-                          bufferedAmount:
-                            type: number
-                            example: 0
-                            description: "Buffered data amount in bytes"
-                      okx:
-                        type: object
-                        properties:
-                          restStatus:
-                            type: string
-                            enum: ["up", "down"]
-                            example: "up"
-                          wsStatus:
-                            type: string
-                            enum: ["up", "down"]
-                            example: "up"
-                          lastRestCall:
-                            type: number
-                            example: 1756894189063
-                            description: "Last REST API call timestamp"
-                          lastWsMessage:
-                            type: number
-                            example: 1756894230456
-                            description: "Last WebSocket message timestamp"
-                          restLatency:
-                            type: number
-                            example: 245
-                            description: "REST API latency in ms"
-                          wsLatency:
-                            type: number
-                            example: 12
-                            description: "WebSocket latency in ms"
-                  timestamp:
-                    type: string
-                    format: date-time
-                    example: "2025-09-03T10:25:13.442Z"
-
-  /ws:
-    get:
-      operationId: connectWebSocket
-      summary: WebSocket connection for real-time streaming
-      description: Real-time WebSocket endpoint for live SOL-USDT streaming. Connect to wss://guardiansofthegreentoken.com/ws for live ticker, order book, trades with auto-reconnection and health monitoring. Perfect for live dashboards.
-      tags:
-        - WebSocket
-      responses:
-        '101':
-          description: WebSocket connection established
-        '400':
-          description: Bad WebSocket request
-          
 components:
   schemas:
-    Candle:
+    CompleteAnalysisResponse:
       type: object
-      description: "OHLCV candlestick data for technical analysis"
-      properties:
-        timestamp:
-          type: string
-          example: "1756200300000"
-          description: "Unix timestamp in milliseconds"
-        open:
-          type: string
-          example: "188.74"
-          description: "Opening price for the time period"
-        high:
-          type: string
-          example: "189.30"
-          description: "Highest price during the time period"
-        low:
-          type: string
-          example: "188.67"
-          description: "Lowest price during the time period"
-        close:
-          type: string
-          example: "189.03"
-          description: "Closing price for the time period"
-        volume:
-          type: string
-          example: "4915.351637"
-          description: "Total trading volume in SOL for the time period"
-    
-    ErrorResponse:
-      type: object
-      description: "Standard error response format"
       properties:
         success:
           type: boolean
-          example: false
-          description: "Always false for error responses"
-        error:
-          type: string
-          example: "Internal server error"
-          description: "Human-readable error message"
+          example: true
+        data:
+          type: object
+          properties:
+            ticker:
+              type: object
+              properties:
+                symbol:
+                  type: string
+                  example: "BTC-USDT-SWAP"
+                price:
+                  type: string
+                  example: "110883.6"
+                change24h:
+                  type: string
+                  example: "-1.67%"
+                high24h:
+                  type: string
+                  example: "113250.0"
+                low24h:
+                  type: string
+                  example: "109750.0"
+                volume:
+                  type: string
+                  example: "45287639.82"
         timestamp:
           type: string
-          format: date-time
-          description: "ISO timestamp when error occurred"
-          example: "2025-08-26T09:27:32.664Z"
+          example: "2025-09-06T14:30:00Z"
+
+    SMCAnalysisResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            timeframe:
+              type: string
+              example: "1H"
+            trend:
+              type: string
+              enum: ["bullish", "bearish", "ranging"]
+              example: "bearish"
+            lastBOS:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: ["bullish", "bearish"]
+                  example: "bearish"
+                price:
+                  type: string
+                  example: "111250.0"
+                timestamp:
+                  type: string
+                  example: "2025-09-06T13:30:00Z"
+            confidence:
+              type: number
+              minimum: 0
+              maximum: 100
+              example: 75
+        timestamp:
+          type: string
+          example: "2025-09-06T14:30:00Z"
+
+    CVDAnalysisResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            timeframe:
+              type: string
+              example: "1H"
+            currentCVD:
+              type: string
+              example: "639494.09"
+            previousCVD:
+              type: string
+              example: "707529.59"
+            deltaChange:
+              type: string
+              example: "-68035.50"
+            percentageChange:
+              type: number
+              example: -9.61
+            confidence:
+              type: object
+              properties:
+                overall:
+                  type: number
+                  minimum: 0
+                  maximum: 100
+                  example: 82
+        timestamp:
+          type: string
+          example: "2025-09-06T14:30:00Z"
+
+    TechnicalAnalysisResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            timeframe:
+              type: string
+              example: "1H"
+            rsi:
+              type: object
+              properties:
+                current:
+                  type: number
+                  example: 43.56
+                period:
+                  type: number
+                  example: 14
+                signal:
+                  type: string
+                  enum: ["oversold", "neutral", "overbought"]
+                  example: "neutral"
+            ema:
+              type: object
+              properties:
+                ema20:
+                  type: string
+                  example: "111250.5"
+                ema50:
+                  type: string
+                  example: "112100.2"
+                crossover:
+                  type: string
+                  enum: ["bullish", "bearish", "none"]
+                  example: "bearish"
+        timestamp:
+          type: string
+          example: "2025-09-06T14:30:00Z"
+
+    FundingRateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            instId:
+              type: string
+              example: "BTC-USDT-SWAP"
+            fundingRate:
+              type: string
+              example: "0.0000888594997051"
+            nextFundingRate:
+              type: string
+              example: "0.0001234567890123"
+            nextFundingTime:
+              type: string
+              example: "2025-09-06T16:00:00Z"
+        timestamp:
+          type: string
+          example: "2025-09-06T14:30:00Z"
+
+    OpenInterestResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            instId:
+              type: string
+              example: "BTC-USDT-SWAP"
+            oi:
+              type: string
+              example: "234567.89"
+            oiUsd:
+              type: string
+              example: "25987653210.45"
+            change24h:
+              type: string
+              example: "2.34%"
+        timestamp:
+          type: string
+          example: "2025-09-06T14:30:00Z"

@@ -1,18 +1,21 @@
 openapi: 3.1.0
 info:
-  title: SOL Crypto Trading Data Gateway
+  title: CryptoSat Intelligence - Multi-Pair Trading Data Gateway API
   description: |
-    Advanced institutional-grade SOL-USDT-SWAP perpetual futures trading data gateway with 8-layer SharpSignalEngine analysis, live trading signals, and premium orderbook capabilities.
+    🛰️ **CryptoSat Intelligence** - Advanced institutional-grade multi-pair crypto trading data gateway providing comprehensive real-time derivatives market analysis for 63+ trading pairs with 8-layer SharpSignalEngine analytics.
     
-    Features:
-    - Real-time BUY/SELL/HOLD trading signals with risk management
-    - Multi-timeframe synchronized analysis (15M, 1H, 4H, 1D)
-    - Advanced derivatives intelligence (CVD, SMC, Order Flow, Fibonacci)
-    - Premium VIP8+ institutional analytics and liquidity heatmaps
-    - Sub-200ms response times and enterprise-grade reliability
     
-    Perfect for AI-powered trading analysis and institutional derivatives trading.
-  version: "2.0.0"
+    **🚀 Core Features:**
+    - **Multi-Pair Support**: 63+ trading pairs (BTC, ETH, SOL, ADA, AVAX, DOGE, UNI, MATIC, etc.)
+    - **SharpSignalEngine**: 8-layer institutional derivatives intelligence
+    - **Smart Money Concepts**: BOS/CHoCH pattern detection with trend analysis
+    - **CVD Analysis**: Hybrid institutional-grade volume delta with divergence detection
+    - **Technical Indicators**: Advanced RSI, EMA, divergence detection for all pairs
+    - **Real-time Data**: Sub-200ms institutional data processing
+    - **Universal API**: Same endpoints work for all 63+ supported pairs
+    
+    Perfect for AI-powered multi-pair crypto market intelligence and institutional trading.
+  version: "4.0.0"
   contact:
     name: SOL Trading Gateway
     url: https://guardiansofthegreentoken.com
@@ -27,6 +30,139 @@ servers:
 security: []
 
 paths:
+  /api/pairs/supported:
+    get:
+      operationId: getSupportedTradingPairs
+      summary: Get all supported trading pairs
+      description: Returns list of all 63+ supported trading pairs available for analysis
+      responses:
+        '200':
+          description: List of supported trading pairs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      pairs:
+                        type: array
+                        items:
+                          type: string
+                        example: ["BTC", "ETH", "SOL", "ADA", "AVAX", "DOGE", "UNI", "MATIC"]
+
+  /api/{pair}/complete:
+    get:
+      operationId: getCompleteAnalysis
+      summary: Get comprehensive trading data for any supported pair
+      description: Complete trading data including ticker, orderbook, trades, multi-timeframe candles for any supported trading pair
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          example: "BTC"
+      responses:
+        '200':
+          description: Complete trading data for the specified pair
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+
+  /api/{pair}/smc:
+    get:
+      operationId: getSmartMoneyConcepts
+      summary: Get Smart Money Concepts analysis for any pair
+      description: BOS/CHoCH pattern detection, trend analysis, FVG detection for any supported trading pair
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          example: "BTC"
+      responses:
+        '200':
+          description: Smart Money Concepts analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+
+  /api/{pair}/cvd:
+    get:
+      operationId: getCVDAnalysis
+      summary: Get Cumulative Volume Delta analysis for any pair
+      description: Volume delta analysis with divergence detection for any supported trading pair
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          example: "ETH"
+      responses:
+        '200':
+          description: CVD analysis with divergence patterns
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+
+  /api/{pair}/technical:
+    get:
+      operationId: getTechnicalIndicators
+      summary: Get technical indicators analysis for any pair
+      description: Advanced technical indicators including RSI, EMA, divergence detection for any supported trading pair
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          example: "SOL"
+      responses:
+        '200':
+          description: Technical indicators analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+
   /api/sol/complete:
     get:
       operationId: getCompleteSOLData
