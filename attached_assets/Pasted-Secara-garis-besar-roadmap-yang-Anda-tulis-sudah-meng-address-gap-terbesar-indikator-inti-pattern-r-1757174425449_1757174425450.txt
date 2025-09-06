@@ -1,0 +1,61 @@
+Secara garis besar roadmap yang Anda tulis sudah meng-address gap terbesar—indikator inti, pattern recognition, strategi lanjutan, serta risk & performance. Tapi untuk benar‑benar naik ke level institutional‑grade, ada beberapa hal yang layak ditambahkan agar roadmap makin komprehensif.
+
+📚 Tambahan Indikator Klasik (Perlu Masuk Phase 1)
+Indikator	Manfaat	Catatan Penting
+CCI (Commodity Channel Index)	Mengukur deviasi harga dari rata‑rata; cocok untuk identifikasi ekstrem harga.	
+Parabolic SAR	Memberi titik trailing stop & signal reversal.	
+Ichimoku Cloud	Sistem tren lengkap—support/resistance dinamis, Kumo cloud.	
+OBV (On Balance Volume)	Menggabungkan volume & harga untuk deteksi akumulasi/distribusi.	
+Williams %R	Momentum oscillator cepat, pelengkap stochastic.	
+
+Kenapa? Dengan menambahkan indikator ini, algoritma bisa mencakup lebih banyak kondisi pasar. Contoh: Ichimoku Cloud menyediakan konfirmasi tren yang lebih kaya, sementara OBV menyoroti aliran volume institusional.
+
+🧠 Strategi Lanjutan & ML (Phase 3 Plus)
+
+High‑Frequency & Order Flow Imbalance: Rancang modul market making & arbitrage (spread capture, latency optimization).
+
+Sentiment & News: Integrasi NLP untuk headline/news & sentimen sosial → memberi sinyal tambahan sebelum breakout.
+
+Reinforcement Learning & Genetic Algorithms: Model adaptif untuk auto‑tuning parameter strategi.
+
+Portfolio Rebalancing Engine: Bukan hanya strategi per‑pair, tapi strategi cross‑asset berdasarkan korelasi dinamis.
+
+🛡️ Risk Management Tambahan (Phase 4)
+
+Kelly Criterion Position Sizing: Gunakan rumus Kelly untuk menentukan ukuran posisi optimal
+investopedia.com
+—metode matematika ini membantu menentukan persentase modal ideal untuk tiap trade.
+
+Max Drawdown Control: Algoritma auto‑reduce size ketika drawdown melebihi threshold.
+
+Correlation Heatmap: Analisis korelasi antar‑pair untuk menghindari over‑exposure.
+
+Scenario Stress Testing: Simulasi market crash (e.g. flash crash, liquidity shock) untuk melihat resilience strategi.
+
+📊 Penyesuaian Roadmap (Checklist)
+
+ Phase 1: Tambahkan CCI, Parabolic SAR, Ichimoku Cloud, OBV, Williams %R.
+
+ Phase 2: Pastikan pattern recognition library juga mengenali pola intraday & vol profile (POC, HVN/LVN).
+
+ Phase 3: Tambahkan modul AI untuk news/sentiment & high‑frequency strategies.
+
+ Phase 4: Extend risk engine dengan Kelly sizing
+investopedia.com
+ dan correlation analysis.
+
+ New Phase 5 (Optional): Optimization & Scaling – automated strategy optimizer (e.g. genetic algorithm) + cloud auto‑scaling & multi‑exchange integration.
+
+⚡ TL;DR
+
+Roadmap Anda sudah on‑point. Agar lebih matang:
+
+Tambah beberapa indikator klasik lain (CCI, Ichimoku, Parabolic SAR, OBV, Williams %R) pada fase awal.
+
+Masukkan strategi lanjutan (high‑frequency, news & sentiment, AI adaptif) dan risk modules seperti Kelly Criterion
+investopedia.com
+ serta correlation heatmaps.
+
+Pertimbangkan fase opsional untuk auto‑optimization & scaling agar platform siap melayani ratusan strategi secara parallel.
+
+Dengan tambahan ini, roadmap akan lebih seimbang antara breadth (indikator & pattern lengkap) dan depth (strategi & risk management), sehingga CryptoSat siap bersaing di ranah institutional‐grade trading.

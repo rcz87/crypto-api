@@ -54,3 +54,131 @@ System preference: Real-time data accuracy with professional trading standards
 - **Fonts**: Google Fonts (Inter, DM Sans, Fira Code, Geist Mono).
 - **Icons**: Lucide React.
 - **TradingView**: Embedded widget for professional charting.
+
+---
+
+# 📊 ENHANCED ROADMAP RECOMMENDATIONS
+
+## 📚 Tambahan Indikator Klasik (Priority untuk Phase 1)
+
+### Critical Missing Indicators yang Harus Segera Ditambahkan:
+
+| Indikator | Manfaat | Catatan Penting |
+|-----------|---------|-----------------|
+| **CCI (Commodity Channel Index)** | Mengukur deviasi harga dari rata-rata; cocok untuk identifikasi ekstrem harga | Essential untuk overbought/oversold detection |
+| **Parabolic SAR** | Memberi titik trailing stop & signal reversal | Critical untuk trend following strategies |
+| **Ichimoku Cloud** | Sistem tren lengkap—support/resistance dinamis, Kumo cloud | Complete trend analysis system |
+| **OBV (On Balance Volume)** | Menggabungkan volume & harga untuk deteksi akumulasi/distribusi | Key untuk institutional flow detection |
+| **Williams %R** | Momentum oscillator cepat, pelengkap stochastic | Fast momentum confirmation |
+
+**Kenapa Critical**: Dengan menambahkan indikator ini, algoritma bisa mencakup lebih banyak kondisi pasar. Contoh: Ichimoku Cloud menyediakan konfirmasi tren yang lebih kaya, sementara OBV menyoroti aliran volume institusional.
+
+## 🧠 Strategi Lanjutan & ML Enhancement (Phase 3 Plus)
+
+### Advanced Strategy Modules:
+
+#### **High-Frequency & Order Flow Imbalance**
+- [ ] Rancang modul market making & arbitrage (spread capture, latency optimization)
+- [ ] Develop tick-by-tick analysis algorithms
+- [ ] Implement microsecond-level decision making
+
+#### **Sentiment & News Integration**
+- [ ] Integrasi NLP untuk headline/news & sentimen sosial
+- [ ] Real-time social media sentiment analysis
+- [ ] News impact prediction models
+- [ ] Pre-breakout signal generation dari news flow
+
+#### **AI & Machine Learning Advanced**
+- [ ] **Reinforcement Learning & Genetic Algorithms**: Model adaptif untuk auto-tuning parameter strategi
+- [ ] **Neural Network Ensembles**: Multiple model validation
+- [ ] **Adaptive Parameter Optimization**: Self-tuning algorithms
+
+#### **Portfolio Intelligence**
+- [ ] **Portfolio Rebalancing Engine**: Bukan hanya strategi per-pair, tapi strategi cross-asset berdasarkan korelasi dinamis
+- [ ] **Multi-Asset Correlation Analysis**: Dynamic correlation matrices
+- [ ] **Risk Parity Strategies**: Advanced portfolio allocation
+
+## 🛡️ Risk Management Tambahan (Phase 4 Enhanced)
+
+### Advanced Risk Control Systems:
+
+#### **Kelly Criterion Position Sizing**
+- [ ] Gunakan rumus Kelly untuk menentukan ukuran posisi optimal
+- [ ] Fractional Kelly implementation untuk risk reduction
+- [ ] Dynamic Kelly adjustment berdasarkan market conditions
+- [ ] Metode matematika ini membantu menentukan persentase modal ideal untuk tiap trade
+
+#### **Advanced Drawdown Protection**
+- [ ] **Max Drawdown Control**: Algoritma auto-reduce size ketika drawdown melebihi threshold
+- [ ] **Dynamic Position Scaling**: Adaptive position sizing based on performance
+- [ ] **Circuit Breaker System**: Auto-stop trading pada extreme conditions
+
+#### **Correlation & Diversification**
+- [ ] **Correlation Heatmap**: Analisis korelasi antar-pair untuk menghindari over-exposure
+- [ ] **Real-time Correlation Monitoring**: Dynamic correlation tracking
+- [ ] **Portfolio Concentration Limits**: Automatic diversification enforcement
+
+#### **Stress Testing & Scenario Analysis**
+- [ ] **Scenario Stress Testing**: Simulasi market crash (e.g. flash crash, liquidity shock)
+- [ ] **Monte Carlo Risk Simulations**: Statistical risk assessment
+- [ ] **Extreme Market Event Modeling**: Black swan event preparation
+- [ ] **Strategy Resilience Testing**: Melihat resilience strategi dalam extreme conditions
+
+## 📋 PENYESUAIAN ROADMAP (Enhanced Checklist)
+
+### ✅ **Phase 1 Enhanced**: Foundation + Critical Indicators
+- [ ] **Original Phase 1**: Database, User Auth, MACD, Bollinger, Stochastic
+- [ ] **TAMBAHAN**: CCI, Parabolic SAR, Ichimoku Cloud, OBV, Williams %R
+- [ ] **Integration**: Ensemble indicator scoring system
+- [ ] **Testing**: Comprehensive indicator validation framework
+
+### ✅ **Phase 2 Enhanced**: Advanced Analytics + Patterns
+- [ ] **Original Phase 2**: VWAP, Supertrend, Pattern Recognition
+- [ ] **TAMBAHAN**: Pastikan pattern recognition library mengenali pola intraday & vol profile (POC, HVN/LVN)
+- [ ] **Enhancement**: Advanced pattern validation algorithms
+- [ ] **Integration**: Multi-timeframe pattern confirmation
+
+### ✅ **Phase 3 Enhanced**: AI Strategies + Advanced Intelligence
+- [ ] **Original Phase 3**: ML Integration, Backtesting
+- [ ] **TAMBAHAN**: Modul AI untuk news/sentiment & high-frequency strategies
+- [ ] **Advanced**: Reinforcement learning adaptive systems
+- [ ] **Intelligence**: Genetic algorithm strategy optimization
+
+### ✅ **Phase 4 Enhanced**: Professional Risk + Enterprise
+- [ ] **Original Phase 4**: Risk Management, Professional Tools
+- [ ] **TAMBAHAN**: Extend risk engine dengan Kelly sizing dan correlation analysis
+- [ ] **Advanced**: Stress testing dan scenario modeling
+- [ ] **Enterprise**: Multi-tenant risk management
+
+### ✅ **New Phase 5**: Optimization & Scaling (Optional)
+- [ ] **Automated Strategy Optimizer**: Genetic algorithm untuk parameter tuning
+- [ ] **Cloud Auto-Scaling**: Handle ratusan strategi parallel
+- [ ] **Multi-Exchange Integration**: 10+ exchange simultaneous
+- [ ] **Performance Optimization**: Sub-50ms response times
+- [ ] **Global Distribution**: CDN dan edge computing
+
+## ⚡ ENHANCED TL;DR
+
+### **Roadmap Enhancement Summary:**
+
+**✅ Yang Sudah On-Point**: Foundation roadmap sudah sangat solid dengan coverage yang komprehensif.
+
+**🔥 Critical Enhancements**:
+1. **Tambah indikator klasik** (CCI, Ichimoku, Parabolic SAR, OBV, Williams %R) pada **Phase 1**
+2. **Masukkan strategi lanjutan** (high-frequency, news & sentiment, AI adaptif) di **Phase 3**
+3. **Advanced risk modules** seperti Kelly Criterion dan correlation heatmaps di **Phase 4**
+4. **Pertimbangkan Phase 5** untuk auto-optimization & scaling
+
+**🎯 Expected Outcome**: Dengan tambahan ini, roadmap akan lebih seimbang antara:
+- **Breadth**: Indikator & pattern lengkap (coverage 90%+)
+- **Depth**: Strategi & risk management institutional-grade
+- **Intelligence**: AI-powered adaptive systems
+- **Scalability**: Ready untuk ratusan concurrent strategies
+
+**🛰️ Final Goal**: CryptoSat siap bersaing di ranah **institutional-grade trading** dengan platform yang bisa melayani dari retail traders sampai hedge funds dengan feature set yang komprehensif dan performance yang exceptional.
+
+---
+
+*Enhanced Roadmap - Last Updated: September 6, 2025*
+*Integration Status: Critical enhancements identified and prioritized*
+*Next Action: Implement Phase 1 enhanced indicator set*
