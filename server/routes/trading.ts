@@ -391,7 +391,74 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
-  // CVD Analysis endpoint
+  // Dynamic CVD Analysis endpoint
+  app.get('/api/:pair/cvd', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      const validation = validateAndFormatPair(pair);
+      
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: validation.error,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const timeframe = req.query.timeframe as string || '1H';
+      const limit = parseInt(req.query.limit as string) || 100;
+      
+      // Initialize CVD service with OKX service
+      const cvdService = new CVDService(okxService);
+      
+      // Get candles and trades data for CVD analysis
+      const [candles, trades] = await Promise.all([
+        okxService.getCandles(validation.symbol, timeframe, limit),
+        okxService.getRecentTrades(validation.symbol, 200)
+      ]);
+      
+      // Perform CVD analysis
+      const cvdAnalysis = await cvdService.analyzeCVD(candles, trades, timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'CVD analysis request completed',
+        details: `GET /api/${pair}/cvd - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+      });
+      
+      res.json({
+        success: true,
+        data: cvdAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/cvd:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'CVD analysis request failed',
+        details: `GET /api/${pair}/cvd - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Legacy SOL CVD endpoint
   app.get('/api/sol/cvd', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
@@ -404,16 +471,13 @@ export function registerTradingRoutes(app: Express): void {
       
       // Get candles and trades data for CVD analysis
       const [candles, trades] = await Promise.all([
-        okxService.getCandles('SOL-USDT', timeframe, limit),
-        okxService.getRecentTrades('SOL-USDT', 200)
+        okxService.getCandles('SOL-USDT-SWAP', timeframe, limit),
+        okxService.getRecentTrades('SOL-USDT-SWAP', 200)
       ]);
       
       // Perform CVD analysis
       const cvdAnalysis = await cvdService.analyzeCVD(candles, trades, timeframe);
       const responseTime = Date.now() - startTime;
-      
-      // No need to validate since cvdAnalysis is already properly structured
-      // const validated = cvdResponseSchema.parse(cvdAnalysis);
       
       // Update metrics
       await storage.updateMetrics(responseTime);
