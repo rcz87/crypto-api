@@ -242,10 +242,6 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* API Documentation */}
-        <div className="mt-8">
-          <APIDocumentation />
-        </div>
 
 
         {/* Advanced Trading Analytics */}
@@ -331,6 +327,11 @@ export default function Dashboard() {
               <ConfluenceScoring timeframe="1H" className="w-full" />
             </ErrorBoundary>
           </div>
+        </div>
+
+        {/* API Documentation */}
+        <div className="mt-6">
+          <APIDocumentation />
         </div>
 
         {/* System Logs */}
