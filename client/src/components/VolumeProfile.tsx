@@ -249,7 +249,6 @@ export function VolumeProfile() {
       'strong': 'text-green-400',
       'moderate': 'text-yellow-400', 
       'weak': 'text-orange-400',
-      'minimal': 'text-red-400',
       // Algo trading
       'high_frequency': 'text-cyan-400',
       'moderate_algo': 'text-blue-400',

@@ -236,21 +236,21 @@ export function FundingRate() {
               <div>
                 <span className="text-gray-400">Structure:</span>
                 <div className={`font-semibold ${
-                  institutionalMetrics.marketStructure.includes('steep') ? 'text-orange-400' :
-                  institutionalMetrics.marketStructure.includes('contango') ? 'text-red-400' :
-                  institutionalMetrics.marketStructure === 'neutral' ? 'text-gray-300' : 'text-green-400'
+                  institutionalMetrics?.marketStructure?.includes('steep') ? 'text-orange-400' :
+                  institutionalMetrics?.marketStructure?.includes('contango') ? 'text-red-400' :
+                  institutionalMetrics?.marketStructure === 'neutral' ? 'text-gray-300' : 'text-green-400'
                 }`}>
-                  {institutionalMetrics.marketStructure.toUpperCase()}
+                  {institutionalMetrics?.marketStructure?.toUpperCase() || 'N/A'}
                 </div>
               </div>
               <div>
                 <span className="text-gray-400">Regime:</span>
                 <div className={`font-semibold ${
-                  institutionalMetrics.regimeClassification === 'extreme' ? 'text-red-400' :
-                  institutionalMetrics.regimeClassification === 'elevated' ? 'text-orange-400' :
-                  institutionalMetrics.regimeClassification === 'normal' ? 'text-yellow-400' : 'text-green-400'
+                  institutionalMetrics?.regimeClassification === 'extreme' ? 'text-red-400' :
+                  institutionalMetrics?.regimeClassification === 'elevated' ? 'text-orange-400' :
+                  institutionalMetrics?.regimeClassification === 'normal' ? 'text-yellow-400' : 'text-green-400'
                 }`}>
-                  {institutionalMetrics.regimeClassification.toUpperCase()}
+                  {institutionalMetrics?.regimeClassification?.toUpperCase() || 'N/A'}
                 </div>
               </div>
             </div>
@@ -264,11 +264,11 @@ export function FundingRate() {
                 <span className="text-xs text-purple-400 font-medium">Basis Trading Score</span>
               </div>
               <div className="text-lg font-bold text-white">
-                {institutionalMetrics.basisTradingScore.toFixed(1)}/100
+                {institutionalMetrics?.basisTradingScore?.toFixed(1) || 'N/A'}/100
               </div>
               <div className="text-xs text-purple-300">
-                {institutionalMetrics.basisTradingScore > 60 ? 'Strong Opportunity' :
-                 institutionalMetrics.basisTradingScore > 30 ? 'Moderate Edge' : 'Limited Edge'}
+                {(institutionalMetrics?.basisTradingScore || 0) > 60 ? 'Strong Opportunity' :
+                 (institutionalMetrics?.basisTradingScore || 0) > 30 ? 'Moderate Edge' : 'Limited Edge'}
               </div>
             </div>
 
@@ -278,11 +278,11 @@ export function FundingRate() {
                 <span className="text-xs text-orange-400 font-medium">Liquidation Pressure</span>
               </div>
               <div className={`text-lg font-bold ${
-                institutionalMetrics.liquidationPressure === 'critical' ? 'text-red-400' :
-                institutionalMetrics.liquidationPressure === 'elevated' ? 'text-orange-400' :
-                institutionalMetrics.liquidationPressure === 'moderate' ? 'text-yellow-400' : 'text-green-400'
+                institutionalMetrics?.liquidationPressure === 'critical' ? 'text-red-400' :
+                institutionalMetrics?.liquidationPressure === 'elevated' ? 'text-orange-400' :
+                institutionalMetrics?.liquidationPressure === 'moderate' ? 'text-yellow-400' : 'text-green-400'
               }`}>
-                {institutionalMetrics.liquidationPressure.toUpperCase()}
+                {institutionalMetrics?.liquidationPressure?.toUpperCase() || 'N/A'}
               </div>
               <div className="text-xs text-orange-300">
                 Funding-induced liquidations
@@ -291,7 +291,7 @@ export function FundingRate() {
           </div>
 
           {/* Funding Squeeze Alert */}
-          {institutionalMetrics.isSqueeze && (
+          {institutionalMetrics?.isSqueeze && (
             <div className="bg-gradient-to-r from-red-900/40 to-orange-900/40 rounded-lg p-3 border-2 border-red-500/50">
               <div className="flex items-center gap-2 mb-1">
                 <BarChart3 className="w-4 h-4 text-red-400 animate-pulse" />
@@ -309,22 +309,22 @@ export function FundingRate() {
             <div className="space-y-1 text-xs">
               <div className="flex justify-between">
                 <span className="text-gray-400">Premium (bps):</span>
-                <span className="text-white font-mono">{institutionalMetrics.premiumBasisPoints.toFixed(1)} bps</span>
+                <span className="text-white font-mono">{institutionalMetrics?.premiumBasisPoints?.toFixed(1) || 'N/A'} bps</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Annualized APY:</span>
-                <span className={`font-mono ${institutionalMetrics.annualizedFundingRate > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                  {(institutionalMetrics.annualizedFundingRate * 100).toFixed(2)}%
+                <span className={`font-mono ${(institutionalMetrics?.annualizedFundingRate || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                  {((institutionalMetrics?.annualizedFundingRate || 0) * 100).toFixed(2)}%
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Carry Trade Alpha:</span>
                 <span className={`font-semibold ${
-                  Math.abs(institutionalMetrics.annualizedFundingRate) > 0.50 ? 'text-orange-400' :
-                  Math.abs(institutionalMetrics.annualizedFundingRate) > 0.20 ? 'text-yellow-400' : 'text-gray-400'
+                  Math.abs(institutionalMetrics?.annualizedFundingRate || 0) > 0.50 ? 'text-orange-400' :
+                  Math.abs(institutionalMetrics?.annualizedFundingRate || 0) > 0.20 ? 'text-yellow-400' : 'text-gray-400'
                 }`}>
-                  {Math.abs(institutionalMetrics.annualizedFundingRate) > 0.50 ? 'HIGH' :
-                   Math.abs(institutionalMetrics.annualizedFundingRate) > 0.20 ? 'MODERATE' : 'LOW'}
+                  {Math.abs(institutionalMetrics?.annualizedFundingRate || 0) > 0.50 ? 'HIGH' :
+                   Math.abs(institutionalMetrics?.annualizedFundingRate || 0) > 0.20 ? 'MODERATE' : 'LOW'}
                 </span>
               </div>
             </div>
@@ -336,11 +336,11 @@ export function FundingRate() {
             <div className="text-sm">
               {isFundingPositive ? (
                 <span className="text-red-400">
-                  📈 Longs pay shorts ({institutionalMetrics.regimeClassification} regime) - {institutionalMetrics.isSqueeze ? 'SQUEEZE RISK' : 'Bullish dominance'}
+                  📈 Longs pay shorts ({institutionalMetrics?.regimeClassification || 'unknown'} regime) - {institutionalMetrics?.isSqueeze ? 'SQUEEZE RISK' : 'Bullish dominance'}
                 </span>
               ) : (
                 <span className="text-green-400">
-                  📉 Shorts pay longs ({institutionalMetrics.regimeClassification} regime) - {institutionalMetrics.isSqueeze ? 'SQUEEZE RISK' : 'Bearish dominance'}
+                  📉 Shorts pay longs ({institutionalMetrics?.regimeClassification || 'unknown'} regime) - {institutionalMetrics?.isSqueeze ? 'SQUEEZE RISK' : 'Bearish dominance'}
                 </span>
               )}
             </div>
