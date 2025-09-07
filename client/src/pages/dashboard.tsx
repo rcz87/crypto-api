@@ -272,8 +272,8 @@ export default function Dashboard() {
             </ErrorBoundary>
           </div>
 
-          {/* Row 2: Professional CVD & SMC Analysis */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* Row 2: Professional CVD & SMC Analysis - Vertical Layout */}
+          <div className="grid grid-cols-1 gap-6">
             {/* Professional CVD Analysis - Volume Delta with Smart Money Detection */}
             <ErrorBoundary>
               <CVDAnalysisComponent className="col-span-1" />
