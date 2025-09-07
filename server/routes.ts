@@ -166,6 +166,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Multi-Exchange Aggregated Orderbook endpoint
+  app.get('/api/sol/multi-exchange-orderbook', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { multiExchangeService } = await import('./services/multiExchange.js');
+      const symbol = req.query.symbol as string || 'SOL-USDT';
+      
+      const result = await multiExchangeService.getAggregatedOrderbook(symbol);
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Multi-exchange orderbook aggregation completed',
+        details: `GET /api/sol/multi-exchange-orderbook - ${responseTime}ms - 200 OK - Symbol: ${symbol}, Exchanges: ${result.stats.activeExchanges.join(', ')}, Depth: ${result.stats.totalLevels}`,
+      });
+      
+      res.json({
+        success: true,
+        data: result.data,
+        stats: result.stats,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/multi-exchange-orderbook:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Multi-exchange orderbook aggregation failed',
+        details: `GET /api/sol/multi-exchange-orderbook - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Multi-Exchange Statistics endpoint
+  app.get('/api/sol/multi-exchange-stats', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { multiExchangeService } = await import('./services/multiExchange.js');
+      const stats = await multiExchangeService.getMultiExchangeStats();
+      const responseTime = Date.now() - startTime;
+      
+      await storage.addLog({
+        level: 'info',
+        message: 'Multi-exchange statistics retrieved',
+        details: `GET /api/sol/multi-exchange-stats - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: stats,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/multi-exchange-stats:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // Bybit API Connection Test endpoint
   app.get('/api/test/bybit', async (req: Request, res: Response) => {
     const startTime = Date.now();
