@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import WebSocket from 'ws';
 
 interface BybitTestResult {
   endpoint: string;
@@ -15,9 +16,18 @@ export class BybitTestService {
   constructor() {
     this.client = axios.create({
       baseURL: this.baseURL,
-      timeout: 10000,
+      timeout: 15000,
       headers: {
-        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Cache-Control': 'max-age=0'
       },
     });
   }
@@ -25,29 +35,34 @@ export class BybitTestService {
   async testConnection(): Promise<BybitTestResult[]> {
     const results: BybitTestResult[] = [];
 
-    // Test endpoints in parallel for efficiency
+    // Test endpoints sequentially with delays to avoid rate limiting
     const tests = [
-      this.testTicker(),
-      this.testOrderBook(),
-      this.testRecentTrades(),
-      this.testCandles(),
-      this.testInstrumentInfo(),
+      { name: 'ticker', fn: () => this.testTicker() },
+      { name: 'orderbook', fn: () => this.testOrderBook() },
+      { name: 'recent-trades', fn: () => this.testRecentTrades() },
+      { name: 'candles', fn: () => this.testCandles() },
+      { name: 'instrument-info', fn: () => this.testInstrumentInfo() },
     ];
 
-    const testResults = await Promise.allSettled(tests);
-    
-    testResults.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        results.push(result.value);
-      } else {
-        const endpoints = ['ticker', 'orderbook', 'recent-trades', 'candles', 'instrument-info'];
+    for (let i = 0; i < tests.length; i++) {
+      const test = tests[i];
+      
+      try {
+        const result = await test.fn();
+        results.push(result);
+      } catch (error: any) {
         results.push({
-          endpoint: endpoints[index],
+          endpoint: test.name,
           status: 'error',
-          error: result.reason?.message || 'Unknown error'
+          error: error.message || 'Unknown error'
         });
       }
-    });
+
+      // Add delay between requests to avoid rate limiting (except for last request)
+      if (i < tests.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 200)); // 200ms delay
+      }
+    }
 
     return results;
   }
@@ -272,7 +287,6 @@ export class BybitTestService {
       const wsUrl = 'wss://stream.bybit.com/v5/public/linear';
       
       try {
-        const WebSocket = require('ws');
         const ws = new WebSocket(wsUrl);
         
         const timeout = setTimeout(() => {
