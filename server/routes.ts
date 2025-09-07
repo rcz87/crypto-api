@@ -12,6 +12,7 @@ import { registerTradingRoutes } from "./routes/trading";
 import { CVDService } from "./services/cvd";
 import { ConfluenceService } from "./services/confluence";
 import { TechnicalIndicatorsService } from "./services/technicalIndicators";
+import { BybitTestService } from "./services/bybit-test";
 import { FibonacciService } from "./services/fibonacci";
 import { OrderFlowService } from "./services/orderFlow";
 import { LiquidationService } from "./services/liquidation";
@@ -155,6 +156,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
         level: 'error',
         message: 'Technical indicators analysis request failed',
         details: `GET /api/sol/technical - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Bybit API Connection Test endpoint
+  app.get('/api/test/bybit', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const bybitTestService = new BybitTestService();
+      const testResults = await bybitTestService.testConnection();
+      const responseTime = Date.now() - startTime;
+      
+      // Check if all tests passed
+      const allPassed = testResults.every(result => result.status === 'success');
+      const successCount = testResults.filter(result => result.status === 'success').length;
+      const totalTests = testResults.length;
+      
+      await storage.addLog({
+        level: allPassed ? 'info' : 'warning',
+        message: `Bybit API connection test completed - ${successCount}/${totalTests} tests passed`,
+        details: `GET /api/test/bybit - ${responseTime}ms - ${allPassed ? 'ALL TESTS PASSED' : 'SOME TESTS FAILED'}`,
+      });
+
+      res.json({
+        success: true,
+        data: {
+          summary: {
+            totalTests,
+            passedTests: successCount,
+            failedTests: totalTests - successCount,
+            allTestsPassed: allPassed,
+            totalResponseTime: responseTime
+          },
+          testResults
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/test/bybit:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Bybit API connection test failed',
+        details: `GET /api/test/bybit - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // WebSocket Connection Test endpoint
+  app.get('/api/test/bybit-ws', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const bybitTestService = new BybitTestService();
+      const wsTestResult = await bybitTestService.testWebSocketConnection();
+      const responseTime = Date.now() - startTime;
+      
+      await storage.addLog({
+        level: wsTestResult.status === 'success' ? 'info' : 'warning',
+        message: `Bybit WebSocket connection test ${wsTestResult.status === 'success' ? 'passed' : 'failed'}`,
+        details: `GET /api/test/bybit-ws - ${responseTime}ms - ${wsTestResult.status === 'success' ? 'SUCCESS' : 'FAILED'}`,
+      });
+
+      res.json({
+        success: true,
+        data: wsTestResult,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/test/bybit-ws:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Bybit WebSocket connection test failed',
+        details: `GET /api/test/bybit-ws - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
       
       res.status(500).json({
