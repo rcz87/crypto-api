@@ -233,20 +233,18 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mt-8">
-          {/* Real-time Data - Prioritas utama */}
-          <div className="xl:order-1">
-            <RealTimeData 
-              solData={displaySolData} 
-              isLoading={isDataLoading}
-              isLiveStream={wsConnected && !!marketData}
-            />
-          </div>
+        {/* Real-time Data - Full Width Layout */}
+        <div className="mt-8">
+          <RealTimeData 
+            solData={displaySolData} 
+            isLoading={isDataLoading}
+            isLiveStream={wsConnected && !!marketData}
+          />
+        </div>
 
-          {/* API Documentation */}
-          <div className="xl:order-2">
-            <APIDocumentation />
-          </div>
+        {/* API Documentation */}
+        <div className="mt-8">
+          <APIDocumentation />
         </div>
 
 
