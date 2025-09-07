@@ -254,8 +254,8 @@ export default function Dashboard() {
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Advanced Trading Analytics</h2>
           
-          {/* Row 1: Trading Fundamentals - Horizontal Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          {/* Row 1: Trading Fundamentals - Vertical Layout */}
+          <div className="grid grid-cols-1 gap-6 mb-6">
             {/* Funding Rate */}
             <ErrorBoundary>
               <FundingRate />
