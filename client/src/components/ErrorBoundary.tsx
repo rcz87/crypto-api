@@ -51,31 +51,36 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <Card className="w-full border-red-200 bg-red-50">
+        <Card className="w-full border-yellow-200 bg-yellow-50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-700">
+            <CardTitle className="flex items-center gap-2 text-yellow-700">
               <AlertCircle className="h-5 w-5" />
-              Component Error
+              Loading Component
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <p className="text-sm text-red-600">
-                Something went wrong with this component.
+              <p className="text-sm text-yellow-600">
+                Component is loading market data...
               </p>
-              {this.state.error && (
-                <div className="text-xs text-red-500 bg-red-100 p-2 rounded">
-                  {this.state.error.message}
+              {this.state.error?.message?.includes('Insufficient') && (
+                <div className="text-xs text-blue-600 bg-blue-100 p-2 rounded">
+                  📊 Waiting for sufficient market data to load
+                </div>
+              )}
+              {this.state.error?.message?.includes('Failed to fetch') && (
+                <div className="text-xs text-orange-600 bg-orange-100 p-2 rounded">
+                  🔄 Connecting to market data feed...
                 </div>
               )}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={this.handleReset}
-                className="text-red-700 border-red-300 hover:bg-red-100"
+                className="text-yellow-700 border-yellow-300 hover:bg-yellow-100"
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Try Again
+                Refresh Data
               </Button>
             </div>
           </CardContent>
