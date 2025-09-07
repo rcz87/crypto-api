@@ -223,18 +223,22 @@ export function OpenInterest() {
           </Badge>
         </div>
 
-        {/* Main OI Metrics */}
-        <div className="grid grid-cols-1 gap-4">
-          <div className="bg-gray-800 rounded-lg p-4 space-y-2">
-            <div className="flex items-center gap-2 text-gray-400">
-              <PieChart className="w-4 h-4" />
-              <span className="text-sm">Total Open Interest</span>
+        {/* Main OI Metrics - Compact */}
+        <div className="bg-gray-800 rounded-lg p-3 space-y-2">
+          <div className="flex items-center gap-2 text-gray-400">
+            <PieChart className="w-4 h-4" />
+            <span className="text-sm">Total Open Interest</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <div className="text-xl font-bold text-white">
+                {formatNumber(oiValue)} SOL
+              </div>
             </div>
-            <div className="text-2xl font-bold text-white">
-              {formatNumber(oiValue)} SOL
-            </div>
-            <div className="text-lg text-green-400">
-              {formatCurrency(oiUsdValue)}
+            <div>
+              <div className="text-lg text-green-400">
+                {formatCurrency(oiUsdValue)}
+              </div>
             </div>
           </div>
         </div>
