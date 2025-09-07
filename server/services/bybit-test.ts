@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import WebSocket from 'ws';
+import { createHmac } from 'crypto';
 
 interface BybitTestResult {
   endpoint: string;
@@ -12,24 +13,52 @@ interface BybitTestResult {
 export class BybitTestService {
   private client: AxiosInstance;
   private baseURL = 'https://api.bybit.com';
+  private apiKey: string;
+  private secretKey: string;
 
   constructor() {
+    this.apiKey = process.env.BYBIT_API_KEY || '';
+    this.secretKey = process.env.BYBIT_SECRET_KEY || '';
     this.client = axios.create({
       baseURL: this.baseURL,
       timeout: 15000,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Cache-Control': 'max-age=0'
+        'Content-Type': 'application/json',
+        'X-BAPI-API-KEY': this.apiKey,
       },
     });
+
+    // Add request interceptor for authentication
+    this.client.interceptors.request.use((config) => {
+      const timestamp = Date.now().toString();
+      const recv_window = '5000';
+      
+      // Create query string from parameters
+      let queryString = '';
+      if (config.params) {
+        const searchParams = new URLSearchParams();
+        Object.entries(config.params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            searchParams.append(key, value.toString());
+          }
+        });
+        queryString = searchParams.toString();
+      }
+
+      // Create signature for Bybit API v5
+      const payload = timestamp + this.apiKey + recv_window + queryString;
+      const signature = this.createSignature(payload);
+
+      config.headers['X-BAPI-TIMESTAMP'] = timestamp;
+      config.headers['X-BAPI-RECV-WINDOW'] = recv_window;
+      config.headers['X-BAPI-SIGN'] = signature;
+
+      return config;
+    });
+  }
+
+  private createSignature(payload: string): string {
+    return createHmac('sha256', this.secretKey).update(payload).digest('hex');
   }
 
   async testConnection(): Promise<BybitTestResult[]> {
