@@ -851,3 +851,127 @@ export type FundingCorrelationData = z.infer<typeof fundingCorrelationSchema>;
 export type SignalConflictData = z.infer<typeof signalConflictSchema>;
 export type LiquidationAlertData = z.infer<typeof liquidationAlertSchema>;
 export type MarketStructureAnalysisData = z.infer<typeof marketStructureAnalysisSchema>;
+
+// AI Signal Engine Schemas
+export const marketPatternSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  confidence: z.number(),
+  timeframe: z.string(),
+  signals: z.array(z.string()),
+  historical_accuracy: z.number(),
+  risk_reward_ratio: z.number(),
+  market_conditions: z.array(z.string())
+});
+
+export const aiSignalSchema = z.object({
+  signal_id: z.string(),
+  timestamp: z.string(),
+  signal_type: z.enum(['entry', 'exit', 'hold', 'risk_management']),
+  direction: z.enum(['long', 'short', 'neutral']),
+  strength: z.number(),
+  confidence: z.number(),
+  source_patterns: z.array(marketPatternSchema),
+  reasoning: z.object({
+    primary_factors: z.array(z.string()),
+    supporting_evidence: z.array(z.string()),
+    risk_factors: z.array(z.string()),
+    market_context: z.string()
+  }),
+  execution_details: z.object({
+    recommended_size: z.number(),
+    stop_loss: z.number(),
+    take_profit: z.array(z.number()),
+    max_holding_time: z.string(),
+    optimal_entry_window: z.string()
+  }),
+  performance_metrics: z.object({
+    expected_return: z.number(),
+    max_drawdown: z.number(),
+    win_rate: z.number(),
+    profit_factor: z.number()
+  })
+});
+
+export const strategyOptimizationSchema = z.object({
+  strategy_id: z.string(),
+  parameters: z.record(z.string(), z.number()),
+  fitness_score: z.number(),
+  backtest_results: z.object({
+    total_return: z.number(),
+    sharpe_ratio: z.number(),
+    max_drawdown: z.number(),
+    win_rate: z.number(),
+    profit_factor: z.number(),
+    total_trades: z.number()
+  }),
+  generation: z.number(),
+  parent_strategies: z.array(z.string()).optional()
+});
+
+export const backtestResultsSchema = z.object({
+  strategy_id: z.string(),
+  timeframe: z.string(),
+  period: z.string(),
+  results: z.object({
+    total_return: z.number(),
+    annualized_return: z.number(),
+    sharpe_ratio: z.number(),
+    sortino_ratio: z.number(),
+    max_drawdown: z.number(),
+    win_rate: z.number(),
+    profit_factor: z.number(),
+    total_trades: z.number(),
+    average_trade_duration: z.number(),
+    risk_adjusted_return: z.number()
+  }),
+  equity_curve: z.array(z.object({
+    timestamp: z.string(),
+    equity: z.number(),
+    drawdown: z.number()
+  })),
+  trades: z.array(z.object({
+    entry_time: z.string(),
+    exit_time: z.string(),
+    direction: z.enum(['long', 'short']),
+    entry_price: z.number(),
+    exit_price: z.number(),
+    return: z.number(),
+    duration_hours: z.number()
+  }))
+});
+
+export const strategyPerformanceSchema = z.object({
+  active_strategies: z.array(z.object({
+    strategy_id: z.string(),
+    name: z.string(),
+    current_fitness: z.number(),
+    recent_performance: z.object({
+      return_7d: z.number(),
+      return_30d: z.number(),
+      win_rate_7d: z.number(),
+      max_drawdown_7d: z.number()
+    }),
+    optimization_status: z.enum(['optimizing', 'stable', 'underperforming']),
+    next_evolution: z.string()
+  })),
+  ai_learning_stats: z.object({
+    total_patterns_learned: z.number(),
+    pattern_accuracy: z.number(),
+    adaptation_rate: z.number(),
+    current_generation: z.number(),
+    elite_strategies: z.number()
+  }),
+  market_intelligence: z.object({
+    current_regime: z.enum(['trending', 'ranging', 'volatile', 'calm']),
+    pattern_confidence: z.number(),
+    signal_reliability: z.number(),
+    recommended_exposure: z.number()
+  })
+});
+
+export type MarketPatternData = z.infer<typeof marketPatternSchema>;
+export type AISignalData = z.infer<typeof aiSignalSchema>;
+export type StrategyOptimizationData = z.infer<typeof strategyOptimizationSchema>;
+export type BacktestResultsData = z.infer<typeof backtestResultsSchema>;
+export type StrategyPerformanceData = z.infer<typeof strategyPerformanceSchema>;

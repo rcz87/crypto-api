@@ -334,6 +334,195 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
+  // AI Signal Generation endpoint - Advanced machine learning signals
+  app.get('/api/ai/signal', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { aiSignalEngine } = await import('../services/aiSignalEngine');
+      const aiSignal = await aiSignalEngine.generateAISignal();
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const { aiSignalSchema } = await import('../../shared/schema');
+      const validated = aiSignalSchema.parse(aiSignal);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'AI signal generation completed',
+        details: `GET /api/ai/signal - ${responseTime}ms - ${validated.signal_type} ${validated.direction} signal`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/ai/signal:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'AI signal generation failed',
+        details: `GET /api/ai/signal - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Strategy Performance endpoint - Real-time AI strategy metrics
+  app.get('/api/ai/strategy-performance', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { aiSignalEngine } = await import('../services/aiSignalEngine');
+      const performance = await aiSignalEngine.getStrategyPerformance();
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const { strategyPerformanceSchema } = await import('../../shared/schema');
+      const validated = strategyPerformanceSchema.parse(performance);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Strategy performance request completed',
+        details: `GET /api/ai/strategy-performance - ${responseTime}ms - ${validated.active_strategies.length} strategies`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/ai/strategy-performance:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Strategy performance request failed',
+        details: `GET /api/ai/strategy-performance - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Strategy Backtest endpoint - Historical performance testing
+  app.get('/api/ai/backtest/:strategyId', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { strategyId } = req.params;
+      const timeframe = (req.query.timeframe as '1H' | '4H' | '1D') || '1H';
+      const lookbackDays = parseInt(req.query.lookbackDays as string) || 30;
+      
+      const { aiSignalEngine } = await import('../services/aiSignalEngine');
+      const backtestResults = await aiSignalEngine.backtestStrategy(strategyId, timeframe, lookbackDays);
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const { backtestResultsSchema } = await import('../../shared/schema');
+      const validated = backtestResultsSchema.parse(backtestResults);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Backtest request completed',
+        details: `GET /api/ai/backtest/${strategyId} - ${responseTime}ms - ${validated.results.total_trades} trades`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/ai/backtest:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Backtest request failed',
+        details: `GET /api/ai/backtest - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Strategy Optimization endpoint - Genetic algorithm optimization
+  app.post('/api/ai/optimize-strategy', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const baseStrategy = req.body;
+      const { aiSignalEngine } = await import('../services/aiSignalEngine');
+      const optimizedStrategies = await aiSignalEngine.optimizeStrategy(baseStrategy);
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Strategy optimization completed',
+        details: `POST /api/ai/optimize-strategy - ${responseTime}ms - ${optimizedStrategies.length} strategies generated`,
+      });
+      
+      res.json({
+        success: true,
+        data: optimizedStrategies,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/ai/optimize-strategy:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Strategy optimization failed',
+        details: `POST /api/ai/optimize-strategy - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // SOL Open Interest endpoint
   app.get('/api/sol/open-interest', async (req: Request, res: Response) => {
     const startTime = Date.now();
