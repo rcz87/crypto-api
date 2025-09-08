@@ -88,6 +88,83 @@ export const openInterestSchema = z.object({
   timestamp: z.string(),
 });
 
+// Enhanced Open Interest schema - Institutional grade analytics
+export const enhancedOpenInterestSchema = z.object({
+  current: z.object({
+    instId: z.string(),
+    instType: z.string(),
+    openInterest: z.number(),
+    openInterestUsd: z.number(),
+    price: z.number(),
+    timestamp: z.string(),
+  }),
+  historical_context: z.object({
+    oi_24h_avg: z.number(),
+    oi_7d_avg: z.number(),
+    oi_change_24h: z.number(),
+    oi_change_7d: z.number(),
+    oi_volatility_24h: z.number(),
+    price_oi_correlation: z.number(),
+  }),
+  advanced_metrics: z.object({
+    market_efficiency: z.number(),
+    oi_pressure_ratio: z.number(),
+    long_short_ratio: z.number(),
+    oi_turnover_rate: z.number(),
+    institutional_dominance_score: z.number(),
+    liquidity_depth_score: z.number(),
+  }),
+  liquidation_analysis: z.object({
+    cluster_risk_score: z.number(),
+    critical_levels: z.array(z.object({
+      priceLevel: z.number(),
+      liquidationVolume: z.number(),
+      riskLevel: z.enum(['low', 'medium', 'high', 'critical']),
+      positionType: z.enum(['long', 'short', 'mixed']),
+    })),
+    cascade_probability: z.number(),
+    estimated_liquidation_volume: z.number(),
+    time_to_cascade_estimate: z.string(),
+  }),
+  market_structure: z.object({
+    oi_distribution: z.enum(['concentrated', 'balanced', 'distributed']),
+    market_phase: z.enum(['accumulation', 'distribution', 'trending', 'consolidation']),
+    institutional_presence: z.enum(['dominant', 'significant', 'moderate', 'light']),
+    risk_level: z.enum(['extreme', 'high', 'moderate', 'low']),
+  }),
+});
+
+// Historical Open Interest data schema
+export const historicalOpenInterestDataSchema = z.object({
+  data_points: z.array(z.object({
+    timestamp: z.string(),
+    openInterest: z.number(),
+    openInterestUsd: z.number(),
+    price: z.number(),
+    volume24h: z.number(),
+    longShortRatio: z.number().optional(),
+  })),
+  trends: z.object({
+    oi_trend: z.array(z.number()),
+    oi_usd_trend: z.array(z.number()),
+    price_correlation: z.array(z.number()),
+  }),
+  statistics: z.object({
+    average_oi: z.number(),
+    max_oi: z.number(),
+    min_oi: z.number(),
+    oi_volatility: z.number(),
+    correlation_with_price: z.number(),
+  }),
+});
+
+// Volume History schema for Enhanced Volume Profile
+export const volumeHistorySchema = z.object({
+  volume24hAgo: z.number(),
+  volumeChange24h: z.number(),
+  volumeChangePercentage: z.number(),
+});
+
 // Enhanced order book schema with deeper levels
 export const enhancedOrderBookSchema = z.object({
   asks: z.array(orderBookEntrySchema),
