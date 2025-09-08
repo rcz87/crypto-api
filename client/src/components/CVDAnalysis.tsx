@@ -620,10 +620,65 @@ export function CVDAnalysisComponent({ className = '' }: CVDProps) {
                   <div className="flex items-center gap-2 mb-2">
                     <AlertCircle className="h-4 w-4 text-yellow-400" />
                     <span className="text-yellow-400 font-semibold">Manipulation Alert</span>
+                    <Badge className="bg-yellow-500/20 text-yellow-300 text-xs">
+                      {cvd.smartMoneySignals.manipulation.confidence}% confidence
+                    </Badge>
                   </div>
-                  <div className="text-sm text-gray-300">
-                    {cvd.smartMoneySignals.manipulation.type.replace('_', ' ')} pattern - {cvd.smartMoneySignals.manipulation.confidence}% confidence
+                  <div className="text-sm text-gray-300 mb-3">
+                    {cvd.smartMoneySignals.manipulation.type.replace('_', ' ')} pattern detected
                   </div>
+                  
+                  {/* Enhanced: Price Targets */}
+                  {cvd.smartMoneySignals.manipulation.priceTargets && cvd.smartMoneySignals.manipulation.priceTargets.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <div className="text-xs text-gray-400 mb-2">Price Targets</div>
+                        <div className="space-y-1">
+                          {cvd.smartMoneySignals.manipulation.priceTargets.slice(0, 2).map((target, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-xs bg-gray-800 p-2 rounded">
+                              <span className="text-yellow-300">${target.price.toFixed(2)}</span>
+                              <span className="text-gray-400">{target.confidence}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Enhanced: Expected Move */}
+                      {cvd.smartMoneySignals.manipulation.expectedMove && (
+                        <div>
+                          <div className="text-xs text-gray-400 mb-2">Expected Move</div>
+                          <div className="bg-gray-800 p-2 rounded">
+                            <div className="text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Direction:</span>
+                                <span className={`${
+                                  cvd.smartMoneySignals.manipulation.expectedMove.direction.includes('bullish') ? 'text-green-400' :
+                                  cvd.smartMoneySignals.manipulation.expectedMove.direction.includes('bearish') ? 'text-red-400' :
+                                  'text-gray-400'
+                                }`}>
+                                  {cvd.smartMoneySignals.manipulation.expectedMove.direction.replace('_', ' ')}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Magnitude:</span>
+                                <span className="text-white">{cvd.smartMoneySignals.manipulation.expectedMove.magnitude}%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Timeframe:</span>
+                                <span className="text-white">{cvd.smartMoneySignals.manipulation.expectedMove.timeframe}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {!cvd.smartMoneySignals.manipulation.priceTargets && (
+                    <div className="text-xs text-gray-400">
+                      Monitor for specific price levels based on {cvd.smartMoneySignals.manipulation.type.replace('_', ' ')} pattern
+                    </div>
+                  )}
                 </div>
               )}
             </div>

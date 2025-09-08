@@ -659,6 +659,16 @@ export const cvdAnalysisSchema = z.object({
       detected: z.boolean(),
       type: z.enum(['stop_hunt', 'liquidity_grab', 'false_breakout']),
       confidence: z.number(),
+      priceTargets: z.array(z.object({
+        price: z.number(),
+        type: z.string(),
+        confidence: z.number(),
+      })).optional(),
+      expectedMove: z.object({
+        direction: z.string(),
+        magnitude: z.number(),
+        timeframe: z.string(),
+      }).optional(),
     }),
   }),
   

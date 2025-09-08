@@ -575,7 +575,7 @@ export class CVDService {
                                flowAnalysis.trend === 'distribution' && 
                                absorptionPatterns.some(p => p.type === 'sell_absorption' && p.strength !== 'weak');
     
-    // ADVANCED Multi-Pattern Manipulation Detection
+    // ADVANCED Multi-Pattern Manipulation Detection with Price Levels
     const manipulationAnalysis = this.detectAdvancedManipulation(recentBars, absorptionPatterns, flowAnalysis);
     
     return {
@@ -599,6 +599,8 @@ export class CVDService {
         confidence: manipulationAnalysis.confidence,
         patterns: manipulationAnalysis.patterns,
         riskLevel: manipulationAnalysis.riskLevel,
+        priceTargets: manipulationAnalysis.priceTargets || [], // Enhanced: Specific price levels
+        expectedMove: manipulationAnalysis.expectedMove, // Enhanced: Expected price direction and magnitude
       },
     };
   }
@@ -753,12 +755,18 @@ export class CVDService {
     const primaryType = detectedPatterns[0] || 'stop_hunt'; // Default to valid enum value
     const confidence = Math.min(95, detectedPatterns.length * 20 + institutionalPatterns.length * 15);
     
+    // Enhanced: Calculate price targets and expected moves
+    const priceTargets = this.calculateManipulationPriceTargets(recentBars, absorptionPatterns, primaryType);
+    const expectedMove = this.calculateExpectedManipulationMove(recentBars, primaryType, confidence);
+    
     return {
       detected: detectedPatterns.length > 0,
       type: primaryType as 'stop_hunt' | 'liquidity_grab' | 'false_breakout',
       confidence,
       patterns: detectedPatterns,
       riskLevel,
+      priceTargets,
+      expectedMove,
       details: {
         liquidityGrabs,
         stopHunting,
@@ -809,6 +817,134 @@ export class CVDService {
     const avgVolume = bars.reduce((sum, bar) => sum + parseFloat(bar.buyVolume) + parseFloat(bar.sellVolume), 0) / bars.length;
     const largeOrders = bars.filter(bar => (parseFloat(bar.buyVolume) + parseFloat(bar.sellVolume)) > avgVolume * 2.5);
     return largeOrders.length / bars.length;
+  }
+
+  /**
+   * Enhanced: Calculate specific price targets for manipulation patterns
+   */
+  private calculateManipulationPriceTargets(
+    recentBars: VolumeDeltaBar[], 
+    absorptionPatterns: AbsorptionPattern[], 
+    manipulationType: string
+  ): Array<{ price: number; type: string; confidence: number }> {
+    const targets = [];
+    
+    if (recentBars.length < 3) return targets;
+    
+    // Get recent price levels from bars
+    const recentPrices = recentBars.slice(-5).map(bar => parseFloat(bar.price));
+    const currentPrice = recentPrices[recentPrices.length - 1];
+    const highPrice = Math.max(...recentPrices);
+    const lowPrice = Math.min(...recentPrices);
+    
+    // Calculate targets based on manipulation type
+    switch (manipulationType) {
+      case 'stop_hunt':
+        // Stop hunt targets are typically just below/above recent lows/highs
+        targets.push({
+          price: lowPrice * 0.998, // 0.2% below recent low
+          type: 'stop_hunt_low',
+          confidence: 75
+        });
+        targets.push({
+          price: highPrice * 1.002, // 0.2% above recent high
+          type: 'stop_hunt_high',
+          confidence: 75
+        });
+        break;
+        
+      case 'liquidity_grab':
+        // Liquidity grabs target areas of high volume absorption
+        for (const pattern of absorptionPatterns) {
+          if (pattern.strength === 'institutional') {
+            targets.push({
+              price: parseFloat(pattern.priceRange.high),
+              type: 'liquidity_grab_resistance',
+              confidence: 85
+            });
+            targets.push({
+              price: parseFloat(pattern.priceRange.low),
+              type: 'liquidity_grab_support',
+              confidence: 85
+            });
+          }
+        }
+        break;
+        
+      case 'false_breakout':
+        // False breakouts target breakout levels that fail
+        const range = highPrice - lowPrice;
+        targets.push({
+          price: highPrice + (range * 0.1), // 10% extension above high
+          type: 'false_breakout_high',
+          confidence: 70
+        });
+        targets.push({
+          price: lowPrice - (range * 0.1), // 10% extension below low
+          type: 'false_breakout_low',
+          confidence: 70
+        });
+        break;
+    }
+    
+    // Filter targets that are reasonable (within 5% of current price)
+    return targets.filter(target => 
+      Math.abs(target.price - currentPrice) / currentPrice <= 0.05
+    );
+  }
+
+  /**
+   * Enhanced: Calculate expected move from manipulation
+   */
+  private calculateExpectedManipulationMove(
+    recentBars: VolumeDeltaBar[], 
+    manipulationType: string, 
+    confidence: number
+  ): { direction: string; magnitude: number; timeframe: string } {
+    if (recentBars.length < 3) {
+      return { direction: 'neutral', magnitude: 0, timeframe: 'unknown' };
+    }
+    
+    const recentPrices = recentBars.slice(-3).map(bar => parseFloat(bar.price));
+    const priceChange = recentPrices[recentPrices.length - 1] - recentPrices[0];
+    const volatility = Math.abs(Math.max(...recentPrices) - Math.min(...recentPrices)) / recentPrices[0];
+    
+    let direction = 'neutral';
+    let magnitude = 0;
+    let timeframe = '1-2 hours';
+    
+    // Determine expected move based on manipulation type and recent price action
+    switch (manipulationType) {
+      case 'stop_hunt':
+        // Stop hunts often reverse quickly
+        direction = priceChange > 0 ? 'bearish_reversal' : 'bullish_reversal';
+        magnitude = volatility * 0.5; // 50% of recent volatility
+        timeframe = '30-60 minutes';
+        break;
+        
+      case 'liquidity_grab':
+        // Liquidity grabs can continue the trend temporarily
+        direction = priceChange > 0 ? 'bullish_continuation' : 'bearish_continuation';
+        magnitude = volatility * 0.3; // 30% of recent volatility
+        timeframe = '1-3 hours';
+        break;
+        
+      case 'false_breakout':
+        // False breakouts reverse strongly
+        direction = priceChange > 0 ? 'bearish_reversal' : 'bullish_reversal';
+        magnitude = volatility * 0.7; // 70% of recent volatility
+        timeframe = '2-4 hours';
+        break;
+    }
+    
+    // Adjust magnitude based on confidence
+    magnitude = magnitude * (confidence / 100);
+    
+    return {
+      direction,
+      magnitude: parseFloat((magnitude * 100).toFixed(2)), // Convert to percentage
+      timeframe
+    };
   }
 
   private async analyzeMultiTimeframeAlignment() {
