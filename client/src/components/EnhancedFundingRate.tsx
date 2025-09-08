@@ -22,8 +22,7 @@ import {
   ChevronRight,
   Info,
   Calendar,
-  PieChart,
-  LineChart
+  PieChart
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
@@ -209,10 +208,10 @@ export function EnhancedFundingRate() {
       hasConflicts,
       conflicts,
       criticalConflicts,
-      highestSeverity: conflicts.reduce((max, c) => {
+      highestSeverity: conflicts.length > 0 ? conflicts.reduce((max, c) => {
         const severityOrder = { low: 1, medium: 2, high: 3, critical: 4 };
-        return severityOrder[c.severity] > severityOrder[max] ? c.severity : max;
-      }, 'low' as const)
+        return severityOrder[c.severity] > severityOrder[max.severity] ? c : max;
+      }, conflicts[0]).severity : 'low' as const
     };
   }, [enhancedData]);
 

@@ -8,7 +8,7 @@ import { RealTimeData } from "@/components/real-time-data";
 import { SystemLogs } from "@/components/system-logs";
 import { ConfigurationPanel } from "@/components/configuration-panel";
 import { TradingViewWidget } from "@/components/TradingViewWidget";
-import { FundingRate } from "@/components/FundingRate";
+import { EnhancedFundingRate } from "@/components/EnhancedFundingRate";
 import { OpenInterest } from "@/components/OpenInterest";
 import { VolumeProfile } from "@/components/VolumeProfile";
 import { VolumeDelta } from "@/components/VolumeDelta";
@@ -252,7 +252,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 gap-6 mb-6">
             {/* Funding Rate */}
             <ErrorBoundary>
-              <FundingRate />
+              <EnhancedFundingRate />
             </ErrorBoundary>
 
             {/* Open Interest */}
