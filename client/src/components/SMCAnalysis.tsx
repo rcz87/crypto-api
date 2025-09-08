@@ -214,6 +214,56 @@ export function SMCAnalysis({ className = '' }: SMCProps) {
       </CardHeader>
 
       <CardContent className="space-y-6">
+        {/* Enhanced: Cross-Dashboard Risk Alerts */}
+        {smc.riskAlerts && smc.riskAlerts.alerts.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-white font-semibold">
+              <AlertTriangle className={`h-4 w-4 ${
+                smc.riskAlerts.overallRiskLevel === 'extreme' ? 'text-red-500' :
+                smc.riskAlerts.overallRiskLevel === 'high' ? 'text-red-400' :
+                smc.riskAlerts.overallRiskLevel === 'medium' ? 'text-yellow-400' :
+                'text-gray-400'
+              }`} />
+              Cross-Dashboard Risk Alerts
+              <Badge className={`text-xs ${
+                smc.riskAlerts.overallRiskLevel === 'extreme' ? 'bg-red-500/20 text-red-400 border-red-500' :
+                smc.riskAlerts.overallRiskLevel === 'high' ? 'bg-red-500/20 text-red-400 border-red-500' :
+                smc.riskAlerts.overallRiskLevel === 'medium' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500' :
+                'bg-gray-500/20 text-gray-400 border-gray-500'
+              }`}>
+                {smc.riskAlerts.overallRiskLevel.toUpperCase()} RISK
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {smc.riskAlerts.alerts.map((alert, index) => (
+                <div key={index} className={`p-3 rounded-lg border-l-4 ${
+                  alert.severity === 'extreme' ? 'bg-red-950/30 border-red-500' :
+                  alert.severity === 'high' ? 'bg-red-900/30 border-red-400' :
+                  alert.severity === 'medium' ? 'bg-yellow-900/30 border-yellow-400' :
+                  'bg-gray-900/30 border-gray-500'
+                }`}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-xs font-bold px-2 py-1 rounded ${
+                          alert.severity === 'extreme' ? 'bg-red-500 text-white' :
+                          alert.severity === 'high' ? 'bg-red-400 text-white' :
+                          alert.severity === 'medium' ? 'bg-yellow-400 text-black' :
+                          'bg-gray-400 text-black'
+                        }`}>
+                          {alert.type.replace(/_/g, ' ').toUpperCase()}
+                        </span>
+                        <span className="text-xs text-gray-400">{alert.source}</span>
+                      </div>
+                      <p className="text-sm text-white mb-2">{alert.message}</p>
+                      <p className="text-xs text-gray-300">{alert.recommendation}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {/* Multi-Timeframe Alignment */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-white font-semibold">
