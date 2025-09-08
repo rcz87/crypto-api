@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { TrendingUp, TrendingDown, Zap, Shield, AlertTriangle, Eye, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Zap, Shield, AlertTriangle, Eye, RefreshCw, CheckCircle, XCircle, Bell } from 'lucide-react';
 
 interface HeatmapBucket {
   priceLevel: number;
@@ -67,12 +67,32 @@ interface PremiumAnalytics {
   lastUpdate: string;
 }
 
+interface PriceLevelNotification {
+  id: string;
+  type: 'level_touch' | 'bounce_confirmation' | 'rejection_confirmation';
+  level: LiquidityLevel;
+  levelType: 'support' | 'resistance';
+  message: string;
+  timestamp: number;
+  status: 'active' | 'confirmed' | 'failed';
+  priceAtTouch: number;
+  currentPrice: number;
+}
+
 const LiquidityHeatmap = React.memo(() => {
   const [data, setData] = useState<PremiumAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number>(207.0);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Enhanced: Interactive Notifications State
+  const [notifications, setNotifications] = useState<PriceLevelNotification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(true);
+  const [lastPriceCheckTime, setLastPriceCheckTime] = useState<number>(Date.now());
+  const previousPriceRef = useRef<number>(207.0);
+  const priceHistoryRef = useRef<{ price: number; timestamp: number }[]>([]);
+  const notificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchHeatmapData = useCallback(async () => {
     try {
@@ -111,18 +131,46 @@ const LiquidityHeatmap = React.memo(() => {
       const response = await fetch('/api/sol/complete');
       const result = await response.json();
       if (result.success && result.data?.ticker?.last) {
-        setCurrentPrice(parseFloat(result.data.ticker.last));
+        const newPrice = parseFloat(result.data.ticker.last);
+        const oldPrice = previousPriceRef.current;
+        
+        // Update price history
+        priceHistoryRef.current.push({ price: newPrice, timestamp: Date.now() });
+        // Keep only last 10 price points
+        if (priceHistoryRef.current.length > 10) {
+          priceHistoryRef.current.shift();
+        }
+        
+        setCurrentPrice(newPrice);
+        previousPriceRef.current = newPrice;
+        
+        // Enhanced: Check for level interactions
+        if (data?.institutionalFeatures?.liquidityHeatmap) {
+          checkLevelInteractions(oldPrice, newPrice);
+        }
       }
     } catch (err) {
       console.warn('Failed to fetch current price:', err);
     }
-  }, []);
+  }, [data]);
 
   useEffect(() => {
     // Only fetch once on mount, no auto-refresh
     fetchHeatmapData();
     fetchCurrentPrice();
-  }, []);
+    
+    // Enhanced: Set up price monitoring for notifications
+    const priceMonitorInterval = setInterval(() => {
+      fetchCurrentPrice();
+    }, 3000); // Check price every 3 seconds
+    
+    return () => {
+      clearInterval(priceMonitorInterval);
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current);
+      }
+    };
+  }, [fetchCurrentPrice]);
 
   const getIntensityColor = (intensity: number): string => {
     if (intensity > 4) return 'from-red-600 to-red-400'; // Very hot
@@ -138,6 +186,128 @@ const LiquidityHeatmap = React.memo(() => {
     if (intensity > 2) return '🟡 Warm';
     if (intensity > 1) return '🔵 Cool';
     return '⚫ Cold';
+  };
+
+  // Enhanced: Interactive Notifications System
+  const checkLevelInteractions = useCallback((oldPrice: number, newPrice: number) => {
+    if (!data?.institutionalFeatures?.liquidityHeatmap) return;
+    
+    const heatmapData = data.institutionalFeatures.liquidityHeatmap;
+    const allLevels = [
+      ...heatmapData.strongSupportLevels.map(level => ({ ...level, type: 'support' as const })),
+      ...heatmapData.strongResistanceLevels.map(level => ({ ...level, type: 'resistance' as const }))
+    ];
+    
+    const tolerance = newPrice * 0.003; // 0.3% tolerance for level touch
+    
+    allLevels.forEach(level => {
+      const levelPrice = level.price;
+      const wasAbove = oldPrice > levelPrice + tolerance;
+      const wasBelowOrAt = oldPrice <= levelPrice + tolerance;
+      const isNowAbove = newPrice > levelPrice + tolerance;
+      const isNowBelowOrAt = newPrice <= levelPrice + tolerance;
+      const isNearLevel = Math.abs(newPrice - levelPrice) <= tolerance;
+      
+      // Check for level touch (crossing or approaching)
+      if (level.type === 'support') {
+        // Price approaching or touching support from above
+        if (wasAbove && (isNowBelowOrAt || isNearLevel)) {
+          createLevelTouchNotification(level, 'support', newPrice);
+          
+          // Schedule bounce check after a few seconds
+          setTimeout(() => {
+            checkBounceConfirmation(level, 'support', newPrice);
+          }, 8000);
+        }
+      } else {
+        // Price approaching or touching resistance from below  
+        if (wasBelowOrAt && (isNowAbove || isNearLevel)) {
+          createLevelTouchNotification(level, 'resistance', newPrice);
+          
+          // Schedule rejection check after a few seconds
+          setTimeout(() => {
+            checkRejectionConfirmation(level, 'resistance', newPrice);
+          }, 8000);
+        }
+      }
+    });
+  }, [data]);
+
+  const createLevelTouchNotification = (level: LiquidityLevel, levelType: 'support' | 'resistance', touchPrice: number) => {
+    const notification: PriceLevelNotification = {
+      id: `${levelType}_${level.price}_${Date.now()}`,
+      type: 'level_touch',
+      level,
+      levelType,
+      message: `Price ${touchPrice.toFixed(2)} approaching ${levelType} level at $${level.price.toFixed(2)} (${level.significance})`,
+      timestamp: Date.now(),
+      status: 'active',
+      priceAtTouch: touchPrice,
+      currentPrice: touchPrice
+    };
+    
+    setNotifications(prev => [notification, ...prev.slice(0, 4)]); // Keep max 5 notifications
+    
+    // Auto-remove after 15 seconds if not confirmed
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== notification.id));
+    }, 15000);
+  };
+
+  const checkBounceConfirmation = (level: LiquidityLevel, levelType: 'support', touchPrice: number) => {
+    const currentPriceNow = currentPrice;
+    const minBounceThreshold = level.price * 1.005; // 0.5% above support
+    
+    if (currentPriceNow > minBounceThreshold) {
+      const bounceNotification: PriceLevelNotification = {
+        id: `bounce_${level.price}_${Date.now()}`,
+        type: 'bounce_confirmation',
+        level,
+        levelType,
+        message: `✅ Support level at $${level.price.toFixed(2)} successfully held! Price bounced to $${currentPriceNow.toFixed(2)}`,
+        timestamp: Date.now(),
+        status: 'confirmed',
+        priceAtTouch: touchPrice,
+        currentPrice: currentPriceNow
+      };
+      
+      setNotifications(prev => [bounceNotification, ...prev.slice(0, 4)]);
+      
+      // Auto-remove after 12 seconds
+      setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== bounceNotification.id));
+      }, 12000);
+    }
+  };
+
+  const checkRejectionConfirmation = (level: LiquidityLevel, levelType: 'resistance', touchPrice: number) => {
+    const currentPriceNow = currentPrice;
+    const maxRejectionThreshold = level.price * 0.995; // 0.5% below resistance
+    
+    if (currentPriceNow < maxRejectionThreshold) {
+      const rejectionNotification: PriceLevelNotification = {
+        id: `rejection_${level.price}_${Date.now()}`,
+        type: 'rejection_confirmation',
+        level,
+        levelType,
+        message: `❌ Resistance level at $${level.price.toFixed(2)} rejected price! Down to $${currentPriceNow.toFixed(2)}`,
+        timestamp: Date.now(),
+        status: 'confirmed',
+        priceAtTouch: touchPrice,
+        currentPrice: currentPriceNow
+      };
+      
+      setNotifications(prev => [rejectionNotification, ...prev.slice(0, 4)]);
+      
+      // Auto-remove after 12 seconds
+      setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== rejectionNotification.id));
+      }, 12000);
+    }
+  };
+
+  const dismissNotification = (notificationId: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
   };
 
   const getWhaleImpactIcon = (impact: string) => {
@@ -306,6 +476,80 @@ const LiquidityHeatmap = React.memo(() => {
 
   return (
     <div className="space-y-4">
+      {/* Enhanced: Interactive Notifications Panel */}
+      {showNotifications && notifications.length > 0 && (
+        <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`p-3 rounded-lg border-l-4 backdrop-blur-sm shadow-lg transition-all duration-300 ${
+                notification.type === 'bounce_confirmation' 
+                  ? 'bg-green-900/80 border-green-400 text-green-100'
+                  : notification.type === 'rejection_confirmation'
+                  ? 'bg-red-900/80 border-red-400 text-red-100'
+                  : notification.levelType === 'support'
+                  ? 'bg-blue-900/80 border-blue-400 text-blue-100'
+                  : 'bg-orange-900/80 border-orange-400 text-orange-100'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    {notification.type === 'bounce_confirmation' ? (
+                      <CheckCircle className="h-4 w-4 text-green-400" />
+                    ) : notification.type === 'rejection_confirmation' ? (
+                      <XCircle className="h-4 w-4 text-red-400" />
+                    ) : (
+                      <Bell className="h-4 w-4" />
+                    )}
+                    <span className="text-xs font-bold uppercase tracking-wide">
+                      {notification.levelType} {notification.type.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <p className="text-sm leading-tight">{notification.message}</p>
+                  <div className="text-xs opacity-75 mt-1">
+                    {new Date(notification.timestamp).toLocaleTimeString()}
+                  </div>
+                </div>
+                <button
+                  onClick={() => dismissNotification(notification.id)}
+                  className="ml-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+          
+          {/* Notification Controls */}
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowNotifications(false)}
+              className="text-xs text-gray-400 hover:text-white"
+            >
+              Hide Notifications
+            </Button>
+          </div>
+        </div>
+      )}
+      
+      {/* Show notifications toggle when hidden */}
+      {!showNotifications && (
+        <div className="fixed top-4 right-4 z-50">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowNotifications(true)}
+            className="bg-gray-800/80 text-gray-300 hover:text-white backdrop-blur-sm"
+          >
+            <Bell className="h-4 w-4 mr-1" />
+            Show Alerts {notifications.length > 0 && `(${notifications.length})`}
+          </Button>
+        </div>
+      )}
+
       {/* Main Heatmap */}
       <Card className="bg-gray-900 border-gray-800">
         <CardHeader className="pb-3">
