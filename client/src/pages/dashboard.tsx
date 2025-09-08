@@ -9,6 +9,7 @@ import { SystemLogs } from "@/components/system-logs";
 import { ConfigurationPanel } from "@/components/configuration-panel";
 import { TradingViewWidget } from "@/components/TradingViewWidget";
 import { EnhancedFundingRate } from "@/components/EnhancedFundingRate";
+import { AISignalDashboard } from "@/components/AISignalDashboard";
 import { OpenInterest } from "@/components/OpenInterest";
 import { VolumeProfile } from "@/components/VolumeProfile";
 import { VolumeDelta } from "@/components/VolumeDelta";
@@ -325,6 +326,13 @@ export default function Dashboard() {
           <div className="mt-6">
             <ErrorBoundary>
               <ConfluenceScoring timeframe="1H" className="w-full" />
+            </ErrorBoundary>
+          </div>
+
+          {/* Row 7: AI Trading Intelligence - Phase 3 Advanced AI System */}
+          <div className="mt-6">
+            <ErrorBoundary>
+              <AISignalDashboard />
             </ErrorBoundary>
           </div>
         </div>
