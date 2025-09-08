@@ -876,7 +876,8 @@ export const aiSignalSchema = z.object({
     primary_factors: z.array(z.string()),
     supporting_evidence: z.array(z.string()),
     risk_factors: z.array(z.string()),
-    market_context: z.string()
+    market_context: z.string(),
+    educational_note: z.string().optional()
   }),
   execution_details: z.object({
     recommended_size: z.number(),
