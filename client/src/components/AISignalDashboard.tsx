@@ -423,11 +423,29 @@ export function AISignalDashboard() {
                             </div>
                             {signal.reasoning.ai_confidence && (
                               <div className="flex items-center gap-2 mt-2">
-                                <div className="text-xs text-green-400">AI Confidence: {signal.reasoning.ai_confidence}</div>
+                                <div className={`text-xs ${
+                                  signal.reasoning.ai_confidence.includes('High') ? 'text-green-400' :
+                                  signal.reasoning.ai_confidence.includes('Medium') ? 'text-yellow-400' :
+                                  'text-red-400'
+                                }`}>
+                                  AI Confidence: {signal.reasoning.ai_confidence}
+                                </div>
                                 {signal.reasoning.ai_confidence.includes('GPT-5') && (
-                                  <Badge variant="outline" className="text-xs border-green-400 text-green-400">
-                                    🤖 GPT-5 Enhanced
-                                  </Badge>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger>
+                                        <Badge variant="outline" className="text-xs border-green-400 text-green-400 hover:bg-green-400/10 cursor-help">
+                                          🤖 GPT-5 Enhanced
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="bg-gray-800 border-gray-600 text-white p-3">
+                                        <div className="text-xs">
+                                          <div className="font-semibold mb-1">🚀 Diperkuat oleh GPT-5</div>
+                                          <div className="text-gray-300">Analisis lebih dalam & presisi lebih tinggi menggunakan model AI terdepan dari OpenAI</div>
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 )}
                               </div>
                             )}
