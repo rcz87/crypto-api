@@ -301,6 +301,21 @@ export const nearestZoneSchema = z.object({
   significance: z.enum(['low', 'medium', 'high']),
 });
 
+export const riskAlertSchema = z.object({
+  type: z.enum(['manipulation_warning', 'liquidation_cascade', 'institutional_distribution']),
+  severity: z.enum(['low', 'medium', 'high', 'extreme']),
+  message: z.string(),
+  source: z.string(),
+  recommendation: z.string(),
+});
+
+export const crossDashboardRiskSchema = z.object({
+  alerts: z.array(riskAlertSchema),
+  overallRiskLevel: z.enum(['low', 'medium', 'high', 'extreme']),
+  lastUpdate: z.string(),
+  affectedScenarios: z.boolean(),
+});
+
 export const tradingScenarioSchema = z.object({
   side: z.enum(['bullish', 'bearish']),
   trigger: z.string(),
@@ -343,6 +358,7 @@ export const smcAnalysisSchema = z.object({
   regime: z.enum(['trending', 'ranging']),
   session: z.enum(['Asia', 'London', 'NY']),
   scenarios: z.array(tradingScenarioSchema),
+  riskAlerts: crossDashboardRiskSchema.optional(), // Enhanced: Cross-dashboard risk integration
   derivatives: z.object({
     openInterest: z.object({
       value: z.string(),
@@ -542,6 +558,8 @@ export type OrderBlockData = z.infer<typeof orderBlockSchema>;
 export type StructurePointData = z.infer<typeof structurePointSchema>;
 export type NearestZoneData = z.infer<typeof nearestZoneSchema>;
 export type TradingScenarioData = z.infer<typeof tradingScenarioSchema>;
+export type RiskAlertData = z.infer<typeof riskAlertSchema>;
+export type CrossDashboardRiskData = z.infer<typeof crossDashboardRiskSchema>;
 // Volume Delta (CVD) Analysis Schemas - Professional Trading Analysis
 export const volumeDeltaBarSchema = z.object({
   timestamp: z.string(),

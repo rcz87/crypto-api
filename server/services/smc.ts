@@ -41,7 +41,10 @@ export class SMCService {
     const derivatives = await this.analyzeDerivatives();
     const regime = this.detectMarketRegime(sortedCandles);
     const session = this.getCurrentTradingSession();
-    const scenarios = this.generateTradingScenarios(sortedCandles, trend, nearestZones, derivatives);
+    
+    // Enhanced: Cross-Dashboard Risk Analysis
+    const riskAlerts = await this.analyzeCrossDashboardRisks(timeframe);
+    const riskAdjustedScenarios = this.generateTradingScenarios(sortedCandles, trend, nearestZones, derivatives, riskAlerts);
     const atr = this.calculateATR(sortedCandles);
     
     // Advanced Confluence Score (weighted)
@@ -76,7 +79,8 @@ export class SMCService {
       nearestZones,
       regime,
       session,
-      scenarios,
+      scenarios: riskAdjustedScenarios,
+      riskAlerts, // Enhanced: Cross-dashboard risk integration
       derivatives,
       atr,
       lastUpdate: new Date().toISOString(),
@@ -294,13 +298,139 @@ export class SMCService {
   }
 
   /**
-   * Generate trading scenarios
+   * Enhanced: Analyze Cross-Dashboard Risk Conditions
+   */
+  private async analyzeCrossDashboardRisks(timeframe: string) {
+    try {
+      // Fetch CVD analysis to check for manipulation and liquidation risks
+      const cvdService = new (await import('./cvd')).CVDService();
+      const mockCandles = this.generateMockCandles(); // For demonstration
+      const mockTrades = this.generateMockTrades(); // For demonstration
+      
+      const cvdAnalysis = await cvdService.analyzeCVD(mockCandles, mockTrades, timeframe);
+      
+      const riskAlerts = [];
+      let overallRiskLevel: 'low' | 'medium' | 'high' | 'extreme' = 'low';
+      
+      // Check for manipulation alerts
+      if (cvdAnalysis.smartMoneySignals.manipulation.detected) {
+        const confidence = cvdAnalysis.smartMoneySignals.manipulation.confidence;
+        const riskLevel = confidence > 90 ? 'extreme' : confidence > 70 ? 'high' : 'medium';
+        
+        riskAlerts.push({
+          type: 'manipulation_warning',
+          severity: riskLevel,
+          message: `${cvdAnalysis.smartMoneySignals.manipulation.type.replace('_', ' ')} pattern detected (${confidence}% confidence)`,
+          source: 'CVD_Analysis',
+          recommendation: confidence > 85 ? 'Avoid new positions - high manipulation risk' : 'Exercise caution - monitor for manipulation'
+        });
+        
+        if (riskLevel === 'extreme') overallRiskLevel = 'extreme';
+        else if (riskLevel === 'high' && overallRiskLevel !== 'extreme') overallRiskLevel = 'high';
+      }
+      
+      // Check for liquidation cascade risks  
+      const currentBuyPressure = cvdAnalysis.realTimeMetrics.currentBuyPressure;
+      const currentSellPressure = cvdAnalysis.realTimeMetrics.currentSellPressure;
+      
+      if (currentSellPressure > 70 && cvdAnalysis.realTimeMetrics.momentum === 'bearish') {
+        riskAlerts.push({
+          type: 'liquidation_cascade',
+          severity: 'high',
+          message: `High sell pressure (${currentSellPressure}%) with bearish momentum - liquidation cascade risk`,
+          source: 'CVD_Flow_Analysis',
+          recommendation: 'Reduce position sizes - potential cascade liquidations'
+        });
+        
+        if (overallRiskLevel !== 'extreme') overallRiskLevel = 'high';
+      }
+      
+      // Check for absorption and distribution patterns
+      if (cvdAnalysis.flowAnalysis.trend === 'distribution' && cvdAnalysis.flowAnalysis.strength === 'strong') {
+        riskAlerts.push({
+          type: 'institutional_distribution',
+          severity: 'medium',
+          message: `Strong institutional distribution detected - ${cvdAnalysis.flowAnalysis.duration} duration`,
+          source: 'Flow_Analysis',
+          recommendation: 'Monitor for potential price weakness'
+        });
+        
+        if (overallRiskLevel === 'low') overallRiskLevel = 'medium';
+      }
+      
+      return {
+        alerts: riskAlerts,
+        overallRiskLevel,
+        lastUpdate: new Date().toISOString(),
+        affectedScenarios: riskAlerts.length > 0
+      };
+      
+    } catch (error) {
+      console.warn('Cross-dashboard risk analysis failed:', error);
+      return {
+        alerts: [],
+        overallRiskLevel: 'low' as const,
+        lastUpdate: new Date().toISOString(),
+        affectedScenarios: false
+      };
+    }
+  }
+
+  /**
+   * Generate mock candles for demonstration
+   */
+  private generateMockCandles(): any[] {
+    const candles = [];
+    const basePrice = 205;
+    
+    for (let i = 0; i < 50; i++) {
+      const timestamp = (Date.now() - (49 - i) * 3600000).toString();
+      const variation = (Math.random() - 0.5) * 4;
+      const open = basePrice + variation;
+      const close = open + (Math.random() - 0.5) * 2;
+      const high = Math.max(open, close) + Math.random() * 1;
+      const low = Math.min(open, close) - Math.random() * 1;
+      
+      candles.push({
+        timestamp,
+        open: open.toFixed(2),
+        high: high.toFixed(2),
+        low: low.toFixed(2),
+        close: close.toFixed(2),
+        volume: (1000000 + Math.random() * 500000).toFixed(0)
+      });
+    }
+    
+    return candles;
+  }
+
+  /**
+   * Generate mock trades for demonstration
+   */
+  private generateMockTrades(): any[] {
+    const trades = [];
+    
+    for (let i = 0; i < 20; i++) {
+      trades.push({
+        timestamp: (Date.now() - i * 60000).toString(),
+        price: (205 + (Math.random() - 0.5) * 2).toFixed(2),
+        size: (Math.random() * 1000).toFixed(2),
+        side: Math.random() > 0.5 ? 'buy' : 'sell'
+      });
+    }
+    
+    return trades;
+  }
+
+  /**
+   * Enhanced Generate trading scenarios with risk adjustment
    */
   private generateTradingScenarios(
     candles: CandleData[],
     trend: 'bullish' | 'bearish' | 'ranging',
     nearestZones: NearestZoneData[],
-    derivatives: any
+    derivatives: any,
+    riskAlerts?: any
   ): TradingScenarioData[] {
     const currentPrice = parseFloat(candles[candles.length - 1].close);
     const scenarios: TradingScenarioData[] = [];
@@ -308,25 +438,60 @@ export class SMCService {
     const nearestSupport = nearestZones.find(z => z.side === 'below');
     const nearestResistance = nearestZones.find(z => z.side === 'above');
 
+    // Enhanced: Risk-adjusted probability calculation
+    let baseBullishProb = trend === 'bullish' ? 75 : trend === 'ranging' ? 50 : 25;
+    let baseBearishProb = trend === 'bearish' ? 75 : trend === 'ranging' ? 50 : 25;
+    
+    // Apply risk adjustments
+    if (riskAlerts && riskAlerts.affectedScenarios) {
+      const riskLevel = riskAlerts.overallRiskLevel;
+      const manipulationRisk = riskAlerts.alerts.some((alert: any) => alert.type === 'manipulation_warning');
+      const liquidationRisk = riskAlerts.alerts.some((alert: any) => alert.type === 'liquidation_cascade');
+      
+      // Reduce probabilities based on risk level
+      const riskReduction = riskLevel === 'extreme' ? 40 : riskLevel === 'high' ? 25 : riskLevel === 'medium' ? 15 : 0;
+      
+      baseBullishProb = Math.max(10, baseBullishProb - riskReduction);
+      baseBearishProb = Math.max(10, baseBearishProb - riskReduction);
+      
+      // Additional adjustments for specific risk types
+      if (manipulationRisk) {
+        baseBullishProb = Math.max(10, baseBullishProb - 10);
+        baseBearishProb = Math.max(10, baseBearishProb - 10);
+      }
+      
+      if (liquidationRisk && trend !== 'bearish') {
+        baseBearishProb = Math.min(80, baseBearishProb + 15); // Increase bearish probability during liquidation risk
+      }
+    }
+
     // Bullish scenario
     if (nearestSupport && nearestResistance) {
+      const bullishNote = riskAlerts && riskAlerts.alerts.length > 0 ? 
+        `Bounce from ${nearestSupport.type} support zone (Risk Adjusted)` :
+        `Bounce from ${nearestSupport.type} support zone`;
+        
       scenarios.push({
         side: 'bullish',
         trigger: (parseFloat(nearestSupport.price) * 1.001).toFixed(3),
         invalidation: (parseFloat(nearestSupport.price) * 0.995).toFixed(3),
         target: nearestResistance.price,
-        probability: trend === 'bullish' ? 75 : trend === 'ranging' ? 50 : 25,
-        note: `Bounce from ${nearestSupport.type} support zone`
+        probability: baseBullishProb,
+        note: bullishNote
       });
 
       // Bearish scenario
+      const bearishNote = riskAlerts && riskAlerts.alerts.length > 0 ?
+        `Rejection from ${nearestResistance.type} resistance zone (Risk Adjusted)` :
+        `Rejection from ${nearestResistance.type} resistance zone`;
+        
       scenarios.push({
         side: 'bearish',
         trigger: (parseFloat(nearestResistance.price) * 0.999).toFixed(3),
         invalidation: (parseFloat(nearestResistance.price) * 1.005).toFixed(3),
         target: nearestSupport.price,
-        probability: trend === 'bearish' ? 75 : trend === 'ranging' ? 50 : 25,
-        note: `Rejection from ${nearestResistance.type} resistance zone`
+        probability: baseBearishProb,
+        note: bearishNote
       });
     }
 
