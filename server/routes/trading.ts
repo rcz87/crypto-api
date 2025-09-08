@@ -659,7 +659,7 @@ export function registerTradingRoutes(app: Express): void {
       const { okxService } = await import('../services/okx');
       const completeData = await okxService.getCompleteData('SOL-USDT-SWAP');
       
-      const currentVolume = parseFloat(completeData.ticker.volume || completeData.ticker.volume24h);
+      const currentVolume = parseFloat(completeData.ticker.volume || completeData.ticker.tradingVolume24h);
       
       // Mock calculation for demo - in production would be from stored historical data
       const volume24hAgo = currentVolume * (0.85 + Math.random() * 0.3); // Simulate historical volume
