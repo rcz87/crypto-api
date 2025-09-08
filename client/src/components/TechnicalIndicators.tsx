@@ -56,6 +56,118 @@ interface TechnicalIndicatorsAnalysis {
       consistency: number;
     };
   };
+  // Enhanced Phase 1 Indicators
+  cci: {
+    current: {
+      value: number;
+      signal: 'oversold' | 'overbought' | 'neutral';
+      strength: 'weak' | 'moderate' | 'strong';
+      trend: 'bullish' | 'bearish' | 'neutral';
+      extremeLevel: boolean;
+    };
+    signal: 'oversold' | 'overbought' | 'neutral';
+    extremeLevel: {
+      active: boolean;
+      type: 'extreme_overbought' | 'extreme_oversold' | 'normal';
+      strength: 'weak' | 'moderate' | 'strong';
+    };
+    trend: {
+      direction: 'bullish' | 'bearish' | 'neutral';
+      consistency: number;
+    };
+    historical: any[];
+  };
+  parabolicSAR: {
+    current: {
+      sar: number;
+      trend: 'bullish' | 'bearish';
+      reversal: boolean;
+      acceleration: number;
+      signal: 'buy' | 'sell' | 'hold';
+      strength: 'weak' | 'moderate' | 'strong';
+    };
+    trend: 'bullish' | 'bearish';
+    reversal: {
+      detected: boolean;
+      strength: 'weak' | 'moderate' | 'strong';
+      confidence: number;
+    };
+    acceleration: {
+      current: number;
+      trend: string;
+    };
+    historical: any[];
+  };
+  ichimoku: {
+    current: {
+      tenkanSen: number;
+      kijunSen: number;
+      senkouSpanA: number;
+      senkouSpanB: number;
+      chikouSpan: number;
+      cloud: {
+        color: 'bullish' | 'bearish' | 'neutral';
+        thickness: number;
+        support: number;
+        resistance: number;
+      };
+      signal: 'strong_buy' | 'buy' | 'sell' | 'strong_sell' | 'neutral';
+      trend: 'bullish' | 'bearish' | 'neutral';
+    };
+    cloud: {
+      position: 'above' | 'below' | 'inside';
+      color: 'bullish' | 'bearish' | 'neutral';
+      thickness: number;
+      strength: 'weak' | 'moderate' | 'strong';
+    };
+    signals: {
+      tkCross: 'bullish' | 'bearish';
+      priceCloud: 'bullish' | 'bearish' | 'neutral';
+      chikouSpan: string;
+      overall: 'strong_buy' | 'buy' | 'sell' | 'strong_sell' | 'neutral';
+    };
+    historical: any[];
+  };
+  obv: {
+    current: {
+      value: number;
+      trend: 'bullish' | 'bearish' | 'neutral';
+      divergence: boolean;
+      signal: 'accumulation' | 'distribution' | 'neutral';
+      strength: 'weak' | 'moderate' | 'strong';
+    };
+    trend: 'bullish' | 'bearish' | 'neutral';
+    divergence: {
+      detected: boolean;
+      type?: 'bullish' | 'bearish';
+      strength?: 'weak' | 'moderate' | 'strong';
+    };
+    institutionalFlow: {
+      signal: 'accumulation' | 'distribution' | 'neutral';
+      strength: 'weak' | 'moderate' | 'strong';
+      confidence: number;
+    };
+    historical: any[];
+  };
+  williamsR: {
+    current: {
+      value: number;
+      signal: 'oversold' | 'overbought' | 'neutral';
+      strength: 'weak' | 'moderate' | 'strong';
+      momentum: 'increasing' | 'decreasing' | 'stable';
+      extremeLevel: boolean;
+    };
+    signal: 'oversold' | 'overbought' | 'neutral';
+    momentum: {
+      direction: 'increasing' | 'decreasing' | 'stable';
+      strength: 'weak' | 'moderate' | 'strong';
+    };
+    extremeLevel: {
+      active: boolean;
+      type: 'extreme_overbought' | 'extreme_oversold' | 'normal';
+    };
+    historical: any[];
+  };
   signals: any[];
   momentum: {
     overall: 'bullish' | 'bearish' | 'neutral';
@@ -130,6 +242,61 @@ export function TechnicalIndicators({ className = '' }: TechnicalIndicatorsProps
         return 'text-red-400 bg-red-500/20 border-red-500';
       default:
         return 'text-gray-400 bg-gray-500/20 border-gray-500';
+    }
+  };
+
+  // Enhanced Indicators Helper Functions
+  const getCCIColor = (signal: string) => {
+    switch (signal) {
+      case 'oversold':
+        return 'text-green-400 bg-green-500/20 border-green-500';
+      case 'overbought':
+        return 'text-red-400 bg-red-500/20 border-red-500';
+      default:
+        return 'text-blue-400 bg-blue-500/20 border-blue-500';
+    }
+  };
+
+  const getParabolicSARColor = (trend: string) => {
+    return trend === 'bullish' 
+      ? 'text-green-400 bg-green-500/20 border-green-500'
+      : 'text-red-400 bg-red-500/20 border-red-500';
+  };
+
+  const getIchimokuColor = (signal: string) => {
+    switch (signal) {
+      case 'strong_buy':
+        return 'text-green-500 bg-green-500/20 border-green-500';
+      case 'buy':
+        return 'text-green-400 bg-green-500/20 border-green-500';
+      case 'sell':
+        return 'text-red-400 bg-red-500/20 border-red-500';
+      case 'strong_sell':
+        return 'text-red-500 bg-red-500/20 border-red-500';
+      default:
+        return 'text-gray-400 bg-gray-500/20 border-gray-500';
+    }
+  };
+
+  const getOBVColor = (signal: string) => {
+    switch (signal) {
+      case 'accumulation':
+        return 'text-green-400 bg-green-500/20 border-green-500';
+      case 'distribution':
+        return 'text-red-400 bg-red-500/20 border-red-500';
+      default:
+        return 'text-purple-400 bg-purple-500/20 border-purple-500';
+    }
+  };
+
+  const getWilliamsRColor = (signal: string) => {
+    switch (signal) {
+      case 'oversold':
+        return 'text-green-400 bg-green-500/20 border-green-500';
+      case 'overbought':
+        return 'text-red-400 bg-red-500/20 border-red-500';
+      default:
+        return 'text-orange-400 bg-orange-500/20 border-orange-500';
     }
   };
 
@@ -575,6 +742,255 @@ export function TechnicalIndicators({ className = '' }: TechnicalIndicatorsProps
             </div>
           </div>
         )}
+
+        {/* Enhanced Phase 1 Indicators */}
+        <div className="space-y-6 pt-6 border-t border-gray-700">
+          <div className="flex items-center gap-2 text-white font-semibold text-lg">
+            <Activity className="h-5 w-5" />
+            Enhanced Technical Indicators
+            <Badge className="text-xs bg-blue-500/20 text-blue-400">Phase 1</Badge>
+          </div>
+
+          {/* CCI (Commodity Channel Index) */}
+          {technical.cci && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-white font-medium">
+                <Gauge className="h-4 w-4" />
+                CCI (Commodity Channel Index)
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-1">Current Value</div>
+                    <div className="text-lg font-bold text-white">
+                      {technical.cci.current.value?.toFixed(2) || '0.00'}
+                    </div>
+                    <Badge className={`text-xs mt-1 ${getCCIColor(technical.cci.signal)}`}>
+                      {technical.cci.signal}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-1">Extreme Level</div>
+                    <div className={`text-sm font-medium ${
+                      technical.cci.extremeLevel.active ? 'text-orange-400' : 'text-gray-400'
+                    }`}>
+                      {technical.cci.extremeLevel.active ? technical.cci.extremeLevel.type.replace('_', ' ') : 'Normal'}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {technical.cci.extremeLevel.strength} strength
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Parabolic SAR */}
+          {technical.parabolicSAR && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-white font-medium">
+                <Target className="h-4 w-4" />
+                Parabolic SAR
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-1">SAR Value</div>
+                    <div className="text-lg font-bold text-white">
+                      {technical.parabolicSAR.current.sar?.toFixed(2) || '0.00'}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-1">Trend</div>
+                    <Badge className={`${getParabolicSARColor(technical.parabolicSAR.trend)}`}>
+                      {technical.parabolicSAR.trend}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-1">Acceleration</div>
+                    <div className="text-sm font-medium text-white">
+                      {(technical.parabolicSAR.acceleration.current * 100)?.toFixed(2)}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {technical.parabolicSAR.reversal.detected && (
+                <div className="p-3 rounded-lg border border-orange-500/30 bg-orange-900/20">
+                  <div className="flex items-center gap-2 text-orange-400">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="font-medium">Trend Reversal Detected</span>
+                    <Badge className="text-xs bg-orange-500/20 text-orange-400">
+                      {technical.parabolicSAR.reversal.strength}
+                    </Badge>
+                  </div>
+                  <div className="text-sm text-gray-300 mt-1">
+                    Confidence: {technical.parabolicSAR.reversal.confidence}%
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Ichimoku Cloud */}
+          {technical.ichimoku && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-white font-medium">
+                <BarChart3 className="h-4 w-4" />
+                Ichimoku Cloud Analysis
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-1">Overall Signal</div>
+                    <Badge className={`${getIchimokuColor(technical.ichimoku.signals.overall)}`}>
+                      {technical.ichimoku.signals.overall?.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-1">Cloud Position</div>
+                    <div className={`text-sm font-medium ${
+                      technical.ichimoku.cloud.position === 'above' ? 'text-green-400' :
+                      technical.ichimoku.cloud.position === 'below' ? 'text-red-400' : 'text-gray-400'
+                    }`}>
+                      Price {technical.ichimoku.cloud.position} Cloud
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-800 p-3 rounded-lg">
+                <div className="grid grid-cols-3 gap-4 text-xs">
+                  <div>
+                    <div className="text-gray-400 mb-1">Tenkan-sen</div>
+                    <div className="text-white">{technical.ichimoku.current.tenkanSen?.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-400 mb-1">Kijun-sen</div>
+                    <div className="text-white">{technical.ichimoku.current.kijunSen?.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-400 mb-1">Cloud Color</div>
+                    <Badge className={`text-xs ${
+                      technical.ichimoku.cloud.color === 'bullish' ? 'bg-green-500/20 text-green-400' :
+                      technical.ichimoku.cloud.color === 'bearish' ? 'bg-red-500/20 text-red-400' : 'bg-gray-500/20 text-gray-400'
+                    }`}>
+                      {technical.ichimoku.cloud.color}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* OBV (On Balance Volume) */}
+          {technical.obv && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-white font-medium">
+                <BarChart3 className="h-4 w-4" />
+                OBV (On Balance Volume)
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-1">Institutional Flow</div>
+                    <Badge className={`${getOBVColor(technical.obv.institutionalFlow.signal)}`}>
+                      {technical.obv.institutionalFlow.signal}
+                    </Badge>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {technical.obv.institutionalFlow.confidence}% confidence
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-1">Volume Trend</div>
+                    <Badge className={`capitalize ${getTrendColor(technical.obv.trend)}`}>
+                      {technical.obv.trend}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              
+              {technical.obv.divergence.detected && (
+                <div className="p-3 rounded-lg border border-purple-500/30 bg-purple-900/20">
+                  <div className="flex items-center gap-2 text-purple-400">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span className="font-medium">Volume Divergence Detected</span>
+                    <Badge className="text-xs bg-purple-500/20 text-purple-400">
+                      {technical.obv.divergence.type}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Williams %R */}
+          {technical.williamsR && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-white font-medium">
+                <Gauge className="h-4 w-4" />
+                Williams %R
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-1">Current Value</div>
+                    <div className="text-lg font-bold text-white">
+                      {technical.williamsR.current.value?.toFixed(2) || '0.00'}%
+                    </div>
+                    <Badge className={`text-xs mt-1 ${getWilliamsRColor(technical.williamsR.signal)}`}>
+                      {technical.williamsR.signal}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-1">Momentum</div>
+                    <div className={`text-sm font-medium ${
+                      technical.williamsR.momentum.direction === 'increasing' ? 'text-green-400' :
+                      technical.williamsR.momentum.direction === 'decreasing' ? 'text-red-400' : 'text-gray-400'
+                    }`}>
+                      {technical.williamsR.momentum.direction}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {technical.williamsR.momentum.strength} strength
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {technical.williamsR.extremeLevel.active && (
+                <div className="p-3 rounded-lg border border-orange-500/30 bg-orange-900/20">
+                  <div className="flex items-center gap-2 text-orange-400">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="font-medium">Extreme Level: {technical.williamsR.extremeLevel.type.replace('_', ' ')}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Footer with confidence breakdown */}
         <div className="bg-gray-800 p-4 rounded-lg">
