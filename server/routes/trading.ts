@@ -15,7 +15,10 @@ import {
   fundingRateSchema, 
   openInterestSchema, 
   volumeProfileSchema, 
-  smcAnalysisSchema
+  smcAnalysisSchema,
+  enhancedOpenInterestSchema,
+  historicalOpenInterestDataSchema,
+  volumeHistorySchema
 } from '../../shared/schema.js';
 import { validateAndFormatPair, getSupportedPairs } from '../utils/pairValidator.js';
 
