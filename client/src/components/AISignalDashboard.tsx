@@ -56,6 +56,9 @@ interface AISignalData {
     risk_factors: string[];
     market_context: string;
     educational_note?: string;
+    data_sources?: string;
+    ai_confidence?: string;
+    analysis_timestamp?: string;
   };
   execution_details: {
     recommended_size: number;
