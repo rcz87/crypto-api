@@ -26,11 +26,9 @@ import {
   CheckCircle,
   XCircle,
   Cpu,
-  Rocket,
-  LineChart
+  Rocket
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Area, AreaChart } from 'recharts';
 
 // AI Signal Types
 interface AISignalData {
