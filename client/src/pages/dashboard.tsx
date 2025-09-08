@@ -11,7 +11,7 @@ import { TradingViewWidget } from "@/components/TradingViewWidget";
 import { EnhancedFundingRate } from "@/components/EnhancedFundingRate";
 import { AISignalDashboard } from "@/components/AISignalDashboard";
 import { EnhancedOpenInterest } from "@/components/EnhancedOpenInterest";
-import { VolumeProfile } from "@/components/VolumeProfile";
+import { EnhancedVolumeProfile } from "@/components/EnhancedVolumeProfile";
 import { VolumeDelta } from "@/components/VolumeDelta";
 import { SMCAnalysis } from "@/components/SMCAnalysis";
 import { CVDAnalysisComponent } from "@/components/CVDAnalysis";
@@ -263,7 +263,7 @@ export default function Dashboard() {
 
             {/* Volume Profile */}
             <ErrorBoundary>
-              <VolumeProfile />
+              <EnhancedVolumeProfile />
             </ErrorBoundary>
           </div>
 
