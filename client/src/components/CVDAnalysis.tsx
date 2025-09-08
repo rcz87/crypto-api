@@ -20,9 +20,12 @@ import {
   Eye,
   DollarSign,
   Layers,
-  Gauge
+  Gauge,
+  LineChart,
+  AlertTriangle as Warning
 } from 'lucide-react';
 import { CVDAnalysis } from '@shared/schema';
+import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend, Area, AreaChart } from 'recharts';
 
 interface CVDProps {
   className?: string;
@@ -423,6 +426,161 @@ export function CVDAnalysisComponent({ className = '' }: CVDProps) {
             </div>
           </div>
         </div>
+
+        {/* Enhanced: Historical Pressure Analysis with Charts */}
+        {cvd.pressureHistoryData && cvd.pressureHistoryData.history.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white font-semibold">
+                <LineChart className="h-4 w-4" />
+                Pressure Trend Analysis (24H)
+              </div>
+              
+              {/* 24H Pressure Changes */}
+              <div className="flex items-center gap-3 text-xs">
+                <div className={`flex items-center gap-1 ${
+                  cvd.pressureHistoryData.analytics.pressureChange24h.buyPressureChange > 0 ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {cvd.pressureHistoryData.analytics.pressureChange24h.buyPressureChange > 0 ? '↗' : '↘'}
+                  Buy: {cvd.pressureHistoryData.analytics.pressureChange24h.buyPressureChange.toFixed(1)}%
+                </div>
+                <div className={`flex items-center gap-1 ${
+                  cvd.pressureHistoryData.analytics.pressureChange24h.sellPressureChange > 0 ? 'text-red-400' : 'text-green-400'
+                }`}>
+                  {cvd.pressureHistoryData.analytics.pressureChange24h.sellPressureChange > 0 ? '↗' : '↘'}
+                  Sell: {cvd.pressureHistoryData.analytics.pressureChange24h.sellPressureChange.toFixed(1)}%
+                </div>
+                <Badge className={`text-xs ${
+                  cvd.pressureHistoryData.analytics.pressureChange24h.trendDirection === 'bullish' ? 'bg-green-500/20 text-green-400' :
+                  cvd.pressureHistoryData.analytics.pressureChange24h.trendDirection === 'bearish' ? 'bg-red-500/20 text-red-400' :
+                  'bg-gray-500/20 text-gray-400'
+                }`}>
+                  {cvd.pressureHistoryData.analytics.pressureChange24h.trendDirection}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Pressure Chart */}
+            <div className="bg-gray-800 p-4 rounded-lg">
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={cvd.pressureHistoryData.history.slice(-24)}>
+                    <defs>
+                      <linearGradient id="buyPressureGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10B981" stopOpacity={0.1}/>
+                      </linearGradient>
+                      <linearGradient id="sellPressureGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#EF4444" stopOpacity={0.1}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis 
+                      dataKey="timestamp" 
+                      tick={{fontSize: 10, fill: '#9CA3AF'}}
+                      tickFormatter={(value) => new Date(value).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    />
+                    <YAxis 
+                      domain={[0, 100]}
+                      tick={{fontSize: 10, fill: '#9CA3AF'}}
+                      label={{ value: 'Pressure %', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#9CA3AF', fontSize: '10px' } }}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#1F2937', 
+                        border: '1px solid #374151',
+                        borderRadius: '6px',
+                        fontSize: '12px'
+                      }}
+                      labelFormatter={(value) => new Date(value).toLocaleString()}
+                      formatter={(value: any, name: string) => [
+                        `${Number(value).toFixed(1)}%`,
+                        name === 'buyPressure' ? 'Buy Pressure' : 'Sell Pressure'
+                      ]}
+                    />
+                    <Legend 
+                      wrapperStyle={{ fontSize: '12px' }}
+                      iconType="line"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="buyPressure"
+                      stroke="#10B981"
+                      strokeWidth={2}
+                      fill="url(#buyPressureGradient)"
+                      name="Buy Pressure"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="sellPressure"
+                      stroke="#EF4444"
+                      strokeWidth={2}
+                      fill="url(#sellPressureGradient)"
+                      name="Sell Pressure"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Manipulation Events & Absorption Levels */}
+            {(cvd.pressureHistoryData.analytics.manipulationEvents.length > 0 || 
+              cvd.pressureHistoryData.analytics.absorptionLevels.length > 0) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Manipulation Events */}
+                {cvd.pressureHistoryData.analytics.manipulationEvents.length > 0 && (
+                  <div className="bg-yellow-900/20 border border-yellow-500/30 p-3 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Warning className="h-4 w-4 text-yellow-400" />
+                      <span className="text-yellow-400 font-semibold text-sm">
+                        Manipulation Events ({cvd.pressureHistoryData.analytics.manipulationEvents.length})
+                      </span>
+                    </div>
+                    <div className="space-y-2 max-h-24 overflow-y-auto">
+                      {cvd.pressureHistoryData.analytics.manipulationEvents.slice(-3).map((event, idx) => (
+                        <div key={idx} className="text-xs bg-gray-800 p-2 rounded">
+                          <div className="flex justify-between items-center">
+                            <span className="text-yellow-300">${event.price.toFixed(2)}</span>
+                            <span className="text-gray-400">{event.confidence}% confidence</span>
+                          </div>
+                          <div className="text-gray-400 text-xs">
+                            {new Date(event.timestamp).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Absorption Levels */}
+                {cvd.pressureHistoryData.analytics.absorptionLevels.length > 0 && (
+                  <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Target className="h-4 w-4 text-blue-400" />
+                      <span className="text-blue-400 font-semibold text-sm">
+                        Absorption Levels ({cvd.pressureHistoryData.analytics.absorptionLevels.length})
+                      </span>
+                    </div>
+                    <div className="space-y-2 max-h-24 overflow-y-auto">
+                      {cvd.pressureHistoryData.analytics.absorptionLevels.slice(-3).map((level, idx) => (
+                        <div key={idx} className="text-xs bg-gray-800 p-2 rounded">
+                          <div className="flex justify-between items-center">
+                            <span className="text-blue-300">${level.price.toFixed(2)}</span>
+                            <span className="text-gray-400">{formatNumber(level.volume.toString())} vol</span>
+                          </div>
+                          <div className="text-gray-400 text-xs">
+                            {new Date(level.timestamp).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Smart Money Signals */}
         {(cvd.smartMoneySignals.accumulation.detected || cvd.smartMoneySignals.distribution.detected || cvd.smartMoneySignals.manipulation.detected) && (
