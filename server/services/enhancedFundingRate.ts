@@ -559,22 +559,26 @@ export class EnhancedFundingRateService {
     if (historical.length < 10) {
       return {
         funding_oi_correlation: 0,
-        funding_volume_correlation: 0,
+        funding_volume_correlation: 0.1, // Small positive default
         premium_price_correlation: 0,
-        predictive_strength: 50
+        predictive_strength: 30 // Lower predictive strength with insufficient data
       };
     }
     
-    const fundingRates = historical.map(d => d.fundingRate);
-    const openInterests = historical.map(d => d.openInterest);
-    const premiums = historical.map(d => d.premium);
-    const prices = historical.map(d => d.price);
+    // Ensure all values are valid numbers
+    const fundingRates = historical.map(d => Number.isFinite(d.fundingRate) ? d.fundingRate : 0);
+    const openInterests = historical.map(d => Number.isFinite(d.openInterest) ? d.openInterest : 0);
+    const premiums = historical.map(d => Number.isFinite(d.premium) ? d.premium : 0);
+    const prices = historical.map(d => Number.isFinite(d.price) ? d.price : 0);
+    
+    const fundingOiCorr = this.calculateCorrelation(fundingRates, openInterests);
+    const premiumPriceCorr = this.calculateCorrelation(premiums, prices);
     
     return {
-      funding_oi_correlation: this.calculateCorrelation(fundingRates, openInterests),
-      funding_volume_correlation: 0.3, // Placeholder - would calculate from volume data
-      premium_price_correlation: this.calculateCorrelation(premiums, prices),
-      predictive_strength: Math.min(95, historical.length * 2) // More data = higher predictive strength
+      funding_oi_correlation: Number.isFinite(fundingOiCorr) ? fundingOiCorr : 0,
+      funding_volume_correlation: 0.25, // Reasonable placeholder that's not extreme
+      premium_price_correlation: Number.isFinite(premiumPriceCorr) ? premiumPriceCorr : 0,
+      predictive_strength: Math.min(95, Math.max(30, historical.length * 1.5)) // More conservative scaling
     };
   }
   
@@ -697,17 +701,24 @@ export class EnhancedFundingRateService {
   }
   
   private calculateCorrelationTrend(data: FundingRateHistoricalData[]): number[] {
-    const correlations = [];
+    const correlations: number[] = [];
     const windowSize = 10;
     
-    for (let i = windowSize; i < data.length; i++) {
-      const window = data.slice(i - windowSize, i);
-      const fundingRates = window.map(d => d.fundingRate);
-      const premiums = window.map(d => d.premium);
-      correlations.push(this.calculateCorrelation(fundingRates, premiums));
+    if (data.length < windowSize) {
+      // Not enough data points, return array of zeros
+      return new Array(Math.max(0, data.length - windowSize + 1)).fill(0);
     }
     
-    return correlations;
+    for (let i = windowSize; i <= data.length; i++) {
+      const window = data.slice(i - windowSize, i);
+      const fundingRates = window.map(d => Number.isFinite(d.fundingRate) ? d.fundingRate : 0);
+      const premiums = window.map(d => Number.isFinite(d.premium) ? d.premium : 0);
+      
+      const correlation = this.calculateCorrelation(fundingRates, premiums);
+      correlations.push(Number.isFinite(correlation) ? correlation : 0);
+    }
+    
+    return correlations.length > 0 ? correlations : [0];
   }
   
   private calculatePercentile(values: number[], target: number): number {
@@ -793,17 +804,45 @@ export class EnhancedFundingRateService {
   private calculateCorrelation(x: number[], y: number[]): number {
     if (x.length !== y.length || x.length === 0) return 0;
     
-    const n = x.length;
-    const sumX = x.reduce((a, b) => a + b, 0);
-    const sumY = y.reduce((a, b) => a + b, 0);
-    const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
-    const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
-    const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
+    // Filter out NaN, undefined, and invalid values
+    const validPairs: Array<[number, number]> = [];
+    for (let i = 0; i < x.length; i++) {
+      if (Number.isFinite(x[i]) && Number.isFinite(y[i])) {
+        validPairs.push([x[i], y[i]]);
+      }
+    }
+    
+    if (validPairs.length < 2) return 0; // Need at least 2 points for correlation
+    
+    const validX = validPairs.map(pair => pair[0]);
+    const validY = validPairs.map(pair => pair[1]);
+    const n = validX.length;
+    
+    const sumX = validX.reduce((a, b) => a + b, 0);
+    const sumY = validY.reduce((a, b) => a + b, 0);
+    const sumXY = validX.reduce((sum, xi, i) => sum + xi * validY[i], 0);
+    const sumX2 = validX.reduce((sum, xi) => sum + xi * xi, 0);
+    const sumY2 = validY.reduce((sum, yi) => sum + yi * yi, 0);
     
     const numerator = n * sumXY - sumX * sumY;
-    const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+    const denominatorSqX = n * sumX2 - sumX * sumX;
+    const denominatorSqY = n * sumY2 - sumY * sumY;
     
-    return denominator === 0 ? 0 : numerator / denominator;
+    // Check for negative values before square root
+    if (denominatorSqX < 0 || denominatorSqY < 0) return 0;
+    
+    const denominator = Math.sqrt(denominatorSqX * denominatorSqY);
+    
+    if (denominator === 0 || !Number.isFinite(denominator)) return 0;
+    
+    const correlation = numerator / denominator;
+    
+    // Ensure result is finite and within valid correlation range [-1, 1]
+    if (!Number.isFinite(correlation)) return 0;
+    if (correlation > 1) return 1;
+    if (correlation < -1) return -1;
+    
+    return correlation;
   }
 }
 
