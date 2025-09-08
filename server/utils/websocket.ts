@@ -66,7 +66,7 @@ export class WebSocketBackpressureManager {
     this.volatilityMetrics.lastPrice = newPrice;
   }
 
-  // Safe WebSocket send with backpressure control
+  // Safe WebSocket send with backpressure control and data validation
   safeSend(ws: WebSocket, data: any): boolean {
     // Check WebSocket state
     if (ws.readyState !== WebSocket.OPEN) {
@@ -81,7 +81,9 @@ export class WebSocketBackpressureManager {
     }
 
     try {
-      ws.send(JSON.stringify(data));
+      // Sanitize data before sending to prevent NaN/undefined values
+      const sanitizedData = this.sanitizeData(data);
+      ws.send(JSON.stringify(sanitizedData));
       metricsCollector.updateBufferedAmount(ws.bufferedAmount);
       return true;
     } catch (error) {
@@ -126,6 +128,39 @@ export class WebSocketBackpressureManager {
       volatilityScore,
       isHighVolatility: volatilityScore > 0.7
     };
+  }
+
+  // Sanitize data to prevent NaN/undefined values in WebSocket messages
+  private sanitizeData(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return null;
+    }
+    
+    if (typeof obj === 'number') {
+      return Number.isFinite(obj) ? obj : 0;
+    }
+    
+    if (typeof obj === 'string') {
+      // Check for invalid date strings
+      if (obj.includes('NaN') || obj === 'Invalid Date') {
+        return new Date().toISOString();
+      }
+      return obj;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.sanitizeData(item));
+    }
+    
+    if (typeof obj === 'object') {
+      const sanitized: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        sanitized[key] = this.sanitizeData(value);
+      }
+      return sanitized;
+    }
+    
+    return obj;
   }
 
   // Get current metrics for monitoring

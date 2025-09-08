@@ -384,19 +384,29 @@ export class OKXService {
 
       const fundingData = response.data.data[0];
       
+      // Sanitize timestamp values to prevent NaN dates
+      const sanitizeTimestamp = (ts: string | number): string => {
+        if (!ts) return new Date().toISOString();
+        const timestamp = parseInt(ts.toString());
+        if (!Number.isFinite(timestamp) || timestamp <= 0) {
+          return new Date().toISOString();
+        }
+        return new Date(timestamp).toISOString();
+      };
+
       return {
-        instId: fundingData.instId,
-        fundingRate: fundingData.fundingRate,
-        nextFundingRate: fundingData.nextFundingRate || '',
-        nextFundingTime: fundingData.nextFundingTime,
-        fundingTime: fundingData.fundingTime,
-        premium: fundingData.premium,
-        interestRate: fundingData.interestRate,
-        maxFundingRate: fundingData.maxFundingRate,
-        minFundingRate: fundingData.minFundingRate,
-        settFundingRate: fundingData.settFundingRate,
-        settState: fundingData.settState,
-        timestamp: fundingData.ts,
+        instId: fundingData.instId || symbol,
+        fundingRate: Number.isFinite(parseFloat(fundingData.fundingRate)) ? fundingData.fundingRate : '0',
+        nextFundingRate: fundingData.nextFundingRate || '0',
+        nextFundingTime: sanitizeTimestamp(fundingData.nextFundingTime),
+        fundingTime: sanitizeTimestamp(fundingData.fundingTime),
+        premium: Number.isFinite(parseFloat(fundingData.premium)) ? fundingData.premium : '0',
+        interestRate: Number.isFinite(parseFloat(fundingData.interestRate)) ? fundingData.interestRate : '0',
+        maxFundingRate: Number.isFinite(parseFloat(fundingData.maxFundingRate)) ? fundingData.maxFundingRate : '0',
+        minFundingRate: Number.isFinite(parseFloat(fundingData.minFundingRate)) ? fundingData.minFundingRate : '0',
+        settFundingRate: Number.isFinite(parseFloat(fundingData.settFundingRate)) ? fundingData.settFundingRate : '0',
+        settState: fundingData.settState || 'settled',
+        timestamp: sanitizeTimestamp(fundingData.ts),
       };
     } catch (error) {
       console.error('Error fetching funding rate:', error);
