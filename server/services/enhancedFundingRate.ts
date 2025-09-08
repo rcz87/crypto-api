@@ -155,7 +155,8 @@ export class EnhancedFundingRateService {
         signalAnalysis, marketStructure, alerts, correlationMetrics
       );
       
-      return {
+      // Sanitize all data before returning
+      const result = {
         current: {
           instId: fundingRate.instId,
           fundingRate: parseFloat(fundingRate.fundingRate),
@@ -173,6 +174,8 @@ export class EnhancedFundingRateService {
         correlation_metrics: correlationMetrics,
         trading_implications: tradingImplications
       };
+      
+      return this.sanitizeObjectData(result);
       
     } catch (error) {
       console.error('Error in enhanced funding rate analysis:', error);
@@ -227,18 +230,20 @@ export class EnhancedFundingRateService {
       anomaly_count: this.countAnomalies(fundingRates)
     };
     
-    // Generate trends
+    // Generate trends with data sanitization
     const trends = {
-      funding_rate_trend: this.generateTrendPoints(fundingRates),
-      premium_trend: this.generateTrendPoints(premiums),
-      correlation_trend: this.calculateCorrelationTrend(filteredData)
+      funding_rate_trend: this.sanitizeArrayData(this.generateTrendPoints(fundingRates)),
+      premium_trend: this.sanitizeArrayData(this.generateTrendPoints(premiums)),
+      correlation_trend: this.sanitizeArrayData(this.calculateCorrelationTrend(filteredData))
     };
     
-    return {
+    const result = {
       data_points: filteredData,
       statistics,
       trends
     };
+    
+    return this.sanitizeObjectData(result);
   }
   
   /**
@@ -719,6 +724,42 @@ export class EnhancedFundingRateService {
     }
     
     return correlations.length > 0 ? correlations : [0];
+  }
+  
+  /**
+   * Sanitize array data to ensure no NaN values
+   */
+  private sanitizeArrayData(data: number[]): number[] {
+    return data.map(value => Number.isFinite(value) ? value : 0);
+  }
+  
+  /**
+   * Sanitize object data to ensure no NaN values in nested objects
+   */
+  private sanitizeObjectData(obj: any): any {
+    if (obj === null || obj === undefined) return obj;
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.sanitizeObjectData(item));
+    }
+    
+    if (typeof obj === 'object') {
+      const sanitized: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === 'number') {
+          sanitized[key] = Number.isFinite(value) ? value : 0;
+        } else if (Array.isArray(value)) {
+          sanitized[key] = value.map(item => typeof item === 'number' ? (Number.isFinite(item) ? item : 0) : item);
+        } else if (typeof value === 'object' && value !== null) {
+          sanitized[key] = this.sanitizeObjectData(value);
+        } else {
+          sanitized[key] = value;
+        }
+      }
+      return sanitized;
+    }
+    
+    return typeof obj === 'number' && !Number.isFinite(obj) ? 0 : obj;
   }
   
   private calculatePercentile(values: number[], target: number): number {
