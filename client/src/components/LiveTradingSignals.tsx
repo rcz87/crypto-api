@@ -78,6 +78,7 @@ export interface TradingSignal {
   timeframe: string;
   timestamp: string;
   reasons: string[];
+  explanations?: string[]; // Enhanced: Explanatory reasoning for unclear signals
   technicalAnalysis: {
     rsi: number;
     emaSignal: 'bullish' | 'bearish' | 'neutral';
@@ -530,17 +531,38 @@ function SignalCard({ signal, title, icon, isPrimary }: {
           </Alert>
         )}
 
-        {/* Signal Reasons */}
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-white">Signal Reasons:</div>
-          <div className="space-y-1">
-            {signal.reasons.slice(0, 3).map((reason, index) => (
-              <div key={index} className="text-xs text-gray-400 flex items-center gap-2">
-                <div className="w-1 h-1 bg-blue-400 rounded-full"></div>
-                {reason}
-              </div>
-            ))}
+        {/* Enhanced: Explanatory Reasoning for Unclear Signals */}
+        {signal.explanations && signal.explanations.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-orange-400 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              Why Signal is Unclear:
+            </div>
+            <div className="space-y-2 bg-orange-500/10 border border-orange-500/30 rounded-lg p-3">
+              {signal.explanations.map((explanation, index) => (
+                <div key={index} className="text-xs text-orange-300 flex items-start gap-2">
+                  <div className="w-1 h-1 bg-orange-400 rounded-full mt-1.5 flex-shrink-0"></div>
+                  <div className="leading-relaxed">{explanation}</div>
+                </div>
+              ))}
+            </div>
           </div>
+        )}
+
+        {/* Signal Reasons */}
+        {signal.reasons && signal.reasons.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-white">Supporting Factors:</div>
+            <div className="space-y-1">
+              {signal.reasons.slice(0, 3).map((reason, index) => (
+                <div key={index} className="text-xs text-gray-400 flex items-center gap-2">
+                  <div className="w-1 h-1 bg-blue-400 rounded-full"></div>
+                  {reason}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         </div>
 
         <div className="text-xs text-gray-500 pt-2 border-t border-gray-800">

@@ -17,6 +17,7 @@ export interface TradingSignal {
   timeframe: string;
   timestamp: string;
   reasons: string[];
+  explanations?: string[]; // Enhanced: Explanatory reasoning for unclear signals
   technicalAnalysis: {
     rsi: number;
     emaSignal: 'bullish' | 'bearish' | 'neutral';
@@ -240,6 +241,17 @@ class TradingSignalsService {
     else if (confidence >= 45) strength = 'MODERATE';
     else strength = 'WEAK';
 
+    // Enhanced: Generate explanations for unclear signals
+    const explanations = this.generateExplanation(
+      signalDirection, 
+      confidence, 
+      smcData, 
+      cvdData, 
+      technicalData, 
+      confluenceData, 
+      marketConditions
+    );
+
     // Generate risk management levels
     const { stopLoss, takeProfit1, takeProfit2, riskReward } = this.calculateRiskLevels(
       currentPrice, 
@@ -250,7 +262,7 @@ class TradingSignalsService {
     );
 
     // Generate alerts
-    const alerts = this.generateAlerts(signalDirection, confidence, strength, reasons);
+    const alerts = this.generateAlerts(signalDirection, confidence, strength, reasons, explanations);
 
     return {
       signal: signalDirection,
@@ -264,6 +276,7 @@ class TradingSignalsService {
       timeframe,
       timestamp: new Date().toISOString(),
       reasons,
+      explanations, // Enhanced: Add explanations for unclear signals
       technicalAnalysis: {
         rsi,
         emaSignal,
@@ -539,13 +552,17 @@ class TradingSignalsService {
     };
   }
 
-  private generateAlerts(signal: 'BUY' | 'SELL' | 'HOLD', confidence: number, strength: string, reasons: string[]) {
+  private generateAlerts(signal: 'BUY' | 'SELL' | 'HOLD', confidence: number, strength: string, reasons: string[], explanations?: string[]) {
     let urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW';
     let message = '';
 
     if (signal === 'HOLD') {
       urgency = 'LOW';
-      message = 'No clear signal - wait for better setup';
+      if (explanations && explanations.length > 0) {
+        message = `No clear signal: ${explanations[0]}`;
+      } else {
+        message = 'No clear signal - wait for better setup';
+      }
     } else if (strength === 'VERY_STRONG' && confidence > 85) {
       urgency = 'CRITICAL';
       message = `🚨 STRONG ${signal} SIGNAL - High probability setup!`;
@@ -561,6 +578,122 @@ class TradingSignalsService {
     }
 
     return { urgency, message };
+  }
+
+  // Enhanced: Explanatory Reasoning System
+  private generateExplanation(
+    signal: 'BUY' | 'SELL' | 'HOLD',
+    confidence: number,
+    smcData: any,
+    cvdData: any,
+    technicalData: any,
+    confluenceData: any,
+    marketConditions: any
+  ): string[] {
+    const explanations: string[] = [];
+    
+    if (signal === 'HOLD' || confidence < 45) {
+      // Conflict Detection
+      const conflicts = this.detectConflicts(smcData, cvdData, technicalData, confluenceData);
+      if (conflicts.length > 0) {
+        explanations.push(`Conflicting signals: ${conflicts.join(', ')}`);
+      }
+      
+      // Market Balance Analysis  
+      const balanceAnalysis = this.analyzeMarketBalance(cvdData, technicalData, marketConditions);
+      if (balanceAnalysis) {
+        explanations.push(balanceAnalysis);
+      }
+      
+      // Volatility/Volume Issues
+      if (marketConditions.volatility === 'low' && marketConditions.volume === 'low') {
+        explanations.push('Low volatility and volume - insufficient market movement for profitable entry');
+      }
+      
+      // Confluence Issues
+      const confluenceScore = confluenceData?.overall || 0;
+      if (Math.abs(confluenceScore) < 3) {
+        explanations.push('Weak confluence score - multiple indicators showing mixed signals');
+      }
+      
+      // Neutral Zone Analysis
+      const rsi = technicalData?.rsi?.current || 50;
+      if (rsi >= 40 && rsi <= 60) {
+        explanations.push('RSI in neutral zone (40-60) - market showing indecision');
+      }
+      
+      // Default explanation if no specific reasons found
+      if (explanations.length === 0) {
+        explanations.push('Market conditions unclear - waiting for better setup to minimize risk');
+      }
+    }
+    
+    return explanations;
+  }
+
+  private detectConflicts(smcData: any, cvdData: any, technicalData: any, confluenceData: any): string[] {
+    const conflicts: string[] = [];
+    
+    // SMC vs Technical Conflict
+    const smcTrend = smcData?.trend;
+    const emaSignal = this.getEMASignal(technicalData);
+    const macdSignal = this.getMACDSignal(technicalData);
+    
+    if (smcTrend === 'bullish' && (emaSignal === 'bearish' || macdSignal === 'bearish')) {
+      conflicts.push('Smart Money bullish but technical indicators bearish');
+    } else if (smcTrend === 'bearish' && (emaSignal === 'bullish' || macdSignal === 'bullish')) {
+      conflicts.push('Smart Money bearish but technical indicators bullish');
+    }
+    
+    // Volume vs Price Action Conflict
+    const dominantSide = cvdData?.buyerSellerAggression?.dominantSide;
+    const confluenceScore = confluenceData?.overall || 0;
+    
+    if (dominantSide === 'buyers' && confluenceScore < -3) {
+      conflicts.push('Strong buying pressure but bearish price confluence');
+    } else if (dominantSide === 'sellers' && confluenceScore > 3) {
+      conflicts.push('Strong selling pressure but bullish price confluence');
+    }
+    
+    // RSI vs Momentum Conflict
+    const rsi = technicalData?.rsi?.current || 50;
+    if (rsi > 70 && emaSignal === 'bullish') {
+      conflicts.push('RSI overbought but momentum still bullish');
+    } else if (rsi < 30 && emaSignal === 'bearish') {
+      conflicts.push('RSI oversold but momentum still bearish');
+    }
+    
+    return conflicts;
+  }
+
+  private analyzeMarketBalance(cvdData: any, technicalData: any, marketConditions: any): string | null {
+    const buyerSellerRatio = cvdData?.buyerSellerAggression?.ratio || 1;
+    const dominantSide = cvdData?.buyerSellerAggression?.dominantSide;
+    const rsi = technicalData?.rsi?.current || 50;
+    
+    // Balanced market conditions
+    if (buyerSellerRatio >= 0.9 && buyerSellerRatio <= 1.1) {
+      return 'Buy and sell pressure evenly balanced - no clear directional bias';
+    }
+    
+    // Weak dominance
+    if (dominantSide === 'buyers' && buyerSellerRatio < 1.2) {
+      return 'Slight buyer advantage but not strong enough for confident signal';
+    } else if (dominantSide === 'sellers' && buyerSellerRatio > 0.8) {
+      return 'Slight seller advantage but not strong enough for confident signal';
+    }
+    
+    // RSI equilibrium
+    if (rsi >= 45 && rsi <= 55) {
+      return 'RSI showing market equilibrium - neither oversold nor overbought';
+    }
+    
+    // Market structure issues
+    if (marketConditions.marketStructure === 'ranging' && marketConditions.trend === 'neutral') {
+      return 'Market in consolidation phase - waiting for breakout direction';
+    }
+    
+    return null;
   }
 
   private getEMASignal(technicalData: any): 'bullish' | 'bearish' | 'neutral' {
