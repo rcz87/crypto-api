@@ -1013,7 +1013,10 @@ export const aiSignalSchema = z.object({
     supporting_evidence: z.array(z.string()),
     risk_factors: z.array(z.string()),
     market_context: z.string(),
-    educational_note: z.string().optional()
+    educational_note: z.string().optional(),
+    data_sources: z.string().optional(),
+    ai_confidence: z.string().optional(),
+    analysis_timestamp: z.string().optional()
   }),
   execution_details: z.object({
     recommended_size: z.number(),

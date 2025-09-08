@@ -1,0 +1,120 @@
+Jika kamu menyuplai data ini melalui endpoint GET /api/ai/signal, maka:
+
+Sinyal akan muncul sebagai "NEUTRAL" (direction: "neutral")
+
+Signal type akan ditampilkan sebagai "HOLD" (signal_type: "hold")
+
+Strength = 0%, sehingga tampilannya akan merah/lemah
+
+Confidence = 50%, akan dikategorikan sebagai LOW CONFIDENCE
+
+Reasoning section akan menampilkan:
+
+Primary factor: “No clear patterns detected”
+
+Supporting evidence: “Market in consolidation phase”
+
+Risk factors: “Low conviction environment”
+
+Market context: “Waiting for clearer market direction”
+
+❗ Data Ini Masih Kurang Lengkap
+
+Komponen juga mengharapkan field berikut:
+
+execution_details: ukuran posisi, stop loss, take profit
+
+performance_metrics: expected return, win rate, dll.
+
+source_patterns: list pola yang terdeteksi (bisa kosong)
+
+Jika field-field ini tidak ada, maka akan menyebabkan error atau tampilan kosong di bagian tersebut.
+
+✅ Versi Lengkap (Minimal Tanpa Error)
+
+Berikut versi lengkap dari JSON kamu agar dashboard tidak error:
+
+{
+  "success": true,
+  "data": {
+    "signal_id": "ai_neutral_1757314273604",
+    "signal_type": "hold",
+    "direction": "neutral",
+    "strength": 0,
+    "confidence": 50,
+    "reasoning": {
+      "primary_factors": ["No clear patterns detected"],
+      "supporting_evidence": ["Market in consolidation phase"],
+      "risk_factors": ["Low conviction environment"],
+      "market_context": "Waiting for clearer market direction",
+      "educational_note": "This signal indicates indecision in the market. It's best to wait.",
+      "data_sources": "Binance, Coinalyze",
+      "ai_confidence": "GPT-4 Turbo",
+      "analysis_timestamp": "2025-09-08T10:00:00Z"
+    },
+    "execution_details": {
+      "recommended_size": 0,
+      "stop_loss": 0,
+      "take_profit": [],
+      "max_holding_time": "-",
+      "optimal_entry_window": "-"
+    },
+    "performance_metrics": {
+      "expected_return": 0,
+      "max_drawdown": 0,
+      "win_rate": 0,
+      "profit_factor": 0
+    },
+    "source_patterns": []
+  }
+}
+
+🔁 Cara Testing Lokal
+
+Kalau kamu pakai Next.js atau Express.js, kamu bisa mock endpoint /api/ai/signal seperti ini:
+
+📁 /pages/api/ai/signal.ts (Next.js API route)
+export default function handler(req, res) {
+  res.status(200).json({
+    success: true,
+    data: {
+      signal_id: "ai_neutral_1757314273604",
+      signal_type: "hold",
+      direction: "neutral",
+      strength: 0,
+      confidence: 50,
+      reasoning: {
+        primary_factors: ["No clear patterns detected"],
+        supporting_evidence: ["Market in consolidation phase"],
+        risk_factors: ["Low conviction environment"],
+        market_context: "Waiting for clearer market direction",
+        educational_note: "This signal indicates indecision in the market. It's best to wait.",
+        data_sources: "Binance, Coinalyze",
+        ai_confidence: "GPT-4 Turbo",
+        analysis_timestamp: new Date().toISOString()
+      },
+      execution_details: {
+        recommended_size: 0,
+        stop_loss: 0,
+        take_profit: [],
+        max_holding_time: "-",
+        optimal_entry_window: "-"
+      },
+      performance_metrics: {
+        expected_return: 0,
+        max_drawdown: 0,
+        win_rate: 0,
+        profit_factor: 0
+      },
+      source_patterns: []
+    }
+  });
+}
+
+🔚 Kesimpulan
+
+✅ Data kamu sudah hampir benar
+
+⚠️ Tambahkan execution_details, performance_metrics, dan source_patterns (boleh kosong) agar tidak error
+
+🚀 Setelah itu, dashboard akan menampilkan sinyal HOLD sesuai yang kamu inginkan

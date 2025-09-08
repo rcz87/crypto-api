@@ -591,7 +591,11 @@ Be specific with actual numbers and data points. This is for institutional tradi
         primary_factors: ['No clear patterns detected'],
         supporting_evidence: ['Market in consolidation phase'],
         risk_factors: ['Low conviction environment'],
-        market_context: 'Waiting for clearer market direction'
+        market_context: 'Waiting for clearer market direction',
+        educational_note: 'Market dalam kondisi sideways/konsolidasi. Ini adalah saat terbaik untuk menunggu setup yang jelas sebelum mengambil posisi. AI sistem sedang menganalisis pola-pola market untuk mencari peluang entry yang optimal.',
+        data_sources: 'CVD, SMC, Technical, Confluence, Funding Rate Analysis',
+        ai_confidence: 'Medium (Local Analysis)',
+        analysis_timestamp: new Date().toISOString()
       },
       execution_details: {
         recommended_size: 0,
