@@ -2,6 +2,7 @@ import { okxService } from './okx';
 import { enhancedFundingRateService } from './enhancedFundingRate';
 // import { TechnicalIndicatorsService } from './technicalIndicators';
 import { storage } from '../storage';
+import OpenAI from 'openai';
 
 interface MarketPattern {
   id: string;
@@ -75,14 +76,35 @@ export class AISignalEngine {
   private readonly SIGNAL_RETENTION_HOURS = 168; // 7 days
   private readonly POPULATION_SIZE = 50;
   private currentGeneration = 1;
+  private openai: OpenAI | null = null; // Enhanced: OpenAI integration
 
   constructor() {
     // Initialize known market patterns
     this.initializeMarketPatterns();
     
+    // Enhanced: Initialize OpenAI if API key is available
+    this.initializeOpenAI();
+    
     // Start background processes
     setInterval(() => this.evolveStrategies(), 3600000); // Every hour
     setInterval(() => this.cleanupHistory(), 3600000); // Every hour
+  }
+
+  // Enhanced: Initialize OpenAI client
+  private initializeOpenAI(): void {
+    try {
+      if (process.env.OPENAI_API_KEY) {
+        this.openai = new OpenAI({ 
+          apiKey: process.env.OPENAI_API_KEY 
+        });
+        console.log('🤖 OpenAI integration initialized for enhanced AI reasoning');
+      } else {
+        console.log('⚠️ OpenAI API key not found - using local AI patterns only');
+      }
+    } catch (error) {
+      console.error('Failed to initialize OpenAI:', error);
+      this.openai = null;
+    }
   }
 
   /**
@@ -363,6 +385,9 @@ export class AISignalEngine {
       current.confidence > prev.confidence ? current : prev
     );
 
+    // Enhanced: Get comprehensive market data for better reasoning
+    const marketData = await this.gatherComprehensiveMarketData();
+
     // Determine signal direction based on patterns and market data
     let direction: 'long' | 'short' | 'neutral' = 'neutral';
     let strength = 0;
@@ -378,6 +403,14 @@ export class AISignalEngine {
       strength = Math.min(80, dominantPattern.confidence * 100);
     }
 
+    // Enhanced: Generate enhanced reasoning with OpenAI if available
+    const enhancedReasoning = await this.generateEnhancedReasoning(
+      dominantPattern, 
+      fundingData, 
+      technicalData,
+      marketData
+    );
+
     const signal: AISignal = {
       signal_id: `ai_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date().toISOString(),
@@ -386,13 +419,7 @@ export class AISignalEngine {
       strength,
       confidence: dominantPattern.confidence * 100,
       source_patterns: patterns,
-      reasoning: {
-        primary_factors: this.generatePrimaryFactors(dominantPattern, fundingData),
-        supporting_evidence: this.generateSupportingEvidence(patterns),
-        risk_factors: this.generateRiskFactors(fundingData, technicalData),
-        market_context: this.generateMarketContext(fundingData, technicalData),
-        educational_note: this.generateEducationalNote(dominantPattern, fundingData)
-      },
+      reasoning: enhancedReasoning,
       execution_details: {
         recommended_size: this.calculatePositionSize(dominantPattern, strength),
         stop_loss: this.calculateStopLoss(direction, dominantPattern),
@@ -409,6 +436,129 @@ export class AISignalEngine {
     };
 
     return signal;
+  }
+
+  // Enhanced: Gather comprehensive market data from all dashboards
+  private async gatherComprehensiveMarketData(): Promise<any> {
+    try {
+      // Import required services
+      const { TechnicalIndicatorsService } = await import('./technicalIndicators');
+      const { SMCService } = await import('./smc');
+      const { CVDService } = await import('./cvd');
+      const { ConfluenceService } = await import('./confluence');
+      
+      const [technicalData, smcData, cvdData, confluenceData] = await Promise.all([
+        TechnicalIndicatorsService.getInstance().getTechnicalIndicators('SOL-USDT-SWAP', '1H'),
+        SMCService.getInstance().getSMCAnalysis('SOL-USDT-SWAP'),
+        CVDService.getInstance().getCVDAnalysis('SOL-USDT-SWAP'),
+        ConfluenceService.getInstance().getConfluenceAnalysis('SOL-USDT-SWAP')
+      ]);
+
+      return {
+        technical: technicalData,
+        smc: smcData,
+        cvd: cvdData,
+        confluence: confluenceData
+      };
+    } catch (error) {
+      console.error('Error gathering comprehensive market data:', error);
+      return null;
+    }
+  }
+
+  // Enhanced: Generate enhanced AI reasoning with OpenAI GPT-5
+  private async generateEnhancedReasoning(
+    dominantPattern: MarketPattern,
+    fundingData: any,
+    technicalData: any,
+    marketData: any
+  ): Promise<any> {
+    // Fallback to local reasoning if OpenAI not available
+    if (!this.openai || !marketData) {
+      return {
+        primary_factors: this.generatePrimaryFactors(dominantPattern, fundingData),
+        supporting_evidence: this.generateSupportingEvidence([dominantPattern]),
+        risk_factors: this.generateRiskFactors(fundingData, technicalData),
+        market_context: this.generateMarketContext(fundingData, technicalData),
+        educational_note: this.generateEducationalNote(dominantPattern, fundingData)
+      };
+    }
+
+    try {
+      // Enhanced: Use GPT-5 for sophisticated market analysis
+      const prompt = `Analyze the following SOL-USDT-SWAP market data and provide institutional-grade trading intelligence:
+
+**Detected Pattern**: ${dominantPattern.name} (Confidence: ${(dominantPattern.confidence * 100).toFixed(1)}%)
+
+**Market Data Context**:
+- Funding Rate: ${fundingData?.current?.fundingRate || 'N/A'}
+- CVD Analysis: Buy/Sell Ratio ${marketData?.cvd?.buyerSellerAggression?.ratio || 'N/A'}
+- SMC Trend: ${marketData?.smc?.trend || 'N/A'} 
+- Technical RSI: ${marketData?.technical?.rsi?.current || 'N/A'}
+- Confluence Score: ${marketData?.confluence?.overall || 'N/A'}
+
+Provide analysis in JSON format with these sections:
+{
+  "primary_factors": ["Factor 1 with specific data", "Factor 2 with specific data"],
+  "supporting_evidence": ["Evidence 1 with numbers", "Evidence 2 with numbers"],
+  "risk_factors": ["Risk 1 with context", "Risk 2 with context"],
+  "market_context": "Overall market situation with specific data points",
+  "educational_note": "Professional explanation of the pattern and why it matters"
+}
+
+Be specific with actual numbers and data points. This is for institutional trading.`;
+
+      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          {
+            role: "system",
+            content: "You are a professional institutional trading AI analyst. Provide precise, data-driven market analysis with specific numbers and institutional terminology."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+        max_tokens: 1500
+      });
+
+      const aiReasoning = JSON.parse(response.choices[0].message.content || '{}');
+      
+      // Enhanced: Add data confidence and source attribution
+      return {
+        ...aiReasoning,
+        data_sources: "CVD, SMC, Technical, Confluence, Funding Rate Analysis",
+        ai_confidence: "High (GPT-5 Enhanced)",
+        analysis_timestamp: new Date().toISOString()
+      };
+
+    } catch (error) {
+      console.error('Error generating enhanced reasoning with OpenAI:', error);
+      
+      // Fallback to local reasoning with enhanced data
+      return {
+        primary_factors: [
+          `${dominantPattern.name} detected with ${(dominantPattern.confidence * 100).toFixed(1)}% confidence`,
+          `Funding rate at ${fundingData?.current?.fundingRate || 'N/A'} indicating ${fundingData?.current?.fundingRate > 0 ? 'long bias' : 'short bias'}`,
+          `CVD shows ${marketData?.cvd?.buyerSellerAggression?.dominantSide || 'balanced'} pressure with ${((marketData?.cvd?.buyerSellerAggression?.ratio || 1) * 100).toFixed(1)}% ratio`
+        ],
+        supporting_evidence: [
+          `SMC trend analysis: ${marketData?.smc?.trend || 'neutral'} momentum`,
+          `Technical RSI at ${marketData?.technical?.rsi?.current || 50} indicating ${marketData?.technical?.rsi?.current > 70 ? 'overbought' : marketData?.technical?.rsi?.current < 30 ? 'oversold' : 'neutral'} conditions`,
+          `Confluence score: ${marketData?.confluence?.overall || 0} showing ${marketData?.confluence?.overall > 5 ? 'bullish' : marketData?.confluence?.overall < -5 ? 'bearish' : 'neutral'} alignment`
+        ],
+        risk_factors: this.generateRiskFactors(fundingData, technicalData),
+        market_context: `Market showing ${dominantPattern.name} pattern with ${marketData?.smc?.trend || 'neutral'} smart money flow and ${marketData?.cvd?.buyerSellerAggression?.dominantSide || 'balanced'} volume pressure`,
+        educational_note: this.generateEducationalNote(dominantPattern, fundingData),
+        data_sources: "Local Pattern Analysis + Market Data Integration",
+        ai_confidence: "Medium (Local Analysis)",
+        analysis_timestamp: new Date().toISOString()
+      };
+    }
   }
 
   private async analyzeSentiment(symbol: string): Promise<SentimentData> {
