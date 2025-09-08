@@ -563,7 +563,6 @@ function SignalCard({ signal, title, icon, isPrimary }: {
             </div>
           </div>
         )}
-        </div>
 
         <div className="text-xs text-gray-500 pt-2 border-t border-gray-800">
           Generated at {new Date(signal.timestamp).toLocaleString()}
