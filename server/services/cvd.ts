@@ -3,6 +3,15 @@ import { CandleData, RecentTradeData, CVDAnalysis, VolumeDeltaBar, BuyerSellerAg
 export class CVDService {
   private cvdHistory: Map<string, VolumeDeltaBar[]> = new Map(); // timeframe -> history
   private previousAnalysis: Map<string, CVDAnalysis> = new Map(); // timeframe -> last analysis
+  private pressureHistory: Map<string, Array<{
+    timestamp: string;
+    buyPressure: number;
+    sellPressure: number;
+    price: number;
+    volume: number;
+    manipulationLevel?: number;
+    absorptionPrice?: number;
+  }>> = new Map(); // Historical pressure tracking
   private okxService: any; // Injected OKX service
 
   constructor(okxService?: any) {
@@ -48,8 +57,11 @@ export class CVDService {
     // 7. Smart Money Signal Detection
     const smartMoneySignals = this.detectSmartMoneySignals(cvdHistory, absorptionPatterns, flowAnalysis);
 
-    // 8. Real-time Metrics
+    // 8. Real-time Metrics with Historical Pressure Tracking
     const realTimeMetrics = this.calculateRealTimeMetrics(cvdHistory, trades);
+    
+    // 8b. Update Pressure History for 24h tracking
+    this.updatePressureHistory(timeframe, realTimeMetrics, candles[candles.length - 1], smartMoneySignals, absorptionPatterns);
 
     // 9. Multi-timeframe Analysis
     const multiTimeframeAlignment = await this.analyzeMultiTimeframeAlignment();
@@ -76,6 +88,9 @@ export class CVDService {
     const analysisEnd = Date.now();
     const dataAge = Math.floor((analysisEnd - parseInt(cvdHistory[cvdHistory.length - 1].timestamp)) / 1000);
 
+    // Get pressure history data for enhanced analytics
+    const pressureHistoryData = this.getPressureHistoryData(timeframe);
+
     return {
       timeframe,
       currentCVD,
@@ -93,6 +108,7 @@ export class CVDService {
       multiTimeframeAlignment,
       confidence,
       alerts,
+      pressureHistoryData, // Enhanced: Historical pressure data
       lastUpdate: new Date().toISOString(),
       dataAge
     };
@@ -885,5 +901,120 @@ export class CVDService {
   private calculateFlowDuration(bars: VolumeDeltaBar[]): string {
     const hours = Math.floor(bars.length / 4); // Assuming 15-min bars
     return `${hours}h`;
+  }
+
+  /**
+   * Enhanced: Update Pressure History for 24h tracking and manipulation detection
+   */
+  private updatePressureHistory(
+    timeframe: string, 
+    realTimeMetrics: any, 
+    currentCandle: CandleData, 
+    smartMoneySignals: any, 
+    absorptionPatterns: AbsorptionPattern[]
+  ): void {
+    const history = this.pressureHistory.get(timeframe) || [];
+    const currentTime = new Date().toISOString();
+    const currentPrice = parseFloat(currentCandle.close);
+    const currentVolume = parseFloat(currentCandle.volume);
+
+    // Calculate manipulation level based on signals
+    let manipulationLevel = 0;
+    let absorptionPrice: number | undefined;
+
+    if (smartMoneySignals.manipulation.detected) {
+      manipulationLevel = smartMoneySignals.manipulation.confidence;
+    }
+
+    // Find absorption price levels
+    const activeAbsorption = absorptionPatterns.find(p => p.strength === 'institutional');
+    if (activeAbsorption) {
+      absorptionPrice = currentPrice; // Use current price as approximation
+    }
+
+    // Add current pressure data
+    history.push({
+      timestamp: currentTime,
+      buyPressure: realTimeMetrics.currentBuyPressure,
+      sellPressure: realTimeMetrics.currentSellPressure,
+      price: currentPrice,
+      volume: currentVolume,
+      manipulationLevel: manipulationLevel > 0 ? manipulationLevel : undefined,
+      absorptionPrice: absorptionPrice
+    });
+
+    // Keep only last 24 hours of data (assuming 1H timeframe = 24 points)
+    const maxPoints = timeframe === '1H' ? 24 : timeframe === '15m' ? 96 : 48;
+    if (history.length > maxPoints) {
+      history.splice(0, history.length - maxPoints);
+    }
+
+    this.pressureHistory.set(timeframe, history);
+  }
+
+  /**
+   * Enhanced: Get Pressure History Data with analytics
+   */
+  private getPressureHistoryData(timeframe: string) {
+    const history = this.pressureHistory.get(timeframe) || [];
+    
+    if (history.length < 2) {
+      return {
+        history: [],
+        analytics: {
+          pressureChange24h: {
+            buyPressureChange: 0,
+            sellPressureChange: 0,
+            trendDirection: 'neutral' as const
+          },
+          manipulationEvents: [],
+          absorptionLevels: []
+        }
+      };
+    }
+
+    // Calculate 24h pressure changes
+    const latest = history[history.length - 1];
+    const earlier = history[0];
+    
+    const buyPressureChange = latest.buyPressure - earlier.buyPressure;
+    const sellPressureChange = latest.sellPressure - earlier.sellPressure;
+    
+    let trendDirection: 'bullish' | 'bearish' | 'neutral' = 'neutral';
+    if (Math.abs(buyPressureChange) > 5) {
+      trendDirection = buyPressureChange > 0 ? 'bullish' : 'bearish';
+    }
+
+    // Extract manipulation events
+    const manipulationEvents = history
+      .filter(h => h.manipulationLevel && h.manipulationLevel > 70)
+      .map(h => ({
+        timestamp: h.timestamp,
+        price: h.price,
+        confidence: h.manipulationLevel!,
+        type: 'high_confidence_manipulation' as const
+      }));
+
+    // Extract absorption levels
+    const absorptionLevels = history
+      .filter(h => h.absorptionPrice)
+      .map(h => ({
+        timestamp: h.timestamp,
+        price: h.absorptionPrice!,
+        volume: h.volume
+      }));
+
+    return {
+      history: history.slice(-48), // Return last 48 points for charts
+      analytics: {
+        pressureChange24h: {
+          buyPressureChange: parseFloat(buyPressureChange.toFixed(2)),
+          sellPressureChange: parseFloat(sellPressureChange.toFixed(2)),
+          trendDirection
+        },
+        manipulationEvents,
+        absorptionLevels
+      }
+    };
   }
 }

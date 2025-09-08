@@ -693,6 +693,37 @@ export const cvdAnalysisSchema = z.object({
     message: z.string(),
     timestamp: z.string(),
   })),
+
+  // Enhanced: Historical pressure data for charts and analytics
+  pressureHistoryData: z.object({
+    history: z.array(z.object({
+      timestamp: z.string(),
+      buyPressure: z.number(),
+      sellPressure: z.number(),
+      price: z.number(),
+      volume: z.number(),
+      manipulationLevel: z.number().optional(),
+      absorptionPrice: z.number().optional(),
+    })),
+    analytics: z.object({
+      pressureChange24h: z.object({
+        buyPressureChange: z.number(),
+        sellPressureChange: z.number(),
+        trendDirection: z.enum(['bullish', 'bearish', 'neutral']),
+      }),
+      manipulationEvents: z.array(z.object({
+        timestamp: z.string(),
+        price: z.number(),
+        confidence: z.number(),
+        type: z.literal('high_confidence_manipulation'),
+      })),
+      absorptionLevels: z.array(z.object({
+        timestamp: z.string(),
+        price: z.number(),
+        volume: z.number(),
+      })),
+    }),
+  }).optional(),
   
   lastUpdate: z.string(),
   dataAge: z.number(),
