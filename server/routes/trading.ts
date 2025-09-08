@@ -662,7 +662,7 @@ export function registerTradingRoutes(app: Express): void {
       const { okxService } = await import('../services/okx');
       const completeData = await okxService.getCompleteData('SOL-USDT-SWAP');
       
-      const currentVolume = parseFloat(completeData.ticker.volume || completeData.ticker.tradingVolume24h);
+      const currentVolume = Number.isFinite(parseFloat(completeData.ticker.volume || completeData.ticker.tradingVolume24h)) ? parseFloat(completeData.ticker.volume || completeData.ticker.tradingVolume24h) : 0;
       
       // Mock calculation for demo - in production would be from stored historical data
       const volume24hAgo = currentVolume * (0.85 + Math.random() * 0.3); // Simulate historical volume
@@ -772,7 +772,7 @@ export function registerTradingRoutes(app: Express): void {
       }
       
       const timeframe = req.query.timeframe as string || '1H';
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
       const smcAnalysis = await okxService.getSMCAnalysis(validation.symbol, timeframe, limit);
       const responseTime = Date.now() - startTime;
       
@@ -820,7 +820,7 @@ export function registerTradingRoutes(app: Express): void {
     
     try {
       const timeframe = req.query.timeframe as string || '1H';
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
       const smcAnalysis = await okxService.getSMCAnalysis('SOL-USDT-SWAP', timeframe, limit);
       const responseTime = Date.now() - startTime;
       
@@ -878,7 +878,7 @@ export function registerTradingRoutes(app: Express): void {
       }
       
       const timeframe = req.query.timeframe as string || '1H';
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
       
       // Initialize CVD service with OKX service
       const cvdService = new CVDService(okxService);
@@ -934,7 +934,7 @@ export function registerTradingRoutes(app: Express): void {
     
     try {
       const timeframe = req.query.timeframe as string || '1H';
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
       
       // Initialize CVD service with OKX service
       const cvdService = new CVDService(okxService);
@@ -989,7 +989,7 @@ export function registerTradingRoutes(app: Express): void {
     
     try {
       const timeframe = req.query.timeframe as string || '1H';
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
       
       // Initialize services
       const confluenceService = new ConfluenceService();
@@ -1090,7 +1090,7 @@ export function registerTradingRoutes(app: Express): void {
       }
       
       const timeframe = req.query.timeframe as string || '1H';
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
       
       // Initialize technical indicators service
       const technicalService = new TechnicalIndicatorsService();
@@ -1143,7 +1143,7 @@ export function registerTradingRoutes(app: Express): void {
     
     try {
       const timeframe = req.query.timeframe as string || '1H';
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
       
       // Initialize technical indicators service
       const technicalService = new TechnicalIndicatorsService();
@@ -1195,7 +1195,7 @@ export function registerTradingRoutes(app: Express): void {
     
     try {
       const timeframe = req.query.timeframe as string || '1H';
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
       
       // Initialize Fibonacci service
       const fibonacciService = new FibonacciService();
@@ -1247,7 +1247,7 @@ export function registerTradingRoutes(app: Express): void {
     
     try {
       const timeframe = req.query.timeframe as string || '1H';
-      const tradeLimit = parseInt(req.query.tradeLimit as string) || parseInt(req.query.limit as string) || 200;
+      const tradeLimit = Math.max(1, Math.min(1000, parseInt(req.query.tradeLimit as string) || parseInt(req.query.limit as string) || 200));
       
       // Initialize order flow service
       const orderFlowService = new OrderFlowService();

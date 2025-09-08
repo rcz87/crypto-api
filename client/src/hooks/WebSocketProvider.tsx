@@ -90,12 +90,22 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
+          
+          // Validate message data before processing
+          if (!message || typeof message !== 'object') {
+            console.warn('Received invalid WebSocket message format');
+            return;
+          }
+          
           setLastMessage(message);
           
           // Route message based on type
           switch (message.type) {
             case 'market_data':
-              setMarketData(message);
+              // Validate market data before setting
+              if (message.data && typeof message.data === 'object') {
+                setMarketData(message);
+              }
               break;
             case 'system_update':
               setSystemStatus(message);
@@ -105,6 +115,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
+          // Don't let parse errors break the connection
         }
       };
 
@@ -124,6 +135,14 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, delay);
+        } else if (reconnectAttempts.current >= maxReconnectAttempts) {
+          console.log('Max reconnection attempts reached. Will retry in 5 minutes.');
+          // Reset reconnection attempts after 5 minutes for fresh start
+          setTimeout(() => {
+            reconnectAttempts.current = 0;
+            setConnectionStatus('connecting');
+            connect();
+          }, 300000); // 5 minutes
         }
       };
 
