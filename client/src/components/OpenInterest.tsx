@@ -13,113 +13,120 @@ interface OpenInterestData {
   timestamp: string;
 }
 
-export function OpenInterest() {
-  // Get complete SOL data for institutional analytics
-  const { data: completeData } = useQuery<{
-    success: boolean;
-    data: {
-      ticker: {
-        symbol: string;
-        price: string;
-        changePercent24h: string;
-        volume24h: string;
-        high24h: string;
-        low24h: string;
-      };
-    };
-  }>({ 
-    queryKey: ['/api/sol/complete'], 
-    refetchInterval: false, // Manual refresh only
-    refetchIntervalInBackground: false
-  });
+interface EnhancedOpenInterestData {
+  current: {
+    instId: string;
+    instType: string;
+    openInterest: number;
+    openInterestUsd: number;
+    price: number;
+    timestamp: string;
+  };
+  historical_context: {
+    oi_24h_avg: number;
+    oi_7d_avg: number;
+    oi_change_24h: number;
+    oi_change_7d: number;
+    oi_volatility_24h: number;
+    price_oi_correlation: number;
+  };
+  advanced_metrics: {
+    market_efficiency: number;
+    oi_pressure_ratio: number;
+    long_short_ratio: number;
+    oi_turnover_rate: number;
+    institutional_dominance_score: number;
+    liquidity_depth_score: number;
+  };
+  liquidation_analysis: {
+    cluster_risk_score: number;
+    critical_levels: Array<{
+      priceLevel: number;
+      liquidationVolume: number;
+      riskLevel: 'low' | 'medium' | 'high' | 'critical';
+      positionType: 'long' | 'short' | 'mixed';
+    }>;
+    cascade_probability: number;
+    estimated_liquidation_volume: number;
+    time_to_cascade_estimate: string;
+  };
+  market_structure: {
+    oi_distribution: 'concentrated' | 'balanced' | 'distributed';
+    market_phase: 'accumulation' | 'distribution' | 'trending' | 'consolidation';
+    institutional_presence: 'dominant' | 'significant' | 'moderate' | 'light';
+    risk_level: 'extreme' | 'high' | 'moderate' | 'low';
+  };
+}
 
-  const { data: oiData, isLoading, error } = useQuery<{
+export function OpenInterest() {
+  // Enhanced Open Interest data with all institutional metrics
+  const { data: enhancedOIData, isLoading, error } = useQuery<{
     success: boolean;
-    data: OpenInterestData;
+    data: EnhancedOpenInterestData;
     timestamp: string;
   }>({
-    queryKey: ['/api/sol/open-interest'],
+    queryKey: ['/api/sol/oi/enhanced'],
     queryFn: async ({ signal }) => {
-      const response = await fetch('/api/sol/open-interest', {
-        signal // AbortController signal for cleanup
+      const response = await fetch('/api/sol/oi/enhanced', {
+        signal
       });
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Failed to fetch open interest data`);
+        throw new Error(`HTTP ${response.status}: Failed to fetch enhanced open interest data`);
       }
       return response.json();
     },
-    refetchInterval: false, // Manual refresh only
-    refetchIntervalInBackground: false, // Stop refetching when tab is not active
+    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
   });
 
-  // Institutional-grade derivatives analytics (moved to top for hook rules)
-  const institutionalAnalytics = useMemo(() => {
-    if (!completeData?.success || !oiData?.success) return null;
-    
-    const oiValue = parseFloat(oiData.data.oi);
-    const oiUsdValue = parseFloat(oiData.data.oiUsd);
-    const currentPrice = parseFloat(completeData.data.ticker.price);
-    const volume24h = parseFloat(completeData.data.ticker.volume24h);
-    const priceChange24h = parseFloat(completeData.data.ticker.changePercent24h);
-    const high24h = parseFloat(completeData.data.ticker.high24h);
-    const low24h = parseFloat(completeData.data.ticker.low24h);
-    
-    // Advanced OI Analytics
-    const oiVolumeRatio = oiUsdValue / (volume24h * currentPrice); // OI/Volume ratio
-    const oiTurnoverRatio = volume24h / oiValue; // How many times OI turns over per day
-    const oiConcentration = oiUsdValue / (currentPrice * 1e6); // OI concentration per $1M market cap
-    
-    // Price-OI Correlation Analysis
-    const priceVolatility = Math.abs((high24h - low24h) / currentPrice);
-    const oiEfficiency = oiVolumeRatio > 10 ? 'concentrated' : 
-                         oiVolumeRatio > 5 ? 'balanced' : 
-                         oiVolumeRatio > 2 ? 'distributed' : 'thin';
-    
-    // Liquidation Cascade Risk Modeling
-    const cascadeRiskScore = Math.min(100, 
-      (oiUsdValue / 1e9) * 30 +     // OI size factor
-      (priceVolatility * 100) * 20 +  // Volatility factor
-      (oiConcentration * 10)           // Concentration factor
-    );
-    
-    const cascadeRisk = cascadeRiskScore > 70 ? 'extreme' :
-                       cascadeRiskScore > 50 ? 'high' :
-                       cascadeRiskScore > 30 ? 'moderate' : 'low';
-    
-    // OI Momentum Analysis
-    const oiMomentum = priceChange24h > 0 ? 'bullish_expansion' : 'bearish_contraction';
-    const oiHealthScore = Math.min(100, (oiTurnoverRatio * 10) + (oiVolumeRatio * 5));
-    
-    // Market Microstructure Analysis
-    const microstructure = oiTurnoverRatio > 0.5 ? 'active_trading' :
-                          oiTurnoverRatio > 0.2 ? 'moderate_activity' :
-                          oiTurnoverRatio > 0.1 ? 'low_activity' : 'stagnant';
-    
-    // Derivatives Intelligence Score
-    const derivativesIntelligence = {
-      liquidationClusterRisk: cascadeRiskScore > 60 ? 'critical' : cascadeRiskScore > 40 ? 'elevated' : 'normal',
-      marketEfficiency: oiHealthScore > 60 ? 'efficient' : oiHealthScore > 30 ? 'fair' : 'inefficient',
-      institutionalPresence: oiUsdValue > 1e9 ? 'dominant' : oiUsdValue > 5e8 ? 'significant' : 'moderate'
+  // Historical OI data for trends
+  const { data: historicalOIData } = useQuery<{
+    success: boolean;
+    data: {
+      data_points: Array<{
+        timestamp: string;
+        openInterest: number;
+        openInterestUsd: number;
+        price: number;
+        volume24h: number;
+        longShortRatio?: number;
+      }>;
+      trends: {
+        oi_trend: number[];
+        oi_usd_trend: number[];
+        price_correlation: number[];
+      };
+      statistics: {
+        average_oi: number;
+        max_oi: number;
+        min_oi: number;
+        oi_volatility: number;
+        correlation_with_price: number;
+      };
     };
+  }>({
+    queryKey: ['/api/sol/oi/history', '24h'],
+    queryFn: async ({ signal }) => {
+      const response = await fetch('/api/sol/oi/history?timeframe=24h', {
+        signal
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch historical OI data');
+      }
+      return response.json();
+    },
+    refetchInterval: 60000, // Refresh every minute
+    refetchIntervalInBackground: false,
+  });
+
+  // Enhanced analytics from API (no longer need to calculate manually)
+  const enhancedAnalytics = useMemo(() => {
+    if (!enhancedOIData?.success) return null;
     
-    return {
-      currentPrice,
-      volume24h,
-      priceChange24h,
-      oiVolumeRatio,
-      oiTurnoverRatio,
-      oiConcentration,
-      priceVolatility,
-      oiEfficiency,
-      cascadeRiskScore,
-      cascadeRisk,
-      oiMomentum,
-      oiHealthScore,
-      microstructure,
-      derivativesIntelligence
-    };
-  }, [completeData, oiData]);
+    // All analytics now come from enhanced API
+    return enhancedOIData.data;
+  }, [enhancedOIData]);
 
   if (isLoading) {
     return (
@@ -141,7 +148,7 @@ export function OpenInterest() {
     );
   }
 
-  if (error || !oiData?.success) {
+  if (error || !enhancedOIData?.success) {
     return (
       <Card className="bg-gray-900 border-gray-800">
         <CardHeader>
@@ -157,10 +164,10 @@ export function OpenInterest() {
     );
   }
 
-  // Use analytics data if available, fallback to direct data access
-  const oi = oiData.data;
-  const oiValue = parseFloat(oi.oi);
-  const oiUsdValue = parseFloat(oi.oiUsd);
+  // Use enhanced OI data directly 
+  const oi = enhancedOIData.data.current;
+  const oiValue = oi.openInterest;
+  const oiUsdValue = oi.openInterestUsd;
   
   // Format numbers for display
   const formatNumber = (num: number): string => {

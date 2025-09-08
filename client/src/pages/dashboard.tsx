@@ -10,7 +10,7 @@ import { ConfigurationPanel } from "@/components/configuration-panel";
 import { TradingViewWidget } from "@/components/TradingViewWidget";
 import { EnhancedFundingRate } from "@/components/EnhancedFundingRate";
 import { AISignalDashboard } from "@/components/AISignalDashboard";
-import { OpenInterest } from "@/components/OpenInterest";
+import { EnhancedOpenInterest } from "@/components/EnhancedOpenInterest";
 import { VolumeProfile } from "@/components/VolumeProfile";
 import { VolumeDelta } from "@/components/VolumeDelta";
 import { SMCAnalysis } from "@/components/SMCAnalysis";
@@ -258,7 +258,7 @@ export default function Dashboard() {
 
             {/* Open Interest */}
             <ErrorBoundary>
-              <OpenInterest />
+              <EnhancedOpenInterest />
             </ErrorBoundary>
 
             {/* Volume Profile */}
