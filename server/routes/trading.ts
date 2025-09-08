@@ -192,6 +192,88 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
+  // Enhanced Open Interest endpoints
+  app.get('/api/sol/oi/enhanced', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { enhancedOpenInterestService } = await import('../services/enhancedOpenInterest');
+      const enhancedData = await enhancedOpenInterestService.getEnhancedOpenInterest();
+      const responseTime = Date.now() - startTime;
+      
+      await storage.updateMetrics(responseTime);
+      
+      await storage.addLog({
+        level: 'info',
+        message: 'Enhanced open interest request completed',
+        details: `GET /api/sol/oi/enhanced - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: enhancedData,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/oi/enhanced:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Enhanced open interest request failed',
+        details: `GET /api/sol/oi/enhanced - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  app.get('/api/sol/oi/history', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const timeframe = (req.query.timeframe as '24h' | '7d' | '30d') || '24h';
+      const { enhancedOpenInterestService } = await import('../services/enhancedOpenInterest');
+      const historicalData = await enhancedOpenInterestService.getHistoricalOpenInterest('SOL-USDT-SWAP', timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      await storage.updateMetrics(responseTime);
+      
+      await storage.addLog({
+        level: 'info',
+        message: 'Open interest history request completed',
+        details: `GET /api/sol/oi/history?timeframe=${timeframe} - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: historicalData,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/oi/history:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Open interest history request failed',
+        details: `GET /api/sol/oi/history - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // Enhanced SOL Funding Rate endpoint - Comprehensive funding data with signal consolidation
   app.get('/api/sol/funding/enhanced', async (req: Request, res: Response) => {
     const startTime = Date.now();
