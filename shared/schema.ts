@@ -317,6 +317,145 @@ export type RecentTradeData = z.infer<typeof recentTradeSchema>;
 export type SolCompleteData = z.infer<typeof solCompleteDataSchema>;
 export type HealthCheckData = z.infer<typeof healthCheckSchema>;
 export type FundingRateData = z.infer<typeof fundingRateSchema>;
+
+// Enhanced Funding Rate Schemas
+export const signalConflictSchema = z.object({
+  detected: z.boolean(),
+  type: z.enum(['funding_premium_divergence', 'extreme_rate_low_premium', 'normal_rate_high_premium']),
+  explanation: z.string(),
+  severity: z.enum(['low', 'medium', 'high', 'critical']),
+  recommendation: z.string()
+});
+
+export const liquidationAlertSchema = z.object({
+  active: z.boolean(),
+  cluster_prices: z.array(z.number()),
+  open_interest_at_cluster: z.array(z.number()),
+  probability: z.number(),
+  explanation: z.string(),
+  estimated_liquidation_volume: z.number(),
+  time_to_cascade: z.string()
+});
+
+export const marketStructureAnalysisSchema = z.object({
+  current_structure: z.enum(['steep_contango', 'contango', 'neutral', 'backwardation', 'steep_backwardation']),
+  regime_classification: z.enum(['compressed', 'normal', 'elevated', 'extreme']),
+  historical_percentile: z.number(),
+  basis_trading_score: z.number(),
+  funding_squeeze_detected: z.boolean(),
+  liquidation_pressure: z.enum(['low', 'moderate', 'elevated', 'critical'])
+});
+
+export const enhancedFundingRateSchema = z.object({
+  current: z.object({
+    instId: z.string(),
+    fundingRate: z.number(),
+    premium: z.number(),
+    nextFundingTime: z.string(),
+    fundingTime: z.string(),
+    interestRate: z.number(),
+    settState: z.enum(['settled', 'processing']),
+    timestamp: z.string()
+  }),
+  historical_context: z.object({
+    funding_rate_24h_avg: z.number(),
+    funding_rate_7d_avg: z.number(),
+    funding_rate_max_24h: z.number(),
+    funding_rate_min_24h: z.number(),
+    premium_24h_avg: z.number(),
+    volatility_24h: z.number(),
+    historical_percentile: z.number()
+  }),
+  signal_analysis: z.object({
+    overall_sentiment: z.enum(['strong_bullish', 'bullish', 'neutral', 'bearish', 'strong_bearish']),
+    confidence_score: z.number(),
+    conflicts_detected: z.array(signalConflictSchema),
+    weighted_score: z.number(),
+    primary_signal: z.string(),
+    supporting_signals: z.array(z.string()),
+    contradicting_signals: z.array(z.string())
+  }),
+  market_structure: marketStructureAnalysisSchema,
+  alerts: z.object({
+    liquidation_cascade_warning: liquidationAlertSchema,
+    manipulation_alert: z.object({
+      active: z.boolean(),
+      absorption_levels: z.array(z.number()),
+      institutional_flow_pattern: z.string(),
+      unusual_activity_score: z.number(),
+      explanation: z.string()
+    }),
+    funding_squeeze_alert: z.object({
+      active: z.boolean(),
+      squeeze_type: z.enum(['long', 'short', 'both']),
+      intensity: z.number(),
+      duration_estimate: z.string(),
+      historical_outcomes: z.string()
+    })
+  }),
+  correlation_metrics: z.object({
+    funding_oi_correlation: z.number(),
+    funding_volume_correlation: z.number(),
+    premium_price_correlation: z.number(),
+    predictive_strength: z.number()
+  }),
+  trading_implications: z.object({
+    immediate_bias: z.enum(['long', 'short', 'neutral']),
+    strategy_suggestions: z.array(z.string()),
+    risk_factors: z.array(z.string()),
+    optimal_entry_timing: z.string(),
+    position_sizing_advice: z.string()
+  })
+});
+
+export const historicalFundingDataSchema = z.object({
+  data_points: z.array(z.object({
+    timestamp: z.string(),
+    fundingRate: z.number(),
+    premium: z.number(),
+    openInterest: z.number(),
+    price: z.number()
+  })),
+  statistics: z.object({
+    average_funding_rate: z.number(),
+    max_funding_rate: z.number(),
+    min_funding_rate: z.number(),
+    volatility: z.number(),
+    trend_direction: z.enum(['increasing', 'decreasing', 'stable']),
+    anomaly_count: z.number()
+  }),
+  trends: z.object({
+    funding_rate_trend: z.array(z.number()),
+    premium_trend: z.array(z.number()),
+    correlation_trend: z.array(z.number())
+  })
+});
+
+export const fundingCorrelationSchema = z.object({
+  funding_oi_correlation: z.object({
+    correlation_coefficient: z.number(),
+    strength: z.enum(['weak', 'moderate', 'strong']),
+    trend: z.enum(['positive', 'negative']),
+    significance: z.number()
+  }),
+  funding_volume_correlation: z.object({
+    correlation_coefficient: z.number(),
+    strength: z.enum(['weak', 'moderate', 'strong']),
+    trend: z.enum(['positive', 'negative']),
+    significance: z.number()
+  }),
+  premium_price_correlation: z.object({
+    correlation_coefficient: z.number(),
+    strength: z.enum(['weak', 'moderate', 'strong']),
+    trend: z.enum(['positive', 'negative']),
+    significance: z.number()
+  }),
+  predictive_metrics: z.object({
+    funding_rate_predictive_power: z.number(),
+    premium_predictive_power: z.number(),
+    combined_predictive_score: z.number()
+  })
+});
 export type OpenInterestData = z.infer<typeof openInterestSchema>;
 export type EnhancedOrderBookData = z.infer<typeof enhancedOrderBookSchema>;
 export type VolumeProfileData = z.infer<typeof volumeProfileSchema>;
@@ -706,3 +845,9 @@ export type MarketRiskFactors = z.infer<typeof marketRiskFactorsSchema>;
 export type RiskAlerts = z.infer<typeof riskAlertsSchema>;
 export type RiskCompliance = z.infer<typeof riskComplianceSchema>;
 export type RiskDashboardData = z.infer<typeof riskDashboardSchema>;
+export type EnhancedFundingRateData = z.infer<typeof enhancedFundingRateSchema>;
+export type HistoricalFundingData = z.infer<typeof historicalFundingDataSchema>;
+export type FundingCorrelationData = z.infer<typeof fundingCorrelationSchema>;
+export type SignalConflictData = z.infer<typeof signalConflictSchema>;
+export type LiquidationAlertData = z.infer<typeof liquidationAlertSchema>;
+export type MarketStructureAnalysisData = z.infer<typeof marketStructureAnalysisSchema>;

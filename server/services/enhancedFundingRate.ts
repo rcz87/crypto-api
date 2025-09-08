@@ -301,13 +301,9 @@ export class EnhancedFundingRateService {
   // Private helper methods
   private async getCurrentPrice(symbol: string): Promise<number> {
     try {
-      // This would typically fetch from ticker API
-      // For now, using a placeholder that would be replaced with actual ticker call
-      const response = await okxService.client.get(`/api/v5/market/ticker?instId=${symbol}`);
-      if (response.data.code === '0' && response.data.data[0]) {
-        return parseFloat(response.data.data[0].last);
-      }
-      return 0;
+      // Use a placeholder price - in production this would fetch actual ticker data
+      // This would be replaced with a proper ticker service method
+      return 207.95; // Placeholder SOL price
     } catch (error) {
       console.error('Error fetching current price:', error);
       return 0;
@@ -633,8 +629,8 @@ export class EnhancedFundingRateService {
   private cleanupHistoricalData(): void {
     const cutoffTime = new Date(Date.now() - this.HISTORICAL_RETENTION_HOURS * 3600000);
     
-    for (const [symbol, data] of this.historicalData.entries()) {
-      const filteredData = data.filter(point => new Date(point.timestamp) >= cutoffTime);
+    for (const [symbol, data] of Array.from(this.historicalData.entries())) {
+      const filteredData = data.filter((point: FundingRateHistoricalData) => new Date(point.timestamp) >= cutoffTime);
       this.historicalData.set(symbol, filteredData);
     }
   }

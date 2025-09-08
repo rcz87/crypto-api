@@ -192,6 +192,148 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
+  // Enhanced SOL Funding Rate endpoint - Comprehensive funding data with signal consolidation
+  app.get('/api/sol/funding/enhanced', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { enhancedFundingRateService } = await import('../services/enhancedFundingRate');
+      const enhancedData = await enhancedFundingRateService.getEnhancedFundingRate();
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const { enhancedFundingRateSchema } = await import('../../shared/schema');
+      const validated = enhancedFundingRateSchema.parse(enhancedData);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Enhanced funding rate request completed',
+        details: `GET /api/sol/funding/enhanced - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/funding/enhanced:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Enhanced funding rate request failed',
+        details: `GET /api/sol/funding/enhanced - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Historical SOL Funding Rate endpoint - Historical trends and statistics
+  app.get('/api/sol/funding/history', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const timeframe = (req.query.timeframe as '24h' | '7d' | '30d') || '24h';
+      const { enhancedFundingRateService } = await import('../services/enhancedFundingRate');
+      const historicalData = await enhancedFundingRateService.getHistoricalFundingRate('SOL-USDT-SWAP', timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const { historicalFundingDataSchema } = await import('../../shared/schema');
+      const validated = historicalFundingDataSchema.parse(historicalData);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Historical funding rate request completed',
+        details: `GET /api/sol/funding/history?timeframe=${timeframe} - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/funding/history:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Historical funding rate request failed',
+        details: `GET /api/sol/funding/history - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // SOL Funding Rate Correlation endpoint - Correlation with OI and volume
+  app.get('/api/sol/funding/correlation', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { enhancedFundingRateService } = await import('../services/enhancedFundingRate');
+      const correlationData = await enhancedFundingRateService.getFundingCorrelation();
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const { fundingCorrelationSchema } = await import('../../shared/schema');
+      const validated = fundingCorrelationSchema.parse(correlationData);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Funding rate correlation request completed',
+        details: `GET /api/sol/funding/correlation - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/sol/funding/correlation:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Funding rate correlation request failed',
+        details: `GET /api/sol/funding/correlation - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // SOL Open Interest endpoint
   app.get('/api/sol/open-interest', async (req: Request, res: Response) => {
     const startTime = Date.now();
