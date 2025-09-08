@@ -447,11 +447,16 @@ export class AISignalEngine {
       const { CVDService } = await import('./cvd');
       const { ConfluenceService } = await import('./confluence');
       
+      const technicalService = new TechnicalIndicatorsService();
+      const smcService = new SMCService(okxService);
+      const cvdService = new CVDService(okxService);
+      const confluenceService = new ConfluenceService();
+      
       const [technicalData, smcData, cvdData, confluenceData] = await Promise.all([
-        TechnicalIndicatorsService.getInstance().getTechnicalIndicators('SOL-USDT-SWAP', '1H'),
-        SMCService.getInstance().getSMCAnalysis('SOL-USDT-SWAP'),
-        CVDService.getInstance().getCVDAnalysis('SOL-USDT-SWAP'),
-        ConfluenceService.getInstance().getConfluenceAnalysis('SOL-USDT-SWAP')
+        technicalService.getTechnicalIndicators('SOL-USDT-SWAP', '1H'),
+        smcService.getSMCAnalysis('SOL-USDT-SWAP'),
+        cvdService.getCVDAnalysis('SOL-USDT-SWAP'),
+        confluenceService.getConfluenceAnalysis('SOL-USDT-SWAP')
       ]);
 
       return {
@@ -480,7 +485,7 @@ export class AISignalEngine {
         supporting_evidence: this.generateSupportingEvidence([dominantPattern]),
         risk_factors: this.generateRiskFactors(fundingData, technicalData),
         market_context: this.generateMarketContext(fundingData, technicalData),
-        educational_note: this.generateEducationalNote(dominantPattern, fundingData)
+        educational_note: this.generateEducationalNote(dominantPattern)
       };
     }
 
@@ -553,7 +558,7 @@ Be specific with actual numbers and data points. This is for institutional tradi
         ],
         risk_factors: this.generateRiskFactors(fundingData, technicalData),
         market_context: `Market showing ${dominantPattern.name} pattern with ${marketData?.smc?.trend || 'neutral'} smart money flow and ${marketData?.cvd?.buyerSellerAggression?.dominantSide || 'balanced'} volume pressure`,
-        educational_note: this.generateEducationalNote(dominantPattern, fundingData),
+        educational_note: this.generateEducationalNote(dominantPattern),
         data_sources: "Local Pattern Analysis + Market Data Integration",
         ai_confidence: "Medium (Local Analysis)",
         analysis_timestamp: new Date().toISOString()
@@ -666,6 +671,23 @@ Be specific with actual numbers and data points. This is for institutional tradi
     });
     
     return evidence;
+  }
+
+  // Enhanced: Add missing generateEducationalNote method
+  private generateEducationalNote(pattern: MarketPattern): string {
+    if (pattern.id === 'funding_squeeze_reversal') {
+      return `Funding Squeeze Analysis: ${pattern.name} terjadi ketika funding rate sangat ekstrem (> ±0.03%). Ketika longs membayar shorts (positive funding), biasanya menandakan terlalu banyak posisi long, sehingga dapat memicu reversal ke bawah atau short squeeze. Sebaliknya, negative funding menunjukkan terlalu banyak shorts, dapat memicu long squeeze. Pattern ini memiliki akurasi historis ${(pattern.historical_accuracy * 100).toFixed(1)}% berdasarkan analisis 6 bulan terakhir.`;
+    }
+    
+    if (pattern.id === 'whale_accumulation') {
+      return `Whale Accumulation Pattern: ${pattern.name} dideteksi melalui analisis volume dan order flow. Institusi dan whale biasanya mengakumulasi posisi secara bertahap sebelum pergerakan signifikan. Pattern ini menganalisis ukuran order, frequency, dan timing untuk mengidentifikasi aktivitas smart money. Ketika terdeteksi, ada kemungkinan ${(pattern.historical_accuracy * 100).toFixed(1)}% akan terjadi pergerakan harga sesuai arah akumulasi.`;
+    }
+    
+    if (pattern.id === 'momentum_breakout') {
+      return `Momentum Breakout Analysis: ${pattern.name} menggunakan konfirmasi multi-timeframe dan volume. Breakout yang valid membutuhkan: 1) Volume di atas rata-rata, 2) Konfirmasi di multiple timeframe, 3) Follow-through price action. Pattern ini memiliki tingkat akurasi ${(pattern.historical_accuracy * 100).toFixed(1)}% ketika semua kondisi terpenuhi. Risk/reward ratio rata-rata adalah ${pattern.risk_reward_ratio}:1.`;
+    }
+    
+    return `${pattern.name}: Pattern analisis dengan confidence ${(pattern.confidence * 100).toFixed(1)}% berdasarkan kondisi market saat ini. Akurasi historis ${(pattern.historical_accuracy * 100).toFixed(1)}% dalam kondisi market serupa.`;
   }
 
   private generateRiskFactors(fundingData: any, technicalData: any): string[] {

@@ -32,7 +32,7 @@ import { useState, useMemo } from 'react';
 
 // Import tooltip component for educational explanations
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { HelpCircle, BookOpen, Lightbulb } from 'lucide-react';
+import { HelpCircle, BookOpen, Lightbulb, Database, GraduationCap } from 'lucide-react';
 
 // AI Signal Types
 interface AISignalData {
@@ -404,21 +404,42 @@ export function AISignalDashboard() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-gray-300 mb-3">{signal.reasoning.market_context}</p>
+                        <div className="text-sm text-gray-300 leading-relaxed mb-4">
+                          {signal.reasoning.market_context}
+                        </div>
                         
-                        {/* Additional Educational Note */}
-                        <div className="mt-4 p-3 bg-blue-900/20 border border-blue-500/20 rounded-lg">
-                          <div className="flex items-start gap-2">
-                            <Lightbulb className="w-4 h-4 text-yellow-400 mt-0.5" />
-                            <div>
-                              <div className="text-xs font-semibold text-yellow-400 mb-1">AI Trading Logic:</div>
-                              <div className="text-xs text-gray-300 space-y-1">
-                                <div>• <strong>Pattern Recognition:</strong> This setup has occurred 47 times in the past 6 months</div>
-                                <div>• <strong>Success Rate:</strong> 73% of similar signals resulted in profitable moves</div>
-                                <div>• <strong>Risk/Reward:</strong> Average 2.5:1 reward-to-risk ratio</div>
-                                <div>• <strong>Timeline:</strong> Signals typically play out within 2-6 hours</div>
-                              </div>
+                        {/* Enhanced: Show data sources and AI confidence */}
+                        {signal.reasoning.data_sources && (
+                          <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 mb-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Database className="w-4 h-4 text-blue-400" />
+                              <span className="text-xs text-blue-400 font-medium">Data Sources</span>
                             </div>
+                            <div className="text-xs text-blue-200">
+                              {signal.reasoning.data_sources}
+                            </div>
+                            {signal.reasoning.ai_confidence && (
+                              <div className="flex items-center gap-2 mt-2">
+                                <div className="text-xs text-green-400">AI Confidence: {signal.reasoning.ai_confidence}</div>
+                                {signal.reasoning.ai_confidence.includes('GPT-5') && (
+                                  <Badge variant="outline" className="text-xs border-green-400 text-green-400">
+                                    🤖 GPT-5 Enhanced
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Educational Note */}
+                        <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <GraduationCap className="w-4 h-4 text-purple-400" />
+                            <span className="text-xs text-purple-400 font-medium">Educational Note</span>
+                          </div>
+                          <div className="text-xs text-purple-200 leading-relaxed">
+                            {signal.reasoning.educational_note || 
+                            'This AI signal is generated using machine learning pattern recognition combined with real-time market data analysis. The confidence score represents how similar current conditions are to historically profitable setups.'}
                           </div>
                         </div>
                       </CardContent>
