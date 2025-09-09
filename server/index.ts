@@ -41,6 +41,8 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Observability will be initialized after routes registration
+
 // Import metrics collector
 import { metricsCollector } from "./utils/metrics";
 
@@ -93,6 +95,15 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize observability system (metrics, tracing, alerts)
+  try {
+    const { initObservability } = await import("../screening-module/backend/observability");
+    initObservability(app);
+    log("Observability system initialized successfully");
+  } catch (error) {
+    log(`Failed to initialize observability: ${error.message}`);
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

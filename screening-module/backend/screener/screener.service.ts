@@ -7,6 +7,7 @@ import { computeRisk } from "./risk";
 import { composeTradableSignal, type TradableSignal } from "./trade.signal";
 import { FeeProfiles } from "./fees";
 import { recordSignal, recordExecution, recordOutcome } from "../perf/signalTracker";
+import { recordScreeningMetrics, recordSignalMetrics } from "../observability";
 import { cache as cacheCfg } from "./config";
 import { logger } from "./logger";
 
@@ -224,6 +225,13 @@ export class ScreenerService {
               mtf_aligned: confluence.mtf?.agree,
               summary: confluence.summary
             });
+            
+            // Record signal metrics for observability
+            try {
+              recordSignalMetrics(symbol, confluence.label, confluence.confidence || 0);
+            } catch (error) {
+              logger.error('Failed to record signal metrics', { error: error.message });
+            }
             
             // Record execution if tradable signal is valid
             if (signalId && tradableSignal.meta.valid && tradableSignal.side !== 'none') {
