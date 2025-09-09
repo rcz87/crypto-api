@@ -100,8 +100,8 @@ app.use((req, res, next) => {
     const { initObservability } = await import("../screening-module/backend/observability");
     initObservability(app);
     log("Observability system initialized successfully");
-  } catch (error) {
-    log(`Failed to initialize observability: ${error.message}`);
+  } catch (error: any) {
+    log(`Failed to initialize observability: ${error?.message || String(error)}`);
   }
 
   const server = await registerRoutes(app);

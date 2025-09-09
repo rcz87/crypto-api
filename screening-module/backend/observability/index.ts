@@ -28,8 +28,8 @@ export function initObservability(app: express.Express): void {
     try {
       tracingSDK = initTracing();
       logger.info('Distributed tracing initialized');
-    } catch (error) {
-      logger.error('Failed to initialize tracing, continuing without it', { error: error.message });
+    } catch (error: any) {
+      logger.error('Failed to initialize tracing, continuing without it', { error: error?.message || String(error) });
     }
 
     // 4. Initialize Telegram alerting (if configured)
@@ -66,8 +66,8 @@ export function initObservability(app: express.Express): void {
       alerting: 'enabled'
     });
 
-  } catch (error) {
-    logger.error('Failed to initialize observability system', { error: error.message });
+  } catch (error: any) {
+    logger.error('Failed to initialize observability system', { error: error?.message || String(error) });
     throw error;
   }
 }
@@ -129,8 +129,8 @@ function initTelegramAlerting(): void {
       chatId: chatId.substring(0, 8) + '***' // Mask chat ID for security
     });
 
-  } catch (error) {
-    logger.error('Failed to initialize Telegram alerting', { error: error.message });
+  } catch (error: any) {
+    logger.error('Failed to initialize Telegram alerting', { error: error?.message || String(error) });
   }
 }
 
@@ -162,8 +162,8 @@ export async function shutdownObservability(): Promise<void> {
     }
 
     logger.info('Observability system shut down gracefully');
-  } catch (error) {
-    logger.error('Error during observability shutdown', { error: error.message });
+  } catch (error: any) {
+    logger.error('Error during observability shutdown', { error: error?.message || String(error) });
   }
 }
 
@@ -171,16 +171,16 @@ export async function shutdownObservability(): Promise<void> {
 export function recordScreeningMetrics(timeframe: string, symbolsCount: number): void {
   try {
     recordScreeningRequest(timeframe, symbolsCount);
-  } catch (error) {
-    logger.error('Failed to record screening metrics', { error: error.message });
+  } catch (error: any) {
+    logger.error('Failed to record screening metrics', { error: error?.message || String(error) });
   }
 }
 
 export function recordSignalMetrics(symbol: string, label: string, confidence: number): void {
   try {
     recordSignalGenerated(symbol, label, confidence);
-  } catch (error) {
-    logger.error('Failed to record signal metrics', { error: error.message });
+  } catch (error: any) {
+    logger.error('Failed to record signal metrics', { error: error?.message || String(error) });
   }
 }
 
@@ -212,8 +212,8 @@ process.on('uncaughtException', async (error) => {
         `Uncaught exception: ${error.message}`,
         true
       );
-    } catch (alertError) {
-      logger.error('Failed to send crash alert', { error: alertError.message });
+    } catch (alertError: any) {
+      logger.error('Failed to send crash alert', { error: alertError?.message || String(alertError) });
     }
   }
   
@@ -235,8 +235,8 @@ process.on('unhandledRejection', async (reason, promise) => {
         `Reason: ${String(reason)}`,
         false
       );
-    } catch (alertError) {
-      logger.error('Failed to send rejection alert', { error: alertError.message });
+    } catch (alertError: any) {
+      logger.error('Failed to send rejection alert', { error: alertError?.message || String(alertError) });
     }
   }
 });

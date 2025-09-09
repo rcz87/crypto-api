@@ -3,7 +3,8 @@
 
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { diag, DiagConsoleLogger, DiagLogLevel, trace, context } from '@opentelemetry/api';
-import { Resource } from '@opentelemetry/resources';
+// Resource import temporarily commented due to export issue
+// import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
