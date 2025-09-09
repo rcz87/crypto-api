@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WebSocketProvider } from "@/hooks/useWebSocket";
 import Dashboard from "@/pages/dashboard";
+import ScreeningDashboard from "@/pages/screening-dashboard";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
 import NotFound from "@/pages/not-found";
@@ -13,6 +14,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/screener" component={ScreeningDashboard} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/privacy-policy" component={Privacy} />
       <Route path="/terms" component={Terms} />
