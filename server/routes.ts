@@ -94,6 +94,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (error) {
     console.error('Failed to load screening module router:', error);
   }
+
+  // Auto-screening routes with Telegram alerts
+  try {
+    const { autoRouter } = await import('../screening-module/backend/auto/auto.routes.js');
+    app.use('/api/auto', autoRouter);
+    console.log('Auto-screening routes registered successfully');
+  } catch (error) {
+    console.error('Failed to load auto-screening router:', error);
+  }
   
   // Performance tracking and backtesting routes
   const { perfRouter } = await import('../screening-module/backend/perf/perf.routes.js');

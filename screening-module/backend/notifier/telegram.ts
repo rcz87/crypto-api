@@ -40,8 +40,7 @@ export async function tgSend(text: string, silent: boolean = false): Promise<boo
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      timeout: 10000
+      body: JSON.stringify(body)
     });
 
     const result = await response.json() as any;

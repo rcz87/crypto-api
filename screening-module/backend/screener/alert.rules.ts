@@ -14,13 +14,13 @@ export type AlertDecision = {
   priority: 'low' | 'medium' | 'high';
 };
 
-export type AlertConfig = {
+export interface AlertConfig {
   buyThreshold: number;      // Score threshold for BUY alerts (default: 65)
   sellThreshold: number;     // Score threshold for SELL alerts (default: 35)
   minConfidence: number;     // Minimum confidence for alerts (default: 70%)
   riskFilter: boolean;       // Filter by risk level (default: true)
   regimeFilter: string[];    // Allowed regimes for alerts (default: ['trending', 'quiet'])
-};
+}
 
 const DEFAULT_CONFIG: AlertConfig = {
   buyThreshold: Number(process.env.BUY_THRESHOLD || 65),
