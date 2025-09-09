@@ -63,13 +63,13 @@ export function initTracing(): NodeSDK {
           }
         })
       ],
-      resource: new Resource({
-        [SemanticResourceAttributes.SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || 'screener-service',
-        [SemanticResourceAttributes.SERVICE_VERSION]: process.env.OTEL_SERVICE_VERSION || '1.0.0',
-        [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
-        [SemanticResourceAttributes.SERVICE_NAMESPACE]: 'trading',
-        'service.instance.id': process.env.HOSTNAME || `instance-${Date.now()}`,
-      }),
+      // resource: new Resource({
+      //   [SemanticResourceAttributes.SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || 'screener-service',
+      //   [SemanticResourceAttributes.SERVICE_VERSION]: process.env.OTEL_SERVICE_VERSION || '1.0.0',
+      //   [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
+      //   [SemanticResourceAttributes.SERVICE_NAMESPACE]: 'trading',
+      //   'service.instance.id': process.env.HOSTNAME || `instance-${Date.now()}`,
+      // }),
     });
 
     sdk.start();
