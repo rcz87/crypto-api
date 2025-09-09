@@ -177,9 +177,9 @@ export class AutoScheduler {
         alertsSent,
         alertsFiltered,
         scanDuration,
-        buySignals: response.summary.buy,
-        sellSignals: response.summary.sell,
-        avgScore: response.summary.avgScore
+        buySignals: response.summary?.buy || 0,
+        sellSignals: response.summary?.sell || 0,
+        avgScore: response.summary?.avgScore || 0
       });
 
       // Clean up expired dedup keys
