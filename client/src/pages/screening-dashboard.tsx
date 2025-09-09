@@ -72,6 +72,25 @@ export default function ScreeningDashboard() {
   // Query untuk screening data
   const { data, isLoading, error, refetch, isRefetching } = useQuery<ScreeningData>({
     queryKey: ['/api/screener', symbols, timeframe],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        symbols: symbols.trim(),
+        timeframe: timeframe,
+        limit: '100'
+      });
+      
+      const response = await fetch(`/api/screener?${params}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Screening failed');
+      }
+      
+      return result.data;
+    },
     enabled: !!symbols,
     refetchInterval: isAutoRefresh ? refreshInterval * 1000 : false,
     staleTime: 10000, // 10 seconds
