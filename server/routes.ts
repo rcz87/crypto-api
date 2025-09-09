@@ -9,6 +9,7 @@ import { premiumOrderbookService } from "./services/premiumOrderbook";
 import { registerSeoRoutes } from "./routes/seo";
 import { registerSystemRoutes } from "./routes/system";
 import { registerTradingRoutes } from "./routes/trading";
+import { screenerRouter } from "./modules/screener/screener.routes.js";
 import { CVDService } from "./services/cvd";
 import { ConfluenceService } from "./services/confluence";
 import { TechnicalIndicatorsService } from "./services/technicalIndicators";
@@ -82,6 +83,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // SOL trading routes (complete, funding, technical analysis, etc.)
   registerTradingRoutes(app);
+  
+  // Multi-coin screening routes
+  app.use('/api/screener', screenerRouter);
 
   // Duplicate SEO routes removed - now handled by registerSeoRoutes()
 
