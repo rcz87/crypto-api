@@ -8,6 +8,18 @@ type Row = {
   riskLevel: "low" | "medium" | "high";
   confidence: number;
   summary: string;
+  // Enhanced MTF fields
+  regime?: "trending" | "ranging" | "volatile" | "quiet";
+  htf?: {
+    combined: { bias: "bullish" | "bearish" | "neutral"; strength: number };
+    quality: "high" | "medium" | "low";
+  };
+  mtf?: {
+    appliedTilt: number;
+    agree: boolean;
+    disagree: boolean;
+    reason: string;
+  };
 };
 
 type ApiResponse = {
@@ -309,22 +321,27 @@ export default function MultiCoinScreening() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Symbol</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Score</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Signal</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Risk</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Confidence</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-900">Summary</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-900">Symbol</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-900">Score</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-900">Signal</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-900">Regime</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-900">HTF Bias</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-900">MTF</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-900">Risk</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-900">Confidence</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-900">Summary</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredRows.map((row, index) => (
                 <tr key={`${row.symbol}-${index}`} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium text-gray-900">{row.symbol}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-4 font-medium text-gray-900">{row.symbol}</td>
+                  
+                  {/* Score with visual bar */}
+                  <td className="px-4 py-4">
                     <div className="flex items-center">
-                      <span className="font-medium">{row.score}</span>
-                      <div className="ml-2 w-20 bg-gray-200 rounded-full h-2">
+                      <span className="font-medium text-sm">{row.score}</span>
+                      <div className="ml-2 w-16 bg-gray-200 rounded-full h-2">
                         <div 
                           className="h-2 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
                           style={{ width: `${row.score}%` }}
@@ -332,7 +349,9 @@ export default function MultiCoinScreening() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  
+                  {/* Signal */}
+                  <td className="px-4 py-4">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                       row.label === 'BUY' ? 'bg-green-100 text-green-800' :
                       row.label === 'SELL' ? 'bg-red-100 text-red-800' :
@@ -341,19 +360,83 @@ export default function MultiCoinScreening() {
                       {row.label}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  
+                  {/* Regime */}
+                  <td className="px-4 py-4">
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded ${
+                      row.regime === 'trending' ? 'bg-blue-100 text-blue-700' :
+                      row.regime === 'ranging' ? 'bg-purple-100 text-purple-700' :
+                      row.regime === 'volatile' ? 'bg-orange-100 text-orange-700' :
+                      row.regime === 'quiet' ? 'bg-gray-100 text-gray-700' :
+                      'bg-gray-100 text-gray-500'
+                    }`}>
+                      {row.regime === 'trending' ? '🔥 Trend' :
+                       row.regime === 'ranging' ? '📊 Range' :
+                       row.regime === 'volatile' ? '⚡ Volatile' :
+                       row.regime === 'quiet' ? '😴 Quiet' : '-'}
+                    </span>
+                  </td>
+                  
+                  {/* HTF Bias */}
+                  <td className="px-4 py-4">
+                    <div className="flex flex-col space-y-1">
+                      <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
+                        row.htf?.combined.bias === 'bullish' ? 'bg-green-100 text-green-700' :
+                        row.htf?.combined.bias === 'bearish' ? 'bg-red-100 text-red-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {row.htf?.combined.bias === 'bullish' ? '📈 Bull' :
+                         row.htf?.combined.bias === 'bearish' ? '📉 Bear' :
+                         '➡️ Neutral'}
+                      </span>
+                      {row.htf && (
+                        <span className="text-xs text-gray-500">
+                          {row.htf.combined.strength}/10 • {row.htf.quality}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  
+                  {/* MTF Alignment */}
+                  <td className="px-4 py-4">
+                    <div className="flex items-center space-x-1">
+                      <span className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded ${
+                        row.mtf?.agree ? 'bg-green-100 text-green-700' :
+                        row.mtf?.disagree ? 'bg-red-100 text-red-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {row.mtf?.agree ? '✅' : row.mtf?.disagree ? '❌' : '➖'}
+                      </span>
+                      {row.mtf && (
+                        <span className={`text-xs font-medium ${
+                          row.mtf.appliedTilt > 0 ? 'text-green-600' :
+                          row.mtf.appliedTilt < 0 ? 'text-red-600' :
+                          'text-gray-500'
+                        }`}>
+                          {row.mtf.appliedTilt > 0 ? '+' : ''}{row.mtf.appliedTilt}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  
+                  {/* Risk Level */}
+                  <td className="px-4 py-4">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                       row.riskLevel === 'low' ? 'bg-blue-100 text-blue-800' :
                       row.riskLevel === 'high' ? 'bg-red-100 text-red-800' :
                       'bg-amber-100 text-amber-800'
                     }`}>
-                      {row.riskLevel.toUpperCase()}
+                      {row.riskLevel?.toUpperCase() || 'MED'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-gray-900">
+                  
+                  {/* Confidence */}
+                  <td className="px-4 py-4 text-gray-900 text-sm">
                     {(row.confidence * 100).toFixed(0)}%
                   </td>
-                  <td className="px-6 py-4 text-gray-600 max-w-xs truncate">{row.summary}</td>
+                  
+                  {/* Summary (truncated) */}
+                  <td className="px-4 py-4 text-gray-600 max-w-xs truncate text-sm">{row.summary}</td>
                 </tr>
               ))}
             </tbody>

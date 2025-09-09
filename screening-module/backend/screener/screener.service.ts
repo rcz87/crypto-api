@@ -1,6 +1,6 @@
-// Enhanced Screener Service with Professional Indicators and Regime Detection
+// Enhanced Screener Service with Multi-Timeframe Analysis
 import { ScreenerRequest, ScreenerResponse, ScreeningLayers } from "../../shared/schemas";
-import { aggregateDynamic, type DynamicConfluenceResult } from "./scoring.dynamic";
+import { aggregateMTF, type MTFConfluenceResult } from "./scoring.mtf";
 import { computeIndicators } from "./indicators";
 import { computeProIndicators } from "./indicators.pro";
 import { computeRisk } from "./risk";
@@ -33,9 +33,10 @@ async function fetchMarketData(symbol: string, timeframe: string, limit: number)
     logger.debug(`Fetching market data for ${symbol}`, { timeframe, limit });
     
     // TODO: Replace with actual OKX integration
-    // For now, generate realistic mock data
+    // For now, generate realistic mock data with trend simulation
+    const trend = Math.sin(Date.now() / 1000000) * 0.1; // Slow trend component
     const candles = Array.from({ length: limit }, (_, i) => {
-      const basePrice = 200 + Math.sin(i / 10) * 5;
+      const basePrice = 200 + trend * i * 0.1 + Math.sin(i / 10) * 5;
       const volatility = 0.02;
       const random = () => (Math.random() - 0.5) * volatility;
       
@@ -145,10 +146,14 @@ export class ScreenerService {
               }
             }
 
-            // Fetch fresh data
-            const { candles, derivatives } = await fetchMarketData(symbol, timeframe, limit);
-            const smc = computeSMC(candles);
-            const indicators = computeIndicators(candles);
+            // Fetch multi-timeframe data
+            const ltfCandles = await fetchMarketData(symbol, timeframe, limit).then(d => d.candles);
+            const h1Candles = await fetchMarketData(symbol, '1h', 300).then(d => d.candles);
+            const h4Candles = await fetchMarketData(symbol, '4h', 300).then(d => d.candles);
+            const derivatives = await fetchMarketData(symbol, timeframe, limit).then(d => d.derivatives);
+            
+            const smc = computeSMC(ltfCandles);
+            const indicators = computeIndicators(ltfCandles);
             
             // Build layers
             const layers: ScreeningLayers = {
@@ -157,17 +162,17 @@ export class ScreenerService {
               derivatives
             };
             
-            // Calculate dynamic confluence with regime detection
-            const confluence = aggregateDynamic(layers, candles);
+            // Calculate MTF confluence with HTF bias modulation
+            const confluence = aggregateMTF(layers, ltfCandles, h1Candles, h4Candles);
             
             // Calculate professional risk metrics
-            const proIndicators = computeProIndicators(candles);
-            const riskCalc = computeRisk(candles, proIndicators, {
+            const proIndicators = computeProIndicators(ltfCandles);
+            const riskCalc = computeRisk(ltfCandles, proIndicators, {
               accountEquity: 10000, // Default portfolio size
               riskPerTradePct: 0.5,  // 0.5% risk per trade
               atrSLMult: 1.5,        // 1.5x ATR stop loss
               maxPositionPct: 10     // Max 10% position size
-            }, candles[candles.length - 1].close, confluence.label === 'BUY');
+            }, ltfCandles[ltfCandles.length - 1].close, confluence.label === 'BUY');
             
             const result = {
               symbol,
@@ -177,12 +182,15 @@ export class ScreenerService {
               confidence: confluence.confidence,
               summary: confluence.summary,
               layers,
-              // Enhanced PRO PACK features
+              // Enhanced PRO PACK + MTF features
               regime: confluence.regime,
               regimeReason: confluence.regimeReason,
               dynamicThresholds: confluence.dynamicThresholds,
               regimeAdjustment: confluence.regimeAdjustment,
               proIndicators: confluence.proIndicators,
+              // MTF Analysis
+              htf: confluence.htf,
+              mtf: confluence.mtf,
               risk: {
                 positionSize: riskCalc.positionSize,
                 stopLoss: riskCalc.stopLoss,
