@@ -1,7 +1,9 @@
-// Enhanced Screener Service with Caching and Better Error Handling
-import { ScreenerRequest, ScreenerResponse, ScreeningLayers, ConfluenceResult } from "../../shared/schemas";
-import { aggregateConfluence } from "./scoring";
+// Enhanced Screener Service with Professional Indicators and Regime Detection
+import { ScreenerRequest, ScreenerResponse, ScreeningLayers } from "../../shared/schemas";
+import { aggregateDynamic, type DynamicConfluenceResult } from "./scoring.dynamic";
 import { computeIndicators } from "./indicators";
+import { computeProIndicators } from "./indicators.pro";
+import { computeRisk } from "./risk";
 import { cache as cacheCfg } from "./config";
 import { logger } from "./logger";
 
@@ -155,8 +157,17 @@ export class ScreenerService {
               derivatives
             };
             
-            // Calculate confluence
-            const confluence = aggregateConfluence(layers);
+            // Calculate dynamic confluence with regime detection
+            const confluence = aggregateDynamic(layers, candles);
+            
+            // Calculate professional risk metrics
+            const proIndicators = computeProIndicators(candles);
+            const riskCalc = computeRisk(candles, proIndicators, {
+              accountEquity: 10000, // Default portfolio size
+              riskPerTradePct: 0.5,  // 0.5% risk per trade
+              atrSLMult: 1.5,        // 1.5x ATR stop loss
+              maxPositionPct: 10     // Max 10% position size
+            }, candles[candles.length - 1].close, confluence.label === 'BUY');
             
             const result = {
               symbol,
@@ -165,7 +176,19 @@ export class ScreenerService {
               riskLevel: confluence.riskLevel,
               confidence: confluence.confidence,
               summary: confluence.summary,
-              layers
+              layers,
+              // Enhanced PRO PACK features
+              regime: confluence.regime,
+              regimeReason: confluence.regimeReason,
+              dynamicThresholds: confluence.dynamicThresholds,
+              regimeAdjustment: confluence.regimeAdjustment,
+              proIndicators: confluence.proIndicators,
+              risk: {
+                positionSize: riskCalc.positionSize,
+                stopLoss: riskCalc.stopLoss,
+                riskAmount: riskCalc.riskAmount,
+                riskRewardRatio: riskCalc.riskRewardRatio
+              }
             };
 
             // Cache result
