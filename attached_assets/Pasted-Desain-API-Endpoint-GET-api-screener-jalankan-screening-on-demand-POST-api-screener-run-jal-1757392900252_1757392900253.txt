@@ -1,0 +1,290 @@
+Desain API
+Endpoint
+
+GET /api/screener — jalankan screening on-demand.
+
+POST /api/screener/run — jalankan run terjadwal/parameter custom (symbols, tf, window).
+
+GET /api/screener/:runId — hasil cached run.
+
+Query Params (GET /api/screener)
+
+symbols: CSV (default: SOL,ETH,BTC)
+
+tf: timeframe (default: 15m) — opsi: 5m,15m,30m,1h
+
+limit: bars/candles (default: 200)
+
+Response (contoh)
+{
+  "run_id": "scr_2025-09-09T09:31:00Z",
+  "params": { "symbols": ["SOL","ETH","BTC"], "tf": "15m", "limit": 200 },
+  "results": [
+    {
+      "symbol": "SOLUSDT",
+      "score": 74,
+      "label": "BUY",
+      "layers": {
+        "smc": { "score": 26, "reasons": ["BOS up","FVG mitigated","OB demand intact"] },
+        "price_action": { "score": 10, "reasons": ["HH/HL"] },
+        "ema": { "score": 8 },
+        "rsi_macd": { "score": 5, "reasons": ["bull div M15"] },
+        "funding": { "score": 3 },
+        "oi": { "score": 5 },
+        "cvd": { "score": 9 },
+        "fibo": { "score": 4 }
+      },
+      "levels": { "entry": 209.2, "tp": [211.5, 213.0], "sl": 205.8 },
+      "timestamp": "2025-09-09T09:31:02Z"
+    }
+  ]
+}
+🗃️ Drizzle Schema (server/db/schema.screener.ts)
+import { pgTable, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+
+
+export const screenerRuns = pgTable("screener_runs", {
+  id: text("id").primaryKey(),
+  params: jsonb("params").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+
+export const screenerResults = pgTable("screener_results", {
+  runId: text("run_id").references(() => screenerRuns.id).notNull(),
+  symbol: text("symbol").notNull(),
+  score: integer("score").notNull(),
+  label: text("label").notNull(),
+  layers: jsonb("layers").notNull(),
+  levels: jsonb("levels"),
+  ts: timestamp("ts", { withTimezone: true }).defaultNow(),
+});
+
+Kamu bisa tambah index (runId, score desc), atau materialized view untuk top picks.
+
+🧠 SMC Core (server/modules/screener/smc.ts)
+export type Swing = { time: number; high: number; low: number; close: number };
+export type SmcSignal = {
+  bias: "bullish" | "bearish" | "neutral";
+  reasons: string[];
+  levels?: { ob?: number; fvg?: [number, number] };
+};
+
+
+export function detectSMC(swings: Swing[]): SmcSignal {
+  // Contoh minimal: cari BOS/CHoCH + FVG sederhana
+  const reasons: string[] = [];
+
+
+  // BOS up: higher high + break of structure
+  const hh = swings[swings.length - 1].high > Math.max(...swings.slice(-10).map(s => s.high));
+  const ll = swings[swings.length - 1].low < Math.min(...swings.slice(-10).map(s => s.low));
+
+
+  if (hh && !ll) {
+    reasons.push("BOS up");
+  } else if (ll && !hh) {
+    reasons.push("BOS down");
+  } else {
+    reasons.push("range/neutral");
+  }
+
+
+  // Dummy FVG detect (gap antar 3 candle)
+  const a = swings[swings.length - 3];
+  const b = swings[swings.length - 2];
+  const c = swings[swings.length - 1];
+  if (a && b && c) {
+    if (b.low > a.high && c.low > a.high) {
+      reasons.push("FVG up (gap)");
+    }
+    if (b.high < a.low && c.high < a.low) {
+      reasons.push("FVG down (gap)");
+    }
+  }
+
+
+  const bias: SmcSignal["bias"] = reasons.includes("BOS up") ? "bullish" : reasons.includes("BOS down") ? "bearish" : "neutral";
+  return { bias, reasons };
+}
+
+Versi produksi: gunakan swing‑points yang lebih robust, validasi OB (origin block), mitigasi FVG (close‑back), EQH/EQL, dan sweep.
+
+📈 Indikator & Derivatif (server/modules/screener/indicators.ts)
+export function ema(src: number[], period: number): number[] {
+  let k = 2 / (period + 1);
+  let prev = src[0];
+  return src.map((v, i) => (i === 0 ? v : v * k + prev * (1 - k)) as number).map((v, i, arr) => (prev = arr[i], v));
+}
+
+
+export function rsi(close: number[], period = 14): number[] {
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= period; i++) {
+    const diff = close[i] - close[i - 1];
+    if (diff >= 0) gains += diff; else losses -= diff;
+  }
+  let rs = gains / Math.max(1e-9, losses);
+  const out: number[] = new Array(period).fill(50);
+  out[period] = 100 - 100 / (1 + rs);
+  for (let i = period + 1; i < close.length; i++) {
+    const diff = close[i] - close[i - 1];
+    const gain = Math.max(0, diff), loss = Math.max(0, -diff);
+    gains = (gains * (period - 1) + gain) / period;
+    losses = (losses * (period - 1) + loss) / period;
+    rs = gains / Math.max(1e-9, losses);
+    out[i] = 100 - 100 / (1 + rs);
+  }
+  return out;
+}
+🧮 Skoring Confluence (server/modules/screener/scoring.ts)
+import type { SmcSignal } from "./smc";
+
+
+export type LayerScore = { score: number; reasons?: string[] };
+export type Confluence = {
+  total: number;
+  label: "BUY" | "SELL" | "HOLD";
+  layers: {
+    smc: LayerScore;
+    price_action?: LayerScore;
+    ema?: LayerScore;
+    rsi_macd?: LayerScore;
+    funding?: LayerScore;
+    oi?: LayerScore;
+    cvd?: LayerScore;
+    fibo?: LayerScore;
+  };
+};
+
+
+export function scoreFromSMC(smc: SmcSignal): LayerScore {
+  if (smc.bias === "bullish") return { score: 24, reasons: smc.reasons };
+  if (smc.bias === "bearish") return { score: -24, reasons: smc.reasons };
+  return { score: 0, reasons: smc.reasons };
+}
+
+
+export function aggregate(layers: Confluence["layers"]): Confluence {
+  const total = Object.values(layers).reduce((acc, l) => acc + (l?.score ?? 0), 0);
+  let label: Confluence["label"] = "HOLD";
+  if (total >= 70) label = "BUY";
+  else if (total <= 30 - 100) label = "SELL"; // note: if all negatives, will drop well below
+  else if (total <= 30) label = "SELL";
+  return { total, label, layers };
+}
+
+Silakan sesuaikan ambang & bobot; bisa juga normalisasi ke 0..100 terlebih dahulu.
+
+⚙️ Service Orkestrasi (server/modules/screener/screener.service.ts)
+import { detectSMC } from "./smc";
+import { ema, rsi } from "./indicators";
+import { aggregate, scoreFromSMC } from "./scoring";
+
+
+export type Candle = { time: number; open: number; high: number; low: number; close: number; volume: number };
+
+
+async function fetchCandles(symbol: string, tf: string, limit: number): Promise<Candle[]> {
+  // TODO: gunakan fetcher kamu (OKXFetcher/Bybit/Binance) atau endpoint internal existing
+  const url = `https://guardiansofthegreentoken.com/api/candles?symbol=${symbol}&tf=${tf}&limit=${limit}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return (await res.json()) as Candle[];
+}
+
+
+export async function runOne(symbol: string, tf = "15m", limit = 200) {
+  const candles = await fetchCandles(symbol, tf, limit);
+  const close = candles.map(c => c.close);
+
+
+  // SMC
+  const smc = detectSMC(candles.map(c => ({ time: c.time, high: c.high, low: c.low, close: c.close })));
+  const sc_smc = scoreFromSMC(smc);
+
+
+  // EMA stack
+  const e20 = ema(close, 20), e50 = ema(close, 50), e200 = ema(close, 200);
+  const last = close.length - 1;
+  let emaScore = 0;
+  if (e20[last] > e50[last] && e50[last] > e200[last] && close[last] > e50[last]) emaScore = 8;
+  if (e20[last] < e50[last] && e50[last] < e200[last] && close[last] < e50[last]) emaScore = -8;
+
+
+  // RSI (opsional MACD)
+  const r = rsi(close, 14);
+  let rsiScore = 0;
+  if (r[last] > 50 && r[last] - r[last - 5] > 5) rsiScore = 6; // momentum up
+  if (r[last] < 50 && r[last - 5] - r[last] > 5) rsiScore = -6; // momentum down
+
+
+  // TODO: funding/oi/cvd — panggil endpoint internal kamu jika sudah ada
+  const layers = {
+    smc: sc_smc,
+    ema: { score: emaScore },
+    rsi_macd: { score: rsiScore },
+    // funding: { score: ... },
+    // oi: { score: ... },
+    // cvd: { score: ... },
+  } as const;
+
+
+  const agg = aggregate(layers as any);
+
+
+  // contoh level (dummy): entry di mid‑level terakhir; tp/sl disesuaikan
+  const entry = (candles[last].high + candles[last].low) / 2;
+  const levels = { entry, tp: [entry * 1.01, entry * 1.02], sl: entry * 0.98 };
+
+
+  return {
+    symbol,
+    score: Math.max(0, Math.min(100, agg.total)),
+    label: agg.label,
+    layers: agg.layers,
+    levels,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+
+export async function runBatch(symbols: string[], tf = "15m", limit = 200) {
+  return Promise.all(symbols.map(s => runOne(s, tf, limit)));
+}
+🌐 Controller & Routes (server/modules/screener/screener.controller.ts)
+import { Request, Response } from "express";
+import { runBatch } from "./screener.service";
+
+
+export async function getScreener(req: Request, res: Response) {
+  try {
+    const symbols = (req.query.symbols as string || "SOL,ETH,BTC").split(",").map(s => s.trim());
+    const tf = (req.query.tf as string) || "15m";
+    const limit = parseInt((req.query.limit as string) || "200", 10);
+
+
+    const results = await runBatch(symbols, tf, limit);
+    const run_id = `scr_${new Date().toISOString()}`;
+
+
+    return res.json({ run_id, params: { symbols, tf, limit }, results });
+  } catch (e: any) {
+    return res.status(500).json({ code: "SCREENER_ERROR", message: e?.message ?? "unknown" });
+  }
+}
+
+Routes (server/modules/screener/screener.routes.ts)
+
+import { Router } from "express";
+import { getScreener } from "./screener.controller";
+
+
+export const screenerRouter = Router();
+
+
+screenerRouter.get("/", getScreener);
+// screenerRouter.post("/run", postRun);
+// screenerRouter.get(":runId", getRunById);
+
+Daftarkan di server utama: app.use("/api/screener", screenerRouter).
