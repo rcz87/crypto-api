@@ -83,24 +83,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // SOL trading routes (complete, funding, technical analysis, etc.)
   registerTradingRoutes(app);
-  
-  // Multi-coin screening routes
-  app.use('/api/screener', screenerRouter);
-
-  // Duplicate SEO routes removed - now handled by registerSeoRoutes()
-
-  // Health check endpoints moved to registerSystemRoutes()
-
-  // Duplicate OpenAPI endpoints removed - moved to high priority section
-
-  // Metrics endpoints moved to registerSystemRoutes()
-
-  // All SEO routes (robots.txt, sitemap.xml, openapi.json, etc.) moved to registerSeoRoutes()
-
-  // Hardcoded OpenAPI specs moved to seo.ts module to reduce file size
 
   // Apply middleware AFTER SEO routes
   app.use('/api', rateLimit);
+  
+  // Multi-coin screening routes (setelah rate limiting)
+  app.use('/api/screener', screenerRouter);
   
   // Health check endpoint moved to registerSystemRoutes()
   
