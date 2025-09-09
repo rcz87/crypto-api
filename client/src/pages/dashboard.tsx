@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { SolCompleteData } from "@shared/schema";
-import { Database, AlertCircle, Radio } from "lucide-react";
+import { Database, AlertCircle, Radio, Target, TrendingUp } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusOverview } from "@/components/status-overview";
 import { APIDocumentation } from "@/components/api-documentation";
 import { RealTimeData } from "@/components/real-time-data";
@@ -22,10 +23,13 @@ import { OrderFlowAnalysis } from "@/components/OrderFlowAnalysis";
 import LiquidityHeatmap from "@/components/LiquidityHeatmap";
 import MultiTimeframeAnalysis from "@/components/MultiTimeframeAnalysis";
 import LiveTradingSignals from "@/components/LiveTradingSignals";
+import MultiCoinScreening from "@/components/MultiCoinScreening";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function Dashboard() {
+  const [activeTab, setActiveTab] = useState("sol-analysis");
+
   const { data: healthData, isLoading: healthLoading, error: healthError } = useQuery({
     queryKey: ["/health"],
     refetchInterval: false, // Disable auto-refresh to reduce errors
@@ -162,8 +166,8 @@ export default function Dashboard() {
                 <Database className="text-xl" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">Crypto Data Gateway</h1>
-                <p className="text-sm text-gray-500">SOL Trading API Aggregator</p>
+                <h1 className="text-xl font-semibold text-gray-900">CryptoSat Intelligence</h1>
+                <p className="text-sm text-gray-500">Advanced Trading Analytics Platform</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -200,7 +204,30 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Main Navigation Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-gray-100 mb-6">
+            <TabsTrigger 
+              value="sol-analysis" 
+              className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
+              data-testid="tab-sol-analysis"
+            >
+              <TrendingUp className="h-4 w-4" />
+              SOL Deep Analysis
+            </TabsTrigger>
+            <TabsTrigger 
+              value="multi-screening" 
+              className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
+              data-testid="tab-multi-screening"
+            >
+              <Target className="h-4 w-4" />
+              Multi-Coin Screening
+            </TabsTrigger>
+          </TabsList>
+
+          {/* SOL Deep Analysis Tab */}
+          <TabsContent value="sol-analysis" className="space-y-8 mt-0">
         {/* Status Overview */}
         <StatusOverview 
           healthData={(healthData as any)?.data} 
@@ -349,6 +376,15 @@ export default function Dashboard() {
         <ConfigurationPanel 
           healthData={(healthData as any)?.data}
         />
+          </TabsContent>
+
+          {/* Multi-Coin Screening Tab */}
+          <TabsContent value="multi-screening" className="space-y-6 mt-0">
+            <ErrorBoundary>
+              <MultiCoinScreening />
+            </ErrorBoundary>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Footer */}
