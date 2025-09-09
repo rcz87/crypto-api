@@ -266,6 +266,9 @@ export class ScreenerService {
       const trendStrength = this.calculateTrendStrength(recentCandles);
       
       layers.price_action = scoreFromPriceAction(higherHighs, higherLows, trendStrength);
+    } else {
+      // Default fallback for disabled layer
+      layers.price_action = { score: 0, reasons: [], confidence: 0.1 };
     }
 
     // 3. EMA Analysis
@@ -315,6 +318,9 @@ export class ScreenerService {
       const fibLevels = this.calculateFibonacciLevels(candles);
       const nearest = this.findNearestFibLevel(currentPrice, fibLevels);
       layers.fibo = scoreFromFibonacci(currentPrice, fibLevels, nearest);
+    } else {
+      // Default fallback for disabled layer
+      layers.fibo = { score: 0, reasons: [], confidence: 0.1 };
     }
 
     return layers;

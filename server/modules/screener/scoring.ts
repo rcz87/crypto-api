@@ -53,19 +53,25 @@ export function scoreFromPriceAction(
   let score = 0;
   const reasons: string[] = [];
   
-  // Trend structure analysis
+  // Trend structure analysis - ensure score is always a number
+  const validTrendStrength = Math.abs(trendStrength || 0);
+  
   if (higherHighs && higherLows) {
-    score = Math.round(15 * trendStrength);
+    score = Math.round(15 * validTrendStrength);
     reasons.push("Strong uptrend structure");
   } else if (!higherHighs && !higherLows) {
-    score = Math.round(-15 * trendStrength);
+    score = Math.round(-15 * validTrendStrength);
     reasons.push("Strong downtrend structure");
   } else {
     score = 0;
     reasons.push("Sideways/choppy structure");
   }
   
-  return { score, reasons, confidence: trendStrength };
+  return { 
+    score, 
+    reasons, 
+    confidence: Math.max(0.1, Math.abs(trendStrength || 0)) // Never null, minimum 0.1
+  };
 }
 
 /**
@@ -256,7 +262,7 @@ export function scoreFromFibonacci(
   return {
     score,
     reasons,
-    confidence: 1 - Math.min(nearestLevel.distance, 1),
+    confidence: Math.max(0.1, 1 - Math.min(nearestLevel.distance || 1, 1)), // Never null
   };
 }
 
@@ -283,10 +289,11 @@ export function aggregateScores(layers: ScreeningLayers): ConfluenceResult {
     label = "HOLD";
   }
   
-  // Hitung confidence berdasarkan score distribution
-  const layerCount = Object.keys(layers).length;
-  const avgScore = totalScore / layerCount;
-  const confidence = Math.min(Math.abs(avgScore) / 10, 1);
+  // Hitung confidence berdasarkan layer confidence dan score strength
+  const validLayers = Object.values(layers).filter(layer => layer?.confidence !== undefined);
+  const avgLayerConfidence = validLayers.reduce((sum, layer) => sum + (layer?.confidence || 0), 0) / validLayers.length;
+  const scoreStrength = Math.abs(totalScore) / 87; // Normalize by max possible score
+  const confidence = Math.max(0.1, Math.min((avgLayerConfidence + scoreStrength) / 2, 1)); // Minimum 10% confidence
   
   // Generate summary
   const activeLayers = Object.entries(layers).filter(([_, layer]) => layer && Math.abs(layer.score) > 1);
