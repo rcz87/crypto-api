@@ -1,367 +1,380 @@
-/**
- * Multi-Coin Screening Component
- * Terintegrasi dengan dashboard utama sebagai section
- */
+// Enhanced Multi-Coin Screening Component with Filters and Export
+import React, { useEffect, useMemo, useState } from "react";
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Play, RefreshCw, TrendingUp, TrendingDown, Minus, Clock, Activity, Target, Search } from 'lucide-react';
-
-interface ScreeningResult {
+type Row = {
   symbol: string;
   score: number;
-  label: 'BUY' | 'SELL' | 'HOLD';
-  layers: {
-    smc: { score: number; confidence: number };
-    cvd: { score: number; confidence: number };
-    price_action: { score: number | null; confidence: number | null };
-    ema: { score: number; confidence: number };
-    rsi_macd: { score: number; confidence: number };
-    funding: { score: number; confidence: number };
-    oi: { score: number; confidence: number };
-    fibo: { score: number; confidence: number | null };
-  };
+  label: "BUY" | "SELL" | "HOLD";
+  riskLevel: "low" | "medium" | "high";
   confidence: number;
-  timestamp: string;
-}
+  summary: string;
+};
 
-interface ScreeningData {
-  run_id: string;
-  params: {
-    symbols: string[];
-    timeframe: string;
-    limit: number;
-    enabledLayers: Record<string, boolean>;
-  };
-  results: ScreeningResult[];
-  stats: {
+type ApiResponse = {
+  timestamp: number;
+  processingTime?: number;
+  results: Row[];
+  stats?: {
     totalSymbols: number;
     buySignals: number;
     sellSignals: number;
     holdSignals: number;
     avgScore: number;
-    processingTime: number;
+    topPicks?: Array<{ symbol: string; score: number; label: string }>;
   };
-  timestamp: string;
-}
+  meta?: {
+    responseTime: number;
+    requestTime: string;
+    version: string;
+  };
+};
 
-const TIMEFRAMES = [
-  { value: '5m', label: '5m' },
-  { value: '15m', label: '15m' },
-  { value: '30m', label: '30m' },
-  { value: '1h', label: '1h' },
-  { value: '4h', label: '4h' },
-  { value: '1d', label: '1d' }
-];
-
-const POPULAR_SETS = {
-  'Top 5': 'SOL,BTC,ETH,BNB,XRP',
-  'Top 10': 'SOL,BTC,ETH,BNB,XRP,ADA,DOGE,MATIC,DOT,AVAX',
-  'DeFi': 'UNI,AAVE,COMP,SUSHI,MKR,CRV,YFI,SNX',
-  'Layer 1': 'SOL,ETH,BNB,ADA,DOT,AVAX,ATOM,NEAR'
+const PRESET_SYMBOLS = {
+  top10: ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "AVAX", "DOT", "MATIC", "UNI"],
+  defi: ["UNI", "AAVE", "COMP", "MKR", "SNX", "CRV", "1INCH", "YFI"],
+  layer1: ["ETH", "SOL", "ADA", "AVAX", "DOT", "NEAR", "ATOM", "FTM"],
+  memes: ["DOGE", "SHIB", "PEPE", "FLOKI", "WIF"]
 };
 
 export default function MultiCoinScreening() {
-  const [symbols, setSymbols] = useState('SOL,BTC,ETH,BNB,XRP');
-  const [timeframe, setTimeframe] = useState('15m');
-  const [isAutoRefresh, setIsAutoRefresh] = useState(false);
-  const [refreshInterval, setRefreshInterval] = useState(30);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<string>("");
+  const [stats, setStats] = useState<ApiResponse["stats"] | null>(null);
+  
+  // Filters
+  const [timeframe, setTimeframe] = useState("15m");
+  const [minScore, setMinScore] = useState(0);
+  const [maxScore, setMaxScore] = useState(100);
+  const [labelFilter, setLabelFilter] = useState<string>("all");
+  const [riskFilter, setRiskFilter] = useState<string>("all");
+  const [minConfidence, setMinConfidence] = useState(0);
+  const [selectedSymbols, setSelectedSymbols] = useState<string[]>(PRESET_SYMBOLS.top10);
+  
+  // Auto-refresh
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState(30); // seconds
 
-  // Query untuk screening data
-  const { data, isLoading, error, refetch, isRefetching } = useQuery<ScreeningData>({
-    queryKey: ['/api/screener', symbols, timeframe],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        symbols: symbols.trim(),
-        timeframe: timeframe,
-        limit: '100'
+  const fetchData = async () => {
+    if (selectedSymbols.length === 0) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/screener/run', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // API key would be added here in production
+          'x-api-key': (window as any).API_KEY || ''
+        },
+        body: JSON.stringify({
+          symbols: selectedSymbols,
+          timeframe,
+          limit: 500
+        })
       });
-      
-      const response = await fetch(`/api/screener?${params}`);
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP ${response.status}`);
       }
+
+      const data: ApiResponse = await response.json();
       
-      const result = await response.json();
-      if (!result.success) {
-        throw new Error(result.error || 'Screening failed');
+      if (data.results) {
+        setRows(data.results);
+        setStats(data.stats || null);
+        setLastUpdate(new Date().toLocaleTimeString());
+      } else {
+        throw new Error('Invalid response format');
       }
-      
-      return result.data;
-    },
-    enabled: !!symbols,
-    refetchInterval: isAutoRefresh ? refreshInterval * 1000 : false,
-    staleTime: 10000, // 10 seconds
-  });
-
-  const handleRunScreening = () => {
-    refetch();
-  };
-
-  const handlePresetSelect = (preset: string) => {
-    setSymbols(POPULAR_SETS[preset as keyof typeof POPULAR_SETS]);
-  };
-
-  const getSignalIcon = (label: string) => {
-    switch (label) {
-      case 'BUY':
-        return <TrendingUp className="h-3 w-3 text-green-500" />;
-      case 'SELL':
-        return <TrendingDown className="h-3 w-3 text-red-500" />;
-      default:
-        return <Minus className="h-3 w-3 text-yellow-500" />;
+    } catch (err: any) {
+      setError(err.message);
+      console.error('Screening fetch error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getSignalBadgeVariant = (label: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (label) {
-      case 'BUY':
-        return 'default';
-      case 'SELL':
-        return 'destructive';
-      default:
-        return 'secondary';
+  // Auto-refresh effect
+  useEffect(() => {
+    if (autoRefresh && refreshInterval > 0) {
+      const interval = setInterval(fetchData, refreshInterval * 1000);
+      return () => clearInterval(interval);
     }
+  }, [autoRefresh, refreshInterval, timeframe, selectedSymbols]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchData();
+  }, [timeframe, selectedSymbols]);
+
+  // Filtered data
+  const filteredRows = useMemo(() => {
+    return rows.filter(row => {
+      if (row.score < minScore || row.score > maxScore) return false;
+      if (labelFilter !== "all" && row.label !== labelFilter) return false;
+      if (riskFilter !== "all" && row.riskLevel !== riskFilter) return false;
+      if (row.confidence < minConfidence) return false;
+      return true;
+    });
+  }, [rows, minScore, maxScore, labelFilter, riskFilter, minConfidence]);
+
+  // Export to CSV
+  const exportCSV = () => {
+    const header = "Symbol,Score,Label,Risk Level,Confidence,Summary\n";
+    const csvContent = filteredRows.map(row => 
+      `${row.symbol},${row.score},${row.label},${row.riskLevel},${row.confidence},"${row.summary.replace(/"/g, '""')}"`
+    ).join("\n");
+    
+    const blob = new Blob([header + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `screening-${timeframe}-${Date.now()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 70) return 'text-green-500';
-    if (score <= 30) return 'text-red-500';
-    return 'text-yellow-500';
+  // Preset symbol selection
+  const selectPreset = (preset: keyof typeof PRESET_SYMBOLS) => {
+    setSelectedSymbols(PRESET_SYMBOLS[preset]);
   };
 
   return (
-    <div className="space-y-4" data-testid="multi-coin-screening">
-      {/* Header & Controls */}
-      <Card className="bg-gray-950 border-gray-800">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-green-400 flex items-center gap-2 text-lg">
-            <Search className="h-5 w-5" />
-            Multi-Coin Screening
-          </CardTitle>
-          <CardDescription className="text-sm">
-            8-layer analysis engine untuk multiple crypto pairs
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Preset Buttons */}
-          <div className="flex flex-wrap gap-2">
-            {Object.keys(POPULAR_SETS).map((preset) => (
-              <Button
-                key={preset}
-                variant="outline"
-                size="sm"
-                onClick={() => handlePresetSelect(preset)}
-                className="h-7 text-xs"
-              >
-                {preset}
-              </Button>
-            ))}
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Multi-Coin Screening</h1>
+          <p className="text-gray-600">Advanced 8-layer confluence analysis</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-gray-500">
+            Last update: {lastUpdate}
+          </div>
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? "Scanning..." : "Refresh"}
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="text-2xl font-bold text-green-600">{stats.buySignals}</div>
+            <div className="text-sm text-gray-600">BUY Signals</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="text-2xl font-bold text-red-600">{stats.sellSignals}</div>
+            <div className="text-sm text-gray-600">SELL Signals</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="text-2xl font-bold text-yellow-600">{stats.holdSignals}</div>
+            <div className="text-sm text-gray-600">HOLD Signals</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="text-2xl font-bold text-blue-600">{stats.avgScore.toFixed(1)}</div>
+            <div className="text-sm text-gray-600">Avg Score</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="text-2xl font-bold text-purple-600">{stats.totalSymbols}</div>
+            <div className="text-sm text-gray-600">Total Symbols</div>
+          </div>
+        </div>
+      )}
+
+      {/* Symbol Presets */}
+      <div className="bg-white p-4 rounded-lg border">
+        <label className="block text-sm font-medium text-gray-700 mb-2">Symbol Presets</label>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(PRESET_SYMBOLS).map(([key, symbols]) => (
+            <button
+              key={key}
+              onClick={() => selectPreset(key as keyof typeof PRESET_SYMBOLS)}
+              className={`px-3 py-1 rounded-md text-sm ${
+                JSON.stringify(selectedSymbols.sort()) === JSON.stringify(symbols.sort())
+                  ? 'bg-blue-100 text-blue-800 border-blue-300'
+                  : 'bg-gray-100 text-gray-700 border-gray-300'
+              } border`}
+            >
+              {key.toUpperCase()} ({symbols.length})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg border space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Timeframe</label>
+            <select 
+              value={timeframe} 
+              onChange={(e) => setTimeframe(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            >
+              {["1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"].map(tf => (
+                <option key={tf} value={tf}>{tf}</option>
+              ))}
+            </select>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-400">Symbols</label>
-              <Input
-                value={symbols}
-                onChange={(e) => setSymbols(e.target.value)}
-                placeholder="SOL,BTC,ETH..."
-                className="bg-gray-900 border-gray-700 h-8 text-sm"
-                data-testid="input-symbols"
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Min Score</label>
+            <input 
+              type="number" 
+              value={minScore} 
+              onChange={(e) => setMinScore(Number(e.target.value) || 0)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              min="0" max="100"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Signal</label>
+            <select 
+              value={labelFilter} 
+              onChange={(e) => setLabelFilter(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            >
+              <option value="all">All</option>
+              <option value="BUY">BUY</option>
+              <option value="SELL">SELL</option>
+              <option value="HOLD">HOLD</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Risk</label>
+            <select 
+              value={riskFilter} 
+              onChange={(e) => setRiskFilter(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            >
+              <option value="all">All</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Auto Refresh</label>
+            <label className="flex items-center">
+              <input 
+                type="checkbox" 
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                className="rounded mr-2"
               />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-400">Timeframe</label>
-              <Select value={timeframe} onValueChange={setTimeframe}>
-                <SelectTrigger className="bg-gray-900 border-gray-700 h-8" data-testid="select-timeframe">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIMEFRAMES.map((tf) => (
-                    <SelectItem key={tf.value} value={tf.value}>
-                      {tf.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-400">Auto Refresh</label>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={isAutoRefresh ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setIsAutoRefresh(!isAutoRefresh)}
-                  className="h-8 text-xs"
-                  data-testid="button-auto-refresh"
-                >
-                  <Clock className="h-3 w-3 mr-1" />
-                  {isAutoRefresh ? 'ON' : 'OFF'}
-                </Button>
-                {isAutoRefresh && (
-                  <Input
-                    type="number"
-                    value={refreshInterval}
-                    onChange={(e) => setRefreshInterval(Number(e.target.value))}
-                    className="w-16 bg-gray-900 border-gray-700 h-8 text-xs"
-                    min="5"
-                    max="300"
-                  />
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-400">Action</label>
-              <Button
-                onClick={handleRunScreening}
-                disabled={isLoading || isRefetching || !symbols.trim()}
-                className="bg-green-600 hover:bg-green-700 h-8 text-xs w-full"
-                data-testid="button-run-screening"
-              >
-                {isLoading || isRefetching ? (
-                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                ) : (
-                  <Play className="h-3 w-3 mr-1" />
-                )}
-                {isLoading || isRefetching ? 'Scanning...' : 'Run Scan'}
-              </Button>
-            </div>
+              <span className="text-sm">Every {refreshInterval}s</span>
+            </label>
           </div>
 
-          {/* Stats */}
-          {data && (
-            <div className="flex items-center justify-between pt-2 border-t border-gray-800">
-              <div className="flex items-center gap-4 text-xs text-gray-400">
-                <span>⚡ {data.stats.processingTime}ms</span>
-                <span>{data.stats.totalSymbols} symbols</span>
-                <span className="text-green-500">{data.stats.buySignals} BUY</span>
-                <span className="text-red-500">{data.stats.sellSignals} SELL</span>
-                <span className="text-yellow-500">{data.stats.holdSignals} HOLD</span>
-              </div>
-              <div className="text-xs text-gray-500">
-                {data.timestamp && `Last: ${new Date(data.timestamp).toLocaleTimeString()}`}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Export</label>
+            <button 
+              onClick={exportCSV}
+              disabled={filteredRows.length === 0}
+              className="w-full px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 text-sm"
+            >
+              CSV ({filteredRows.length})
+            </button>
+          </div>
+        </div>
+      </div>
 
-      {/* Error Alert */}
+      {/* Error Display */}
       {error && (
-        <Alert className="bg-red-950 border-red-800 text-red-200" data-testid="error-alert">
-          <AlertDescription className="text-sm">
-            Error: {error instanceof Error ? error.message : 'Failed to fetch screening data'}
-          </AlertDescription>
-        </Alert>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <div className="text-red-600 font-medium">Error:</div>
+            <div className="ml-2 text-red-700">{error}</div>
+          </div>
+        </div>
       )}
 
       {/* Results Table */}
-      {data && data.results.length > 0 && (
-        <Card className="bg-gray-950 border-gray-800" data-testid="results-table">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-green-400 text-base">Results</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-gray-800">
-                    <th className="text-left py-2 px-2 font-medium">Symbol</th>
-                    <th className="text-center py-2 px-2 font-medium">Signal</th>
-                    <th className="text-center py-2 px-2 font-medium">Score</th>
-                    <th className="text-center py-2 px-2 font-medium">SMC</th>
-                    <th className="text-center py-2 px-2 font-medium">CVD</th>
-                    <th className="text-center py-2 px-2 font-medium">EMA</th>
-                    <th className="text-center py-2 px-2 font-medium">RSI/MACD</th>
-                    <th className="text-center py-2 px-2 font-medium">Funding</th>
-                    <th className="text-center py-2 px-2 font-medium">OI</th>
-                    <th className="text-center py-2 px-2 font-medium">Conf</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.results.slice(0, 10).map((result) => (
-                    <tr key={result.symbol} className="border-b border-gray-800/50 hover:bg-gray-900/50">
-                      <td className="py-2 px-2 font-medium text-white text-xs">
-                        {result.symbol}
-                      </td>
-                      <td className="py-2 px-2 text-center">
-                        <Badge 
-                          variant={getSignalBadgeVariant(result.label)}
-                          className="flex items-center gap-1 w-fit mx-auto text-xs h-5"
-                          data-testid={`signal-${result.symbol.toLowerCase()}`}
-                        >
-                          {getSignalIcon(result.label)}
-                          {result.label}
-                        </Badge>
-                      </td>
-                      <td className={`py-2 px-2 text-center font-bold text-xs ${getScoreColor(result.score)}`}>
-                        {result.score}
-                      </td>
-                      <td className="py-2 px-2 text-center text-gray-400 text-xs">
-                        {result.layers.smc.score}
-                      </td>
-                      <td className="py-2 px-2 text-center text-gray-400 text-xs">
-                        {result.layers.cvd.score}
-                      </td>
-                      <td className="py-2 px-2 text-center text-gray-400 text-xs">
-                        {result.layers.ema.score}
-                      </td>
-                      <td className="py-2 px-2 text-center text-gray-400 text-xs">
-                        {result.layers.rsi_macd.score}
-                      </td>
-                      <td className="py-2 px-2 text-center text-gray-400 text-xs">
-                        {result.layers.funding.score}
-                      </td>
-                      <td className="py-2 px-2 text-center text-gray-400 text-xs">
-                        {result.layers.oi.score}
-                      </td>
-                      <td className="py-2 px-2 text-center text-gray-400 text-xs">
-                        {Math.round(result.confidence * 100)}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <div className="bg-white rounded-lg border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left font-medium text-gray-900">Symbol</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-900">Score</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-900">Signal</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-900">Risk</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-900">Confidence</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-900">Summary</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filteredRows.map((row, index) => (
+                <tr key={`${row.symbol}-${index}`} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 font-medium text-gray-900">{row.symbol}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center">
+                      <span className="font-medium">{row.score}</span>
+                      <div className="ml-2 w-20 bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
+                          style={{ width: `${row.score}%` }}
+                        />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      row.label === 'BUY' ? 'bg-green-100 text-green-800' :
+                      row.label === 'SELL' ? 'bg-red-100 text-red-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {row.label}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      row.riskLevel === 'low' ? 'bg-blue-100 text-blue-800' :
+                      row.riskLevel === 'high' ? 'bg-red-100 text-red-800' :
+                      'bg-amber-100 text-amber-800'
+                    }`}>
+                      {row.riskLevel.toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-900">
+                    {(row.confidence * 100).toFixed(0)}%
+                  </td>
+                  <td className="px-6 py-4 text-gray-600 max-w-xs truncate">{row.summary}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-      {/* Loading State */}
-      {(isLoading || isRefetching) && (
-        <Card className="bg-gray-950 border-gray-800" data-testid="loading-state">
-          <CardContent className="p-6 text-center">
-            <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-3 text-green-400" />
-            <div className="text-sm font-medium">Running 8-Layer Analysis...</div>
-            <div className="text-xs text-gray-400 mt-1">
-              Processing: {symbols}
+        {loading && (
+          <div className="text-center py-8">
+            <div className="inline-flex items-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <span className="ml-2 text-gray-600">Analyzing {selectedSymbols.length} symbols...</span>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        )}
 
-      {/* Empty State */}
-      {!isLoading && !data && !error && (
-        <Card className="bg-gray-950 border-gray-800" data-testid="empty-state">
-          <CardContent className="p-6 text-center">
-            <Target className="h-8 w-8 mx-auto mb-3 text-gray-500" />
-            <div className="text-sm font-medium text-gray-400">Ready to Screen</div>
-            <div className="text-xs text-gray-500 mt-1">
-              Select symbols and click "Run Scan" to start analysis
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        {!loading && filteredRows.length === 0 && !error && (
+          <div className="text-center py-8 text-gray-500">
+            No results match your filters
+          </div>
+        )}
+      </div>
     </div>
   );
 }
