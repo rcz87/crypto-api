@@ -1,0 +1,62 @@
+~/workspace$ # Check directory structure di VPS
+ssh -i ~/.ssh/replit root@srv795356.hstgr.cloud 'ls -la /var/www/ && pm2 status && pm2 list'
+
+# Check apakah app running di home directory
+ssh -i ~/.ssh/replit root@srv795356.hstgr.cloud 'ls -la ~ && pwd'
+
+# Check ports yang active
+ssh -i ~/.ssh/replit root@srv795356.hstgr.cloud 'netstat -tlnp | grep :8080'
+total 16
+drwxr-xr-x  4 root     root     4096 Sep  9 13:31 .
+drwxr-xr-x 14 root     root     4096 Apr 21 12:15 ..
+drwxr-xr-x 16 www-data www-data 4096 Sep  1 10:00 cakrapamungkas.org
+drwxr-xr-x  3 www-data www-data 4096 Apr 21 12:51 html
+┌────┬───────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name      │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+└────┴───────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+┌────┬───────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name      │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+└────┴───────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+total 368
+drwx------ 19 root      root       4096 Sep  9 13:07 .
+drwxr-xr-x 19 root      root       4096 Sep  2 05:18 ..
+-rw-------  1 root      root      79196 Sep  9 12:52 .bash_history
+-rw-r--r--  1 root      root       3771 Aug 25 04:18 .bashrc
+-rw-r--r--  1 root      root       3391 Aug  4 01:57 .bashrc.bak
+-rw-r--r--  1 root      root      12288 Aug 25 04:07 .bashrc.swp
+drwx------  6 root      root       4096 Aug 11 05:04 .cache
+drwx------  6 root      root       4096 Aug 11 04:57 .config
+drwx------  3 root      root       4096 Aug  4 07:05 .docker
+-rw-r--r--  1 root      root       1468 Aug 30 14:27 .env
+-rw-r--r--  1 root      root        279 Aug 25 03:17 .gitconfig
+-rw-------  1 root      root         20 Sep  9 13:07 .lesshst
+drwxr-xr-x  3 root      root       4096 Apr 21 11:55 .local
+-rw-rw-rw-  1 root      root       3027 Apr 17 12:16 .monarx-install.sh
+drwxr-xr-x  3 root      root       4096 Sep  9 13:31 .npm
+drwxr-xr-x  5 root      root       4096 Sep  9 12:44 .pm2
+-rw-r--r--  1 root      root        161 Jul  9  2019 .profile
+-rw-------  1 root      root       2207 Jul  3 10:42 .python_history
+-rw-r--r--  1 root      root         66 Apr 28 04:23 .selected_editor
+-rw-------  1 root      root       1542 Apr 28 06:24 .sqlite_history
+drwx------  2 root      root       4096 Sep  9 13:42 .ssh
+-rw-r--r--  1 root      root         16 Aug  4 02:50 .tmux.conf
+-rw-r--r--  1 root      root        215 Aug  4 04:12 .wget-hsts
+drwxr-xr-x 11 root      root       4096 May 31 06:47 CAKRA-PAMUNGKAS
+drwxr-xr-x  5 root      root       4096 Jul  3 11:45 GPT-S
+-rw-------  1 root      root         50 Aug 30 18:15 auth.txt
+drwxr-xr-x 23 cryptoapp cryptoapp 12288 Aug 25 09:19 crypto-analysis-dashboard
+drwxr-xr-x 24 root      root      12288 Aug 21 05:08 crypto-analysis-dashboard.bak.2025-08-21_052527
+drwxr-xr-x 17 root      root      20480 Sep  3 05:10 cryptozz
+-rwxr-xr-x  1 root      root        312 Aug 21 04:26 deploy-main.sh
+-rwxr-xr-x  1 root      root       1009 Aug 30 17:49 nord_setup.sh
+-rw-r--r--  1 root      root       2957 Aug 30 18:07 nordvpn.ovpn
+-rw-r--r--  1 root      root         70 Aug 30 17:59 nordvpn_status.txt
+-rw-r--r--  1 root      root       1820 Aug 30 15:47 okx_connectivity_report.txt
+-rw-r--r--  1 root      root      20283 Aug 30 15:17 okx_proxy_ready_tester.py
+drwxr-xr-x  5 root      root       4096 Aug 30 14:32 okxenv
+drwxr-xr-x  8 root      root       4096 Jul 11 14:32 padidoc
+drwx------  3 root      root       4096 Apr  1 14:41 snap
+drwxr-xr-x  5 root      root       4096 Apr 23 07:52 static
+drwxr-xr-x  2 root      root       4096 Apr 23 07:52 templates
+/root
+~/workspace$ 
