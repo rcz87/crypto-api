@@ -4,6 +4,8 @@ import { aggregateMTF, type MTFConfluenceResult } from "./scoring.mtf";
 import { computeIndicators } from "./indicators";
 import { computeProIndicators } from "./indicators.pro";
 import { computeRisk } from "./risk";
+import { composeTradableSignal, type TradableSignal } from "./trade.signal";
+import { FeeProfiles } from "./fees";
 import { cache as cacheCfg } from "./config";
 import { logger } from "./logger";
 
@@ -174,6 +176,40 @@ export class ScreenerService {
               maxPositionPct: 10     // Max 10% position size
             }, ltfCandles[ltfCandles.length - 1].close, confluence.label === 'BUY');
             
+            // Generate tradable signal with professional risk management
+            const tradableSignal = composeTradableSignal(
+              {
+                symbol,
+                label: confluence.label,
+                score: confluence.normalizedScore,
+                summary: confluence.summary,
+                confidence: confluence.confidence,
+                riskLevel: confluence.riskLevel,
+                layers: confluence.layers,
+                regime: confluence.regime,
+                htf: confluence.htf,
+                mtf: confluence.mtf
+              },
+              ltfCandles,
+              {
+                accountEquity: 10000,    // Default portfolio
+                riskPerTradePct: 0.5,    // 0.5% risk per trade
+                atrSLMult: 1.5,          // 1.5x ATR stops
+                tp1RR: 1.5,              // 1.5:1 first target
+                tp2RR: 2.5,              // 2.5:1 second target
+                capPositionPct: 15       // Max 15% position size
+              },
+              {
+                minNotional: 5,          // $5 minimum
+                minQty: 0.001,           // Min quantity
+                qtyStep: 0.001,          // Quantity step
+                priceStep: 0.01,         // Price tick
+                takerFeeRate: 0.0005,    // OKX default fee
+                slippageBps: 8,          // 0.8 bps slippage
+                spreadBps: 5             // 0.5 bps spread
+              }
+            );
+            
             const result = {
               symbol,
               score: confluence.normalizedScore,
@@ -196,6 +232,23 @@ export class ScreenerService {
                 stopLoss: riskCalc.stopLoss,
                 riskAmount: riskCalc.riskAmount,
                 riskRewardRatio: riskCalc.riskRewardRatio
+              },
+              // Enhanced Tradable Signal
+              tradableSignal: {
+                side: tradableSignal.side,
+                entry: tradableSignal.entry,
+                sl: tradableSignal.sl,
+                tp1: tradableSignal.tp1,
+                tp2: tradableSignal.tp2,
+                qty: tradableSignal.qty,
+                notional: tradableSignal.notional,
+                rr1: tradableSignal.rr1,
+                rr2: tradableSignal.rr2,
+                costs: tradableSignal.costs,
+                valid: tradableSignal.meta.valid,
+                violations: tradableSignal.meta.violations,
+                priority: tradableSignal.timing.priority,
+                expiry: tradableSignal.timing.expiry
               }
             };
 
