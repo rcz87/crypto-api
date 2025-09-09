@@ -6,6 +6,7 @@ import { computeProIndicators } from "./indicators.pro";
 import { computeRisk } from "./risk";
 import { composeTradableSignal, type TradableSignal } from "./trade.signal";
 import { FeeProfiles } from "./fees";
+import { recordSignal, recordExecution, recordOutcome } from "../perf/signalTracker";
 import { cache as cacheCfg } from "./config";
 import { logger } from "./logger";
 
@@ -209,6 +210,37 @@ export class ScreenerService {
                 spreadBps: 5             // 0.5 bps spread
               }
             );
+            
+            // Track signal for performance analysis
+            const signalId = recordSignal({
+              ts: Date.now(),
+              symbol,
+              label: confluence.label,
+              score: confluence.normalizedScore,
+              confidence: confluence.confidence,
+              timeframe,
+              regime: confluence.regime,
+              htf_bias: confluence.htf?.combined?.bias,
+              mtf_aligned: confluence.mtf?.agree,
+              summary: confluence.summary
+            });
+            
+            // Record execution if tradable signal is valid
+            if (signalId && tradableSignal.meta.valid && tradableSignal.side !== 'none') {
+              recordExecution(signalId, {
+                side: tradableSignal.side,
+                entry: tradableSignal.entry!,
+                sl: tradableSignal.sl,
+                tp1: tradableSignal.tp1,
+                tp2: tradableSignal.tp2,
+                qty: tradableSignal.qty,
+                notional: tradableSignal.notional,
+                fees: tradableSignal.costs.fees,
+                slip: tradableSignal.costs.slip,
+                spread: tradableSignal.costs.spread,
+                risk_amount: riskCalc.riskAmount
+              });
+            }
             
             const result = {
               symbol,

@@ -90,6 +90,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Multi-coin screening routes (setelah rate limiting)
   app.use('/api/screener', screenerRouter);
   
+  // Performance tracking and backtesting routes
+  const { perfRouter } = await import('../screening-module/backend/perf/perf.routes.js');
+  app.use('/api/perf', perfRouter);
+  
   // Health check endpoint moved to registerSystemRoutes()
   
   // SOL complete endpoint moved to registerTradingRoutes()
