@@ -88,7 +88,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api', rateLimit);
   
   // Multi-coin screening routes (setelah rate limiting)
-  app.use('/api/screener', screenerRouter);
+  try {
+    const { screenerRouter: moduleScreenerRouter } = await import('../screening-module/backend/screener/screener.routes.js');
+    app.use('/api/screener', moduleScreenerRouter);
+  } catch (error) {
+    console.error('Failed to load screening module router:', error);
+  }
   
   // Performance tracking and backtesting routes
   const { perfRouter } = await import('../screening-module/backend/perf/perf.routes.js');
