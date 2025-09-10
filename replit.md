@@ -49,7 +49,9 @@ System preference: Real-time data accuracy with professional trading standards
 # External Dependencies
 
 - **Crypto Data**: OKX exchange API for real-time SOL trading data and premium feeds.
+- **Multi-Exchange Data**: CoinAPI integration with 300+ exchanges for institutional-grade coverage.
 - **Database**: Neon Database for PostgreSQL hosting.
+- **AI Integration**: OpenAI GPT-5 API for enhanced reasoning and analysis.
 - **Hosting**: Replit with custom domain.
 - **Fonts**: Google Fonts (Inter, DM Sans, Fira Code, Geist Mono).
 - **Icons**: Lucide React.
