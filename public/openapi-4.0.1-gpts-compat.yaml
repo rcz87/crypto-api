@@ -73,7 +73,7 @@ paths:
                       pairs:
                         type: array
                         items: { type: string }
-                        example: ["BTC","ETH","SOL","ADA","AVAX","DOGE","UNI","MATIC","LTC","BCH"]
+                        example: ["BTC","ETH","SOL","ADA","AVAX","DOGE","UNI","MATIC","LTC","BCH","RENDER","BNB"]
                   timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
         '401':
           $ref: '#/components/responses/ProblemResponse'

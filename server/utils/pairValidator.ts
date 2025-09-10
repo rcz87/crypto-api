@@ -12,7 +12,8 @@ const SUPPORTED_BASES = [
   'KNC', 'LRC', 'REN', 'STORJ', 'GRT', 'FIL', 'AR', 'THETA',
   'ICP', 'EGLD', 'HBAR', 'VET', 'CHZ', 'ENS', 'IMX', 'GMT',
   'APE', 'GALA', 'LOOKS', 'MAGIC', 'OP', 'ARB', 'BLUR', 'SUI',
-  'PEPE', 'FLOKI', 'BONK', 'WIF', 'BOME', 'POPCAT', 'MEW'
+  'PEPE', 'FLOKI', 'BONK', 'WIF', 'BOME', 'POPCAT', 'MEW',
+  'RENDER', 'BNB'
 ];
 
 // Supported quote currencies (USDT is primary)
@@ -133,6 +134,6 @@ export function validateAndFormatPair(pairParam: string): {
  * Check if pair is a "major" pair with high liquidity
  */
 export function isMajorPair(pair: string): boolean {
-  const majorPairs = ['BTC', 'ETH', 'SOL', 'ADA', 'DOT', 'MATIC', 'LTC', 'BCH', 'XRP', 'AVAX'];
+  const majorPairs = ['BTC', 'ETH', 'SOL', 'ADA', 'DOT', 'MATIC', 'LTC', 'BCH', 'XRP', 'AVAX', 'BNB'];
   return majorPairs.includes(pair.toUpperCase());
 }
