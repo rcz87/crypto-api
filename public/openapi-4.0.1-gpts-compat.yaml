@@ -1174,6 +1174,55 @@ paths:
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
 components:
+  parameters:
+    CursorParam:
+      name: cursor
+      in: query
+      description: Opaque cursor for pagination (next page token)
+      required: false
+      schema:
+        type: string
+        example: "eyJwYWdlIjoyfQ=="
+    LimitParam:
+      name: limit
+      in: query
+      description: Maximum number of items to return (default 100)
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+        example: 100
+    StartParam:
+      name: start
+      in: query
+      description: Start timestamp for data range
+      required: false
+      schema:
+        type: string
+        format: date-time
+        example: "2025-09-10T00:00:00Z"
+    EndParam:
+      name: end
+      in: query
+      description: End timestamp for data range
+      required: false
+      schema:
+        type: string
+        format: date-time
+        example: "2025-09-10T23:59:59Z"
+    SymbolParam:
+      name: symbol
+      in: query
+      description: Trading pair symbol (default SOL-USDT-SWAP)
+      required: false
+      schema:
+        type: string
+        enum: ["SOL-USDT-SWAP", "BTC-USDT-SWAP", "ETH-USDT-SWAP"]
+        default: "SOL-USDT-SWAP"
+        example: "SOL-USDT-SWAP"
+
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
@@ -1187,18 +1236,48 @@ components:
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/Problem'
+            type: object
+            required: [type, title]
+            properties:
+              type: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/problems/server-error" }
+              title: { type: string, example: "Internal Server Error" }
+              status: { type: integer, example: 500 }
+              detail: { type: string, example: "An unexpected error occurred while processing your request." }
+              instance: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/api/ai/enhanced-signal" }
+              code: { type: string, example: "INTERNAL_ERROR" }
+            example:
+              type: "https://guardiansofthegreentoken.com/problems/server-error"
+              title: "Internal Server Error"
+              status: 500
+              detail: "An unexpected error occurred while processing your request."
+              instance: "https://guardiansofthegreentoken.com/api/ai/enhanced-signal"
+              code: "INTERNAL_ERROR"
     TooManyRequests:
       description: Rate limit exceeded
       headers:
-        RateLimit-Limit: { schema: { type: integer } }
-        RateLimit-Remaining: { schema: { type: integer } }
-        RateLimit-Reset: { schema: { type: integer } }
-        RateLimit-Policy: { schema: { type: string } }
+        RateLimit-Limit: { schema: { type: integer, example: 100 } }
+        RateLimit-Remaining: { schema: { type: integer, example: 0 } }
+        RateLimit-Reset: { schema: { type: integer, example: 1725955200 } }
+        RateLimit-Policy: { schema: { type: string, example: "100;w=60" } }
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/Problem'
+            type: object
+            required: [type, title]
+            properties:
+              type: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/problems/rate-limit" }
+              title: { type: string, example: "Too Many Requests" }
+              status: { type: integer, example: 429 }
+              detail: { type: string, example: "Rate limit exceeded. Try again after the reset window." }
+              instance: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/api/ai/enhanced-signal" }
+              code: { type: string, example: "RLIMIT_EXCEEDED" }
+            example:
+              type: "https://guardiansofthegreentoken.com/problems/rate-limit"
+              title: "Too Many Requests"
+              status: 429
+              detail: "Rate limit exceeded. Try again after the reset window."
+              instance: "https://guardiansofthegreentoken.com/api/ai/enhanced-signal"
+              code: "RLIMIT_EXCEEDED"
 
   schemas:
     CompleteAnalysisResponse:

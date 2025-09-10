@@ -1157,16 +1157,72 @@ export class TechnicalIndicatorsService {
     if (!candles || !Array.isArray(candles) || candles.length === 0) {
       console.warn('⚠️ Invalid candles data provided to analyzeTechnicalIndicators');
       return {
-        rsi: { value: 50, signal: 'neutral', strength: 'weak', divergence: false, timestamp: new Date().toISOString() },
-        ema: { fast: 0, slow: 0, crossover: { status: 'neutral', strength: 'weak', confidence: 0 } },
-        macd: { value: 0, signal: 0, histogram: 0, trend: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
-        bollinger: { upper: 0, middle: 0, lower: 0, position: 'middle', squeeze: false, timestamp: new Date().toISOString() },
-        stochastic: { k: 50, d: 50, signal: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
-        cci: { value: 0, signal: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
-        parabolicSAR: { value: 0, trend: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
-        ichimoku: { tenkanSen: 0, kijunSen: 0, senkouSpanA: 0, senkouSpanB: 0, signal: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
-        obv: { value: 0, trend: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
-        williamsR: { value: -50, signal: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
+        rsi: { 
+          current: { value: 50, signal: 'neutral', strength: 'weak', divergence: false, timestamp: new Date().toISOString() },
+          signal: 'neutral',
+          divergence: { detected: false },
+          historical: []
+        },
+        ema: { 
+          fast: { period: 12, value: 0, timestamp: new Date().toISOString(), trend: 'neutral', slope: 0 },
+          slow: { period: 26, value: 0, timestamp: new Date().toISOString(), trend: 'neutral', slope: 0 },
+          crossover: { status: 'neutral', strength: 'weak', timestamp: new Date().toISOString(), confidence: 0 }
+        },
+        macd: { 
+          current: { macd: 0, signal: 0, histogram: 0, trend: 'neutral', crossover: 'neutral', timestamp: new Date().toISOString() },
+          signal: 'neutral',
+          crossover: { detected: false, type: 'neutral', strength: 'weak' },
+          divergence: { detected: false },
+          historical: []
+        },
+        bollinger: { 
+          current: { upper: 0, middle: 0, lower: 0, bandwidth: 0, squeeze: false, position: 'inside', signal: 'neutral', timestamp: new Date().toISOString() },
+          signal: 'neutral',
+          squeeze: { active: false, strength: 'weak' },
+          breakout: { detected: false, direction: 'neutral', strength: 'weak' },
+          historical: []
+        },
+        stochastic: { 
+          current: { k: 50, d: 50, signal: 'neutral', crossover: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
+          signal: 'neutral',
+          crossover: { detected: false, type: 'neutral', strength: 'weak' },
+          divergence: { detected: false },
+          historical: []
+        },
+        cci: { 
+          current: { value: 0, signal: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
+          signal: 'neutral',
+          extremeLevel: { active: false, type: 'normal', strength: 'weak' },
+          trend: { direction: 'neutral', strength: 'weak' },
+          historical: []
+        },
+        parabolicSAR: { 
+          current: { value: 0, direction: 'bullish', timestamp: new Date().toISOString() },
+          trend: 'neutral',
+          reversal: { detected: false, strength: 'weak' },
+          support_resistance: { level: 0, type: 'support', strength: 'weak' },
+          historical: []
+        },
+        ichimoku: { 
+          current: { tenkanSen: 0, kijunSen: 0, senkouSpanA: 0, senkouSpanB: 0, chikouSpan: 0, timestamp: new Date().toISOString() },
+          cloud: { position: 'inside', color: 'neutral', thickness: 0, strength: 'weak' },
+          signals: { kumo_breakout: false, tenkan_kijun_cross: false, chikou_confirmation: false },
+          historical: []
+        },
+        obv: { 
+          current: { value: 0, trend: 'neutral', timestamp: new Date().toISOString() },
+          trend: 'neutral',
+          divergence: { detected: false },
+          institutionalFlow: { direction: 'neutral', strength: 'weak' },
+          historical: []
+        },
+        williamsR: { 
+          current: { value: -50, signal: 'neutral', timestamp: new Date().toISOString() },
+          signal: 'neutral',
+          momentum: { direction: 'stable', strength: 'weak' },
+          extremeLevel: { active: false, type: 'normal', strength: 'weak' },
+          historical: []
+        },
         signals: [],
         overall: { signal: 'neutral', strength: 'weak', confidence: 0, factors: [] },
         timestamp: new Date().toISOString(),
