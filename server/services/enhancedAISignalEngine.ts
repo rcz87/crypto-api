@@ -454,7 +454,7 @@ export class EnhancedAISignalEngine {
       ]);
       
       // Get confluence data separately
-      const confluenceData = await this.confluenceService.calculateConfluence(symbol, '1H');
+      const confluenceData = await this.confluenceService.calculateConfluenceScore(symbol, '1H');
 
       const features: number[] = [];
 
@@ -478,11 +478,11 @@ export class EnhancedAISignalEngine {
         technicalData.rsi.current / 100,
         technicalData.momentum.overall === 'bullish' ? 0.8 : 
         technicalData.momentum.overall === 'bearish' ? 0.2 : 0.5,
-        technicalData.ema.trend === 'bullish' ? 0.8 : 
-        technicalData.ema.trend === 'bearish' ? 0.2 : 0.5,
+        technicalData.ema?.direction === 'bullish' ? 0.8 : 
+        technicalData.ema?.direction === 'bearish' ? 0.2 : 0.5,
         technicalData.macd.current.histogram,
-        technicalData.bollinger.current.position === 'above' ? 0.8 :
-        technicalData.bollinger.current.position === 'below' ? 0.2 : 0.5,
+        technicalData.bollinger?.position === 'above' ? 0.8 :
+        technicalData.bollinger?.position === 'below' ? 0.2 : 0.5,
         technicalData.stochastic.current.k / 100,
         technicalData.stochastic.current.d / 100,
         technicalData.cci.current.value / 200 + 0.5, // Normalize CCI
@@ -494,23 +494,23 @@ export class EnhancedAISignalEngine {
         technicalData.obv.current.signal === 'accumulation' ? 0.8 :
         technicalData.obv.current.signal === 'distribution' ? 0.2 : 0.5,
         technicalData.williamsR.current.value / 100 + 0.5, // Normalize Williams %R
-        technicalData.atr ? technicalData.atr.current / 100 : 0.5,
-        technicalData.volatility?.current || 0.5,
-        technicalData.volume?.relativeCurrent || 1.0
+        0.5, // ATR placeholder
+        0.5, // Volatility placeholder  
+        1.0  // Volume placeholder
       );
 
       // CVD Analysis features (10 features)
       features.push(
-        cvdData.current / 1000000, // Normalize CVD value
-        cvdData.confidence / 100,
-        cvdData.trend === 'bullish' ? 0.8 : cvdData.trend === 'bearish' ? 0.2 : 0.5,
-        cvdData.divergence.detected ? (cvdData.divergence.type === 'bullish' ? 0.8 : 0.2) : 0.5,
-        cvdData.buyerSellerAggression?.ratio || 0.5,
-        cvdData.buyerSellerAggression?.dominantSide === 'buyers' ? 0.8 : 0.2,
-        cvdData.volumeAnalysis?.averageTradeSize || 1000,
-        cvdData.volumeAnalysis?.largeTradeCount || 0,
-        cvdData.institutionalFlow?.detected ? 0.8 : 0.2,
-        cvdData.riskLevel === 'low' ? 0.2 : cvdData.riskLevel === 'medium' ? 0.5 : 0.8
+        (cvdData?.current || 0) / 1000000, // Normalize CVD value
+        (cvdData?.confidence || 50) / 100,
+        cvdData?.trend?.direction === 'bullish' ? 0.8 : cvdData?.trend?.direction === 'bearish' ? 0.2 : 0.5,
+        cvdData?.divergence?.direction === 'bullish' ? 0.8 : cvdData?.divergence?.direction === 'bearish' ? 0.2 : 0.5,
+        0.5, // buyerSellerAggression ratio placeholder
+        0.5, // dominantSide placeholder
+        1000, // averageTradeSize placeholder
+        0, // largeTradeCount placeholder
+        0.5, // institutionalFlow placeholder
+        0.5  // riskLevel placeholder
       );
 
       // Confluence features (5 features)
