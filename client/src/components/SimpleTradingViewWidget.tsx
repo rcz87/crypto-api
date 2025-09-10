@@ -25,25 +25,39 @@ export function SimpleTradingViewWidget({
   const containerId = `tradingview_${Date.now()}`;
 
   useEffect(() => {
+    console.log('SimpleTradingViewWidget: Component mounted, starting load...');
     let isMounted = true;
 
     const loadWidget = async () => {
       try {
+        console.log('SimpleTradingViewWidget: Loading widget for container:', containerId);
+        
         // Load TradingView script if not already loaded
         if (!window.TradingView) {
+          console.log('SimpleTradingViewWidget: Loading TradingView script...');
           const script = document.createElement('script');
           script.src = 'https://s3.tradingview.com/tv.js';
           script.async = true;
           document.head.appendChild(script);
 
           await new Promise((resolve, reject) => {
-            script.onload = resolve;
-            script.onerror = () => reject(new Error('Failed to load TradingView script'));
+            script.onload = () => {
+              console.log('SimpleTradingViewWidget: Script loaded successfully');
+              resolve(void 0);
+            };
+            script.onerror = () => {
+              console.error('SimpleTradingViewWidget: Script load failed');
+              reject(new Error('Failed to load TradingView script'));
+            };
           });
+        } else {
+          console.log('SimpleTradingViewWidget: TradingView already loaded');
         }
 
         if (!isMounted) return;
 
+        console.log('SimpleTradingViewWidget: Creating widget with symbol:', symbol);
+        
         // Create widget
         new window.TradingView.widget({
           width,
@@ -61,11 +75,16 @@ export function SimpleTradingViewWidget({
           container_id: containerId
         });
 
+        console.log('SimpleTradingViewWidget: Widget created successfully');
+
         if (isMounted) {
-          setIsLoading(false);
+          setTimeout(() => {
+            console.log('SimpleTradingViewWidget: Setting loading to false');
+            setIsLoading(false);
+          }, 3000);
         }
       } catch (err) {
-        console.error('TradingView widget error:', err);
+        console.error('SimpleTradingViewWidget error:', err);
         if (isMounted) {
           setError(err instanceof Error ? err.message : 'Failed to load chart');
           setIsLoading(false);
@@ -76,6 +95,7 @@ export function SimpleTradingViewWidget({
     loadWidget();
 
     return () => {
+      console.log('SimpleTradingViewWidget: Component unmounting');
       isMounted = false;
     };
   }, [symbol, theme, height, width, containerId]);
