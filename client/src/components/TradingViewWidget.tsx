@@ -10,38 +10,33 @@ interface TradingViewWidgetProps {
 
 export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isWidgetLoaded, setIsWidgetLoaded] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  const widgetInitialized = useRef(false);
+  const [loadingState, setLoadingState] = useState<'loading' | 'loaded' | 'error'>('loading');
 
   useEffect(() => {
-    let isMounted = true;
-    
-    const initTradingView = () => {
-      if (!containerRef.current || !isMounted) return;
+    // Only initialize once
+    if (widgetInitialized.current || !containerRef.current) return;
 
+    const initWidget = () => {
       try {
-        // Clear container
-        containerRef.current.innerHTML = '';
+        widgetInitialized.current = true;
         
-        // Create widget container
-        const widgetContainer = document.createElement('div');
-        widgetContainer.className = 'tradingview-widget-container';
-        widgetContainer.style.height = '100%';
-        widgetContainer.style.width = '100%';
+        // Create unique widget ID to avoid conflicts
+        const widgetId = `tradingview_${Date.now()}`;
         
-        // Create widget div
-        const widgetDiv = document.createElement('div');
-        widgetDiv.className = 'tradingview-widget';
-        widgetDiv.style.height = '500px';
-        widgetDiv.style.width = '100%';
+        // Clear and setup container
+        const container = containerRef.current;
+        if (!container) return;
         
-        // Create script tag
+        container.innerHTML = `<div id="${widgetId}" style="height: 500px; width: 100%;"></div>`;
+        
+        // Create script element
         const script = document.createElement('script');
         script.type = 'text/javascript';
         script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
         script.async = true;
         
-        // TradingView configuration
+        // Widget configuration
         const config = {
           autosize: true,
           symbol: 'OKX:SOLUSDTPERP',
@@ -58,6 +53,7 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
           details: true,
           hotlist: false,
           calendar: false,
+          container_id: widgetId,
           studies: [
             'Volume',
             'RSI@tv-basicstudies',
@@ -65,7 +61,7 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
           ],
           overrides: {
             "paneProperties.background": "#111827",
-            "paneProperties.vertGridProperties.color": "#374151",
+            "paneProperties.vertGridProperties.color": "#374151", 
             "paneProperties.horzGridProperties.color": "#374151",
             "symbolWatermarkProperties.transparency": 90,
             "scalesProperties.textColor": "#9CA3AF",
@@ -80,40 +76,39 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
 
         script.innerHTML = JSON.stringify(config);
         
-        // Add elements to container
-        widgetContainer.appendChild(widgetDiv);
-        widgetContainer.appendChild(script);
-        containerRef.current.appendChild(widgetContainer);
-
+        // Add script to document head to avoid React DOM conflicts
+        document.head.appendChild(script);
+        
         // Set loaded state after delay
         const timer = setTimeout(() => {
-          if (isMounted) {
-            setIsWidgetLoaded(true);
-            setHasError(false);
+          setLoadingState('loaded');
+        }, 4000);
+
+        // Set error fallback
+        const errorTimer = setTimeout(() => {
+          if (loadingState === 'loading') {
+            setLoadingState('error');
           }
-        }, 3000);
+        }, 10000);
 
         return () => {
           clearTimeout(timer);
+          clearTimeout(errorTimer);
         };
 
       } catch (error) {
-        console.error('TradingView Widget Error:', error);
-        if (isMounted) {
-          setHasError(true);
-          setIsWidgetLoaded(false);
-        }
+        console.error('TradingView Error:', error);
+        setLoadingState('error');
       }
     };
 
-    // Initialize with delay to avoid conflicts
-    const initTimer = setTimeout(initTradingView, 500);
-
+    // Initialize with delay to ensure DOM is ready
+    const initTimer = setTimeout(initWidget, 1000);
+    
     return () => {
-      isMounted = false;
       clearTimeout(initTimer);
     };
-  }, []);
+  }, []); // Empty dependency array - only run once
 
   return (
     <Card className="w-full">
@@ -166,22 +161,24 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
           className="w-full h-[500px] bg-gray-900 border border-gray-700 rounded-lg relative overflow-hidden"
           data-testid="tradingview-chart"
         >
-          {!isWidgetLoaded && !hasError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white">
+          {loadingState === 'loading' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white z-10">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-                <div className="text-lg font-medium">Loading SOL Chart...</div>
-                <div className="text-sm text-gray-400 mt-2">Connecting to TradingView</div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+                <div className="text-xl font-bold">Loading SOL Chart...</div>
+                <div className="text-sm text-gray-400 mt-2">TradingView sedang dimuat</div>
+                <div className="text-xs text-gray-500 mt-1">Mohon tunggu 4-5 detik</div>
               </div>
             </div>
           )}
           
-          {hasError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white">
+          {loadingState === 'error' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white z-10">
               <div className="text-center">
-                <BarChart3 className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-                <div className="text-lg font-medium text-red-400">Chart Loading Failed</div>
-                <div className="text-sm text-gray-400 mt-2">TradingView widget unavailable</div>
+                <BarChart3 className="h-16 w-16 text-gray-500 mx-auto mb-4" />
+                <div className="text-xl font-bold text-red-400">Chart Load Failed</div>
+                <div className="text-sm text-gray-400 mt-2">TradingView tidak dapat dimuat</div>
+                <div className="text-xs text-gray-500 mt-1">Silakan refresh halaman</div>
               </div>
             </div>
           )}
@@ -194,9 +191,12 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
             <span>🕯️ Professional Candlestick Chart</span>
           </div>
           <div className="flex items-center gap-4">
-            <span>✅ Volume Analysis</span>
-            <span>📊 RSI • MACD • Volume</span>
-            <span>{isWidgetLoaded ? '🟢 Loaded' : '🟡 Loading'}</span>
+            <span>✅ Volume • RSI • MACD</span>
+            <span>
+              {loadingState === 'loading' && '🟡 Loading...'}
+              {loadingState === 'loaded' && '🟢 Chart Ready'}
+              {loadingState === 'error' && '🔴 Load Failed'}
+            </span>
           </div>
         </div>
       </CardContent>
