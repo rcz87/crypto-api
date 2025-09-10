@@ -1,0 +1,80 @@
+efek useEffect lagi “ngebersihin” chart lalu nggak bikin ulang, karena dependensinya berubah terus. Penyebab utamanya:
+
+initWidget dibungkus useCallback([...studies, ...]) → setiap render array studies baru tercipta ⇒ initWidget berubah identitas ⇒ efek cleanup jalan (hapus iframe via cleanupWidget) ⇒ body efek batal re-init karena didInit.current sudah true. Hasilnya: chart sempat muncul lalu ngilang. 
+
+TradingViewWidget (1)
+
+Fix cepat (anti re-render loop)
+1) Stabilkan studies & pakai tvSymbol
+
+Pindah default studies ke konstanta di luar komponen (biar referensinya stabil).
+
+Pakai symbol: tvSymbol (sekarang di-hardcode ke BINANCE:SOLUSDT).
+
+// di luar komponen:
+const DEFAULT_STUDIES = ["Volume", "RSI@tv-basicstudies", "MACD@tv-basicstudies"];
+
+export function TradingViewWidget({... , tvSymbol = "OKX:SOLUSDTPERP", studies = DEFAULT_STUDIES }: Props) {
+  const stableStudies = useMemo(() => studies, []); // tidak berubah antar-render
+  ...
+  const initWidget = useCallback(async () => {
+    ...
+    widgetRef.current = new window.TradingView.widget({
+      autosize: true,
+      symbol: tvSymbol,            // <-- gunakan prop, jangan hardcode
+      interval: tvInterval,
+      theme,
+      ...
+      studies: stableStudies,      // <-- referensi stabil
+      // Hapus width/height jika pakai autosize (lihat poin #3)
+    });
+    ...
+  // dependensi cukup yang memang perlu
+  }, [tvSymbol, tvInterval, theme /* stableStudies tak perlu karena stabil */]);
+
+2) Efek inisialisasi: jangan bergantung pada initWidget
+
+Ganti efek supaya re-init hanya saat parameter penting berubah. Jangan masukkan initWidget sebagai dependency (itu yang memicu cleanup loop).
+
+useEffect(() => {
+  initWidget();
+  return () => cleanupWidget();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [tvSymbol, tvInterval, theme]); // exclude studies kalau tak ingin re-init karena itu
+
+
+Atau paling simpel: efek kosong sekali jalan
+(kalau kamu memang tidak ingin re-init saat prop berubah):
+
+useEffect(() => {
+  initWidget();
+  return () => cleanupWidget();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+3) Hindari konflik ukuran
+
+Kamu pakai autosize: true dan width/height + container Tailwind h-[500px]. Pilih salah satu. Rekomendasi:
+
+Tetap autosize: true, hapus width & height pada opsi widget.
+
+Biarkan ukuran diatur oleh container CSS (sudah ada h-[500px]).
+
+widgetRef.current = new window.TradingView.widget({
+  autosize: true,
+  // width: "100%",   // hapus
+  // height: 500,     // hapus
+  ...
+});
+
+4) Opsional: buang didInit kalau mau re-init dinamis
+
+Kalau kamu memang ingin re-init saat tvSymbol/interval/theme berubah, hapus guard didInit dan biarkan efek yang dipicu dependency (#2) yang mengontrol siklus cleanup → init secara benar.
+
+Ringkas (TL;DR)
+
+Masalah inti: initWidget berubah tiap render (karena studies array), jadi useEffect memanggil cleanup tapi tidak re-init (di-blok didInit), jadinya chart hilang.
+
+Solusi: stabilkan studies, pakai tvSymbol (jangan hardcode), perbaiki dependency useEffect (targetkan hanya tvSymbol/tvInterval/theme atau efek kosong sekali jalan), dan hindari campur autosize dengan width/height. 
+
+TradingViewWidget (1)

@@ -207,18 +207,24 @@ export function TradingViewWidget({
     }
   }, []); // Remove all dependencies to prevent re-creation
 
-  // Initialize on mount only once
+  // Initialize ONLY ONCE on mount - no dependencies to prevent re-creation
   useEffect(() => {
-    if (didInit.current) return; // guard StrictMode
+    // Prevent double initialization in StrictMode
+    if (didInit.current) {
+      console.log("TradingView: Already initialized, skipping...");
+      return;
+    }
+    
     didInit.current = true;
+    console.log("TradingView: First time initialization");
     initWidget();
     
-    // Cleanup on unmount
+    // Cleanup only on component unmount
     return () => {
+      console.log("TradingView: Component unmounting, cleaning up");
       cleanupWidget();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps array - only run once on mount
+  }, []); // CRITICAL: Empty deps array - run only once
 
   return (
     <Card className="w-full h-[500px]">
