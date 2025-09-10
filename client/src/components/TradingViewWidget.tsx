@@ -91,7 +91,6 @@ export function TradingViewWidget({
 }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetRef = useRef<any>(null);
-  const didInit = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [containerId] = useState(() => `tradingview_widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
@@ -122,25 +121,12 @@ export function TradingViewWidget({
   }, [interval]);
 
   const cleanupWidget = useCallback(() => {
-    if (widgetRef.current) {
-      try {
-        if (typeof widgetRef.current.remove === 'function') {
-          widgetRef.current.remove();
-        }
-      } catch (e) {
-        // Ignore cleanup errors
-      }
-      widgetRef.current = null;
-    }
-    
-    // Clear the container manually to prevent DOM conflicts
-    if (containerRef.current) {
-      try {
-        containerRef.current.innerHTML = '';
-      } catch (e) {
-        // Ignore cleanup errors
-      }
-    }
+    try {
+      widgetRef.current?.remove?.();
+    } catch (_) {}
+    widgetRef.current = null;
+
+    if (containerRef.current) containerRef.current.textContent = '';
   }, []);
 
   const initWidget = useCallback(async () => {
@@ -213,23 +199,12 @@ export function TradingViewWidget({
     }
   }, [tvSymbol, tvInterval, theme, containerId]); // Only stable dependencies
 
-  // Initialize on mount, re-init only when critical params change
+  // Initialize widget, re-init only when critical params change
   useEffect(() => {
-    console.log("TradingView: Initializing with:", { tvSymbol, tvInterval, theme });
-    
-    // Always cleanup previous widget first
-    cleanupWidget();
-    
-    // Reset init flag and initialize
-    didInit.current = false;
     initWidget();
-    
-    // Cleanup on unmount or before re-init
-    return () => {
-      console.log("TradingView: Cleaning up for re-init or unmount");
-      cleanupWidget();
-    };
-  }, [tvSymbol, tvInterval, theme, initWidget]); // Re-init when these change
+    return cleanupWidget;
+    // Only param penting yang memicu re-init
+  }, [tvSymbol, tvInterval, theme]);
 
   return (
     <Card className="w-full h-[500px]">

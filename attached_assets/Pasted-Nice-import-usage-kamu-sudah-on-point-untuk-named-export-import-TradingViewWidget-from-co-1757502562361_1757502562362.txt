@@ -1,0 +1,100 @@
+Nice—import & usage kamu sudah on point untuk named export:
+
+import { TradingViewWidget } from '@/components/TradingViewWidget';
+
+<TradingViewWidget 
+  data={solData} 
+  isConnected={wsConnected}
+  tvSymbol={selectedTvSymbol || "BINANCE:SOLUSDT"}
+  displaySymbol={selectedSymbol || "SOL/USDT"}
+/>
+
+
+Jadi yang perlu kita samakan adalah implementasi komponen supaya benar-benar pakai tvSymbol & tidak hilang karena re-render loop. Ini patch minimal & aman.
+
+Patch inti (langsung pasang)
+1) Pakai tvSymbol (jangan hardcode)
+
+Ubah di inisialisasi widget:
+
+- symbol: "BINANCE:SOLUSDT",
++ symbol: tvSymbol,
+
+2) Stabilkan cleanup (hindari “double removeChild”)
+
+Ganti innerHTML = '' jadi textContent = '' dan tetap panggil remove() satu kali:
+
+const cleanupWidget = useCallback(() => {
+  try {
+-   if (typeof widgetRef.current.remove === 'function') {
+-     widgetRef.current.remove();
+-   }
++   widgetRef.current?.remove?.();
+  } catch (_) {}
+  widgetRef.current = null;
+
+- if (containerRef.current) {
+-   try { containerRef.current.innerHTML = ''; } catch (_) {}
+- }
++ if (containerRef.current) containerRef.current.textContent = '';
+}, []);
+
+3) Hindari loop re-render (dependency effect)
+
+Hapus guard didInit, biarkan efek yang kendalikan lifecycle.
+
+Re-init hanya saat tvSymbol / tvInterval / theme berubah.
+
+Pastikan studies referensinya stabil (konstanta global).
+
+- const didInit = useRef(false);
+- useEffect(() => {
+-   if (didInit.current) return;
+-   didInit.current = true;
+-   initWidget();
+-   return () => cleanupWidget();
+- }, [initWidget, cleanupWidget]);
++ useEffect(() => {
++   initWidget();
++   return cleanupWidget;
++ // Hanya param penting yang memicu re-init
++ }, [tvSymbol, tvInterval, theme]);
+
+
+Dan di atas komponen, jadikan default studies stabil:
+
+const DEFAULT_STUDIES = ["Volume", "RSI@tv-basicstudies", "MACD@tv-basicstudies"];
+
+export function TradingViewWidget({ studies = DEFAULT_STUDIES, ...props }: TradingViewWidgetProps) {
+  // tidak perlu useMemo; DEFAULT_STUDIES sudah stabil
+}
+
+4) Konsistensi ukuran
+
+Kalau pakai autosize: true, hapus width & height dari opsi widget. Biarkan tinggi diatur oleh container Tailwind (h-[500px] sudah oke).
+
+ autosize: true,
+- width: "100%",
+- height: 500,
+
+Checklist eksekusi
+
+ Ganti symbol → tvSymbol
+
+ Cleanup idempotent (pakai textContent='', remove() cukup sekali)
+
+ Drop didInit; useEffect tergantung [tvSymbol, tvInterval, theme]
+
+ Stabilkan studies dengan DEFAULT_STUDIES
+
+ Jika perlu, nonaktifkan Eruda di prod/dev tertentu untuk menghindari DOMException
+
+TL;DR
+
+Pattern import + props kamu sudah benar. Widget hilang karena efek re-render & cleanup ganda. Pakai tvSymbol (no hardcode), stabilkan cleanup & dependencies useEffect, dan jangan campur autosize dengan width/height. Hasilnya: chart stay tampil, ganti simbol jalan mulus, no “muncul → hilang” lagi.
+
+Bekerja selama 19 detik
+
+Polanya sudah sesuai: karena TradingViewWidget diekspor sebagai named export (export function TradingViewWidget…), maka pemanggilan via import { TradingViewWidget } from '@/components/TradingViewWidget' sudah benar. Props yang diberikan (data, isConnected, tvSymbol, displaySymbol) juga sesuai dengan yang didefinisikan di komponen tersebut.
+
+Anda hanya perlu mengubah pola import apabila mengubah cara pengekspornya (misalnya menjadikannya default export), atau mengganti nama variabel secara lokal. Namun untuk struktur saat ini, tidak ada penyesuaian khusus yang diperlukan.
