@@ -21,6 +21,7 @@ import { PositionCalculatorService } from "./services/positionCalculator";
 import { RiskManagementService, type PortfolioPosition } from "./services/riskManagement";
 import { LiquidationHeatMapService } from "./services/liquidationHeatMap";
 import { multiTimeframeService } from "./services/multiTimeframeAnalysis";
+import { enhancedAISignalEngine } from "./services/enhancedAISignalEngine";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema, positionCalculatorSchema, positionParamsSchema, riskDashboardSchema } from "@shared/schema";
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
@@ -1658,6 +1659,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   }, 30000); // Every 30 seconds
+
+  // Enhanced AI Signal Engine - Advanced Neural Network Analysis
+  app.get('/api/ai/enhanced-signal', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      console.log('🧠 Enhanced AI Signal request received');
+      
+      // Generate enhanced AI signal with neural networks
+      const enhancedSignal = await enhancedAISignalEngine.generateEnhancedAISignal('SOL-USDT-SWAP');
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Enhanced AI signal generated successfully',
+        details: `GET /api/ai/enhanced-signal - ${responseTime}ms - Direction: ${enhancedSignal.direction} (${enhancedSignal.confidence}% confidence)`,
+      });
+      
+      console.log(`✅ Enhanced AI Signal completed in ${responseTime}ms - ${enhancedSignal.direction.toUpperCase()} with ${enhancedSignal.confidence}% confidence`);
+      
+      res.json({
+        success: true,
+        data: enhancedSignal,
+        timestamp: new Date().toISOString(),
+        responseTime: `${responseTime}ms`
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('❌ Error in Enhanced AI Signal:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Enhanced AI signal generation failed',
+        details: `GET /api/ai/enhanced-signal - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Enhanced AI signal generation failed',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Enhanced AI Strategy Performance - Neural Network Metrics
+  app.get('/api/ai/enhanced-performance', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      console.log('📊 Enhanced AI Performance metrics request');
+      
+      // Get enhanced strategy performance with neural network stats
+      const enhancedPerformance = await enhancedAISignalEngine.getEnhancedStrategyPerformance();
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Enhanced AI performance metrics retrieved',
+        details: `GET /api/ai/enhanced-performance - ${responseTime}ms - Patterns: ${enhancedPerformance.enhanced_patterns.length}`,
+      });
+      
+      res.json({
+        success: true,
+        data: enhancedPerformance,
+        timestamp: new Date().toISOString(),
+        responseTime: `${responseTime}ms`
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('❌ Error in Enhanced AI Performance:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Enhanced AI performance retrieval failed',
+        details: `GET /api/ai/enhanced-performance - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Enhanced AI performance failed',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
   
   return httpServer;
 }
