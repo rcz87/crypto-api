@@ -10,6 +10,7 @@ import { CVDService } from './cvd';
 import { ConfluenceService } from './confluence';
 import { multiTimeframeService } from './multiTimeframeAnalysis';
 import { executionRecorder } from './executionRecorder';
+import { cache, TTL_CONFIG } from '../utils/cache';
 
 // Enhanced AI Signal Engine dengan Neural Networks dan Advanced Pattern Recognition
 export interface EnhancedMarketPattern {
@@ -439,19 +440,23 @@ export class EnhancedAISignalEngine {
 
   // Extract comprehensive feature vector for neural network
   private async extractFeatureVector(symbol: string = 'SOL-USDT-SWAP'): Promise<number[]> {
-    try {
-      // Gather comprehensive market data
-      const [
-        mtfAnalysis,
-        technicalData,
-        cvdData,
-        fundingData
-      ] = await Promise.all([
-        multiTimeframeService.performMTFAnalysis(symbol),
-        this.technicalService.analyzeTechnicalIndicators(symbol, '1H'),
-        this.cvdService.analyzeCVD(symbol, '1H'),
-        enhancedFundingRateService.getEnhancedFundingRate(symbol)
-      ]);
+    const cacheKey = `ai_features:${symbol}:1H`;
+    
+    // Try cache first for performance
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        // Gather comprehensive market data
+        const [
+          mtfAnalysis,
+          technicalData,
+          cvdData,
+          fundingData
+        ] = await Promise.all([
+          multiTimeframeService.performMTFAnalysis(symbol),
+          this.technicalService.analyzeTechnicalIndicators(symbol, '1H'),
+          this.cvdService.analyzeCVD(symbol, '1H'),
+          enhancedFundingRateService.getEnhancedFundingRate(symbol)
+        ]);
       
       // Get confluence data separately
       const confluenceData = await this.confluenceService.calculateConfluenceScore(symbol, '1H');
@@ -547,16 +552,21 @@ export class EnhancedAISignalEngine {
         Math.max(0, Math.min(1, f))
       );
 
-    } catch (error) {
-      console.error('Enhanced AI: Error extracting features:', error);
-      // Return neutral feature vector
-      return new Array(this.FEATURE_VECTOR_SIZE).fill(0.5);
-    }
+      } catch (error) {
+        console.error('Enhanced AI: Error extracting features:', error);
+        // Return neutral feature vector
+        return new Array(this.FEATURE_VECTOR_SIZE).fill(0.5);
+      }
+    }, TTL_CONFIG.AI_FEATURES);
   }
 
-  // Neural network prediction
+  // Neural network prediction with caching
   private async generateNeuralPrediction(features: number[]): Promise<NeuralNetworkPrediction> {
-    if (!this.neuralModel) {
+    const featureHash = features.slice(0, 10).join(','); // Use first 10 features for cache key
+    const cacheKey = `ai_prediction:${featureHash}`;
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      if (!this.neuralModel) {
       return {
         direction: 'neutral',
         confidence: 50,
@@ -610,7 +620,7 @@ export class EnhancedAISignalEngine {
         supporting_patterns: [],
         neural_features: features
       };
-    }
+    }, TTL_CONFIG.AI_PREDICTION);
   }
 
   // Enhanced pattern detection with learning
