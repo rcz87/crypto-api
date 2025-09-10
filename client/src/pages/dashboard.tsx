@@ -9,7 +9,7 @@ export default function Dashboard() {
   const [activeSection, setActiveSection] = useState("tradingview");
   
   // Multi-coin support - default to SOL but can be extended
-  const [selectedPair] = useState('SOL-USDT-SWAP');
+  const [selectedPair] = useState('SOL');
   const [selectedSymbol] = useState('SOL/USDT-PERP');
   const [selectedTvSymbol] = useState('OKX:SOLUSDTPERP');
 
@@ -29,7 +29,7 @@ export default function Dashboard() {
 
   // Keep REST API as fallback, but only fetch once since WebSocket provides real-time data
   const { data: marketData, isLoading: marketLoading, error: marketError } = useQuery<{ success: boolean; data: SolCompleteData; timestamp: string }>({
-    queryKey: ["/api/sol/complete", selectedPair], // Include selected pair for multi-coin support
+    queryKey: [`/api/${selectedPair.toLowerCase()}/complete`], // Use dynamic route for multi-coin support
     refetchInterval: false, // Disable auto-refresh completely
     retry: 1, // Allow one retry
     staleTime: 30000, // Cache for 30 seconds
