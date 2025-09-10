@@ -1,213 +1,82 @@
-"use client";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Activity, TrendingUp, Volume2, BarChart3 } from "lucide-react";
+import React, { useEffect, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Activity, TrendingUp, Volume2 } from 'lucide-react';
 
-/**
- * Hardened TradingViewWidget
- * - SSR-safe (guards window/document)
- * - Idempotent script loader (no duplicate <script> & no re-append storms)
- * - Re-initialize on symbol/interval/theme changes only
- * - Proper cleanup of DOM container to avoid ghost canvases
- * - Defensive parsing for mixed OKX/Binance ticker shapes
- */
-
-type TVTheme = "light" | "dark";
-
-type TickerShape = {
-  price?: string | number;
-  last?: string | number;
-  vol24h?: string | number;
-  volume?: string | number;
-  change24h?: string; // e.g. +1.23%
-  changePercent?: string | number; // e.g. 1.23 (binance style)
-  high24h?: string | number;
-  low24h?: string | number;
-};
-
-export interface TradingViewWidgetProps {
-  data?: { ticker?: TickerShape } | any;
+interface TradingViewWidgetProps {
+  data?: any;
   isConnected?: boolean;
-  /** e.g. "OKX:SOLUSDTPERP" | "BINANCE:SOLUSDT" | "OKX:BTCUSDTPERP" */
   tvSymbol?: string;
-  /** Display symbol for UI (e.g. "SOL/USDT", "BTC/USDT") */
   displaySymbol?: string;
-  interval?: "1" | "5" | "15" | "60" | "240" | "1H" | "4H" | "1D";
-  theme?: TVTheme;
-  studies?: string[]; // TradingView study identifiers
 }
 
-declare global {
-  interface Window {
-    TradingView?: any;
-    __tvScriptPromise__?: Promise<void>;
-  }
-}
-
-const isBrowser = typeof window !== "undefined";
-const TV_SRC = "https://s3.tradingview.com/tv.js";
-
-// Stabilize studies array - move outside component to prevent re-creation
-const DEFAULT_STUDIES = ["Volume", "RSI@tv-basicstudies", "MACD@tv-basicstudies"];
-
-function loadTradingViewScript(): Promise<void> {
-  if (!isBrowser) return Promise.resolve();
-  if (window.TradingView && window.TradingView.widget) return Promise.resolve();
-  if (window.__tvScriptPromise__) return window.__tvScriptPromise__;
-
-  window.__tvScriptPromise__ = new Promise<void>((resolve, reject) => {
-    // If a previous tag exists but TV not ready, reuse it by listening onload
-    const existing = document.getElementById("tradingview-widget-script") as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => reject(new Error("TradingView script failed")));
-      return;
-    }
-    const s = document.createElement("script");
-    s.id = "tradingview-widget-script";
-    s.src = TV_SRC;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("TradingView script failed"));
-    document.head.appendChild(s);
-  });
-  return window.__tvScriptPromise__;
-}
-
-function parseNumber(n: unknown, d = 0): number {
-  const x = typeof n === "string" ? parseFloat(n) : typeof n === "number" ? n : NaN;
-  return Number.isFinite(x) ? x : d;
-}
-
-export function TradingViewWidget({
-  data,
+export function TradingViewWidget({ 
+  data, 
   isConnected,
   tvSymbol = "OKX:SOLUSDTPERP",
-  displaySymbol = "SOL/USDT-PERP",
-  interval = "1H",
-  theme = "dark",
-  studies = DEFAULT_STUDIES,
+  displaySymbol = "SOL/USDT-PERP" 
 }: TradingViewWidgetProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const widgetRef = useRef<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
-  const [containerId] = useState(() => `tradingview_widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Stabilize studies to prevent re-render loop
-  const stableStudies = useMemo(() => studies, []);
-  
-  const ticker = data?.ticker as TickerShape | undefined;
-  const price = useMemo(() => {
-    return parseNumber(ticker?.price ?? ticker?.last, 0);
-  }, [ticker?.price, ticker?.last]);
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+    script.async = true;
+    script.innerHTML = JSON.stringify({
+      autosize: true,
+      symbol: tvSymbol, // Use prop instead of hardcoded
+      interval: '1H',
+      toolbar_bg: '#1f2937',
+      overrides: {
+        "paneProperties.background": "#111827",
+        "paneProperties.vertGridProperties.color": "#374151",
+        "paneProperties.horzGridProperties.color": "#374151",
+        "symbolWatermarkProperties.transparency": 90,
+        "scalesProperties.textColor": "#9CA3AF",
+        "mainSeriesProperties.candleStyle.upColor": "#10B981",
+        "mainSeriesProperties.candleStyle.downColor": "#EF4444",
+        "mainSeriesProperties.candleStyle.borderUpColor": "#10B981",
+        "mainSeriesProperties.candleStyle.borderDownColor": "#EF4444",
+        "mainSeriesProperties.candleStyle.wickUpColor": "#10B981",
+        "mainSeriesProperties.candleStyle.wickDownColor": "#EF4444"
+      },
+      timezone: 'Etc/UTC',
+      theme: 'dark',
+      style: '1',
+      locale: 'en',
+      enable_publishing: false,
+      withdateranges: true,
+      hide_side_toolbar: false,
+      allow_symbol_change: false,
+      details: true,
+      hotlist: false,
+      calendar: false,
+      studies: [
+        'Volume',
+        'RSI@tv-basicstudies',
+        'MACD@tv-basicstudies',
+        'EMA@tv-basicstudies',
+        'BB@tv-basicstudies',
+        'StochasticRSI@tv-basicstudies'
+      ],
+      container_id: 'tradingview_chart'
+    });
 
-  const vol = useMemo(() => {
-    return parseNumber(ticker?.volume ?? ticker?.vol24h, 0);
-  }, [ticker?.volume, ticker?.vol24h]);
+    // Clean container and append script
+    if (containerRef.current) {
+      containerRef.current.innerHTML = '';
+      containerRef.current.appendChild(script);
+    }
 
-  const changePctText = useMemo(() => {
-    if (typeof ticker?.change24h === "string") return ticker!.change24h;
-    const pct = parseNumber(ticker?.changePercent, 0);
-    const sign = pct >= 0 ? "+" : "";
-    return `${sign}${pct.toFixed(2)}%`;
-  }, [ticker?.change24h, ticker?.changePercent]);
-
-  const tvInterval = useMemo(() => {
-    // Normalize to TradingView intervals
-    const map: Record<string, string> = { "1": "1", "5": "5", "15": "15", "60": "60", "240": "240", "1H": "60", "4H": "240", "1D": "D" };
-    return map[String(interval)] ?? "60";
-  }, [interval]);
-
-  const cleanupWidget = useCallback(() => {
-    try {
-      widgetRef.current?.remove?.();
-    } catch (_) {}
-    widgetRef.current = null;
-
-    if (containerRef.current) containerRef.current.textContent = '';
-  }, []);
-
-  const initWidget = useCallback(async () => {
-    if (!isBrowser || !containerRef.current) return;
-
-    console.log("TradingView: Starting widget initialization...");
-    setIsLoading(true);
-    setHasError(false);
-
-    try {
-      // Load script if not already loaded
-      if (!window.TradingView) {
-        console.log("TradingView: Loading script...");
-        const script = document.createElement('script');
-        script.src = 'https://s3.tradingview.com/tv.js';
-        script.async = true;
-        document.head.appendChild(script);
-        
-        await new Promise((resolve, reject) => {
-          script.onload = resolve;
-          script.onerror = () => reject(new Error('Failed to load TradingView script'));
-        });
-      }
-
-      console.log("TradingView: Creating widget...");
-      
-      // Clear container first
+    return () => {
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
       }
-      
-      // Store widget reference to prevent cleanup
-      const widget = new window.TradingView.widget({
-        autosize: true,
-        symbol: tvSymbol, // Use prop, not hardcoded
-        interval: tvInterval,
-        timezone: "Etc/UTC",
-        theme,
-        style: "1",
-        locale: "en",
-        toolbar_bg: theme === "dark" ? "#1f2937" : "#ffffff",
-        enable_publishing: false,
-        hide_side_toolbar: false,
-        allow_symbol_change: true,
-        container_id: containerId,
-        studies: stableStudies, // Use stable reference
-        onChartReady: () => {
-          console.log("TradingView: Chart ready, stopping loading");
-          setIsLoading(false);
-        }
-      });
-      
-      // Store widget reference
-      widgetRef.current = widget;
-
-      console.log("TradingView: Widget created successfully");
-      
-      // Fallback timeout
-      setTimeout(() => {
-        if (isLoading) {
-          console.log("TradingView: Fallback timeout - stopping loading");
-          setIsLoading(false);
-        }
-      }, 5000);
-      
-    } catch (e) {
-      console.error("TradingView error:", e);
-      setHasError(true);
-      setIsLoading(false);
-    }
-  }, [tvSymbol, tvInterval, theme, containerId]); // Only stable dependencies
-
-  // Initialize widget, re-init only when critical params change
-  useEffect(() => {
-    initWidget();
-    return cleanupWidget;
-    // Only param penting yang memicu re-init
-  }, [tvSymbol, tvInterval, theme]);
+    };
+  }, [tvSymbol]); // Re-initialize when symbol changes
 
   return (
-    <Card className="w-full h-[500px]">
+    <Card className="w-full">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -215,88 +84,49 @@ export function TradingViewWidget({
             <CardTitle>{displaySymbol} Futures Chart</CardTitle>
             <Badge variant={isConnected ? "default" : "destructive"} className="ml-2">
               <Activity className="h-3 w-3 mr-1" />
-              {isConnected ? "Real-time" : "Disconnected"}
+              {isConnected ? 'Real-time' : 'Disconnected'}
             </Badge>
           </div>
-          {ticker && (
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
+          
+          <div className="flex items-center gap-2">
+            {data?.ticker && (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Volume2 className="h-4 w-4" />
-                <span>24h Vol: {vol.toLocaleString()}</span>
+                <span>24h Vol: {parseFloat(data.ticker.volume || data.ticker.vol24h || '0').toLocaleString()}</span>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-        {ticker && (
+        
+        {data?.ticker && (
           <div className="flex items-center gap-6 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Current Price:</span>
-              <span className="text-xl font-bold text-foreground">${price.toFixed(2)}</span>
+              <span className="text-xl font-bold text-foreground">
+                ${parseFloat(data.ticker.price || data.ticker.last || '0').toFixed(2)}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">24h Change:</span>
-              <span className={`font-semibold ${changePctText.startsWith("-") ? "text-red-500" : "text-emerald-500"}`}>{changePctText}</span>
+              <span className={`font-semibold ${parseFloat((data.ticker.change24h || data.ticker.changePercent || '0').replace('%', '')) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                {data.ticker.change24h || `${parseFloat(data.ticker.changePercent || '0') >= 0 ? '+' : ''}${parseFloat(data.ticker.changePercent || '0').toFixed(2)}%`}
+              </span>
             </div>
             <div className="flex items-center gap-4 text-muted-foreground">
-              <span>
-                High: $
-                {parseNumber((ticker as any)?.high24h, 0).toFixed(2)}
-              </span>
-              <span>
-                Low: $
-                {parseNumber((ticker as any)?.low24h, 0).toFixed(2)}
-              </span>
+              <span>High: ${parseFloat(data.ticker.high24h || '0').toFixed(2)}</span>
+              <span>Low: ${parseFloat(data.ticker.low24h || '0').toFixed(2)}</span>
             </div>
           </div>
         )}
       </CardHeader>
-
+      
       <CardContent>
-        <div
-          id={containerId}
+        <div 
           ref={containerRef}
-          className="w-full h-full bg-gray-900 border border-gray-700 rounded-lg relative overflow-hidden"
+          id="tradingview_chart"
+          className="w-full h-[500px] bg-gray-900 border border-gray-700 rounded-lg"
           data-testid="tradingview-chart"
-          style={{ minHeight: "500px" }}
-        >
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white z-10">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-                <div className="text-xl font-bold">Loading TradingView...</div>
-                <div className="text-sm text-gray-400 mt-2">Memuat chart professional</div>
-                <div className="text-xs text-gray-500 mt-1">Mohon tunggu sebentar</div>
-              </div>
-            </div>
-          )}
-
-          {hasError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white z-10">
-              <div className="text-center">
-                <BarChart3 className="h-16 w-16 text-gray-500 mx-auto mb-4" />
-                <div className="text-xl font-bold text-red-400">Chart Load Failed</div>
-                <div className="text-sm text-gray-400 mt-2">TradingView widget gagal dimuat</div>
-                <div className="text-xs text-gray-500 mt-1">Refresh halaman untuk mencoba lagi</div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-4">
-            <span>📈 Powered by TradingView</span>
-            <span>⚡ Real-time SOL Futures</span>
-            <span>🕯️ Professional Candlestick Chart</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span>✅ Volume • RSI • MACD</span>
-            <span>
-              {isLoading && "🟡 Loading Widget..."}
-              {!isLoading && !hasError && "🟢 Chart Ready"}
-              {hasError && "🔴 Load Failed"}
-            </span>
-          </div>
-        </div>
+        />
       </CardContent>
     </Card>
   );
