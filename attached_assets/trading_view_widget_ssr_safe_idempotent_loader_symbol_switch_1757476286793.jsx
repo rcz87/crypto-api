@@ -85,7 +85,6 @@ export function TradingViewWidget({
 }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetRef = useRef<any>(null);
-  const didInit = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
@@ -178,8 +177,6 @@ export function TradingViewWidget({
 
   // Initialize on mount & when inputs that require re-creation change
   useEffect(() => {
-    if (didInit.current) return; // guard StrictMode
-    didInit.current = true;
     initWidget();
     // do NOT destroy on unmount to avoid TV internal race; just clear DOM on re-init
     // eslint-disable-next-line react-hooks/exhaustive-deps
