@@ -6,7 +6,7 @@ import { DashboardContent } from "@/components/DashboardContent";
 import { useWebSocket } from "@/hooks/useWebSocket";
 
 export default function Dashboard() {
-  const [activeSection, setActiveSection] = useState("overview");
+  const [activeSection, setActiveSection] = useState("tradingview");
 
   const { data: healthData, isLoading: healthLoading, error: healthError } = useQuery({
     queryKey: ["/health"],
