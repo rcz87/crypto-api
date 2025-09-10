@@ -9,8 +9,10 @@ window.addEventListener('unhandledrejection', (event) => {
   // Suppress Replit development environment WebSocket warnings
   if (typeof errorMessage === 'string' && 
       (errorMessage.includes('localhost:undefined') || 
-       errorMessage.includes('WebSocket') && errorMessage.includes('invalid'))) {
-    // Silently suppress Replit Cartographer WebSocket warnings
+       errorMessage.includes('wss://localhost:undefined') ||
+       (errorMessage.includes('WebSocket') && errorMessage.includes('invalid')) ||
+       errorMessage.includes('Failed to construct \'WebSocket\''))) {
+    // Silently suppress Replit Cartographer/Vite HMR WebSocket warnings
     event.preventDefault();
     return;
   }
