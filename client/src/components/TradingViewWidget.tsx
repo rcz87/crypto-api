@@ -122,13 +122,17 @@ export function TradingViewWidget({
       await loadTradingViewScript();
       if (!window.TradingView?.widget) throw new Error("TradingView not available after load");
 
-      // Clear old widget DOM if any
-      containerRef.current.innerHTML = "";
-      const mount = document.createElement("div");
-      mount.id = `tradingview_widget_${Date.now()}`;
-      mount.style.height = "500px";
-      mount.style.width = "100%";
-      containerRef.current.appendChild(mount);
+      // Create unique container ID without DOM manipulation
+      const mountId = `tradingview_widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Destroy previous widget if exists
+      if (widgetRef.current && typeof widgetRef.current.remove === 'function') {
+        try {
+          widgetRef.current.remove();
+        } catch (e) {
+          // Ignore destroy errors
+        }
+      }
 
       widgetRef.current = new window.TradingView.widget({
         autosize: true,
@@ -146,8 +150,10 @@ export function TradingViewWidget({
         details: true,
         hotlist: false,
         calendar: false,
-        container_id: mount.id,
+        container_id: mountId,
         studies,
+        width: "100%",
+        height: "500",
         overrides: {
           "paneProperties.background": theme === "dark" ? "#111827" : "#ffffff",
           "paneProperties.vertGridProperties.color": theme === "dark" ? "#374151" : "#e5e7eb",
@@ -167,8 +173,8 @@ export function TradingViewWidget({
         },
       });
 
-      // Wait a tick for widget to mount
-      setTimeout(() => setIsLoading(false), 600);
+      // Wait for widget to fully initialize
+      setTimeout(() => setIsLoading(false), 800);
     } catch (e) {
       console.error("TV init error", e);
       setHasError(true);
@@ -181,7 +187,6 @@ export function TradingViewWidget({
     if (didInit.current) return; // guard StrictMode
     didInit.current = true;
     initWidget();
-    // do NOT destroy on unmount to avoid TV internal race; just clear DOM on re-init
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initWidget]);
 
@@ -232,7 +237,7 @@ export function TradingViewWidget({
 
       <CardContent>
         <div
-          ref={containerRef}
+          id={`tradingview_widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`}
           className="w-full h-[500px] bg-gray-900 border border-gray-700 rounded-lg relative overflow-hidden"
           data-testid="tradingview-chart"
         >

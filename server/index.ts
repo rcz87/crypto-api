@@ -51,7 +51,12 @@ app.use((req, res, next) => {
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  res.setHeader('Content-Security-Policy', "default-src 'self' https: wss: 'unsafe-inline' 'unsafe-eval'");
+  // Development-friendly CSP that allows localhost connections
+  const isDev = process.env.NODE_ENV === 'development';
+  const cspPolicy = isDev 
+    ? "default-src 'self' http: https: ws: wss: 'unsafe-inline' 'unsafe-eval'"
+    : "default-src 'self' https: wss: 'unsafe-inline' 'unsafe-eval'";
+  res.setHeader('Content-Security-Policy', cspPolicy);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
