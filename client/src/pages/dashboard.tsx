@@ -1,36 +1,12 @@
-u munculimport { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useRef, useEffect, useState } from "react";
 import { SolCompleteData } from "@shared/schema";
-import { Database, AlertCircle, Radio, Target, TrendingUp } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { StatusOverview } from "@/components/status-overview";
-import { APIDocumentation } from "@/components/api-documentation";
-import { RealTimeData } from "@/components/real-time-data";
-import { SystemLogs } from "@/components/system-logs";
-import { ConfigurationPanel } from "@/components/configuration-panel";
-import { TradingViewWidget } from "@/components/TradingViewWidget";
-import { EnhancedFundingRate } from "@/components/EnhancedFundingRate";
-import { AISignalDashboard } from "@/components/AISignalDashboard";
-import { EnhancedOpenInterest } from "@/components/EnhancedOpenInterest";
-import { EnhancedVolumeProfile } from "@/components/EnhancedVolumeProfile";
-import { VolumeDelta } from "@/components/VolumeDelta";
-import { SMCAnalysis } from "@/components/SMCAnalysis";
-import { CVDAnalysisComponent } from "@/components/CVDAnalysis";
-import { ConfluenceScoring } from "@/components/ConfluenceScoring";
-import { TechnicalIndicators } from "@/components/TechnicalIndicators";
-import { FibonacciAnalysis } from "@/components/FibonacciAnalysis";
-import { OrderFlowAnalysis } from "@/components/OrderFlowAnalysis";
-import LiquidityHeatmap from "@/components/LiquidityHeatmap";
-import MultiTimeframeAnalysis from "@/components/MultiTimeframeAnalysis";
-import EnhancedMTFAnalysis from "@/components/EnhancedMTFAnalysis";
-import { EnhancedAISection } from "@/components/EnhancedAISection";
-import LiveTradingSignals from "@/components/LiveTradingSignals";
-import MultiCoinScreening from "@/components/MultiCoinScreening";
+import { NavigationMenu } from "@/components/NavigationMenu";
+import { DashboardContent } from "@/components/DashboardContent";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState("sol-analysis");
+  const [activeSection, setActiveSection] = useState("overview");
 
   const { data: healthData, isLoading: healthLoading, error: healthError } = useQuery({
     queryKey: ["/health"],
@@ -156,264 +132,45 @@ export default function Dashboard() {
     : lastTickerRef.current;
   const isDataLoading = solLoading && !marketData;
 
-
   return (
     <div className="font-inter bg-gray-50 text-gray-900 min-h-screen">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <div className="bg-primary text-white p-2 rounded-lg">
-                <Database className="text-xl" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">CryptoSat Intelligence</h1>
-                <p className="text-sm text-gray-500">Advanced Trading Analytics Platform</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className={`flex items-center space-x-2 px-3 py-1 rounded-full ${
-                isOnline ? 'bg-green-50' : 'bg-red-50'
-              }`}>
-                <div className={`w-2 h-2 rounded-full ${
-                  isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                }`} />
-                <span className={`text-sm font-medium ${
-                  isOnline ? 'text-green-700' : 'text-red-700'
-                }`}>
-                  {isOnline ? 'Online' : 'Offline'}
-                </span>
-              </div>
-              
-              {/* WebSocket Status */}
-              <div className={`flex items-center space-x-2 px-3 py-1 rounded-full ${
-                wsConnected ? 'bg-blue-50' : 'bg-gray-50'
-              }`}>
-                <Radio className={`w-3 h-3 ${
-                  wsConnected ? 'text-blue-500 animate-pulse' : 'text-gray-400'
-                }`} />
-                <span className={`text-sm font-medium ${
-                  wsConnected ? 'text-blue-700' : 'text-gray-500'
-                }`}>
-                  {wsConnected ? 'Live Stream' : connectionStatus}
-                </span>
-              </div>
-              
-              <span className="text-sm text-gray-500">guardiansofthegreentoken.com</span>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Main Navigation Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-100 mb-6">
-            <TabsTrigger 
-              value="sol-analysis" 
-              className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-              data-testid="tab-sol-analysis"
-            >
-              <TrendingUp className="h-4 w-4" />
-              SOL Deep Analysis
-            </TabsTrigger>
-            <TabsTrigger 
-              value="multi-screening" 
-              className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-              data-testid="tab-multi-screening"
-            >
-              <Target className="h-4 w-4" />
-              Multi-Coin Screening
-            </TabsTrigger>
-          </TabsList>
-
-          {/* SOL Deep Analysis Tab */}
-          <TabsContent value="sol-analysis" className="space-y-8 mt-0">
-        {/* Status Overview */}
-        <StatusOverview 
-          healthData={(healthData as any)?.data} 
-          metricsData={(metricsData as any)?.data}
-          isLoading={healthLoading}
-        />
-
-        {/* Professional TradingView Chart */}
-        <div className="mt-8">
-          <ErrorBoundary>
-            <TradingViewWidget 
-              data={displaySolData} 
-              isConnected={wsConnected}
-            />
-          </ErrorBoundary>
-          
-          {/* System Status - Static info only */}
-          <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-800">
-            <div>🔍 System Status:</div>
-            <div>🌐 API Base: {window.location.hostname === 'localhost' ? 'localhost:5000' : 'guardiansofthegreentoken.com'}</div>
-            <div>WebSocket: {wsConnected ? '✅ Connected' : '❌ Disconnected'}</div>
-            <div>SOL Futures API: {(solData as any)?.data ? '✅ Available' : '❌ None'}</div>
-            <div>Candles Data: {displaySolData?.candles ? '✅ Available' : '❌ None'}</div>
-            {displaySolData?.candles && (
-              <div>📊 Candles: 1H({(displaySolData.candles['1H'] || []).length}) 4H({(displaySolData.candles['4H'] || []).length}) 1D({(displaySolData.candles['1D'] || []).length})</div>
-            )}
-            <div>⚡ Data Source: {wsTicker ? 'WebSocket + REST' : 'REST only'}</div>
-            {(healthError || metricsError || solError) && (
-              <div className="text-red-600">⚠️ Some API endpoints have errors</div>
-            )}
-          </div>
-        </div>
-
-        {/* Real-time Data - Full Width Layout */}
-        <div className="mt-8">
-          <RealTimeData 
-            solData={displaySolData} 
-            isLoading={isDataLoading}
-            isLiveStream={wsConnected && !!marketData}
-          />
-        </div>
-
-
-
-        {/* Advanced Trading Analytics */}
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Advanced Trading Analytics</h2>
-          
-          {/* Row 1: Trading Fundamentals - Vertical Layout */}
-          <div className="grid grid-cols-1 gap-6 mb-6">
-            {/* Funding Rate */}
-            <ErrorBoundary>
-              <EnhancedFundingRate />
-            </ErrorBoundary>
-
-            {/* Open Interest */}
-            <ErrorBoundary>
-              <EnhancedOpenInterest />
-            </ErrorBoundary>
-
-            {/* Volume Profile */}
-            <ErrorBoundary>
-              <EnhancedVolumeProfile />
-            </ErrorBoundary>
-          </div>
-
-          {/* Row 2: Professional CVD & SMC Analysis - Vertical Layout */}
-          <div className="grid grid-cols-1 gap-6">
-            {/* Professional CVD Analysis - Volume Delta with Smart Money Detection */}
-            <ErrorBoundary>
-              <CVDAnalysisComponent className="col-span-1" />
-            </ErrorBoundary>
-
-            {/* SMC Analysis */}
-            <ErrorBoundary>
-              <SMCAnalysis />
-            </ErrorBoundary>
-          </div>
-
-          {/* Row 2.5: Premium VIP8+ Liquidity Heatmap - Institutional Grade Analytics */}
-          <div className="mt-6">
-            <ErrorBoundary>
-              <LiquidityHeatmap />
-            </ErrorBoundary>
-          </div>
-
-          {/* Row 2.75: Enhanced Multi-Timeframe Analysis - Institutional Grade MTF Intelligence */}
-          <div className="mt-6">
-            <ErrorBoundary>
-              <EnhancedMTFAnalysis />
-            </ErrorBoundary>
-          </div>
-
-          {/* Row 2.9: Live Trading Signals - Real-time Entry/Exit Signals */}
-          <div className="mt-6">
-            <ErrorBoundary>
-              <LiveTradingSignals className="w-full" />
-            </ErrorBoundary>
-          </div>
-
-          {/* Row 3: Technical Indicators - RSI/EMA Analysis */}
-          <div className="mt-6">
-            <ErrorBoundary>
-              <TechnicalIndicators className="w-full" />
-            </ErrorBoundary>
-          </div>
-
-          {/* Row 4: Fibonacci Analysis - Professional Retracements & Extensions */}
-          <div className="mt-6">
-            <ErrorBoundary>
-              <FibonacciAnalysis className="w-full" />
-            </ErrorBoundary>
-          </div>
-
-          {/* Row 5: Order Flow Analysis - Professional Market Microstructure & Tape Reading */}
-          <div className="mt-6">
-            <ErrorBoundary>
-              <OrderFlowAnalysis className="w-full" />
-            </ErrorBoundary>
-          </div>
-
-          {/* Row 6: Advanced 8-Layer Confluence Scoring */}
-          <div className="mt-6">
-            <ErrorBoundary>
-              <ConfluenceScoring timeframe="1H" className="w-full" />
-            </ErrorBoundary>
-          </div>
-
-          {/* Row 7: AI Trading Intelligence - Phase 3 Advanced AI System */}
-          <div className="mt-6">
-            <ErrorBoundary>
-              <AISignalDashboard />
-            </ErrorBoundary>
-          </div>
-
-          {/* Row 8: Enhanced AI Signal Engine - Neural Network & Advanced Pattern Recognition */}
-          <div className="mt-6">
-            <ErrorBoundary>
-              <EnhancedAISection />
-            </ErrorBoundary>
-          </div>
-        </div>
-
-        {/* API Documentation */}
-        <div className="mt-6">
-          <APIDocumentation />
-        </div>
-
-        {/* System Logs */}
-        <SystemLogs />
-
-        {/* Configuration Panel */}
-        <ConfigurationPanel 
-          healthData={(healthData as any)?.data}
-        />
-          </TabsContent>
-
-          {/* Multi-Coin Screening Tab */}
-          <TabsContent value="multi-screening" className="space-y-6 mt-0">
-            <ErrorBoundary>
-              <MultiCoinScreening />
-            </ErrorBoundary>
-          </TabsContent>
-        </Tabs>
-      </div>
+      {/* CoinGlass-style Navigation Menu */}
+      <NavigationMenu 
+        activeSection={activeSection} 
+        onSectionChange={setActiveSection} 
+      />
+      
+      {/* Main Content Area */}
+      <DashboardContent 
+        activeSection={activeSection}
+        solData={displaySolData}
+        isDataLoading={isDataLoading}
+        healthData={healthData}
+        metricsData={metricsData}
+        healthLoading={healthLoading}
+        wsConnected={wsConnected}
+        marketData={marketData}
+      />
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-12">
+      <footer className="bg-white border-t border-gray-200 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <p className="text-sm text-gray-500">© 2024 Crypto Data Gateway</p>
-              <span className="text-gray-300">|</span>
-              <a 
-                href="https://guardiansofthegreentoken.com" 
-                className="text-sm text-primary hover:text-blue-700"
-                data-testid="link-domain"
-              >
-                guardiansofthegreentoken.com
-              </a>
+              <div className="text-sm text-gray-500">
+                © 2024 CryptoSat Intelligence - Advanced Trading Analytics
+              </div>
             </div>
-            <div className="flex items-center space-x-2 text-xs text-gray-500">
-              <Database className="w-4 h-4" />
-              <span>Powered by Replit</span>
+            <div className="flex items-center space-x-6">
+              <div className="text-sm text-gray-500">
+                Status: {isOnline ? '🟢 Operational' : '🔴 Offline'}
+              </div>
+              <div className="text-sm text-gray-500">
+                WebSocket: {wsConnected ? '🔵 Connected' : '⚫ Disconnected'}
+              </div>
+              <div className="text-sm text-gray-500">
+                Domain: guardiansofthegreentoken.com
+              </div>
             </div>
           </div>
         </div>
