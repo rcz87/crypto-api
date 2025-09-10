@@ -40,6 +40,82 @@ export interface CoinAPITicker {
   volume_24h_usd?: number;
 }
 
+export interface CoinAPIHistoricalData {
+  time_period_start: string;
+  time_period_end: string;
+  time_open: string;
+  time_close: string;
+  price_open: number;
+  price_high: number;
+  price_low: number;
+  price_close: number;
+  volume_traded: number;
+  trades_count: number;
+}
+
+export interface CoinAPIAsset {
+  asset_id: string;
+  name: string;
+  type_is_crypto: number;
+  data_start: string;
+  data_end: string;
+  data_quote_start?: string;
+  data_quote_end?: string;
+  data_orderbook_start?: string;
+  data_orderbook_end?: string;
+  data_trade_start?: string;
+  data_trade_end?: string;
+  data_symbols_count: number;
+  volume_1hrs_usd?: number;
+  volume_1day_usd?: number;
+  volume_1mth_usd?: number;
+  price_usd?: number;
+  id_icon?: string;
+}
+
+export interface CoinAPIExchange {
+  exchange_id: string;
+  website: string;
+  name: string;
+  data_start: string;
+  data_end: string;
+  data_quote_start: string;
+  data_quote_end: string;
+  data_orderbook_start: string;
+  data_orderbook_end: string;
+  data_trade_start: string;
+  data_trade_end: string;
+  data_symbols_count: number;
+  volume_1hrs_usd: number;
+  volume_1day_usd: number;
+  volume_1mth_usd: number;
+}
+
+export interface CoinAPIIndex {
+  index_id: string;
+  name: string;
+  description: string;
+  time_start: string;
+  time_end: string;
+}
+
+export interface CoinAPIMetrics {
+  symbol_id: string;
+  time: string;
+  sma_10: number;
+  sma_20: number;
+  sma_50: number;
+  ema_10: number;
+  ema_20: number;
+  ema_50: number;
+  rsi_14: number;
+  macd_12_26: number;
+  macd_signal_9: number;
+  bb_upper_20: number;
+  bb_middle_20: number;
+  bb_lower_20: number;
+}
+
 export class CoinAPIService {
   private client: AxiosInstance;
   private apiKey: string;
@@ -341,6 +417,400 @@ export class CoinAPIService {
         throw new Error(`Failed to find arbitrage opportunities for ${asset}`);
       }
     }, TTL_CONFIG.TICKER);
+  }
+
+  /**
+   * Get historical OHLCV data for any symbol
+   * Supports multiple timeframes: 1MIN, 5MIN, 15MIN, 30MIN, 1HRS, 2HRS, 4HRS, 6HRS, 8HRS, 12HRS, 1DAY, 2DAY, 3DAY, 7DAY, 1MTH
+   */
+  async getHistoricalData(
+    symbolId: string,
+    period: string = '1HRS',
+    timeStart?: string,
+    timeEnd?: string,
+    limit: number = 100
+  ): Promise<CoinAPIHistoricalData[]> {
+    const cacheKey = this.getCacheKey('history', { symbolId, period, timeStart, timeEnd, limit });
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        let url = `/ohlcv/${encodeURIComponent(symbolId)}/history?period_id=${period}&limit=${limit}`;
+        if (timeStart) url += `&time_start=${timeStart}`;
+        if (timeEnd) url += `&time_end=${timeEnd}`;
+        
+        const response = await this.client.get(url);
+        return response.data;
+      } catch (error) {
+        console.error(`Error fetching historical data for ${symbolId}:`, error instanceof Error ? error.message : 'Unknown error');
+        throw new Error(`Failed to fetch historical data for ${symbolId}`);
+      }
+    }, TTL_CONFIG.CANDLES); // Use candles TTL for historical data
+  }
+
+  /**
+   * Get all available assets with metadata
+   */
+  async getAssets(): Promise<CoinAPIAsset[]> {
+    const cacheKey = this.getCacheKey('assets');
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        const response = await this.client.get('/assets');
+        return response.data;
+      } catch (error) {
+        console.error('Error fetching assets:', error instanceof Error ? error.message : 'Unknown error');
+        throw new Error('Failed to fetch assets');
+      }
+    }, 3600000); // Cache for 1 hour - assets don't change often
+  }
+
+  /**
+   * Get specific asset information
+   */
+  async getAsset(assetId: string): Promise<CoinAPIAsset> {
+    const cacheKey = this.getCacheKey('asset', { assetId });
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        const response = await this.client.get(`/assets/${assetId}`);
+        return response.data;
+      } catch (error) {
+        console.error(`Error fetching asset ${assetId}:`, error instanceof Error ? error.message : 'Unknown error');
+        throw new Error(`Failed to fetch asset ${assetId}`);
+      }
+    }, 3600000);
+  }
+
+  /**
+   * Get all available exchanges with metadata
+   */
+  async getExchanges(): Promise<CoinAPIExchange[]> {
+    const cacheKey = this.getCacheKey('exchanges');
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        const response = await this.client.get('/exchanges');
+        return response.data;
+      } catch (error) {
+        console.error('Error fetching exchanges:', error instanceof Error ? error.message : 'Unknown error');
+        throw new Error('Failed to fetch exchanges');
+      }
+    }, 3600000); // Cache for 1 hour
+  }
+
+  /**
+   * Get specific exchange information
+   */
+  async getExchange(exchangeId: string): Promise<CoinAPIExchange> {
+    const cacheKey = this.getCacheKey('exchange', { exchangeId });
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        const response = await this.client.get(`/exchanges/${exchangeId}`);
+        return response.data;
+      } catch (error) {
+        console.error(`Error fetching exchange ${exchangeId}:`, error instanceof Error ? error.message : 'Unknown error');
+        throw new Error(`Failed to fetch exchange ${exchangeId}`);
+      }
+    }, 3600000);
+  }
+
+  /**
+   * Get market indices
+   */
+  async getIndices(): Promise<CoinAPIIndex[]> {
+    const cacheKey = this.getCacheKey('indices');
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        const response = await this.client.get('/indices');
+        return response.data;
+      } catch (error) {
+        console.error('Error fetching indices:', error instanceof Error ? error.message : 'Unknown error');
+        throw new Error('Failed to fetch indices');
+      }
+    }, 3600000);
+  }
+
+  /**
+   * Get current index value
+   */
+  async getIndexValue(indexId: string): Promise<{ index_id: string; time: string; value: number }> {
+    const cacheKey = this.getCacheKey('index_value', { indexId });
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        const response = await this.client.get(`/indices/${indexId}/current`);
+        return response.data;
+      } catch (error) {
+        console.error(`Error fetching index value for ${indexId}:`, error instanceof Error ? error.message : 'Unknown error');
+        throw new Error(`Failed to fetch index value for ${indexId}`);
+      }
+    }, TTL_CONFIG.TICKER);
+  }
+
+  /**
+   * Get technical analysis metrics
+   */
+  async getTechnicalMetrics(symbolId: string): Promise<CoinAPIMetrics> {
+    const cacheKey = this.getCacheKey('metrics', { symbolId });
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        const response = await this.client.get(`/metrics/${encodeURIComponent(symbolId)}/current`);
+        return response.data;
+      } catch (error) {
+        console.error(`Error fetching metrics for ${symbolId}:`, error instanceof Error ? error.message : 'Unknown error');
+        throw new Error(`Failed to fetch metrics for ${symbolId}`);
+      }
+    }, TTL_CONFIG.TICKER);
+  }
+
+  /**
+   * Get global market overview
+   */
+  async getMarketOverview(): Promise<{
+    total_market_cap_usd: number;
+    total_volume_24h_usd: number;
+    bitcoin_dominance_percentage: number;
+    cryptocurrencies_number: number;
+    exchanges_number: number;
+    icos_number: number;
+    market_cap_change_24h_percentage: number;
+    volume_change_24h_percentage: number;
+  }> {
+    const cacheKey = this.getCacheKey('market_overview');
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        const response = await this.client.get('/overview');
+        return response.data;
+      } catch (error) {
+        console.error('Error fetching market overview:', error instanceof Error ? error.message : 'Unknown error');
+        throw new Error('Failed to fetch market overview');
+      }
+    }, TTL_CONFIG.TICKER);
+  }
+
+  /**
+   * Calculate TWAP (Time Weighted Average Price) from historical data
+   */
+  async calculateTWAP(symbolId: string, hours: number = 24): Promise<{
+    twap: number;
+    period_hours: number;
+    data_points: number;
+    time_start: string;
+    time_end: string;
+  }> {
+    const cacheKey = this.getCacheKey('twap', { symbolId, hours });
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        const timeEnd = new Date().toISOString();
+        const timeStart = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+        
+        const historicalData = await this.getHistoricalData(symbolId, '1HRS', timeStart, timeEnd);
+        
+        if (historicalData.length === 0) {
+          throw new Error('No historical data available for TWAP calculation');
+        }
+
+        // Calculate TWAP = Sum(Price * Volume) / Sum(Volume)
+        let totalValue = 0;
+        let totalVolume = 0;
+        
+        historicalData.forEach(candle => {
+          const avgPrice = (candle.price_high + candle.price_low + candle.price_close) / 3;
+          totalValue += avgPrice * candle.volume_traded;
+          totalVolume += candle.volume_traded;
+        });
+
+        const twap = totalVolume > 0 ? totalValue / totalVolume : 0;
+
+        return {
+          twap,
+          period_hours: hours,
+          data_points: historicalData.length,
+          time_start: timeStart,
+          time_end: timeEnd,
+        };
+      } catch (error) {
+        console.error(`Error calculating TWAP for ${symbolId}:`, error instanceof Error ? error.message : 'Unknown error');
+        throw new Error(`Failed to calculate TWAP for ${symbolId}`);
+      }
+    }, TTL_CONFIG.TICKER);
+  }
+
+  /**
+   * Calculate VWAP (Volume Weighted Average Price) from historical data
+   */
+  async calculateVWAP(symbolId: string, hours: number = 24): Promise<{
+    vwap: number;
+    period_hours: number;
+    data_points: number;
+    time_start: string;
+    time_end: string;
+  }> {
+    const cacheKey = this.getCacheKey('vwap', { symbolId, hours });
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        const timeEnd = new Date().toISOString();
+        const timeStart = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+        
+        const historicalData = await this.getHistoricalData(symbolId, '1HRS', timeStart, timeEnd);
+        
+        if (historicalData.length === 0) {
+          throw new Error('No historical data available for VWAP calculation');
+        }
+
+        // Calculate VWAP = Sum(Typical Price * Volume) / Sum(Volume)
+        let totalValue = 0;
+        let totalVolume = 0;
+        
+        historicalData.forEach(candle => {
+          const typicalPrice = (candle.price_high + candle.price_low + candle.price_close) / 3;
+          totalValue += typicalPrice * candle.volume_traded;
+          totalVolume += candle.volume_traded;
+        });
+
+        const vwap = totalVolume > 0 ? totalValue / totalVolume : 0;
+
+        return {
+          vwap,
+          period_hours: hours,
+          data_points: historicalData.length,
+          time_start: timeStart,
+          time_end: timeEnd,
+        };
+      } catch (error) {
+        console.error(`Error calculating VWAP for ${symbolId}:`, error instanceof Error ? error.message : 'Unknown error');
+        throw new Error(`Failed to calculate VWAP for ${symbolId}`);
+      }
+    }, TTL_CONFIG.TICKER);
+  }
+
+  /**
+   * Get correlation matrix for multiple assets
+   */
+  async getCorrelationMatrix(assets: string[], days: number = 30): Promise<{
+    correlation_matrix: { [key: string]: { [key: string]: number } };
+    period_days: number;
+    assets: string[];
+    calculation_time: string;
+  }> {
+    const cacheKey = this.getCacheKey('correlation', { assets: assets.sort(), days });
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        const timeEnd = new Date().toISOString();
+        const timeStart = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+        
+        // Get historical data for all assets
+        const assetData: { [key: string]: number[] } = {};
+        
+        for (const asset of assets) {
+          try {
+            const data = await this.getHistoricalData(`BINANCE_SPOT_${asset}_USDT`, '1DAY', timeStart, timeEnd);
+            assetData[asset] = data.map(d => d.price_close);
+          } catch (error) {
+            console.warn(`Failed to get data for ${asset}, skipping from correlation`);
+          }
+        }
+
+        // Calculate correlation matrix
+        const correlationMatrix: { [key: string]: { [key: string]: number } } = {};
+        
+        for (const asset1 of Object.keys(assetData)) {
+          correlationMatrix[asset1] = {};
+          for (const asset2 of Object.keys(assetData)) {
+            if (asset1 === asset2) {
+              correlationMatrix[asset1][asset2] = 1.0;
+            } else {
+              const correlation = this.calculateCorrelation(assetData[asset1], assetData[asset2]);
+              correlationMatrix[asset1][asset2] = correlation;
+            }
+          }
+        }
+
+        return {
+          correlation_matrix: correlationMatrix,
+          period_days: days,
+          assets: Object.keys(assetData),
+          calculation_time: new Date().toISOString(),
+        };
+      } catch (error) {
+        console.error(`Error calculating correlation matrix:`, error instanceof Error ? error.message : 'Unknown error');
+        throw new Error('Failed to calculate correlation matrix');
+      }
+    }, TTL_CONFIG.CANDLES); // Use longer cache for correlation data
+  }
+
+  /**
+   * Bulk get quotes for multiple symbols
+   */
+  async getBulkQuotes(symbolIds: string[]): Promise<CoinAPIQuote[]> {
+    const cacheKey = this.getCacheKey('bulk_quotes', { symbols: symbolIds.sort() });
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        const promises = symbolIds.map(symbolId => 
+          this.getQuote(symbolId).catch(error => {
+            console.warn(`Failed to get quote for ${symbolId}:`, error.message);
+            return null;
+          })
+        );
+        
+        const results = await Promise.all(promises);
+        return results.filter((quote): quote is CoinAPIQuote => quote !== null);
+      } catch (error) {
+        console.error('Error fetching bulk quotes:', error instanceof Error ? error.message : 'Unknown error');
+        throw new Error('Failed to fetch bulk quotes');
+      }
+    }, TTL_CONFIG.TICKER);
+  }
+
+  /**
+   * Get top assets by volume
+   */
+  async getTopAssetsByVolume(limit: number = 50): Promise<CoinAPIAsset[]> {
+    const cacheKey = this.getCacheKey('top_assets', { limit });
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      try {
+        const assets = await this.getAssets();
+        
+        // Filter crypto assets and sort by 24h volume
+        const cryptoAssets = assets
+          .filter(asset => asset.type_is_crypto === 1 && asset.volume_1day_usd)
+          .sort((a, b) => (b.volume_1day_usd || 0) - (a.volume_1day_usd || 0))
+          .slice(0, limit);
+
+        return cryptoAssets;
+      } catch (error) {
+        console.error('Error fetching top assets:', error instanceof Error ? error.message : 'Unknown error');
+        throw new Error('Failed to fetch top assets');
+      }
+    }, TTL_CONFIG.TICKER);
+  }
+
+  /**
+   * Calculate Pearson correlation coefficient
+   */
+  private calculateCorrelation(x: number[], y: number[]): number {
+    if (x.length !== y.length || x.length === 0) return 0;
+    
+    const n = x.length;
+    const sumX = x.reduce((a, b) => a + b, 0);
+    const sumY = y.reduce((a, b) => a + b, 0);
+    const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+    const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
+    const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
+    
+    const numerator = n * sumXY - sumX * sumY;
+    const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+    
+    return denominator === 0 ? 0 : numerator / denominator;
   }
 
   /**

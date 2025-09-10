@@ -1587,4 +1587,536 @@ export function registerTradingRoutes(app: Express): void {
       });
     }
   });
+
+  // ===== CoinAPI Advanced Features =====
+
+  /**
+   * Get historical OHLCV data
+   * Example: /api/coinapi/history/BINANCE_SPOT_SOL_USDT?period=1HRS&limit=100
+   */
+  app.get('/api/coinapi/history/:symbolId', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { symbolId } = req.params;
+      const { period = '1HRS', time_start, time_end, limit = '100' } = req.query;
+      
+      const historical = await coinAPIService.getHistoricalData(
+        symbolId,
+        period as string,
+        time_start as string,
+        time_end as string,
+        parseInt(limit as string)
+      );
+      
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          symbol_id: symbolId,
+          period,
+          data_points: historical.length,
+          historical
+        },
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/history:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get all available assets with metadata
+   */
+  app.get('/api/coinapi/assets', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const assets = await coinAPIService.getAssets();
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          total_assets: assets.length,
+          assets
+        },
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/assets:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get specific asset information
+   */
+  app.get('/api/coinapi/assets/:assetId', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { assetId } = req.params;
+      const asset = await coinAPIService.getAsset(assetId);
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: asset,
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/assets/:assetId:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get all available exchanges
+   */
+  app.get('/api/coinapi/exchanges', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const exchanges = await coinAPIService.getExchanges();
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          total_exchanges: exchanges.length,
+          exchanges
+        },
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/exchanges:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get specific exchange information
+   */
+  app.get('/api/coinapi/exchanges/:exchangeId', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { exchangeId } = req.params;
+      const exchange = await coinAPIService.getExchange(exchangeId);
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: exchange,
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/exchanges/:exchangeId:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get market indices
+   */
+  app.get('/api/coinapi/indices', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const indices = await coinAPIService.getIndices();
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          total_indices: indices.length,
+          indices
+        },
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/indices:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get current index value
+   */
+  app.get('/api/coinapi/indices/:indexId/current', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { indexId } = req.params;
+      const indexValue = await coinAPIService.getIndexValue(indexId);
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: indexValue,
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/indices/:indexId/current:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get global market overview
+   */
+  app.get('/api/coinapi/market-overview', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const overview = await coinAPIService.getMarketOverview();
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: overview,
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/market-overview:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Calculate TWAP for a symbol
+   * Example: /api/coinapi/twap/BINANCE_SPOT_SOL_USDT?hours=24
+   */
+  app.get('/api/coinapi/twap/:symbolId', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { symbolId } = req.params;
+      const { hours = '24' } = req.query;
+      
+      const twap = await coinAPIService.calculateTWAP(symbolId, parseInt(hours as string));
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          symbol_id: symbolId,
+          ...twap
+        },
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/twap:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Calculate VWAP for a symbol
+   * Example: /api/coinapi/vwap/BINANCE_SPOT_SOL_USDT?hours=24
+   */
+  app.get('/api/coinapi/vwap/:symbolId', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { symbolId } = req.params;
+      const { hours = '24' } = req.query;
+      
+      const vwap = await coinAPIService.calculateVWAP(symbolId, parseInt(hours as string));
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          symbol_id: symbolId,
+          ...vwap
+        },
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/vwap:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get correlation matrix for multiple assets
+   * Example: /api/coinapi/correlation?assets=BTC,ETH,SOL&days=30
+   */
+  app.get('/api/coinapi/correlation', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { assets, days = '30' } = req.query;
+      
+      if (!assets) {
+        return res.status(400).json({
+          success: false,
+          error: 'Assets parameter is required (comma-separated list)',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const assetList = (assets as string).split(',').map(a => a.trim().toUpperCase());
+      const correlation = await coinAPIService.getCorrelationMatrix(assetList, parseInt(days as string));
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: correlation,
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/correlation:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get bulk quotes for multiple symbols
+   * Example: /api/coinapi/bulk-quotes?symbols=BINANCE_SPOT_SOL_USDT,COINBASE_SPOT_BTC_USD
+   */
+  app.get('/api/coinapi/bulk-quotes', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { symbols } = req.query;
+      
+      if (!symbols) {
+        return res.status(400).json({
+          success: false,
+          error: 'Symbols parameter is required (comma-separated list)',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const symbolList = (symbols as string).split(',').map(s => s.trim());
+      const quotes = await coinAPIService.getBulkQuotes(symbolList);
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          requested_symbols: symbolList.length,
+          returned_quotes: quotes.length,
+          quotes
+        },
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/bulk-quotes:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get top assets by trading volume
+   * Example: /api/coinapi/top-assets?limit=50
+   */
+  app.get('/api/coinapi/top-assets', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { limit = '50' } = req.query;
+      
+      const topAssets = await coinAPIService.getTopAssetsByVolume(parseInt(limit as string));
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          limit: parseInt(limit as string),
+          total_returned: topAssets.length,
+          top_assets: topAssets
+        },
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/top-assets:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get technical analysis metrics
+   * Example: /api/coinapi/metrics/BINANCE_SPOT_SOL_USDT
+   */
+  app.get('/api/coinapi/metrics/:symbolId', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { symbolId } = req.params;
+      const metrics = await coinAPIService.getTechnicalMetrics(symbolId);
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          symbol_id: symbolId,
+          ...metrics
+        },
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/metrics:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
 }
