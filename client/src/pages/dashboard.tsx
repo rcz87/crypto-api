@@ -22,6 +22,7 @@ import { FibonacciAnalysis } from "@/components/FibonacciAnalysis";
 import { OrderFlowAnalysis } from "@/components/OrderFlowAnalysis";
 import LiquidityHeatmap from "@/components/LiquidityHeatmap";
 import MultiTimeframeAnalysis from "@/components/MultiTimeframeAnalysis";
+import EnhancedMTFAnalysis from "@/components/EnhancedMTFAnalysis";
 import LiveTradingSignals from "@/components/LiveTradingSignals";
 import MultiCoinScreening from "@/components/MultiCoinScreening";
 import { useWebSocket } from "@/hooks/useWebSocket";
@@ -314,10 +315,10 @@ export default function Dashboard() {
             </ErrorBoundary>
           </div>
 
-          {/* Row 2.75: Multi-Timeframe Analysis - Synchronized Cross-Timeframe Intelligence */}
+          {/* Row 2.75: Enhanced Multi-Timeframe Analysis - Institutional Grade MTF Intelligence */}
           <div className="mt-6">
             <ErrorBoundary>
-              <MultiTimeframeAnalysis />
+              <EnhancedMTFAnalysis />
             </ErrorBoundary>
           </div>
 
