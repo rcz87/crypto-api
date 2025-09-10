@@ -91,6 +91,7 @@ export function TradingViewWidget({
   const didInit = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [containerId] = useState(() => `tradingview_widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
 
   const ticker = data?.ticker as TickerShape | undefined;
   const price = useMemo(() => {
@@ -125,9 +126,6 @@ export function TradingViewWidget({
       await loadTradingViewScript();
       if (!window.TradingView?.widget) throw new Error("TradingView not available after load");
 
-      // Create unique container ID without DOM manipulation
-      const mountId = `tradingview_widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
       // Destroy previous widget if exists
       if (widgetRef.current && typeof widgetRef.current.remove === 'function') {
         try {
@@ -153,7 +151,7 @@ export function TradingViewWidget({
         details: true,
         hotlist: false,
         calendar: false,
-        container_id: mountId,
+        container_id: containerId,
         studies,
         width: "100%",
         height: "500",
@@ -240,7 +238,8 @@ export function TradingViewWidget({
 
       <CardContent>
         <div
-          id={`tradingview_widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`}
+          id={containerId}
+          ref={containerRef}
           className="w-full h-[500px] bg-gray-900 border border-gray-700 rounded-lg relative overflow-hidden"
           data-testid="tradingview-chart"
         >
