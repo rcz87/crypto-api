@@ -29,8 +29,10 @@ type TickerShape = {
 export interface TradingViewWidgetProps {
   data?: { ticker?: TickerShape } | any;
   isConnected?: boolean;
-  /** e.g. "OKX:SOLUSDTPERP" | "BINANCE:SOLUSDT" */
+  /** e.g. "OKX:SOLUSDTPERP" | "BINANCE:SOLUSDT" | "OKX:BTCUSDTPERP" */
   tvSymbol?: string;
+  /** Display symbol for UI (e.g. "SOL/USDT", "BTC/USDT") */
+  displaySymbol?: string;
   interval?: "1" | "5" | "15" | "60" | "240" | "1H" | "4H" | "1D";
   theme?: TVTheme;
   studies?: string[]; // TradingView study identifiers
@@ -79,6 +81,7 @@ export function TradingViewWidget({
   data,
   isConnected,
   tvSymbol = "OKX:SOLUSDTPERP",
+  displaySymbol = "SOL/USDT-PERP",
   interval = "1H",
   theme = "dark",
   studies = ["Volume", "RSI@tv-basicstudies", "MACD@tv-basicstudies"],
@@ -196,7 +199,7 @@ export function TradingViewWidget({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-emerald-500" />
-            <CardTitle>SOL/USDT-PERP Futures Chart</CardTitle>
+            <CardTitle>{displaySymbol} Futures Chart</CardTitle>
             <Badge variant={isConnected ? "default" : "destructive"} className="ml-2">
               <Activity className="h-3 w-3 mr-1" />
               {isConnected ? "Real-time" : "Disconnected"}

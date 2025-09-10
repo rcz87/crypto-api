@@ -1,45 +1,28 @@
-// Environment utilities
-export const getApiBase = (): string => {
-  if (typeof window === 'undefined') {
-    // SSR/Server side - use localhost for development
-    return 'http://localhost:5000';
-  }
-  
-  // For Replit environment, always use current origin
-  if (window.location.hostname.includes('.replit.dev')) {
-    return window.location.origin;
-  }
-  
-  // Client side - use environment variable or current origin
-  const envBase = import.meta.env.VITE_API_BASE || (process as any).env?.NEXT_PUBLIC_API_BASE;
-  if (envBase) {
-    return envBase.replace(/\/$/, '');
-  }
-  
-  // Fallback to current origin
-  return window.location.origin;
-};
+export const isBrowser = typeof window !== 'undefined';
 
-export const getWsBase = (): string => {
-  if (typeof window === 'undefined') {
-    return 'ws://localhost:5000/ws';
-  }
-  
-  // For Replit environment, always use current domain with proper protocol
-  if (window.location.hostname.includes('.replit.dev')) {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}/ws`;
-  }
-  
-  const envWs = import.meta.env.VITE_WS_BASE || (process as any).env?.NEXT_PUBLIC_WS_BASE;
-  if (envWs) {
-    return envWs;
-  }
-  
-  // Fallback WebSocket URL based on current origin
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.host}/ws`;
-};
+export function getApiBase(): string {
+  const env = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
+  if (env) return env;
+  if (!isBrowser) return '';
+  const { protocol, host } = window.location;
+  const base = `${protocol}//${host}`; // e.g. https://<replit-hash>.replit.dev
+  return base; // fallback aman
+}
+
+export function getWsBase(): string {
+  const env = (import.meta.env.VITE_WS_BASE || '').trim();
+  if (env) return env; // gunakan ENV jika ada
+  if (!isBrowser) return '';
+  const { protocol, host } = window.location;
+  // Map http→ws, https→wss
+  const wsProto = protocol === 'https:' ? 'wss:' : 'ws:';
+  // Anti-localhost: jika host mengandung 'localhost' → gunakan domain produksi
+  const safeHost = /localhost/i.test(host)
+    ? 'guardiansofthegreentoken.com'
+    : host;
+  // Default path gateway WS kamu
+  return `${wsProto}//${safeHost}/ws`;
+}
 
 export const fetchJSON = async (endpoint: string, options?: RequestInit) => {
   const apiBase = getApiBase();

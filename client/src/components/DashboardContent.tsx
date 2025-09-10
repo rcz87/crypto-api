@@ -35,6 +35,8 @@ interface DashboardContentProps {
   healthLoading: boolean;
   wsConnected: boolean;
   marketData: any;
+  selectedSymbol?: string;
+  selectedTvSymbol?: string;
 }
 
 export const DashboardContent = ({
@@ -45,7 +47,9 @@ export const DashboardContent = ({
   metricsData,
   healthLoading,
   wsConnected,
-  marketData
+  marketData,
+  selectedSymbol,
+  selectedTvSymbol
 }: DashboardContentProps) => {
   
   const renderSection = () => {
@@ -73,6 +77,8 @@ export const DashboardContent = ({
               <TradingViewWidget 
                 data={solData} 
                 isConnected={wsConnected}
+                tvSymbol={selectedTvSymbol}
+                displaySymbol={selectedSymbol}
               />
             </ErrorBoundary>
             

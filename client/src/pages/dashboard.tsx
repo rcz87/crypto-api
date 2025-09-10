@@ -7,6 +7,11 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 
 export default function Dashboard() {
   const [activeSection, setActiveSection] = useState("tradingview");
+  
+  // Multi-coin support - default to SOL but can be extended
+  const [selectedPair] = useState('SOL-USDT-SWAP');
+  const [selectedSymbol] = useState('SOL/USDT-PERP');
+  const [selectedTvSymbol] = useState('OKX:SOLUSDTPERP');
 
   const { data: healthData, isLoading: healthLoading, error: healthError } = useQuery({
     queryKey: ["/health"],
@@ -23,8 +28,8 @@ export default function Dashboard() {
   });
 
   // Keep REST API as fallback, but only fetch once since WebSocket provides real-time data
-  const { data: solData, isLoading: solLoading, error: solError } = useQuery<{ success: boolean; data: SolCompleteData; timestamp: string }>({
-    queryKey: ["/api/sol/complete"],
+  const { data: marketData, isLoading: marketLoading, error: marketError } = useQuery<{ success: boolean; data: SolCompleteData; timestamp: string }>({
+    queryKey: ["/api/sol/complete", selectedPair], // Include selected pair for multi-coin support
     refetchInterval: false, // Disable auto-refresh completely
     retry: 1, // Allow one retry
     staleTime: 30000, // Cache for 30 seconds
@@ -33,15 +38,15 @@ export default function Dashboard() {
 
   // Data validation and error handling
   useEffect(() => {
-    if (solError) {
-      console.error('SOL Futures Data API Error:', solError.message);
+    if (marketError) {
+      console.error('Market Data API Error:', marketError.message);
     }
-  }, [solError]);
+  }, [marketError]);
 
   // WebSocket connection for real-time data
   const { 
     isConnected: wsConnected, 
-    marketData, 
+    marketData: wsMarketData, 
     systemStatus: wsSystemStatus,
     connectionStatus
   } = useWebSocket();
@@ -56,12 +61,12 @@ export default function Dashboard() {
 
   // Handle WebSocket data updates
   useEffect(() => {
-    if (!marketData?.arg?.channel || !marketData.data?.length) return;
+    if (!wsMarketData?.arg?.channel || !wsMarketData.data?.length) return;
 
-    switch (marketData.arg.channel) {
+    switch (wsMarketData.arg.channel) {
       case 'tickers':
         // Handle ticker data
-        const tickerData = marketData.data[0];
+        const tickerData = wsMarketData.data[0];
         const changePercent = tickerData.changePercent || 
           (tickerData.last && tickerData.open24h ? 
             (((parseFloat(tickerData.last) - parseFloat(tickerData.open24h)) / parseFloat(tickerData.open24h)) * 100).toFixed(2) : '0');
@@ -81,7 +86,7 @@ export default function Dashboard() {
 
       case 'books':
         // Handle real-time order book data with throttling
-        const bookData = marketData.data[0];
+        const bookData = wsMarketData.data[0];
         const now = Date.now();
         
         // Throttle updates - hanya update setiap 3 detik
@@ -116,21 +121,21 @@ export default function Dashboard() {
         }
         break;
     }
-  }, [marketData]);
+  }, [wsMarketData]);
 
   // Combine WebSocket real-time data with REST fallback
-  const restData = (solData as any)?.data;
+  const restData = (marketData as any)?.data;
   const wsTicker = lastTickerRef.current?.ticker;
   const wsOrderBook = lastOrderBookRef.current;
 
-  const displaySolData = restData
+  const displayMarketData = restData
     ? { 
         ...restData,
         ticker: wsTicker || restData.ticker, // Prioritize WebSocket ticker
         orderBook: wsOrderBook || restData.orderBook, // Prioritize WebSocket order book
       }
     : lastTickerRef.current;
-  const isDataLoading = solLoading && !marketData;
+  const isDataLoading = marketLoading && !wsMarketData;
 
   return (
     <div className="font-inter bg-gray-50 text-gray-900 min-h-screen">
@@ -143,13 +148,15 @@ export default function Dashboard() {
       {/* Main Content Area */}
       <DashboardContent 
         activeSection={activeSection}
-        solData={displaySolData}
+        solData={displayMarketData}
         isDataLoading={isDataLoading}
         healthData={healthData}
         metricsData={metricsData}
         healthLoading={healthLoading}
         wsConnected={wsConnected}
-        marketData={marketData}
+        marketData={wsMarketData}
+        selectedSymbol={selectedSymbol}
+        selectedTvSymbol={selectedTvSymbol}
       />
 
       {/* Footer */}
