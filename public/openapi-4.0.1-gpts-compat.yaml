@@ -4,18 +4,25 @@ info:
   description: |
     🛰️ CryptoSat Intelligence — GPTs-compatible OpenAPI with Production Stability.
     
-    **🚀 PRODUCTION READY (Sept 8, 2025):**
-    - ✅ **Critical Bug Fixes**: NaN values eliminated, WebSocket auto-reconnection, data validation
-    - ✅ **Performance**: Sub-200ms response times, 100% endpoint success rate, zero LSP errors
-    - ✅ **AI Integration**: GPT-5 powered signal engine with neural network analysis
-    - ✅ **Enhanced Analytics**: 16+ endpoint categories with institutional-grade analysis
+    **🚀 PHASE 2: ENHANCED AI READY (Sept 10, 2025):**
+    - ✅ **Self-Learning AI**: Auto-pattern confidence updates based on trading performance
+    - ✅ **Performance Tracking**: Complete trading lifecycle tracking (execution → outcome → learning)
+    - ✅ **Neural Networks**: 50 input features with 5-layer architecture
+    - ✅ **Enhanced Analytics**: 21+ endpoint categories with institutional-grade analysis
+    - ✅ **Dynamic Patterns**: 10 advanced patterns with 95% confidence detection
+    
+    **🧠 Phase 2 Enhanced AI Features:**
+    - **ExecutionRecorder**: Self-learning system with pattern performance analytics
+    - **Enhanced Signal Engine**: Neural network predictions with GPT-5 reasoning
+    - **Performance APIs**: Win rate tracking, P&L analytics, confidence validation
+    - **Adaptive Learning**: Pattern weights auto-adjust based on real trading results
     
     **🔧 GPTs Compatibility Features:**
     - Parameter **INLINE** (tanpa $ref) agar terbaca oleh GPT Actions
     - Single **ApiKey** security scheme (GPTs requirement)
     - Complete error handling dengan Problem Details & RateLimit headers
     - Real-time data dengan comprehensive validation
-  version: '4.1.0-gpts'
+  version: '5.0.0-gpts'
   contact:
     email: admin@guardiansofthegreentoken.com
     url: https://guardiansofthegreentoken.com
@@ -27,6 +34,8 @@ servers:
 tags:
   - name: Multi-Pair Analysis
   - name: AI Signal Engine
+  - name: Enhanced AI Engine (Phase 2)
+  - name: Performance Tracking (Phase 2)
   - name: Smart Money Concepts
   - name: Volume Delta Analysis
   - name: Technical Indicators
@@ -336,6 +345,294 @@ paths:
                           risk_level: { type: string, enum: ["low", "medium", "high"], example: "medium" }
                           recommendation: { type: string, example: "Wait for clearer directional signals" }
                   timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/ai/enhanced-signal:
+    get:
+      operationId: getEnhancedAISignal
+      summary: Get Enhanced AI signal with 10 advanced patterns (Phase 2)
+      description: |
+        Enhanced AI signal engine with 10 advanced patterns, neural network predictions,
+        and self-learning capabilities. Features pattern confidence auto-updates
+        based on trading performance and institutional-grade analytics.
+      tags: [Enhanced AI Engine (Phase 2)]
+      parameters:
+        - name: symbol
+          in: query
+          description: Trading pair symbol (default SOL-USDT-SWAP)
+          required: false
+          schema:
+            type: string
+            example: "SOL-USDT-SWAP"
+      responses:
+        '200':
+          description: Enhanced AI signal with advanced patterns and neural predictions
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      signal_id: { type: string, example: "enhanced_ai_1757468621438" }
+                      symbol: { type: string, example: "SOL-USDT-SWAP" }
+                      timestamp: { type: string, format: date-time, example: "2025-09-10T01:46:21.438Z" }
+                      direction: { type: string, enum: ["long", "short", "neutral"], example: "neutral" }
+                      strength: { type: number, minimum: 0, maximum: 100, example: 62 }
+                      confidence: { type: number, minimum: 0, maximum: 100, example: 59 }
+                      detected_patterns:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: string, example: "predictive_institutional_flow" }
+                            name: { type: string, example: "Predictive Institutional Flow" }
+                            confidence: { type: number, example: 0.95 }
+                            historical_accuracy: { type: number, example: 0.78 }
+                            risk_reward_ratio: { type: number, example: 2.5 }
+                        example: [{"id": "predictive_institutional_flow", "name": "Predictive Institutional Flow", "confidence": 0.95}]
+                      neural_prediction:
+                        type: object
+                        properties:
+                          neural_confidence: { type: number, example: 0.48 }
+                          neural_features: { type: array, items: { type: number }, example: [0.12, 0.45, 0.78] }
+                          feature_importance: { type: array, items: { type: number }, example: [0.85, 0.72, 0.91] }
+                      reasoning:
+                        type: object
+                        properties:
+                          primary_factors: { type: array, items: { type: string }, example: ["Neural confidence: 48%", "Pattern confluence: 70.6%"] }
+                          supporting_evidence: { type: array, items: { type: string }, example: ["10 patterns detected", "High institutional confidence"] }
+                          risk_factors: { type: array, items: { type: string }, example: ["Mixed market signals", "Moderate volatility"] }
+                          market_context: { type: string, example: "SOL trading in consolidation range with institutional interest" }
+                      execution_details:
+                        type: object
+                        properties:
+                          recommended_size: { type: number, example: 0.02 }
+                          stop_loss: { type: number, example: 0.025 }
+                          take_profit: { type: array, items: { type: number }, example: [0.05, 0.08] }
+                          optimal_entry_window: { type: string, example: "2-4 hours" }
+                      pattern_confluence: { type: number, example: 70.6 }
+                      pattern_count: { type: number, example: 10 }
+                  timestamp: { type: string, format: date-time, example: "2025-09-10T01:46:21.438Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/ai/enhanced-performance:
+    get:
+      operationId: getEnhancedAIPerformance
+      summary: Get Enhanced AI neural network performance metrics (Phase 2)
+      description: |
+        Enhanced AI performance analytics including neural network metrics,
+        pattern performance, and learning capabilities overview.
+      tags: [Enhanced AI Engine (Phase 2)]
+      responses:
+        '200':
+          description: Enhanced AI performance and neural network metrics
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      neural_network:
+                        type: object
+                        properties:
+                          input_features: { type: number, example: 50 }
+                          hidden_layers: { type: number, example: 5 }
+                          architecture: { type: string, example: "Dense layers with dropout regularization" }
+                          prediction_accuracy: { type: number, example: 0.74 }
+                      enhanced_patterns:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            pattern_id: { type: string, example: "predictive_institutional_flow" }
+                            name: { type: string, example: "Predictive Institutional Flow" }
+                            confidence: { type: number, example: 0.95 }
+                            historical_accuracy: { type: number, example: 0.78 }
+                            signals_generated: { type: number, example: 142 }
+                        example: [{"pattern_id": "predictive_institutional_flow", "name": "Predictive Institutional Flow", "confidence": 0.95}]
+                      learning_capabilities:
+                        type: object
+                        properties:
+                          auto_pattern_updates: { type: boolean, example: true }
+                          performance_tracking: { type: boolean, example: true }
+                          confidence_adjustments: { type: boolean, example: true }
+                          neural_adaptation: { type: boolean, example: true }
+                      openai_integration:
+                        type: object
+                        properties:
+                          gpt_model: { type: string, example: "GPT-5" }
+                          enhanced_reasoning: { type: boolean, example: true }
+                          status: { type: string, example: "active" }
+                  timestamp: { type: string, format: date-time, example: "2025-09-10T01:46:21.438Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/ai/tracking/execution:
+    post:
+      operationId: recordAITradeExecution
+      summary: Record AI signal execution for performance tracking (Phase 2)
+      description: |
+        Record execution details when an AI signal is executed in real trading.
+        This enables the self-learning system to track performance and update
+        pattern confidence based on actual results.
+      tags: [Performance Tracking (Phase 2)]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signal_id, entry_price, position_size]
+              properties:
+                signal_id: { type: string, example: "enhanced_ai_1757468621438" }
+                entry_price: { type: number, example: 215.50 }
+                position_size: { type: number, example: 100 }
+                stop_loss: { type: number, example: 210.25 }
+                take_profit_1: { type: number, example: 225.30 }
+                take_profit_2: { type: number, example: 235.50 }
+                risk_amount: { type: number, example: 525.00 }
+                execution_type: { type: string, enum: ["manual", "auto", "paper"], example: "manual" }
+      responses:
+        '200':
+          description: Execution recorded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      execution_id: { type: string, example: "exec_1757469123456" }
+                      signal_id: { type: string, example: "enhanced_ai_1757468621438" }
+                      status: { type: string, example: "recorded" }
+                  message: { type: string, example: "Trade execution recorded successfully" }
+                  timestamp: { type: string, format: date-time, example: "2025-09-10T01:46:21.438Z" }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/ai/tracking/outcome:
+    post:
+      operationId: recordAITradeOutcome
+      summary: Record AI signal trading outcome for learning (Phase 2)
+      description: |
+        Record the final outcome of an AI signal trade. This triggers the
+        self-learning system to update pattern performance and adjust
+        confidence levels based on actual trading results.
+      tags: [Performance Tracking (Phase 2)]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signal_id, exit_price, exit_reason]
+              properties:
+                signal_id: { type: string, example: "enhanced_ai_1757468621438" }
+                exit_price: { type: number, example: 227.30 }
+                exit_reason: { type: string, enum: ["stop_loss", "take_profit", "manual", "time_exit"], example: "take_profit" }
+                exit_time: { type: string, format: date-time, example: "2025-09-10T02:15:30.000Z" }
+      responses:
+        '200':
+          description: Outcome recorded and pattern performance updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      signal_id: { type: string, example: "enhanced_ai_1757468621438" }
+                      pnl: { type: number, example: 1180 }
+                      pnl_percentage: { type: number, example: 5.47 }
+                      was_successful: { type: boolean, example: true }
+                      duration_minutes: { type: number, example: 29 }
+                      patterns_updated: { type: number, example: 10 }
+                  message: { type: string, example: "Outcome recorded and pattern performance updated" }
+                  timestamp: { type: string, format: date-time, example: "2025-09-10T02:15:30.000Z" }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '404': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/ai/tracking/overall-performance:
+    get:
+      operationId: getAIOverallPerformance
+      summary: Get AI system overall performance analytics (Phase 2)
+      description: |
+        Get comprehensive performance analytics for the AI signal system
+        including win rates, P&L metrics, and pattern performance overview.
+      tags: [Performance Tracking (Phase 2)]
+      responses:
+        '200':
+          description: AI system performance analytics
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      overall_stats:
+                        type: object
+                        properties:
+                          total_signals: { type: number, example: 145 }
+                          executed_signals: { type: number, example: 98 }
+                          completed_trades: { type: number, example: 87 }
+                          win_rate: { type: number, example: 0.712 }
+                          total_pnl: { type: number, example: 15420.50 }
+                          avg_pnl_per_trade: { type: number, example: 177.25 }
+                          best_trade: { type: number, example: 2850.00 }
+                          worst_trade: { type: number, example: -1250.00 }
+                      pattern_performance:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            pattern_name: { type: string, example: "Predictive Institutional Flow" }
+                            win_rate: { type: number, example: 0.78 }
+                            total_signals: { type: number, example: 23 }
+                            avg_confidence: { type: number, example: 0.89 }
+                            total_pnl: { type: number, example: 4250.50 }
+                            adaptation_factor: { type: number, example: 1.15 }
+                        example: [{"pattern_name": "Predictive Institutional Flow", "win_rate": 0.78, "total_signals": 23}]
+                      learning_metrics:
+                        type: object
+                        properties:
+                          confidence_adjustments: { type: number, example: 34 }
+                          patterns_improved: { type: number, example: 8 }
+                          patterns_demoted: { type: number, example: 2 }
+                          learning_velocity: { type: number, example: 0.15 }
+                  timestamp: { type: string, format: date-time, example: "2025-09-10T02:15:30.000Z" }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
