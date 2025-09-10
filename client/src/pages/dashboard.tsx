@@ -23,6 +23,7 @@ import { OrderFlowAnalysis } from "@/components/OrderFlowAnalysis";
 import LiquidityHeatmap from "@/components/LiquidityHeatmap";
 import MultiTimeframeAnalysis from "@/components/MultiTimeframeAnalysis";
 import EnhancedMTFAnalysis from "@/components/EnhancedMTFAnalysis";
+import { EnhancedAISection } from "@/components/EnhancedAISection";
 import LiveTradingSignals from "@/components/LiveTradingSignals";
 import MultiCoinScreening from "@/components/MultiCoinScreening";
 import { useWebSocket } from "@/hooks/useWebSocket";
@@ -361,6 +362,13 @@ export default function Dashboard() {
           <div className="mt-6">
             <ErrorBoundary>
               <AISignalDashboard />
+            </ErrorBoundary>
+          </div>
+
+          {/* Row 8: Enhanced AI Signal Engine - Neural Network & Advanced Pattern Recognition */}
+          <div className="mt-6">
+            <ErrorBoundary>
+              <EnhancedAISection />
             </ErrorBoundary>
           </div>
         </div>
