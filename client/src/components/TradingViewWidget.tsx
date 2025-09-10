@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Activity, TrendingUp, Volume2 } from 'lucide-react';
@@ -10,60 +10,113 @@ interface TradingViewWidgetProps {
 
 export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
 
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      autosize: true,
-      symbol: 'OKX:SOLUSDTPERP', // SOL/USDT Perpetual Futures dari OKX
-      interval: '1H',         // 1 hour candlesticks
-      toolbar_bg: '#1f2937',   // Dark toolbar background
-      overrides: {
-        // LuxAlgo-style color scheme
-        "paneProperties.background": "#111827",
-        "paneProperties.vertGridProperties.color": "#374151",
-        "paneProperties.horzGridProperties.color": "#374151",
-        "symbolWatermarkProperties.transparency": 90,
-        "scalesProperties.textColor": "#9CA3AF",
-        "mainSeriesProperties.candleStyle.upColor": "#10B981",
-        "mainSeriesProperties.candleStyle.downColor": "#EF4444",
-        "mainSeriesProperties.candleStyle.borderUpColor": "#10B981",
-        "mainSeriesProperties.candleStyle.borderDownColor": "#EF4444",
-        "mainSeriesProperties.candleStyle.wickUpColor": "#10B981",
-        "mainSeriesProperties.candleStyle.wickDownColor": "#EF4444"
-      },
-      timezone: 'Etc/UTC',
-      theme: 'dark',         // Dark theme
-      style: '1',            // Candlestick style
-      locale: 'en',
-      enable_publishing: false,
-      withdateranges: true,
-      hide_side_toolbar: false,
-      allow_symbol_change: false,
-      details: true,
-      hotlist: false,
-      calendar: false,
-      studies: [
-        'Volume',                    // Volume indicator
-        'RSI@tv-basicstudies',      // RSI - momentum oscillator
-        'MACD@tv-basicstudies',     // MACD - trend following
-        'EMA@tv-basicstudies',      // EMA - similar to LuxAlgo trend
-        'BB@tv-basicstudies',       // Bollinger Bands - volatility
-        'StochasticRSI@tv-basicstudies'  // Stochastic RSI
-      ],
-      container_id: 'tradingview_chart'
-    });
+    let mounted = true;
 
-    // Bersihkan container sebelum memasang script baru
-    if (containerRef.current) {
-      containerRef.current.innerHTML = '';
-      containerRef.current.appendChild(script);
-    }
+    const loadTradingViewWidget = () => {
+      if (!containerRef.current || !mounted) return;
+
+      try {
+        // Clear any existing content
+        containerRef.current.innerHTML = '';
+
+        // Create the widget container div
+        const widgetDiv = document.createElement('div');
+        widgetDiv.id = 'tradingview_widget_' + Date.now();
+        widgetDiv.style.height = '500px';
+        widgetDiv.style.width = '100%';
+        
+        containerRef.current.appendChild(widgetDiv);
+
+        // Create and configure the TradingView script
+        const script = document.createElement('script');
+        script.type = 'text/javascript';
+        script.async = true;
+        script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+        
+        const config = {
+          autosize: true,
+          symbol: 'OKX:SOLUSDTPERP',
+          interval: '1H',
+          timezone: 'Etc/UTC',
+          theme: 'dark',
+          style: '1',
+          locale: 'en',
+          toolbar_bg: '#1f2937',
+          enable_publishing: false,
+          withdateranges: true,
+          hide_side_toolbar: false,
+          allow_symbol_change: false,
+          details: true,
+          hotlist: false,
+          calendar: false,
+          container_id: widgetDiv.id,
+          overrides: {
+            "paneProperties.background": "#111827",
+            "paneProperties.vertGridProperties.color": "#374151",
+            "paneProperties.horzGridProperties.color": "#374151",
+            "symbolWatermarkProperties.transparency": 90,
+            "scalesProperties.textColor": "#9CA3AF",
+            "mainSeriesProperties.candleStyle.upColor": "#10B981",
+            "mainSeriesProperties.candleStyle.downColor": "#EF4444",
+            "mainSeriesProperties.candleStyle.borderUpColor": "#10B981",
+            "mainSeriesProperties.candleStyle.borderDownColor": "#EF4444",
+            "mainSeriesProperties.candleStyle.wickUpColor": "#10B981",
+            "mainSeriesProperties.candleStyle.wickDownColor": "#EF4444"
+          },
+          studies: [
+            'Volume',
+            'RSI@tv-basicstudies',
+            'MACD@tv-basicstudies',
+            'EMA@tv-basicstudies',
+            'BB@tv-basicstudies'
+          ]
+        };
+
+        script.innerHTML = JSON.stringify(config);
+
+        script.onload = () => {
+          if (mounted) {
+            setIsLoading(false);
+            setIsError(false);
+          }
+        };
+
+        script.onerror = () => {
+          if (mounted) {
+            setIsLoading(false);
+            setIsError(true);
+          }
+        };
+
+        // Append script to widget container
+        widgetDiv.appendChild(script);
+
+        // Set timeout fallback
+        setTimeout(() => {
+          if (mounted) {
+            setIsLoading(false);
+          }
+        }, 5000);
+
+      } catch (error) {
+        console.error('TradingView Widget Error:', error);
+        if (mounted) {
+          setIsLoading(false);
+          setIsError(true);
+        }
+      }
+    };
+
+    // Load widget with small delay to ensure DOM is ready
+    const timer = setTimeout(loadTradingViewWidget, 100);
 
     return () => {
-      // Cleanup saat component unmount
+      mounted = false;
+      clearTimeout(timer);
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
       }
@@ -118,10 +171,27 @@ export function TradingViewWidget({ data, isConnected }: TradingViewWidgetProps)
       <CardContent>
         <div 
           ref={containerRef}
-          id="tradingview_chart"
-          className="w-full h-[500px] bg-gray-900 border border-gray-700 rounded-lg"
+          className="w-full h-[500px] bg-gray-900 border border-gray-700 rounded-lg relative"
           data-testid="tradingview-chart"
-        />
+        >
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+                <div>Loading TradingView Chart...</div>
+              </div>
+            </div>
+          )}
+          
+          {isError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white">
+              <div className="text-center">
+                <div className="text-red-500 mb-2">⚠️ Chart Loading Error</div>
+                <div className="text-sm text-gray-400">TradingView widget failed to load</div>
+              </div>
+            </div>
+          )}
+        </div>
         
         <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-4">
