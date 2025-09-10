@@ -138,102 +138,65 @@ export function TradingViewWidget({
   }, []);
 
   const initWidget = useCallback(async () => {
-    if (!isBrowser) {
-      console.log("TradingView: Not in browser environment");
-      return;
-    }
-    if (!containerRef.current) {
-      console.log("TradingView: Container ref not available");
-      return;
-    }
+    if (!isBrowser || !containerRef.current) return;
 
-    console.log("TradingView: Starting widget initialization...");
+    console.log("TradingView: Starting simple widget initialization...");
     setIsLoading(true);
     setHasError(false);
 
     try {
-      console.log("TradingView: Loading script...");
-      await loadTradingViewScript();
+      // Load script if not already loaded
+      if (!window.TradingView) {
+        console.log("TradingView: Loading script...");
+        const script = document.createElement('script');
+        script.src = 'https://s3.tradingview.com/tv.js';
+        script.async = true;
+        document.head.appendChild(script);
+        
+        await new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('Failed to load TradingView script'));
+        });
+      }
+
+      console.log("TradingView: Creating widget...");
       
-      if (!window.TradingView?.widget) {
-        throw new Error("TradingView not available after script load");
+      // Clear container
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
       }
       
-      console.log("TradingView: Script loaded successfully, creating widget...");
-
-      // Clean up any existing widget first
-      cleanupWidget();
-
-      console.log(`TradingView: Creating widget with symbol ${tvSymbol}, container ${containerId}`);
-      
-      widgetRef.current = new window.TradingView.widget({
-        autosize: true,
-        symbol: "BINANCE:SOLUSDT", // Try simpler symbol first
+      // Create widget with minimal config
+      new window.TradingView.widget({
+        width: "100%",
+        height: 500,
+        symbol: tvSymbol,
         interval: tvInterval,
         timezone: "Etc/UTC",
         theme,
         style: "1",
         locale: "en",
-        toolbar_bg: theme === "dark" ? "#1f2937" : "#f3f4f6",
+        toolbar_bg: theme === "dark" ? "#1f2937" : "#ffffff",
         enable_publishing: false,
-        withdateranges: true,
         hide_side_toolbar: false,
-        allow_symbol_change: false,
-        details: true,
-        hotlist: false,
-        calendar: false,
-        container_id: containerId,
-        studies: ["Volume"], // Simplify studies
-        width: "100%",
-        height: 500,
-        overrides: {
-          "paneProperties.background": theme === "dark" ? "#111827" : "#ffffff",
-          "paneProperties.vertGridProperties.color": theme === "dark" ? "#374151" : "#e5e7eb",
-          "paneProperties.horzGridProperties.color": theme === "dark" ? "#374151" : "#e5e7eb",
-          "symbolWatermarkProperties.transparency": 90,
-          "scalesProperties.textColor": theme === "dark" ? "#9CA3AF" : "#6b7280",
-          "mainSeriesProperties.candleStyle.upColor": "#10B981",
-          "mainSeriesProperties.candleStyle.downColor": "#EF4444",
-          "mainSeriesProperties.candleStyle.borderUpColor": "#10B981",
-          "mainSeriesProperties.candleStyle.borderDownColor": "#EF4444",
-          "mainSeriesProperties.candleStyle.wickUpColor": "#10B981",
-          "mainSeriesProperties.candleStyle.wickDownColor": "#EF4444",
-        },
-        loading_screen: {
-          backgroundColor: theme === "dark" ? "#111827" : "#ffffff",
-          foregroundColor: "#10B981",
-        }
+        allow_symbol_change: true,
+        container_id: containerId
       });
 
-      console.log("TradingView: Widget created, checking iframe...");
+      console.log("TradingView: Widget created");
       
-      // Use iframe check instead of onChartReady
-      const checkWidget = () => {
-        const iframe = document.querySelector(`#${containerId} iframe`);
-        if (iframe) {
-          console.log("TradingView: Widget iframe found, chart loaded!");
-          setIsLoading(false);
-        } else {
-          console.log("TradingView: Still waiting for iframe...");
-          setTimeout(checkWidget, 1000);
-        }
-      };
-      
-      // Start checking after initial delay
-      setTimeout(checkWidget, 2000);
-      
-      // Final fallback timeout
+      // Simple timeout to hide loading
       setTimeout(() => {
-        console.log("TradingView: Final fallback timeout triggered");
+        console.log("TradingView: Setting loading to false");
         setIsLoading(false);
-      }, 10000);
+      }, 3000);
       
     } catch (e) {
-      console.error("TradingView init error:", e);
+      console.error("TradingView error:", e);
       setHasError(true);
       setIsLoading(false);
     }
-  }, [tvSymbol, tvInterval, theme, studies, cleanupWidget, containerId]);
+  }, [tvSymbol, tvInterval, theme, containerId]);
 
   // Initialize on mount & when inputs that require re-creation change
   useEffect(() => {
