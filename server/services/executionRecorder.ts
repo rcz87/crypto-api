@@ -229,17 +229,17 @@ export class ExecutionRecorder {
         const perf = currentPerf[0];
         
         // Calculate updated metrics
-        const newTotalSignals = perf.total_signals + 1;
-        const newSuccessfulSignals = perf.successful_signals + (wasSuccessful ? 1 : 0);
-        const newFailedSignals = perf.failed_signals + (wasSuccessful ? 0 : 1);
+        const newTotalSignals = (perf.total_signals || 0) + 1;
+        const newSuccessfulSignals = (perf.successful_signals || 0) + (wasSuccessful ? 1 : 0);
+        const newFailedSignals = (perf.failed_signals || 0) + (wasSuccessful ? 0 : 1);
         const newWinRate = newSuccessfulSignals / newTotalSignals;
         
         // Update running averages
         const currentAvgPnl = parseFloat(perf.avg_pnl || '0');
-        const newAvgPnl = ((currentAvgPnl * perf.total_signals) + pnl) / newTotalSignals;
+        const newAvgPnl = ((currentAvgPnl * (perf.total_signals || 0)) + pnl) / newTotalSignals;
         
         const currentAvgConfidence = parseFloat(perf.avg_confidence || '0');
-        const newAvgConfidence = ((currentAvgConfidence * perf.total_signals) + signalConfidence) / newTotalSignals;
+        const newAvgConfidence = ((currentAvgConfidence * (perf.total_signals || 0)) + signalConfidence) / newTotalSignals;
         
         const newTotalPnl = parseFloat(perf.total_pnl || '0') + pnl;
         const newBestTrade = Math.max(parseFloat(perf.best_trade || '0'), pnl);

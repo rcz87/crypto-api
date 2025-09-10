@@ -387,7 +387,7 @@ export class TechnicalIndicatorsService {
    * Calculate EMA (Exponential Moving Average)
    */
   calculateEMA(candles: CandleData[], period: number): EMAResult[] {
-    if (candles.length < period) {
+    if (!candles || !Array.isArray(candles) || candles.length < period) {
       return [];
     }
 
