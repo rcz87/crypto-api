@@ -9,6 +9,7 @@ import { TechnicalIndicatorsService } from './technicalIndicators';
 import { CVDService } from './cvd';
 import { ConfluenceService } from './confluence';
 import { multiTimeframeService } from './multiTimeframeAnalysis';
+import { executionRecorder } from './executionRecorder';
 
 // Enhanced AI Signal Engine dengan Neural Networks dan Advanced Pattern Recognition
 export interface EnhancedMarketPattern {
@@ -917,6 +918,46 @@ export class EnhancedAISignalEngine {
       pattern.learning_weight = Math.max(0.5, Math.min(1.5, 
         pattern.learning_weight + randomAdjustment
       ));
+    }
+  }
+
+  // Update pattern confidence based on historical performance
+  private async updatePatternConfidenceFromHistory(patterns: EnhancedMarketPattern[]): Promise<void> {
+    try {
+      for (const pattern of patterns) {
+        // Get historical performance for this pattern
+        const performance = await executionRecorder.getPatternPerformance(pattern.id);
+        
+        if (performance.length > 0) {
+          const perf = performance[0];
+          const adaptationFactor = parseFloat(perf.adaptation_factor || '1.0');
+          const winRate = parseFloat(perf.win_rate || '0');
+          
+          // Apply confidence adjustment based on historical performance
+          const originalConfidence = pattern.confidence;
+          pattern.confidence = Math.max(0.1, Math.min(0.95, originalConfidence * adaptationFactor));
+          
+          // Update learning weight based on win rate
+          if (perf.total_signals >= 5) { // Minimum signals for adjustment
+            if (winRate > 0.7) {
+              pattern.learning_weight = Math.min(1.5, pattern.learning_weight * 1.05);
+            } else if (winRate < 0.4) {
+              pattern.learning_weight = Math.max(0.5, pattern.learning_weight * 0.95);
+            }
+          }
+          
+          // Update success/failure counts from database
+          pattern.success_count = perf.successful_signals || 0;
+          pattern.failure_count = perf.failed_signals || 0;
+          pattern.historical_accuracy = winRate;
+          
+          console.log(`🔄 Pattern confidence updated: ${pattern.name} - ` +
+                     `Confidence: ${originalConfidence.toFixed(3)} → ${pattern.confidence.toFixed(3)} ` +
+                     `(Win Rate: ${(winRate * 100).toFixed(1)}%)`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error updating pattern confidence from history:', error);
     }
   }
 

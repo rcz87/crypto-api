@@ -374,15 +374,15 @@ export class ExecutionRecorder {
       // Aggregate from all pattern performances
       const patterns = await db.select().from(aiPatternPerformance);
       
-      const totalSignals = patterns.reduce((sum, p) => sum + p.total_signals, 0);
-      const successfulSignals = patterns.reduce((sum, p) => sum + p.successful_signals, 0);
-      const totalPnl = patterns.reduce((sum, p) => sum + parseFloat(p.total_pnl || '0'), 0);
+      const totalSignals = patterns.reduce((sum: number, p: AiPatternPerformance) => sum + (p.total_signals || 0), 0);
+      const successfulSignals = patterns.reduce((sum: number, p: AiPatternPerformance) => sum + (p.successful_signals || 0), 0);
+      const totalPnl = patterns.reduce((sum: number, p: AiPatternPerformance) => sum + parseFloat(p.total_pnl || '0'), 0);
       
       const winRate = totalSignals > 0 ? successfulSignals / totalSignals : 0;
       const avgPnl = totalSignals > 0 ? totalPnl / totalSignals : 0;
       
       // Find best and worst patterns by win rate
-      const sortedPatterns = patterns.sort((a, b) => 
+      const sortedPatterns = patterns.sort((a: AiPatternPerformance, b: AiPatternPerformance) => 
         parseFloat(b.win_rate || '0') - parseFloat(a.win_rate || '0')
       );
       
