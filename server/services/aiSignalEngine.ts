@@ -474,8 +474,15 @@ export class AISignalEngine {
         ai_confidence: "High (GPT-4o Enhanced)",
         analysis_timestamp: new Date().toISOString(),
       } as AISignalReasoning;
-    } catch (err) {
-      this.deps.logger.warn?.("OpenAI reasoning failed — fallback to local.");
+    } catch (err: any) {
+      // Enhanced error handling for OpenAI API issues
+      if (err?.error?.type === 'insufficient_quota') {
+        this.deps.logger.warn?.("OpenAI quota exceeded — fallback to local.");
+      } else if (err?.code === 'rate_limit_exceeded') {
+        this.deps.logger.warn?.("OpenAI rate limit hit — fallback to local.");
+      } else {
+        this.deps.logger.warn?.("OpenAI reasoning failed — fallback to local.", err?.message);
+      }
       return {
         primary_factors: [
           `${dominant.name} detected @ ${(dominant.confidence * 100).toFixed(1)}%`,
