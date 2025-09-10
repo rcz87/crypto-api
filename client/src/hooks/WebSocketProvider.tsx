@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
+import { getWsBase } from '../lib/env';
 
 interface MarketData {
   type: string;
@@ -48,18 +49,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   const maxReconnectAttempts = 5;
 
   const getWebSocketUrl = () => {
-    if (typeof window === 'undefined') return '';
-    
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    
-    // For production domain
-    if (host === 'guardiansofthegreentoken.com') {
-      return 'wss://guardiansofthegreentoken.com/ws';
-    }
-    
-    // For development and Replit
-    return `${protocol}//${host}/ws`;
+    return getWsBase();
   };
 
   const connect = () => {

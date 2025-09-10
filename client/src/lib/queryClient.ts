@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getApiBase } from "./env";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -12,10 +13,8 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // Use current domain for development, production domain for production
-  const apiBase = window.location.hostname === 'localhost' || window.location.hostname.includes('replit') 
-    ? window.location.origin 
-    : 'https://guardiansofthegreentoken.com';
+  // Use environment-aware API base
+  const apiBase = getApiBase();
   const fullUrl = url.startsWith('http') ? url : `${apiBase}${url}`;
   
   console.log('API Request:', fullUrl);
@@ -37,10 +36,8 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // Use current domain for development, production domain for production
-    const apiBase = window.location.hostname === 'localhost' || window.location.hostname.includes('replit') 
-      ? window.location.origin 
-      : 'https://guardiansofthegreentoken.com';
+    // Use environment-aware API base
+    const apiBase = getApiBase();
     const endpoint = queryKey.join("/") as string;
     const fullUrl = endpoint.startsWith('http') ? endpoint : `${apiBase}${endpoint}`;
     
