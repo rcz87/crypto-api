@@ -115,6 +115,28 @@ export function TradingViewWidget({
     return map[String(interval)] ?? "60";
   }, [interval]);
 
+  const cleanupWidget = useCallback(() => {
+    if (widgetRef.current) {
+      try {
+        if (typeof widgetRef.current.remove === 'function') {
+          widgetRef.current.remove();
+        }
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      widgetRef.current = null;
+    }
+    
+    // Clear the container manually to prevent DOM conflicts
+    if (containerRef.current) {
+      try {
+        containerRef.current.innerHTML = '';
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+  }, []);
+
   const initWidget = useCallback(async () => {
     if (!isBrowser) return;
     if (!containerRef.current) return;
@@ -126,14 +148,8 @@ export function TradingViewWidget({
       await loadTradingViewScript();
       if (!window.TradingView?.widget) throw new Error("TradingView not available after load");
 
-      // Destroy previous widget if exists
-      if (widgetRef.current && typeof widgetRef.current.remove === 'function') {
-        try {
-          widgetRef.current.remove();
-        } catch (e) {
-          // Ignore destroy errors
-        }
-      }
+      // Clean up any existing widget first
+      cleanupWidget();
 
       widgetRef.current = new window.TradingView.widget({
         autosize: true,
@@ -181,15 +197,20 @@ export function TradingViewWidget({
       setHasError(true);
       setIsLoading(false);
     }
-  }, [tvSymbol, tvInterval, theme, studies]);
+  }, [tvSymbol, tvInterval, theme, studies, cleanupWidget]);
 
   // Initialize on mount & when inputs that require re-creation change
   useEffect(() => {
     if (didInit.current) return; // guard StrictMode
     didInit.current = true;
     initWidget();
+    
+    // Cleanup on unmount
+    return () => {
+      cleanupWidget();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initWidget]);
+  }, [initWidget, cleanupWidget]);
 
   return (
     <Card className="w-full">
