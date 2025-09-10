@@ -168,7 +168,7 @@ export function TradingViewWidget({
       
       widgetRef.current = new window.TradingView.widget({
         autosize: true,
-        symbol: tvSymbol,
+        symbol: "BINANCE:SOLUSDT", // Try simpler symbol first
         interval: tvInterval,
         timezone: "Etc/UTC",
         theme,
@@ -183,9 +183,9 @@ export function TradingViewWidget({
         hotlist: false,
         calendar: false,
         container_id: containerId,
-        studies,
+        studies: ["Volume"], // Simplify studies
         width: "100%",
-        height: "500",
+        height: 500,
         overrides: {
           "paneProperties.background": theme === "dark" ? "#111827" : "#ffffff",
           "paneProperties.vertGridProperties.color": theme === "dark" ? "#374151" : "#e5e7eb",
@@ -202,20 +202,31 @@ export function TradingViewWidget({
         loading_screen: {
           backgroundColor: theme === "dark" ? "#111827" : "#ffffff",
           foregroundColor: "#10B981",
-        },
-        onChartReady: () => {
-          console.log("TradingView: Chart ready!");
-          setIsLoading(false);
         }
       });
 
-      console.log("TradingView: Widget created, waiting for chart ready...");
+      console.log("TradingView: Widget created, checking iframe...");
       
-      // Fallback timeout in case onChartReady doesn't fire
+      // Use iframe check instead of onChartReady
+      const checkWidget = () => {
+        const iframe = document.querySelector(`#${containerId} iframe`);
+        if (iframe) {
+          console.log("TradingView: Widget iframe found, chart loaded!");
+          setIsLoading(false);
+        } else {
+          console.log("TradingView: Still waiting for iframe...");
+          setTimeout(checkWidget, 1000);
+        }
+      };
+      
+      // Start checking after initial delay
+      setTimeout(checkWidget, 2000);
+      
+      // Final fallback timeout
       setTimeout(() => {
-        console.log("TradingView: Fallback timeout triggered");
+        console.log("TradingView: Final fallback timeout triggered");
         setIsLoading(false);
-      }, 5000);
+      }, 10000);
       
     } catch (e) {
       console.error("TradingView init error:", e);
