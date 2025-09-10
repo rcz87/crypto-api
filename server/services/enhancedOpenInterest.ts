@@ -411,8 +411,8 @@ export class EnhancedOpenInterestService {
       ]);
       
       const baseOI = parseFloat(currentOI.oi);
-      const basePrice = parseFloat(currentTicker.last);
-      const baseVolume24h = parseFloat(currentTicker.vol24h);
+      const basePrice = parseFloat(currentTicker.price);
+      const baseVolume24h = parseFloat(currentTicker.tradingVolume24h);
       
       // Generate realistic historical progression based on market patterns
       for (let i = hours - 1; i >= 0; i--) {
@@ -462,7 +462,7 @@ export class EnhancedOpenInterestService {
       
       // Calculate based on funding rate and price momentum
       const funding = parseFloat(fundingRate.fundingRate);
-      const priceChange24h = parseFloat(ticker.changeInPrice24h) || 0;
+      const priceChange24h = parseFloat(ticker.change24h) || 0;
       
       // Positive funding = more longs, negative funding = more shorts
       const fundingBias = Math.tanh(funding * 10000) * 0.2; // Scale funding impact
