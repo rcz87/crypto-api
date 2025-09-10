@@ -140,7 +140,7 @@ export function TradingViewWidget({
   const initWidget = useCallback(async () => {
     if (!isBrowser || !containerRef.current) return;
 
-    console.log("TradingView: Starting simple widget initialization...");
+    console.log("TradingView: Starting widget initialization...");
     setIsLoading(true);
     setHasError(false);
 
@@ -161,15 +161,15 @@ export function TradingViewWidget({
 
       console.log("TradingView: Creating widget...");
       
-      // Clear container
+      // Clear container first
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
       }
       
-      // Create widget with proper config
-      new window.TradingView.widget({
+      // Store widget reference to prevent cleanup
+      const widget = new window.TradingView.widget({
         autosize: true,
-        symbol: tvSymbol, // Use tvSymbol from props, not hardcoded
+        symbol: tvSymbol,
         interval: tvInterval,
         timezone: "Etc/UTC",
         theme,
@@ -180,25 +180,34 @@ export function TradingViewWidget({
         hide_side_toolbar: false,
         allow_symbol_change: true,
         container_id: containerId,
-        studies: studies // Use studies from props
+        studies: studies,
+        onChartReady: () => {
+          console.log("TradingView: Chart ready, stopping loading");
+          setIsLoading(false);
+        }
       });
-
-      console.log("TradingView: Widget created");
       
-      // Simple timeout to hide loading
+      // Store widget reference
+      widgetRef.current = widget;
+
+      console.log("TradingView: Widget created successfully");
+      
+      // Fallback timeout
       setTimeout(() => {
-        console.log("TradingView: Setting loading to false");
-        setIsLoading(false);
-      }, 3000);
+        if (isLoading) {
+          console.log("TradingView: Fallback timeout - stopping loading");
+          setIsLoading(false);
+        }
+      }, 5000);
       
     } catch (e) {
       console.error("TradingView error:", e);
       setHasError(true);
       setIsLoading(false);
     }
-  }, [tvSymbol, tvInterval, theme, containerId]);
+  }, []); // Remove all dependencies to prevent re-creation
 
-  // Initialize on mount & when inputs that require re-creation change
+  // Initialize on mount only once
   useEffect(() => {
     if (didInit.current) return; // guard StrictMode
     didInit.current = true;
@@ -209,7 +218,7 @@ export function TradingViewWidget({
       cleanupWidget();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initWidget, cleanupWidget]);
+  }, []); // Empty deps array - only run once on mount
 
   return (
     <Card className="w-full h-[500px]">
