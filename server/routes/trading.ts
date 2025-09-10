@@ -2098,8 +2098,8 @@ export function registerTradingRoutes(app: Express): void {
       res.json({
         success: true,
         data: {
-          symbol_id: symbolId,
-          ...metrics
+          ...metrics,
+          symbol_id: symbolId
         },
         metadata: {
           source: 'CoinAPI',
@@ -2111,6 +2111,234 @@ export function registerTradingRoutes(app: Express): void {
     } catch (error) {
       const responseTime = Date.now() - startTime;
       console.error('Error in /api/coinapi/metrics:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // ===== REGIME DETECTION AUTOPILOT =====
+
+  /**
+   * Detect market regime for a symbol
+   * Example: /api/regime/detect/BINANCE_SPOT_SOL_USDT?lookback_hours=48
+   */
+  app.get('/api/regime/detect/:symbolId', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { symbolId } = req.params;
+      const { lookback_hours = '48' } = req.query;
+      
+      const { regimeDetectionService } = await import('../services/regimeDetection.js');
+      const regime = await regimeDetectionService.detectRegime(symbolId, parseInt(lookback_hours as string));
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: regime,
+        metadata: {
+          source: 'RegimeDetection',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/regime/detect:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get cached regime for a symbol (fast lookup)
+   * Example: /api/regime/cached/BINANCE_SPOT_SOL_USDT
+   */
+  app.get('/api/regime/cached/:symbolId', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { symbolId } = req.params;
+      
+      const { regimeDetectionService } = await import('../services/regimeDetection.js');
+      const cached_regime = regimeDetectionService.getCachedRegime(symbolId);
+      const responseTime = Date.now() - startTime;
+      
+      if (!cached_regime) {
+        return res.status(404).json({
+          success: false,
+          error: 'No cached regime data found for this symbol',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: cached_regime,
+        metadata: {
+          source: 'RegimeDetection_Cache',
+          response_time_ms: responseTime,
+          cached: true
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/regime/cached:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get regime strategy rules
+   * Example: /api/regime/strategy-rules
+   */
+  app.get('/api/regime/strategy-rules', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { regimeDetectionService } = await import('../services/regimeDetection.js');
+      const rules = regimeDetectionService.getRegimeRules();
+      const available_strategies = regimeDetectionService.getAvailableStrategies();
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          regime_rules: rules,
+          available_strategies,
+          description: {
+            trending: "Strong directional movement - favor momentum and breakout strategies",
+            ranging: "Sideways consolidation - favor mean reversion and scalping",
+            mean_revert: "Price pulling back to average - favor contrarian strategies",
+            high_vol: "High volatility environment - favor arbitrage and swing trades"
+          }
+        },
+        metadata: {
+          source: 'RegimeDetection',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/regime/strategy-rules:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Batch regime detection for multiple symbols
+   * Example: /api/regime/batch?symbols=BINANCE_SPOT_SOL_USDT,BINANCE_SPOT_BTC_USDT&lookback_hours=24
+   */
+  app.get('/api/regime/batch', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { symbols, lookback_hours = '48' } = req.query;
+      
+      if (!symbols) {
+        return res.status(400).json({
+          success: false,
+          error: 'Symbols parameter is required (comma-separated list)',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const { regimeDetectionService } = await import('../services/regimeDetection.js');
+      const symbol_list = (symbols as string).split(',').map(s => s.trim());
+      const lookback = parseInt(lookback_hours as string);
+      
+      const regime_promises = symbol_list.map(async (symbolId) => {
+        try {
+          return await regimeDetectionService.detectRegime(symbolId, lookback);
+        } catch (error) {
+          console.warn(`Failed to detect regime for ${symbolId}:`, error);
+          return null;
+        }
+      });
+      
+      const regimes = await Promise.all(regime_promises);
+      const successful_regimes = regimes.filter(r => r !== null);
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          requested_symbols: symbol_list.length,
+          successful_detections: successful_regimes.length,
+          regimes: successful_regimes
+        },
+        metadata: {
+          source: 'RegimeDetection',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/regime/batch:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Clear regime cache
+   * Example: /api/regime/clear-cache?symbol=BINANCE_SPOT_SOL_USDT (optional)
+   */
+  app.post('/api/regime/clear-cache', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { symbol } = req.query;
+      
+      const { regimeDetectionService } = await import('../services/regimeDetection.js');
+      regimeDetectionService.clearCache(symbol as string);
+      const responseTime = Date.now() - startTime;
+      
+      res.json({
+        success: true,
+        data: {
+          message: symbol ? `Cache cleared for ${symbol}` : 'All regime cache cleared',
+          symbol: symbol || 'all'
+        },
+        metadata: {
+          source: 'RegimeDetection',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/regime/clear-cache:', error);
       
       res.status(500).json({
         success: false,
