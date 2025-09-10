@@ -20,6 +20,70 @@ export const systemLogs = pgTable("system_logs", {
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
+// Enhanced AI Signal tracking tables
+export const aiSignals = pgTable("ai_signals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  signal_id: varchar("signal_id").notNull().unique(),
+  symbol: varchar("symbol").notNull(),
+  direction: text("direction").notNull(), // 'long', 'short', 'neutral'
+  strength: integer("strength").notNull(), // 0-100
+  confidence: integer("confidence").notNull(), // 0-100
+  patterns: jsonb("patterns"), // detected patterns with confidence
+  reasoning: jsonb("reasoning"), // AI reasoning and factors
+  execution_details: jsonb("execution_details"), // recommended entry, SL, TP
+  neural_features: jsonb("neural_features"), // feature vector used
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+export const aiExecutions = pgTable("ai_executions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  signal_id: varchar("signal_id").notNull(),
+  entry_price: decimal("entry_price", { precision: 10, scale: 4 }),
+  entry_time: timestamp("entry_time").defaultNow(),
+  position_size: decimal("position_size", { precision: 10, scale: 4 }),
+  stop_loss: decimal("stop_loss", { precision: 10, scale: 4 }),
+  take_profit_1: decimal("take_profit_1", { precision: 10, scale: 4 }),
+  take_profit_2: decimal("take_profit_2", { precision: 10, scale: 4 }),
+  risk_amount: decimal("risk_amount", { precision: 10, scale: 2 }),
+  execution_type: text("execution_type").default("manual"), // 'manual', 'auto', 'paper'
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+export const aiOutcomes = pgTable("ai_outcomes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  signal_id: varchar("signal_id").notNull().unique(),
+  exit_price: decimal("exit_price", { precision: 10, scale: 4 }),
+  exit_time: timestamp("exit_time"),
+  pnl: decimal("pnl", { precision: 10, scale: 2 }), // absolute P&L
+  pnl_percentage: decimal("pnl_percentage", { precision: 8, scale: 4 }), // percentage return
+  risk_reward_ratio: decimal("risk_reward_ratio", { precision: 6, scale: 2 }),
+  duration_minutes: integer("duration_minutes"),
+  exit_reason: text("exit_reason"), // 'stop_loss', 'take_profit', 'manual', 'time_exit'
+  was_successful: integer("was_successful"), // 1 for win, 0 for loss
+  confidence_validation: integer("confidence_validation"), // how well confidence matched outcome
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+export const aiPatternPerformance = pgTable("ai_pattern_performance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pattern_id: varchar("pattern_id").notNull().unique(),
+  pattern_name: varchar("pattern_name").notNull(),
+  total_signals: integer("total_signals").default(0),
+  successful_signals: integer("successful_signals").default(0),
+  failed_signals: integer("failed_signals").default(0),
+  win_rate: decimal("win_rate", { precision: 5, scale: 4 }).default("0"), // 0.0 to 1.0
+  avg_confidence: decimal("avg_confidence", { precision: 5, scale: 2 }).default("0"),
+  avg_pnl: decimal("avg_pnl", { precision: 10, scale: 2 }).default("0"),
+  total_pnl: decimal("total_pnl", { precision: 10, scale: 2 }).default("0"),
+  best_trade: decimal("best_trade", { precision: 10, scale: 2 }).default("0"),
+  worst_trade: decimal("worst_trade", { precision: 10, scale: 2 }).default("0"),
+  avg_duration_minutes: integer("avg_duration_minutes").default(0),
+  last_updated: timestamp("last_updated").defaultNow(),
+  adaptation_factor: decimal("adaptation_factor", { precision: 4, scale: 3 }).default("1.0"), // confidence multiplier
+  learning_velocity: decimal("learning_velocity", { precision: 4, scale: 3 }).default("0.1"), // how fast it adapts
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
 // OKX ticker data schema
 export const tickerSchema = z.object({
   symbol: z.string(),
@@ -1232,6 +1296,12 @@ export const screeningResponseSchema = z.object({
 export const insertScreenerRunSchema = createInsertSchema(screenerRuns);
 export const insertScreenerResultSchema = createInsertSchema(screenerResults);
 
+// Enhanced AI tracking insert schemas
+export const insertAiSignalSchema = createInsertSchema(aiSignals);
+export const insertAiExecutionSchema = createInsertSchema(aiExecutions);
+export const insertAiOutcomeSchema = createInsertSchema(aiOutcomes);
+export const insertAiPatternPerformanceSchema = createInsertSchema(aiPatternPerformance);
+
 // TypeScript types
 export type ScreenerRun = typeof screenerRuns.$inferSelect;
 export type ScreenerResult = typeof screenerResults.$inferSelect;
@@ -1243,3 +1313,13 @@ export type ScreeningResult = z.infer<typeof screeningResultSchema>;
 export type ScreeningResponse = z.infer<typeof screeningResponseSchema>;
 export type InsertScreenerRun = z.infer<typeof insertScreenerRunSchema>;
 export type InsertScreenerResult = z.infer<typeof insertScreenerResultSchema>;
+
+// Enhanced AI tracking types
+export type AiSignal = typeof aiSignals.$inferSelect;
+export type AiExecution = typeof aiExecutions.$inferSelect;
+export type AiOutcome = typeof aiOutcomes.$inferSelect;
+export type AiPatternPerformance = typeof aiPatternPerformance.$inferSelect;
+export type InsertAiSignal = z.infer<typeof insertAiSignalSchema>;
+export type InsertAiExecution = z.infer<typeof insertAiExecutionSchema>;
+export type InsertAiOutcome = z.infer<typeof insertAiOutcomeSchema>;
+export type InsertAiPatternPerformance = z.infer<typeof insertAiPatternPerformanceSchema>;
