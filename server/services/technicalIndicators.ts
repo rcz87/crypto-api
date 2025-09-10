@@ -1153,6 +1153,28 @@ export class TechnicalIndicatorsService {
   ): Promise<TechnicalIndicatorsAnalysis> {
     const startTime = Date.now();
     
+    // Validate candles data
+    if (!candles || !Array.isArray(candles) || candles.length === 0) {
+      console.warn('⚠️ Invalid candles data provided to analyzeTechnicalIndicators');
+      return {
+        rsi: { value: 50, signal: 'neutral', strength: 'weak', divergence: false, timestamp: new Date().toISOString() },
+        ema: { fast: 0, slow: 0, crossover: { status: 'neutral', strength: 'weak', confidence: 0 } },
+        macd: { value: 0, signal: 0, histogram: 0, trend: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
+        bollinger: { upper: 0, middle: 0, lower: 0, position: 'middle', squeeze: false, timestamp: new Date().toISOString() },
+        stochastic: { k: 50, d: 50, signal: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
+        cci: { value: 0, signal: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
+        parabolicSAR: { value: 0, trend: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
+        ichimoku: { tenkanSen: 0, kijunSen: 0, senkouSpanA: 0, senkouSpanB: 0, signal: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
+        obv: { value: 0, trend: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
+        williamsR: { value: -50, signal: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
+        signals: [],
+        overall: { signal: 'neutral', strength: 'weak', confidence: 0, factors: [] },
+        timestamp: new Date().toISOString(),
+        timeframe,
+        executionTimeMs: Date.now() - startTime
+      };
+    }
+    
     // Calculate RSI
     const rsiResults = this.calculateRSI(candles, 14);
     const currentRSI = rsiResults[rsiResults.length - 1];
