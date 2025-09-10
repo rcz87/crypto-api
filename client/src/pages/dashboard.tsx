@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+u munculimport { useQuery } from "@tanstack/react-query";
 import { useRef, useEffect, useState } from "react";
 import { SolCompleteData } from "@shared/schema";
 import { Database, AlertCircle, Radio, Target, TrendingUp } from "lucide-react";
