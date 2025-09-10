@@ -79,6 +79,12 @@ export interface EnhancedAISignal {
   };
 }
 
+export interface EnhancedAIDependencies {
+  technicalService?: TechnicalIndicatorsService;
+  cvdService?: CVDService;
+  confluenceService?: ConfluenceService;
+}
+
 export class EnhancedAISignalEngine {
   private patterns: Map<string, EnhancedMarketPattern> = new Map();
   private neuralModel: tf.LayersModel | null = null;
@@ -94,10 +100,11 @@ export class EnhancedAISignalEngine {
   private readonly LEARNING_RATE = 0.001;
   private readonly ADAPTATION_THRESHOLD = 0.7;
 
-  constructor() {
-    this.technicalService = new TechnicalIndicatorsService();
-    this.cvdService = new CVDService();
-    this.confluenceService = new ConfluenceService();
+  constructor(deps: EnhancedAIDependencies = {}) {
+    // Use injected services or create new instances as fallback
+    this.technicalService = deps.technicalService || new TechnicalIndicatorsService();
+    this.cvdService = deps.cvdService || new CVDService();
+    this.confluenceService = deps.confluenceService || new ConfluenceService();
     
     this.initializeEnhancedPatterns();
     this.initializeOpenAI();
@@ -414,7 +421,7 @@ export class EnhancedAISignalEngine {
       model.compile({
         optimizer: tf.train.adam(this.LEARNING_RATE),
         loss: 'meanSquaredError',
-        metrics: ['accuracy', 'meanAbsoluteError']
+        metrics: ['accuracy', 'mae']
       });
 
       this.neuralModel = model;
