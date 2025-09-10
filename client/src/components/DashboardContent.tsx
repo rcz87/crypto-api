@@ -7,7 +7,7 @@ import { APIDocumentation } from '@/components/api-documentation';
 import { RealTimeData } from '@/components/real-time-data';
 import { SystemLogs } from '@/components/system-logs';
 import { ConfigurationPanel } from '@/components/configuration-panel';
-import { TradingViewWidget } from '@/components/TradingViewWidget';
+import { SimpleTradingViewWidget } from '@/components/SimpleTradingViewWidget';
 import { TradingChart } from '@/components/TradingChart';
 import { EnhancedFundingRate } from '@/components/EnhancedFundingRate';
 import { AISignalDashboard } from '@/components/AISignalDashboard';
@@ -75,11 +75,10 @@ export const DashboardContent = ({
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Chart Utama</h2>
             <ErrorBoundary>
-              <TradingViewWidget 
-                data={solData} 
-                isConnected={wsConnected}
-                tvSymbol={selectedTvSymbol}
-                displaySymbol={selectedSymbol}
+              <SimpleTradingViewWidget 
+                symbol={selectedTvSymbol || "BINANCE:SOLUSDT"}
+                theme="dark"
+                height={500}
               />
             </ErrorBoundary>
             
