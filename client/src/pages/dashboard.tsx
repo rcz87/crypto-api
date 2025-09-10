@@ -30,9 +30,9 @@ export default function Dashboard() {
   // Keep REST API as fallback, but only fetch once since WebSocket provides real-time data
   const { data: marketData, isLoading: marketLoading, error: marketError } = useQuery<{ success: boolean; data: SolCompleteData; timestamp: string }>({
     queryKey: [`/api/${selectedPair.toLowerCase()}/complete`], // Use dynamic route for multi-coin support
-    refetchInterval: false, // Disable auto-refresh completely
-    retry: 1, // Allow one retry
-    staleTime: 30000, // Cache for 30 seconds
+    refetchInterval: 60000, // Refresh every 60 seconds as fallback
+    retry: 2, // Allow 2 retries
+    staleTime: 55000, // Cache for 55 seconds
     enabled: true, // Always enable the query
   });
 
