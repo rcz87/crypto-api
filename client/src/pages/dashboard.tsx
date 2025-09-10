@@ -15,16 +15,16 @@ export default function Dashboard() {
 
   const { data: healthData, isLoading: healthLoading, error: healthError } = useQuery({
     queryKey: ["/health"],
-    refetchInterval: false, // Disable auto-refresh to reduce errors
-    retry: 0, // No retry to prevent spam
-    staleTime: Infinity,
+    refetchInterval: 30000, // Refresh every 30 seconds
+    retry: 2, // Allow 2 retries
+    staleTime: 25000, // Consider stale after 25 seconds
   });
 
   const { data: metricsData, error: metricsError } = useQuery({
     queryKey: ["/api/metrics"],
-    refetchInterval: false, // Disable auto-refresh
-    retry: 0,
-    staleTime: Infinity,
+    refetchInterval: 30000, // Refresh every 30 seconds
+    retry: 2, // Allow 2 retries  
+    staleTime: 25000, // Consider stale after 25 seconds
   });
 
   // Keep REST API as fallback, but only fetch once since WebSocket provides real-time data
