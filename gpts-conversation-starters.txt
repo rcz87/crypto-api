@@ -1,0 +1,37 @@
+# GPTs Conversation Starters
+
+## Multi-Exchange Analysis
+"Analisis Bitcoin cross-exchange sekarang dan deteksi arbitrage opportunities"
+
+"Bandingkan harga ETH di Binance vs Coinbase dengan regime detection"
+
+"Cari arbitrage opportunities SOL dengan profit calculation real-time"
+
+"TWAP analysis BTC 24 jam untuk institutional execution timing"
+
+## Regime Detection & Strategy
+"Deteksi market regime SOL dan recommend strategies yang optimal"
+
+"Batch regime analysis BTC, ETH, SOL dengan strategy filtering"
+
+"Apa strategy yang allowed untuk current market regime?"
+
+"Monitor regime change signals dan impact ke trading strategies"
+
+## Portfolio & Correlation Analysis
+"Correlation matrix BTC-ETH-SOL untuk portfolio risk management"
+
+"Top 10 crypto by volume dengan metadata lengkap untuk diversification"
+
+"Cross-pair analysis dengan correlation-adjusted position sizing"
+
+"Portfolio rebalancing berdasarkan changing correlation patterns"
+
+## Institutional Analytics
+"VWAP deviation analysis SOL untuk professional entry timing"
+
+"Smart money flow analysis cross-exchange dengan whale detection"
+
+"Enhanced technical confluence BTC dengan multi-exchange validation"
+
+"Order flow analysis dengan institutional classification real-time"
