@@ -22,9 +22,6 @@ import { RiskManagementService, type PortfolioPosition } from "./services/riskMa
 import { LiquidationHeatMapService } from "./services/liquidationHeatMap";
 import { multiTimeframeService } from "./services/multiTimeframeAnalysis";
 import { EnhancedAISignalEngine } from "./services/enhancedAISignalEngine";
-import { TechnicalIndicatorsService } from "./services/technicalIndicators";
-import { CVDService } from "./services/cvd";
-import { ConfluenceService } from "./services/confluence";
 import { aiSignalEngine } from "./services/aiSignalEngine";
 import { executionRecorder } from "./services/executionRecorder";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema, positionCalculatorSchema, positionParamsSchema, riskDashboardSchema } from "@shared/schema";
