@@ -1756,5 +1756,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Start Enhanced AI Signal Engine schedulers for strategy evolution
+  aiSignalEngine.startSchedulers();
+  console.log("🚀 Enhanced AI Signal Engine schedulers started - auto evolution & cleanup enabled");
+  
   return httpServer;
 }

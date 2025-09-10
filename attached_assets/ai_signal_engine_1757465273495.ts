@@ -202,26 +202,13 @@ export class AISignalEngine {
   // === Public API ===
   async generateAISignal(symbol: string = "SOL-USDT-SWAP"): Promise<AISignal> {
     try {
-      const [fundingDataRaw, sentimentData] = await Promise.all([
+      const [fundingData, sentimentData] = await Promise.all<[
+        FundingData,
+        SentimentData
+      ]>([
         this.deps.fundingService.getEnhancedFundingRate(symbol),
         this.analyzeSentiment(symbol),
       ]);
-
-      // Convert enhanced funding data to expected format
-      const fundingData: FundingData = {
-        current: { fundingRate: fundingDataRaw.current.fundingRate },
-        alerts: { funding_squeeze_alert: fundingDataRaw.alerts.funding_squeeze_alert },
-        correlation_metrics: { funding_oi_correlation: fundingDataRaw.correlation_metrics.funding_oi_correlation },
-        market_structure: {
-          regime_classification: "neutral", // Convert from specific regime types
-          current_structure: "balanced",
-          liquidation_pressure: "normal"
-        },
-        signal_analysis: {
-          confidence_score: fundingDataRaw.signal_analysis?.confidence_score || 50,
-          conflicts_detected: fundingDataRaw.signal_analysis?.conflicts_detected?.map(c => typeof c === 'string' ? c : c.type || 'unknown') || []
-        },
-      };
 
       const technicalData: TechnicalData = { trend_direction: "neutral", trend_strength: 0.5 };
 
@@ -457,7 +444,7 @@ export class AISignalEngine {
       const prompt = `Analyze SOL-USDT-SWAP market data and provide institutional-grade JSON.\n\nPattern: ${dominant.name} (${(dominant.confidence * 100).toFixed(1)}% conf)\nFunding: ${fundingData?.current?.fundingRate ?? "N/A"}\nCVD ratio: ${marketData?.cvd?.buyerSellerAggression?.ratio ?? "N/A"}\nSMC trend: ${marketData?.smc?.trend ?? "N/A"}\nRSI: ${marketData?.technical?.rsi?.current ?? "N/A"}\nConfluence: ${marketData?.confluence?.overall ?? "N/A"}\n\nReturn JSON with keys: primary_factors[], supporting_evidence[], risk_factors[], market_context, educational_note`;
 
       const res = await this.openai.chat.completions.create({
-        model: "gpt-4o", // Changed from gpt-5 to gpt-4o (available model)
+        model: "gpt-5",
         messages: [
           { role: "system", content: "You are an institutional trading AI. Be precise, numeric, and concise." },
           { role: "user", content: prompt },
@@ -471,7 +458,7 @@ export class AISignalEngine {
       return {
         ...parsed,
         data_sources: "CVD, SMC, Technical, Confluence, Funding",
-        ai_confidence: "High (GPT-4o Enhanced)",
+        ai_confidence: "High (GPT-5 Enhanced)",
         analysis_timestamp: new Date().toISOString(),
       } as AISignalReasoning;
     } catch (err) {
@@ -785,15 +772,16 @@ export class AISignalEngine {
 
   private async evolveStrategies(): Promise<void> {
     this.deps.logger.log(`Evolving strategies — Generation ${this.currentGeneration + 1}`);
+    const elite = Array.from(this.strategies.values()).sort((a, b) => b.fitness_score - a.fitness_score).slice(0, 10);
     this.currentGeneration++;
-    // Additional evolution logic would go here
+    this.deps.logger.log(`Evolution complete — Elite: ${elite.length}`);
   }
 
   private cleanupHistory(): void {
-    const cutoff = Date.now() - this.SIGNAL_RETENTION_HOURS * 3600 * 1000;
-    this.signalHistory = this.signalHistory.filter(s => new Date(s.timestamp).getTime() > cutoff);
+    const cutoff = new Date(Date.now() - this.SIGNAL_RETENTION_HOURS * 3600 * 1000);
+    this.signalHistory = this.signalHistory.filter(s => new Date(s.timestamp) >= cutoff);
   }
 }
 
-// === Export singleton instance ===
+// Singleton (default deps)
 export const aiSignalEngine = new AISignalEngine();
