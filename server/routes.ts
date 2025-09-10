@@ -26,6 +26,7 @@ import { TechnicalIndicatorsService } from "./services/technicalIndicators";
 import { CVDService } from "./services/cvd";
 import { ConfluenceService } from "./services/confluence";
 import { aiSignalEngine } from "./services/aiSignalEngine";
+import { executionRecorder } from "./services/executionRecorder";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema, positionCalculatorSchema, positionParamsSchema, riskDashboardSchema } from "@shared/schema";
 
 // Create shared service instances with real OKX data
@@ -1768,6 +1769,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false,
         error: error instanceof Error ? error.message : 'Enhanced AI performance failed',
         timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // === ENHANCED AI PERFORMANCE TRACKING ENDPOINTS ===
+
+  // Record signal execution
+  app.post('/api/ai/tracking/execution', async (req: Request, res: Response) => {
+    try {
+      const { signal_id, entry_price, position_size, stop_loss, take_profit_1, execution_type } = req.body;
+      
+      if (!signal_id || !entry_price || !position_size) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields: signal_id, entry_price, position_size'
+        });
+      }
+      
+      const executionId = await executionRecorder.recordExecution(signal_id, {
+        entry_price: parseFloat(entry_price),
+        position_size: parseFloat(position_size),
+        stop_loss: stop_loss ? parseFloat(stop_loss) : undefined,
+        take_profit_1: take_profit_1 ? parseFloat(take_profit_1) : undefined,
+        execution_type: execution_type || 'manual'
+      });
+      
+      res.json({
+        success: true,
+        data: { execution_id: executionId, signal_id },
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to record execution'
+      });
+    }
+  });
+
+  // Record trade outcome
+  app.post('/api/ai/tracking/outcome', async (req: Request, res: Response) => {
+    try {
+      const { signal_id, exit_price, exit_reason } = req.body;
+      
+      if (!signal_id || !exit_price || !exit_reason) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields: signal_id, exit_price, exit_reason'
+        });
+      }
+      
+      await executionRecorder.recordOutcome(signal_id, {
+        exit_price: parseFloat(exit_price),
+        exit_time: new Date(),
+        exit_reason: exit_reason
+      });
+      
+      res.json({
+        success: true,
+        data: { signal_id, message: 'Outcome recorded and pattern performance updated' },
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to record outcome'
+      });
+    }
+  });
+
+  // Get overall AI performance statistics
+  app.get('/api/ai/tracking/overall-performance', async (req: Request, res: Response) => {
+    try {
+      const overallPerformance = await executionRecorder.getOverallPerformance();
+      
+      res.json({
+        success: true,
+        data: overallPerformance,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get overall performance'
       });
     }
   });
