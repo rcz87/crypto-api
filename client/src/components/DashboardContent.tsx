@@ -8,6 +8,7 @@ import { RealTimeData } from '@/components/real-time-data';
 import { SystemLogs } from '@/components/system-logs';
 import { ConfigurationPanel } from '@/components/configuration-panel';
 import { TradingViewWidget } from '@/components/TradingViewWidget';
+import { TradingChart } from '@/components/TradingChart';
 import { EnhancedFundingRate } from '@/components/EnhancedFundingRate';
 import { AISignalDashboard } from '@/components/AISignalDashboard';
 import { EnhancedOpenInterest } from '@/components/EnhancedOpenInterest';
@@ -329,10 +330,10 @@ export const DashboardContent = ({
               />
             </ErrorBoundary>
 
-            {/* TradingView Widget - Main Chart */}
+            {/* Market Data Overview */}
             <div className="mt-6">
               <ErrorBoundary>
-                <TradingViewWidget 
+                <TradingChart 
                   data={solData} 
                   isConnected={wsConnected}
                 />
