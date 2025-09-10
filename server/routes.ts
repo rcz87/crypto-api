@@ -20,6 +20,7 @@ import { LiquidationService } from "./services/liquidation";
 import { PositionCalculatorService } from "./services/positionCalculator";
 import { RiskManagementService, type PortfolioPosition } from "./services/riskManagement";
 import { LiquidationHeatMapService } from "./services/liquidationHeatMap";
+import { multiTimeframeService } from "./services/multiTimeframeAnalysis";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema, positionCalculatorSchema, positionParamsSchema, riskDashboardSchema } from "@shared/schema";
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
@@ -1229,6 +1230,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error serving plugin manifest:', error);
       res.status(500).json({ error: 'Plugin manifest not found' });
+    }
+  });
+
+  // Multi-Timeframe Analysis - Advanced institutional MTF confluence analysis
+  app.get('/api/sol/mtf-analysis', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      console.log('🔍 MTF Analysis request received');
+      
+      // Perform comprehensive multi-timeframe analysis
+      const mtfAnalysis = await multiTimeframeService.performMTFAnalysis('SOL-USDT-SWAP');
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Multi-timeframe analysis completed successfully',
+        details: `GET /api/sol/mtf-analysis - ${responseTime}ms - Overall bias: ${mtfAnalysis.confluence.overall_bias} (${mtfAnalysis.confluence.confidence}% confidence)`,
+      });
+      
+      console.log(`✅ MTF Analysis completed in ${responseTime}ms - ${mtfAnalysis.confluence.overall_bias} bias with ${mtfAnalysis.confluence.confidence}% confidence`);
+      
+      res.json({
+        success: true,
+        data: mtfAnalysis,
+        timestamp: new Date().toISOString(),
+        responseTime: `${responseTime}ms`
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('❌ Error in MTF Analysis:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Multi-timeframe analysis failed',
+        details: `GET /api/sol/mtf-analysis - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Multi-timeframe analysis failed',
+        timestamp: new Date().toISOString(),
+      });
     }
   });
 
