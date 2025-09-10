@@ -27,6 +27,18 @@ import { CVDService } from "./services/cvd";
 import { ConfluenceService } from "./services/confluence";
 import { aiSignalEngine } from "./services/aiSignalEngine";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema, positionCalculatorSchema, positionParamsSchema, riskDashboardSchema } from "@shared/schema";
+
+// Create shared service instances with real OKX data
+const sharedTechnicalService = new TechnicalIndicatorsService();
+const sharedCVDService = new CVDService();
+const sharedConfluenceService = new ConfluenceService();
+
+// Create Enhanced AI with real service dependencies
+const enhancedAISignalEngine = new EnhancedAISignalEngine({
+  technicalService: sharedTechnicalService,
+  cvdService: sharedCVDService,
+  confluenceService: sharedConfluenceService
+});
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
 import { backpressureManager } from "./utils/websocket";
