@@ -48,6 +48,9 @@ declare global {
 const isBrowser = typeof window !== "undefined";
 const TV_SRC = "https://s3.tradingview.com/tv.js";
 
+// Stabilize studies array - move outside component to prevent re-creation
+const DEFAULT_STUDIES = ["Volume", "RSI@tv-basicstudies", "MACD@tv-basicstudies"];
+
 function loadTradingViewScript(): Promise<void> {
   if (!isBrowser) return Promise.resolve();
   if (window.TradingView && window.TradingView.widget) return Promise.resolve();
@@ -84,7 +87,7 @@ export function TradingViewWidget({
   displaySymbol = "SOL/USDT-PERP",
   interval = "1H",
   theme = "dark",
-  studies = ["Volume", "RSI@tv-basicstudies", "MACD@tv-basicstudies"],
+  studies = DEFAULT_STUDIES,
 }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetRef = useRef<any>(null);
@@ -93,6 +96,9 @@ export function TradingViewWidget({
   const [hasError, setHasError] = useState(false);
   const [containerId] = useState(() => `tradingview_widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
 
+  // Stabilize studies to prevent re-render loop
+  const stableStudies = useMemo(() => studies, []);
+  
   const ticker = data?.ticker as TickerShape | undefined;
   const price = useMemo(() => {
     return parseNumber(ticker?.price ?? ticker?.last, 0);
@@ -169,7 +175,7 @@ export function TradingViewWidget({
       // Store widget reference to prevent cleanup
       const widget = new window.TradingView.widget({
         autosize: true,
-        symbol: tvSymbol,
+        symbol: tvSymbol, // Use prop, not hardcoded
         interval: tvInterval,
         timezone: "Etc/UTC",
         theme,
@@ -180,7 +186,7 @@ export function TradingViewWidget({
         hide_side_toolbar: false,
         allow_symbol_change: true,
         container_id: containerId,
-        studies: studies,
+        studies: stableStudies, // Use stable reference
         onChartReady: () => {
           console.log("TradingView: Chart ready, stopping loading");
           setIsLoading(false);
@@ -205,26 +211,25 @@ export function TradingViewWidget({
       setHasError(true);
       setIsLoading(false);
     }
-  }, []); // Remove all dependencies to prevent re-creation
+  }, [tvSymbol, tvInterval, theme, containerId]); // Only stable dependencies
 
-  // Initialize ONLY ONCE on mount - no dependencies to prevent re-creation
+  // Initialize on mount, re-init only when critical params change
   useEffect(() => {
-    // Prevent double initialization in StrictMode
-    if (didInit.current) {
-      console.log("TradingView: Already initialized, skipping...");
-      return;
-    }
+    console.log("TradingView: Initializing with:", { tvSymbol, tvInterval, theme });
     
-    didInit.current = true;
-    console.log("TradingView: First time initialization");
+    // Always cleanup previous widget first
+    cleanupWidget();
+    
+    // Reset init flag and initialize
+    didInit.current = false;
     initWidget();
     
-    // Cleanup only on component unmount
+    // Cleanup on unmount or before re-init
     return () => {
-      console.log("TradingView: Component unmounting, cleaning up");
+      console.log("TradingView: Cleaning up for re-init or unmount");
       cleanupWidget();
     };
-  }, []); // CRITICAL: Empty deps array - run only once
+  }, [tvSymbol, tvInterval, theme, initWidget]); // Re-init when these change
 
   return (
     <Card className="w-full h-[500px]">
