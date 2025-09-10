@@ -567,18 +567,18 @@ export class EnhancedAISignalEngine {
     
     return cache.getSingleFlight(cacheKey, async () => {
       if (!this.neuralModel) {
-      return {
-        direction: 'neutral',
-        confidence: 50,
-        price_target: 0,
-        time_horizon: '1H',
-        risk_level: 'medium',
-        supporting_patterns: [],
-        neural_features: features
-      };
-    }
+        return {
+          direction: 'neutral',
+          confidence: 50,
+          price_target: 0,
+          time_horizon: '1H',
+          risk_level: 'medium',
+          supporting_patterns: [],
+          neural_features: features
+        };
+      }
 
-    try {
+      try {
       const inputTensor = tf.tensor2d([features]);
       const prediction = this.neuralModel.predict(inputTensor) as tf.Tensor;
       const predictionData = await prediction.data();
@@ -599,27 +599,28 @@ export class EnhancedAISignalEngine {
         riskRaw < 0.33 ? 'low' : 
         riskRaw < 0.66 ? 'medium' : 'high';
 
-      return {
-        direction,
-        confidence,
-        price_target: 0, // Will be calculated elsewhere
-        time_horizon: '1H',
-        risk_level: riskLevel,
-        supporting_patterns: [],
-        neural_features: features
-      };
+        return {
+          direction,
+          confidence,
+          price_target: 0, // Will be calculated elsewhere
+          time_horizon: '1H',
+          risk_level: riskLevel,
+          supporting_patterns: [],
+          neural_features: features
+        };
 
-    } catch (error) {
-      console.error('Enhanced AI: Neural prediction error:', error);
-      return {
-        direction: 'neutral',
-        confidence: 50,
-        price_target: 0,
-        time_horizon: '1H',
-        risk_level: 'medium',
-        supporting_patterns: [],
-        neural_features: features
-      };
+      } catch (error) {
+        console.error('Enhanced AI: Neural prediction error:', error);
+        return {
+          direction: 'neutral',
+          confidence: 50,
+          price_target: 0,
+          time_horizon: '1H',
+          risk_level: 'medium',
+          supporting_patterns: [],
+          neural_features: features
+        };
+      }
     }, TTL_CONFIG.AI_PREDICTION);
   }
 
