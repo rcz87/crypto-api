@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from 'express';
 import { okxService } from '../services/okx.js';
+import { coinAPIService } from '../services/coinapi.js';
 import { premiumOrderbookService } from '../services/premiumOrderbook.js';
 import { CVDService } from '../services/cvd.js';
 import { ConfluenceService } from '../services/confluence.js';
@@ -1367,6 +1368,222 @@ export function registerTradingRoutes(app: Express): void {
         error: 'Failed to fetch signal history',
         timestamp: new Date().toISOString(),
         responseTime
+      });
+    }
+  });
+
+  // ===== CoinAPI Multi-Exchange Endpoints =====
+  
+  /**
+   * Get quote from specific exchange via CoinAPI
+   * Example: /api/coinapi/quote/BINANCE_SPOT_SOL_USDT
+   */
+  app.get('/api/coinapi/quote/:symbolId', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { symbolId } = req.params;
+      const quote = await coinAPIService.getQuote(symbolId);
+      const responseTime = Date.now() - startTime;
+      
+      await storage.updateMetrics(responseTime);
+      
+      res.json({
+        success: true,
+        data: quote,
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/quote:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get multi-exchange ticker for an asset
+   * Example: /api/coinapi/multi-ticker/SOL
+   */
+  app.get('/api/coinapi/multi-ticker/:asset', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { asset } = req.params;
+      const tickers = await coinAPIService.getMultiExchangeTicker(asset.toUpperCase());
+      const responseTime = Date.now() - startTime;
+      
+      await storage.updateMetrics(responseTime);
+      
+      res.json({
+        success: true,
+        data: {
+          asset: asset.toUpperCase(),
+          exchanges: tickers.length,
+          tickers: tickers
+        },
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/multi-ticker:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get best price across exchanges
+   * Example: /api/coinapi/best-price/SOL or /api/coinapi/best-price/SOL/USDT
+   */
+  app.get('/api/coinapi/best-price/:asset/:quoteAsset?', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { asset, quoteAsset = 'USDT' } = req.params;
+      const bestPrice = await coinAPIService.getBestPrice(asset.toUpperCase(), quoteAsset.toUpperCase());
+      const responseTime = Date.now() - startTime;
+      
+      await storage.updateMetrics(responseTime);
+      
+      res.json({
+        success: true,
+        data: {
+          asset: asset.toUpperCase(),
+          quote_asset: quoteAsset.toUpperCase(),
+          ...bestPrice
+        },
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/best-price:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get arbitrage opportunities across exchanges
+   * Example: /api/coinapi/arbitrage/SOL
+   */
+  app.get('/api/coinapi/arbitrage/:asset', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { asset } = req.params;
+      const arbitrage = await coinAPIService.getArbitrageOpportunities(asset.toUpperCase());
+      const responseTime = Date.now() - startTime;
+      
+      await storage.updateMetrics(responseTime);
+      
+      res.json({
+        success: true,
+        data: {
+          asset: asset.toUpperCase(),
+          total_opportunities: arbitrage.opportunities.length,
+          ...arbitrage
+        },
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/arbitrage:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Get exchange rate for any asset pair
+   * Example: /api/coinapi/rate/BTC/USD
+   */
+  app.get('/api/coinapi/rate/:base/:quote?', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { base, quote = 'USD' } = req.params;
+      const rate = await coinAPIService.getExchangeRate(base.toUpperCase(), quote.toUpperCase());
+      const responseTime = Date.now() - startTime;
+      
+      await storage.updateMetrics(responseTime);
+      
+      res.json({
+        success: true,
+        data: rate,
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/coinapi/rate:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * CoinAPI health check
+   */
+  app.get('/api/coinapi/health', async (req: Request, res: Response) => {
+    try {
+      const health = await coinAPIService.healthCheck();
+      
+      res.json({
+        success: true,
+        data: health,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'CoinAPI health check failed',
+        timestamp: new Date().toISOString(),
       });
     }
   });
