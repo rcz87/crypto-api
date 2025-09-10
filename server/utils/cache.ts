@@ -4,6 +4,8 @@ interface CacheEntry<T> {
   data: T;
   timestamp: number;
   ttl: number;
+  accessedAt: number;
+  accessCount: number;
 }
 
 interface SingleFlightEntry<T> {
@@ -39,16 +41,23 @@ class TTLCache {
       return null;
     }
 
+    // Update access tracking for LRU
+    entry.accessedAt = Date.now();
+    entry.accessCount++;
+    
     metricsCollector.recordCacheHit();
     return entry.data;
   }
 
   // Set data with TTL
   set<T>(key: string, data: T, ttlMs: number): void {
+    const now = Date.now();
     this.cache.set(key, {
       data,
-      timestamp: Date.now(),
-      ttl: ttlMs
+      timestamp: now,
+      ttl: ttlMs,
+      accessedAt: now,
+      accessCount: 0
     });
     metricsCollector.updateCacheSize(this.cache.size);
   }
@@ -91,7 +100,7 @@ class TTLCache {
     return promise;
   }
 
-  // Manual cleanup for expired entries
+  // Enhanced cleanup with LRU eviction
   private cleanup(): void {
     const now = Date.now();
     
@@ -111,7 +120,24 @@ class TTLCache {
       }
     }
 
+    // LRU eviction if cache gets too large (memory optimization)
+    if (this.cache.size > 1000) {
+      this.evictLRU();
+    }
+
     metricsCollector.updateCacheSize(this.cache.size);
+  }
+
+  // LRU eviction for memory optimization
+  private evictLRU(): void {
+    const entries = Array.from(this.cache.entries());
+    entries.sort((a, b) => a[1].accessedAt - b[1].accessedAt);
+    
+    // Remove oldest 20% of entries
+    const toRemove = Math.floor(entries.length * 0.2);
+    for (let i = 0; i < toRemove; i++) {
+      this.cache.delete(entries[i][0]);
+    }
   }
 
   // Get cache stats
@@ -138,17 +164,21 @@ class TTLCache {
   }
 }
 
-// TTL configurations
+// Optimized TTL configurations for better cache hit ratio
 export const TTL_CONFIG = {
-  TICKER: 2500,     // 2.5s - high frequency data
-  TRADES: 2500,     // 2.5s - real-time trades
-  ORDERBOOK: 1500,  // 1.5s - order book updates
-  CANDLES: 90000,   // 90s - candlestick data
-  FUNDING: 30000,   // 30s - funding rates
-  OI: 30000,        // 30s - open interest
-  VOLUME: 30000,    // 30s - volume profile
-  SMC: 10000,       // 10s - SMC analysis
-  HEALTH: 5000      // 5s - health checks
+  TICKER: 3000,     // 3s - high frequency data (increased for better hits)
+  TRADES: 3000,     // 3s - real-time trades 
+  ORDERBOOK: 2000,  // 2s - order book updates
+  CANDLES: 120000,  // 2min - candlestick data (increased)
+  FUNDING: 60000,   // 60s - funding rates (increased)
+  OI: 45000,        // 45s - open interest (increased)
+  VOLUME: 45000,    // 45s - volume profile (increased)
+  SMC: 30000,       // 30s - SMC analysis (increased significantly)
+  HEALTH: 10000,    // 10s - health checks (increased)
+  AI_FEATURES: 180000,  // 3min - AI feature extraction
+  AI_PREDICTION: 120000, // 2min - AI predictions
+  TECHNICAL: 60000,      // 60s - technical analysis
+  PATTERNS: 300000       // 5min - pattern analysis
 };
 
 export const cache = new TTLCache();
