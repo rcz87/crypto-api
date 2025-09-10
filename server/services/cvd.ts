@@ -827,7 +827,7 @@ export class CVDService {
     absorptionPatterns: AbsorptionPattern[], 
     manipulationType: string
   ): Array<{ price: number; type: string; confidence: number }> {
-    const targets = [];
+    const targets: Array<{ price: number; type: string; confidence: number }> = [];
     
     if (recentBars.length < 3) return targets;
     
