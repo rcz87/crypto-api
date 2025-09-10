@@ -138,19 +138,34 @@ export function TradingViewWidget({
   }, []);
 
   const initWidget = useCallback(async () => {
-    if (!isBrowser) return;
-    if (!containerRef.current) return;
+    if (!isBrowser) {
+      console.log("TradingView: Not in browser environment");
+      return;
+    }
+    if (!containerRef.current) {
+      console.log("TradingView: Container ref not available");
+      return;
+    }
 
+    console.log("TradingView: Starting widget initialization...");
     setIsLoading(true);
     setHasError(false);
 
     try {
+      console.log("TradingView: Loading script...");
       await loadTradingViewScript();
-      if (!window.TradingView?.widget) throw new Error("TradingView not available after load");
+      
+      if (!window.TradingView?.widget) {
+        throw new Error("TradingView not available after script load");
+      }
+      
+      console.log("TradingView: Script loaded successfully, creating widget...");
 
       // Clean up any existing widget first
       cleanupWidget();
 
+      console.log(`TradingView: Creating widget with symbol ${tvSymbol}, container ${containerId}`);
+      
       widgetRef.current = new window.TradingView.widget({
         autosize: true,
         symbol: tvSymbol,
@@ -188,16 +203,26 @@ export function TradingViewWidget({
           backgroundColor: theme === "dark" ? "#111827" : "#ffffff",
           foregroundColor: "#10B981",
         },
+        onChartReady: () => {
+          console.log("TradingView: Chart ready!");
+          setIsLoading(false);
+        }
       });
 
-      // Wait for widget to fully initialize
-      setTimeout(() => setIsLoading(false), 800);
+      console.log("TradingView: Widget created, waiting for chart ready...");
+      
+      // Fallback timeout in case onChartReady doesn't fire
+      setTimeout(() => {
+        console.log("TradingView: Fallback timeout triggered");
+        setIsLoading(false);
+      }, 5000);
+      
     } catch (e) {
-      console.error("TV init error", e);
+      console.error("TradingView init error:", e);
       setHasError(true);
       setIsLoading(false);
     }
-  }, [tvSymbol, tvInterval, theme, studies, cleanupWidget]);
+  }, [tvSymbol, tvInterval, theme, studies, cleanupWidget, containerId]);
 
   // Initialize on mount & when inputs that require re-creation change
   useEffect(() => {
