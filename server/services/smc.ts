@@ -282,10 +282,10 @@ export class SMCService {
                               oiUsd > 1e6 ? `${(oiUsd / 1e6).toFixed(1)}M` : 
                               `${(oiUsd / 1e3).toFixed(1)}K`;
       
-      // Analyze flow based on real data correlation
-      const priceOICorrelation = oiData.correlation_metrics.oi_price_correlation;
-      const flowSignal = priceOICorrelation > 0.7 ? 'trending' : 
-                        priceOICorrelation < -0.7 ? 'reversal' : 'absorption';
+      // Analyze flow based on real data correlation  
+      const priceOICorrelation = oiData.correlation_metrics?.oi_price_correlation || 0;
+      const flowSignal = priceOICorrelation > 0.7 ? 'distribution' : 
+                        priceOICorrelation < -0.7 ? 'neutral' : 'absorption';
       const flowStrength = Math.abs(priceOICorrelation) > 0.8 ? 'strong' : 
                           Math.abs(priceOICorrelation) > 0.5 ? 'medium' : 'weak';
       
@@ -302,7 +302,7 @@ export class SMCService {
           extremeLevel: isExtreme
         },
         flowAnalysis: {
-          signal: flowSignal as 'trending' | 'reversal' | 'absorption',
+          signal: flowSignal as 'neutral' | 'absorption' | 'distribution',
           strength: flowStrength as 'strong' | 'medium' | 'weak',
           description: `${flowSignal} detected with ${flowStrength} correlation (${priceOICorrelation.toFixed(2)})`
         }
@@ -328,7 +328,7 @@ export class SMCService {
           fundingRate: {
             current: `${(parseFloat(fundingRate.fundingRate) * 100).toFixed(4)}%`,
             next: "Real calculation",
-            sentiment: parseFloat(fundingRate.fundingRate) > 0 ? 'bullish' : 'bearish' as const,
+            sentiment: (parseFloat(fundingRate.fundingRate) > 0 ? 'bullish' : 'bearish') as 'bullish' | 'bearish' | 'neutral',
             extremeLevel: Math.abs(parseFloat(fundingRate.fundingRate)) > 0.01
           },
           flowAnalysis: {
