@@ -308,19 +308,33 @@ export const DashboardContent = ({
           </div>
         );
 
-      // DEFAULT: Show overview
+      // DEFAULT: Show overview with TradingView
       default:
         return (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Dashboard Overview</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Status Overview */}
+            <ErrorBoundary>
+              <StatusOverview 
+                healthData={healthData?.data} 
+                metricsData={metricsData?.data}
+                isLoading={healthLoading}
+              />
+            </ErrorBoundary>
+
+            {/* TradingView Widget - Main Chart */}
+            <div className="mt-6">
               <ErrorBoundary>
-                <StatusOverview 
-                  healthData={healthData?.data} 
-                  metricsData={metricsData?.data}
-                  isLoading={healthLoading}
+                <TradingViewWidget 
+                  data={solData} 
+                  isConnected={wsConnected}
                 />
               </ErrorBoundary>
+            </div>
+
+            {/* Real-time Data */}
+            <div className="mt-6">
               <ErrorBoundary>
                 <RealTimeData 
                   solData={solData} 
