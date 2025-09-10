@@ -166,11 +166,10 @@ export function TradingViewWidget({
         containerRef.current.innerHTML = '';
       }
       
-      // Create widget with minimal config
+      // Create widget with proper config
       new window.TradingView.widget({
-        width: "100%",
-        height: 500,
-        symbol: tvSymbol,
+        autosize: true,
+        symbol: tvSymbol, // Use tvSymbol from props, not hardcoded
         interval: tvInterval,
         timezone: "Etc/UTC",
         theme,
@@ -180,7 +179,8 @@ export function TradingViewWidget({
         enable_publishing: false,
         hide_side_toolbar: false,
         allow_symbol_change: true,
-        container_id: containerId
+        container_id: containerId,
+        studies: studies // Use studies from props
       });
 
       console.log("TradingView: Widget created");
@@ -212,7 +212,7 @@ export function TradingViewWidget({
   }, [initWidget, cleanupWidget]);
 
   return (
-    <Card className="w-full">
+    <Card className="w-full h-[500px]">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -260,8 +260,9 @@ export function TradingViewWidget({
         <div
           id={containerId}
           ref={containerRef}
-          className="w-full h-[500px] bg-gray-900 border border-gray-700 rounded-lg relative overflow-hidden"
+          className="w-full h-full bg-gray-900 border border-gray-700 rounded-lg relative overflow-hidden"
           data-testid="tradingview-chart"
+          style={{ minHeight: "500px" }}
         >
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white z-10">

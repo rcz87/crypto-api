@@ -1,0 +1,53 @@
+Berikut analisis cepat terhadap TradingViewWidget.tsx dan beberapa dugaan penyebab widget TradingView tidak muncul:
+
+📋 Analisis Kode
+Bagian Kode	Temuan & Potensi Masalah
+Pengunduh skrip	Kode memuat skrip TradingView dari https://s3.tradingview.com/tv.js. Jika file ini diblokir oleh firewall, CSP (Content‑Security‑Policy) atau ad‑blocker, widget tidak akan pernah terinisialisasi.
+Inisialisasi widget	Saat membuat widget, kode selalu menggunakan simbol BINANCE:SOLUSDT yang di-hardcode. Properti tvSymbol yang Anda kirimkan tidak pernah digunakan, sehingga chart tidak berubah sesuai input.
+Ukuran & opsi	autosize: true dikombinasikan dengan width: "100%" dan height: 500. Dokumentasi TradingView menyarankan untuk tidak mencampur autosize dengan parameter ukuran manual, karena dapat membuat iframe tidak terlihat atau berukuran 0 px.
+SSR & Lifecycle	Komponen menggunakan use client dan pengecekan window untuk menghindari error SSR. Namun, jika komponen dirender di server (misal melalui import biasa di Next.js tanpa dynamic(() => import(...), { ssr: false })), window tetap undefined dan widget tidak akan dibuat.
+🧾 Checklist Diagnosa & Perbaikan
+
+Pastikan Skrip Dimuat
+
+Cek console browser. Apakah ada error “TradingView script failed”? Jika ya, buka Network tab untuk melihat apakah https://s3.tradingview.com/tv.js diblokir.
+
+Jika CSP ketat, tambahkan host s3.tradingview.com ke script-src dan child-src pada konfigurasi Next.js atau meta tag halaman.
+
+Gunakan Properti tvSymbol
+
+Ubah symbol: "BINANCE:SOLUSDT" menjadi symbol: tvSymbol pada inisialisasi widget agar simbol bisa diatur dari props.
+
+Pastikan nilai tvSymbol valid (misal "BINANCE:SOLUSDT", "OKX:SOLUSDTPERP").
+
+Konsistensi Ukuran
+
+Pilih salah satu:
+a. Gunakan autosize: true tanpa width dan height.
+b. Atur width dan height secara eksplisit (mis. width: "100%", height: 500) dan hapus autosize.
+
+Pastikan parent container memiliki tinggi yang cukup; misalnya di CSS Tailwind Anda sudah menyiapkan h-[500px].
+
+Hapus studies Hardcoded & Gunakan Prop
+
+Saat ini studies: ["Volume"] di-hardcode. Jika Anda ingin menampilkan indikator lain (RSI, MACD), gunakan studies dari props: studies: studies.
+
+Integrasi di Next.js
+
+Jika aplikasi menggunakan Next.js app router, impor komponen ini secara dinamis:
+
+const TradingViewWidget = dynamic(
+  () => import("@/components/TradingViewWidget"),
+  { ssr: false }
+);
+
+
+Pastikan komponen hanya dieksekusi di client (tidak dalam layout server).
+
+Periksa Ad‑Blocker / Mode Pribadi
+
+Beberapa extension memblokir widget TradingView. Coba jalankan aplikasi di browser tanpa ekstensi atau di incognito mode.
+
+💡 TL;DR
+
+Widget TradingView Anda tidak muncul kemungkinan karena skrip tv.js gagal dimuat atau komponennya belum sepenuhnya client‑side. Di kode Anda, simbol chart di-hardcode ke "BINANCE:SOLUSDT" dan campuran autosize dengan parameter tinggi/width bisa membuat iframe 0 px. Pastikan skrip diizinkan oleh CSP, ubah symbol menjadi tvSymbol, gunakan salah satu opsi ukuran saja, dan impor komponen secara dinamis di Next.js agar hanya dijalankan di client. Setelah itu, chart biasanya akan tampil tanpa masalah.
