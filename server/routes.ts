@@ -103,10 +103,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Apply middleware AFTER SEO routes
   app.use('/api', rateLimit);
   
-  // Multi-coin screening routes (setelah rate limiting)
+  // Mount the modules screener router first (has GET /api/screener endpoint frontend needs)
+  app.use('/api/screener', screenerRouter);
+  
+  // Mount the screening-module router at different path to avoid conflicts
   try {
     const { screenerRouter: moduleScreenerRouter } = await import('../screening-module/backend/screener/screener.routes.js');
-    app.use('/api/screener', moduleScreenerRouter);
+    app.use('/api/screening', moduleScreenerRouter);
   } catch (error) {
     console.error('Failed to load screening module router:', error);
   }
@@ -1375,7 +1378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get enhanced premium analytics
-      const enhancedMetrics = premiumOrderbookService.getEnhancedMetrics();
+      const enhancedMetrics = await premiumOrderbookService.getEnhancedMetrics();
       const responseTime = Date.now() - startTime;
       
       res.json({
@@ -1438,7 +1441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get comprehensive institutional analytics
-      const enhancedMetrics = premiumOrderbookService.getEnhancedMetrics();
+      const enhancedMetrics = await premiumOrderbookService.getEnhancedMetrics();
       const responseTime = Date.now() - startTime;
       
       res.json({
