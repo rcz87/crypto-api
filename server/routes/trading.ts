@@ -1342,7 +1342,115 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
-  // Confluence Analysis endpoint (8-layer SharpSignalEngine)
+  // Multi-pair Confluence Analysis endpoint (8-layer SharpSignalEngine) - supports all 65 coins
+  app.get('/api/:pair/confluence', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      const timeframe = req.query.timeframe as string || '1H';
+      const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          supported_format: 'btc, eth, sol, ada, etc.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const tradingSymbol = validation.symbol;
+      const baseSymbol = tradingSymbol.replace('-USDT-SWAP', '');
+      
+      // Initialize services
+      const confluenceService = new ConfluenceService();
+      const cvdService = new CVDService(okxService);
+      const technicalService = new TechnicalIndicatorsService();
+      const fibonacciService = new FibonacciService();
+      const orderFlowService = new OrderFlowService();
+      
+      // Fetch all required data for confluence analysis in parallel
+      const [
+        smcData,
+        candlesData,
+        tradesData,
+        volumeProfileData,
+        fundingData,
+        openInterestData,
+        orderBookData
+      ] = await Promise.all([
+        okxService.getSMCAnalysis(baseSymbol + '-USDT', timeframe, limit),
+        okxService.getCandles(baseSymbol + '-USDT', timeframe, limit),
+        okxService.getRecentTrades(baseSymbol + '-USDT', 200),
+        okxService.getVolumeProfile(baseSymbol + '-USDT'),
+        okxService.getFundingRate(tradingSymbol),
+        okxService.getOpenInterest(tradingSymbol),
+        okxService.getOrderBook(baseSymbol + '-USDT')
+      ]);
+
+      // Generate analysis from services
+      const [cvdAnalysis, technicalAnalysis, fibonacciAnalysis, orderFlowAnalysis] = await Promise.all([
+        cvdService.analyzeCVD(candlesData, tradesData, timeframe),
+        technicalService.analyzeTechnicalIndicators(candlesData, timeframe),
+        fibonacciService.analyzeFibonacci(candlesData, timeframe),
+        orderFlowService.analyzeOrderFlow(tradesData, orderBookData, timeframe)
+      ]);
+      
+      // Calculate confluence score with real data
+      const analysisData = await confluenceService.calculateConfluenceScore(
+        smcData,
+        cvdAnalysis,
+        volumeProfileData,
+        fundingData,
+        openInterestData,
+        technicalAnalysis,
+        fibonacciAnalysis,
+        orderFlowAnalysis,
+        timeframe
+      );
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Confluence analysis request completed',
+        details: `GET /api/${pair}/confluence - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+      });
+      
+      res.json({
+        success: true,
+        data: analysisData,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/confluence:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Confluence analysis request failed',
+        details: `GET /api/${pair}/confluence - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Legacy SOL confluence endpoint for backward compatibility  
   app.get('/api/sol/confluence', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
@@ -1548,7 +1656,76 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
-  // Fibonacci Analysis endpoint
+  // Multi-pair Fibonacci Analysis endpoint - supports all 65 coins
+  app.get('/api/:pair/fibonacci', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      const timeframe = req.query.timeframe as string || '1H';
+      const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          supported_format: 'btc, eth, sol, ada, etc.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const baseSymbol = validation.symbol.replace('-USDT-SWAP', '');
+      
+      // Initialize Fibonacci service
+      const fibonacciService = new FibonacciService();
+      
+      // Get candles data for Fibonacci analysis
+      const candles = await okxService.getCandles(baseSymbol + '-USDT', timeframe, limit);
+      
+      // Perform Fibonacci analysis
+      const fibonacciAnalysis = await fibonacciService.analyzeFibonacci(candles, timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Fibonacci analysis request completed',
+        details: `GET /api/${pair}/fibonacci - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+      });
+      
+      res.json({
+        success: true,
+        data: fibonacciAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/fibonacci:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Fibonacci analysis request failed',
+        details: `GET /api/${pair}/fibonacci - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Legacy SOL Fibonacci endpoint for backward compatibility
   app.get('/api/sol/fibonacci', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
@@ -1600,7 +1777,80 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
-  // Order Flow Analysis endpoint
+  // Multi-pair Order Flow Analysis endpoint - supports all 65 coins  
+  app.get('/api/:pair/order-flow', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      const timeframe = req.query.timeframe as string || '1H';
+      const tradeLimit = Math.max(1, Math.min(1000, parseInt(req.query.tradeLimit as string) || parseInt(req.query.limit as string) || 200));
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          supported_format: 'btc, eth, sol, ada, etc.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const baseSymbol = validation.symbol.replace('-USDT-SWAP', '');
+      
+      // Initialize order flow service
+      const orderFlowService = new OrderFlowService();
+      
+      // Get required data for order flow analysis
+      const [candles, orderBook, trades] = await Promise.all([
+        okxService.getCandles(baseSymbol + '-USDT', timeframe, 100),
+        okxService.getOrderBook(baseSymbol + '-USDT'),
+        okxService.getRecentTrades(baseSymbol + '-USDT', tradeLimit)
+      ]);
+      
+      // Perform order flow analysis
+      const orderFlowAnalysis = await orderFlowService.analyzeOrderFlow(trades, orderBook, timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Order flow analysis request completed',
+        details: `GET /api/${pair}/order-flow - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, TradeLimit: ${tradeLimit}`,
+      });
+      
+      res.json({
+        success: true,
+        data: orderFlowAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/order-flow:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Order flow analysis request failed',
+        details: `GET /api/${pair}/order-flow - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Legacy SOL Order Flow endpoint for backward compatibility
   app.get('/api/sol/order-flow', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
@@ -1656,7 +1906,69 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
-  // Live Trading Signals - Real-time Entry/Exit Signals
+  // Multi-pair Live Trading Signals - Real-time Entry/Exit Signals for all 65 coins
+  app.get('/api/:pair/trading-signals', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      const timeframe = req.query.timeframe as string || '15m';
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          supported_format: 'btc, eth, sol, ada, etc.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const tradingSymbol = validation.symbol;
+      const signalsData = await tradingSignalsService.generateLiveSignals(timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Trading signals generated successfully',
+        details: `GET /api/${pair}/trading-signals - ${responseTime}ms - ${signalsData.primary.signal} signal`,
+      });
+      
+      res.status(200).json({
+        success: true,
+        data: signalsData,
+        timestamp: new Date().toISOString(),
+        responseTime
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Trading signals error for ${pair}:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Trading signals generation failed',
+        details: `GET /api/${pair}/trading-signals - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate trading signals',
+        timestamp: new Date().toISOString(),
+        responseTime
+      });
+    }
+  });
+
+  // Legacy SOL Trading Signals endpoint for backward compatibility
   app.get('/api/sol/trading-signals', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
@@ -1702,7 +2014,68 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
-  // Signal History
+  // Multi-pair Signal History - for all 65 coins
+  app.get('/api/:pair/signal-history', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          supported_format: 'btc, eth, sol, ada, etc.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const tradingSymbol = validation.symbol;
+      const history = tradingSignalsService.getSignalHistory();
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Signal history retrieved successfully',
+        details: `GET /api/${pair}/signal-history - ${responseTime}ms - ${history.length} signals`,
+      });
+      
+      res.status(200).json({
+        success: true,
+        data: history,
+        timestamp: new Date().toISOString(),
+        responseTime
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Signal history error for ${pair}:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Signal history retrieval failed',
+        details: `GET /api/${pair}/signal-history - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve signal history',
+        timestamp: new Date().toISOString(),
+        responseTime
+      });
+    }
+  });
+
+  // Legacy SOL Signal History endpoint for backward compatibility
   app.get('/api/sol/signal-history', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
