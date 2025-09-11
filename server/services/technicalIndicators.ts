@@ -1153,89 +1153,42 @@ export class TechnicalIndicatorsService {
   ): Promise<TechnicalIndicatorsAnalysis> {
     const startTime = Date.now();
     
-    // Validate candles data
+    // 🔧 CRITICAL FIX: Enhanced candles data validation and preprocessing
     if (!candles || !Array.isArray(candles) || candles.length === 0) {
-      console.warn('⚠️ Invalid candles data provided to analyzeTechnicalIndicators');
-      return {
-        rsi: { 
-          current: 50,
-          period: 14,
-          signal: 'neutral',
-          strength: 'weak',
-          trend: 'neutral',
-          divergence: { detected: false },
-          historical: []
-        },
-        ema: { 
-          fast: { period: 12, value: 0, timestamp: new Date().toISOString(), trend: 'neutral', slope: 0 },
-          slow: { period: 26, value: 0, timestamp: new Date().toISOString(), trend: 'neutral', slope: 0 },
-          signal: { period: 9, value: 0, timestamp: new Date().toISOString(), trend: 'neutral', slope: 0 },
-          crossover: { status: 'neutral', strength: 'weak', timestamp: new Date().toISOString(), confidence: 0 },
-          trend: { direction: 'neutral', strength: 'weak', duration: '0h', consistency: 0 }
-        },
-        macd: { 
-          current: { macd: 0, signal: 0, histogram: 0, trend: 'neutral', crossover: 'neutral', timestamp: new Date().toISOString() },
-          signal: 'neutral',
-          strength: 'weak',
-          crossover: { detected: false, type: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
-          divergence: { detected: false },
-          historical: []
-        },
-        bollingerBands: { 
-          current: { upper: 0, middle: 0, lower: 0, bandwidth: 0, squeeze: false, position: 'inside', signal: 'neutral', timestamp: new Date().toISOString() },
-          squeeze: { active: false, duration: 0, strength: 'weak' },
-          breakout: { detected: false, direction: 'neutral', strength: 'weak' },
-          meanReversion: { signal: 'neutral', confidence: 0 },
-          historical: []
-        },
-        stochastic: { 
-          current: { k: 50, d: 50, signal: 'neutral', crossover: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
-          signal: 'neutral',
-          crossover: { detected: false, type: 'neutral', strength: 'weak' },
-          divergence: { detected: false },
-          historical: []
-        },
-        cci: { 
-          current: { value: 0, signal: 'neutral', trend: 'neutral', extremeLevel: false, timestamp: new Date().toISOString() },
-          signal: 'neutral',
-          extremeLevel: { active: false, type: 'normal', strength: 'weak' },
-          trend: { direction: 'neutral', consistency: 0 },
-          historical: []
-        },
-        parabolicSAR: { 
-          current: { value: 0, direction: 'bullish', timestamp: new Date().toISOString() },
-          trend: 'bullish',
-          reversal: { detected: false, strength: 'weak', confidence: 0 },
-          acceleration: { current: 0.02, trend: 'stable' },
-          historical: []
-        },
-        ichimoku: { 
-          current: { tenkanSen: 0, kijunSen: 0, senkouSpanA: 0, senkouSpanB: 0, chikouSpan: 0, cloud: 'neutral', signal: 'neutral', trend: 'neutral', timestamp: new Date().toISOString() },
-          cloud: { position: 'inside', color: 'neutral', thickness: 0, strength: 'weak' },
-          signals: { tkCross: 'neutral', priceCloud: 'neutral', chikouSpan: 'neutral', overall: 'neutral' },
-          historical: []
-        },
-        obv: { 
-          current: { value: 0, trend: 'neutral', divergence: false, signal: 'neutral', strength: 'weak', timestamp: new Date().toISOString() },
-          trend: 'neutral',
-          divergence: { detected: false },
-          institutionalFlow: { signal: 'neutral', strength: 'weak', confidence: 0 },
-          historical: []
-        },
-        williamsR: { 
-          current: { value: -50, signal: 'neutral', strength: 'weak', momentum: 'stable', extremeLevel: false, timestamp: new Date().toISOString() },
-          signal: 'neutral',
-          momentum: { direction: 'stable', strength: 'weak' },
-          extremeLevel: { active: false, type: 'normal' },
-          historical: []
-        },
-        signals: [],
-        overall: { signal: 'neutral', strength: 'weak', confidence: 0, factors: [] },
-        timestamp: new Date().toISOString(),
-        timeframe,
-        executionTimeMs: Date.now() - startTime
-      };
+      console.warn('⚠️ Invalid candles data provided to analyzeTechnicalIndicators - no data');
+      return this.generateMinimalTechnicalAnalysis(timeframe);
     }
+
+    // Filter and validate candle data
+    const validCandles = candles.filter(candle => 
+      candle && 
+      typeof candle === 'object' &&
+      candle.timestamp &&
+      candle.open && candle.high && candle.low && candle.close &&
+      !isNaN(parseFloat(candle.open)) &&
+      !isNaN(parseFloat(candle.high)) &&
+      !isNaN(parseFloat(candle.low)) &&
+      !isNaN(parseFloat(candle.close)) &&
+      parseFloat(candle.high) >= parseFloat(candle.low) &&
+      parseFloat(candle.high) >= parseFloat(candle.open) &&
+      parseFloat(candle.high) >= parseFloat(candle.close) &&
+      parseFloat(candle.low) <= parseFloat(candle.open) &&
+      parseFloat(candle.low) <= parseFloat(candle.close)
+    );
+
+    if (validCandles.length !== candles.length) {
+      console.warn(`⚠️ Filtered out ${candles.length - validCandles.length} invalid candles`);
+    }
+
+    if (validCandles.length < 5) {
+      console.warn('⚠️ Insufficient valid candles for technical analysis');
+      return this.generateMinimalTechnicalAnalysis(timeframe);
+    }
+
+    // Use validated candles for analysis
+    candles = validCandles;
+
+    // Proceed with normal analysis using validated data
     
     // Calculate RSI
     const rsiResults = this.calculateRSI(candles, 14);
@@ -1618,6 +1571,117 @@ export class TechnicalIndicatorsService {
       lastUpdate: new Date().toISOString(),
       dataAge: 0,
       calculationTime
+    };
+
+    return analysis;
+  }
+
+  /**
+   * 🔧 CRITICAL FIX: Generate minimal technical analysis when data is insufficient
+   */
+  private generateMinimalTechnicalAnalysis(timeframe: string): TechnicalIndicatorsAnalysis {
+    const timestamp = new Date().toISOString();
+    
+    return {
+      rsi: { 
+        current: 50,
+        period: 14,
+        signal: 'neutral',
+        strength: 'weak',
+        trend: 'neutral',
+        divergence: { detected: false },
+        historical: []
+      },
+      ema: { 
+        fast: { period: 12, value: 0, timestamp, trend: 'neutral', slope: 0 },
+        slow: { period: 26, value: 0, timestamp, trend: 'neutral', slope: 0 },
+        signal: { period: 9, value: 0, timestamp, trend: 'neutral', slope: 0 },
+        crossover: { status: 'neutral', strength: 'weak', timestamp, confidence: 0 },
+        trend: { direction: 'neutral', strength: 'weak', duration: '0h', consistency: 0 }
+      },
+      macd: { 
+        current: { macd: 0, signal: 0, histogram: 0, trend: 'neutral', crossover: 'neutral', timestamp },
+        signal: 'neutral',
+        strength: 'weak',
+        crossover: { detected: false, type: 'neutral', strength: 'weak', timestamp },
+        divergence: { detected: false },
+        historical: []
+      },
+      bollingerBands: { 
+        current: { upper: 0, middle: 0, lower: 0, bandwidth: 0, squeeze: false, position: 'inside', signal: 'neutral', timestamp },
+        squeeze: { active: false, duration: 0, strength: 'weak' },
+        breakout: { detected: false, direction: 'neutral', strength: 'weak' },
+        meanReversion: { signal: 'neutral', confidence: 0 },
+        historical: []
+      },
+      stochastic: { 
+        current: { k: 50, d: 50, signal: 'neutral', crossover: 'neutral', strength: 'weak', timestamp },
+        signal: 'neutral',
+        crossover: { detected: false, type: 'neutral', strength: 'weak' },
+        overbought: { active: false, strength: 'weak' },
+        oversold: { active: false, strength: 'weak' },
+        historical: []
+      },
+      cci: {
+        current: { value: 0, signal: 'neutral', strength: 'weak', timestamp },
+        signal: 'neutral',
+        overbought: { active: false, level: 100, strength: 'weak' },
+        oversold: { active: false, level: -100, strength: 'weak' },
+        divergence: { detected: false },
+        historical: []
+      },
+      parabolicSAR: {
+        current: { value: 0, position: 'below', signal: 'neutral', timestamp, trend: 'neutral' },
+        signal: 'neutral',
+        trend: { direction: 'neutral', strength: 'weak', duration: '0h' },
+        reversal: { detected: false, strength: 'weak' },
+        historical: []
+      },
+      ichimokuCloud: {
+        current: {
+          conversionLine: 0, baseLine: 0, leadingSpanA: 0, leadingSpanB: 0,
+          laggingSpan: 0, cloudColor: 'neutral', position: 'inside',
+          signal: 'neutral', strength: 'weak', timestamp
+        },
+        signal: 'neutral',
+        trend: { direction: 'neutral', strength: 'weak' },
+        breakout: { detected: false, type: 'neutral', strength: 'weak' },
+        historical: []
+      },
+      onBalanceVolume: {
+        current: { value: 0, trend: 'neutral', signal: 'neutral', timestamp },
+        signal: 'neutral',
+        trend: { direction: 'neutral', strength: 'weak', consistency: 0 },
+        divergence: { detected: false },
+        confirmation: { volume: false, price: false, strength: 'weak' },
+        historical: []
+      },
+      williamsR: {
+        current: { value: -50, signal: 'neutral', strength: 'weak', timestamp },
+        signal: 'neutral',
+        overbought: { active: false, level: -20, strength: 'weak' },
+        oversold: { active: false, level: -80, strength: 'weak' },
+        momentum: { direction: 'neutral', strength: 'weak' },
+        historical: []
+      },
+      signals: [],
+      summary: {
+        overall: 'neutral',
+        strength: 'weak',
+        confidence: 25, // Low confidence due to minimal data
+        consensus: {
+          bullish: 0,
+          bearish: 0,
+          neutral: 10 // All indicators neutral
+        }
+      },
+      metadata: {
+        timestamp,
+        timeframe,
+        candleCount: 0,
+        analysisTime: 5,
+        dataQuality: 'insufficient'
+      }
     };
   }
 }

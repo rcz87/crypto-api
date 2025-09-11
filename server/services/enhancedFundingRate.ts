@@ -358,18 +358,48 @@ export class EnhancedFundingRateService {
       const ticker = await okxService.getTicker(symbol);
       const currentPrice = parseFloat(ticker.last);
       
-      // Validate price is reasonable (between $1 and $10,000 for crypto)
-      if (currentPrice > 0 && currentPrice < 10000) {
+      // 🔧 CRITICAL FIX: Enhanced price validation with NaN handling
+      if (isNaN(currentPrice) || currentPrice === null || currentPrice === undefined) {
+        console.warn(`Price NaN/null detected for ${symbol}, using fallback`);
+        return this.getFallbackPrice(symbol);
+      }
+      
+      // Validate price is reasonable (between $0.01 and $100,000 for crypto)
+      if (currentPrice > 0.01 && currentPrice < 100000) {
         return currentPrice;
       } else {
-        console.warn(`Unrealistic price detected: ${currentPrice}, using fallback`);
-        return 200; // Fallback for SOL if price seems invalid
+        console.warn(`Unrealistic price detected: ${currentPrice} for ${symbol}, using fallback`);
+        return this.getFallbackPrice(symbol);
       }
     } catch (error) {
       console.error('Error fetching current price from OKX:', error);
       // Fallback: try to get last known price from cache or use reasonable default
-      return 200; // Reasonable fallback price for SOL
+      return this.getFallbackPrice(symbol);
     }
+  }
+
+  /**
+   * 🔧 CRITICAL FIX: Get fallback price for different symbols
+   */
+  private getFallbackPrice(symbol: string): number {
+    const fallbackPrices: Record<string, number> = {
+      'SOL-USDT-SWAP': 200,
+      'BTC-USDT-SWAP': 65000,
+      'ETH-USDT-SWAP': 3500,
+      'ADA-USDT-SWAP': 0.5,
+      'MATIC-USDT-SWAP': 0.8,
+      'DOT-USDT-SWAP': 6.5,
+      'AVAX-USDT-SWAP': 35,
+      'LINK-USDT-SWAP': 15,
+      'UNI-USDT-SWAP': 8,
+      'ATOM-USDT-SWAP': 12
+    };
+    
+    // Extract base symbol (remove -USDT-SWAP suffix)
+    const baseSymbol = symbol.replace('-USDT-SWAP', '').replace('-USDT', '');
+    const fullSymbol = `${baseSymbol}-USDT-SWAP`;
+    
+    return fallbackPrices[fullSymbol] || fallbackPrices[symbol] || 100; // Default fallback
   }
   
   private async storeHistoricalData(

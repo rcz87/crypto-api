@@ -19,6 +19,87 @@ export class CVDService {
   }
 
   /**
+   * 🔧 CRITICAL FIX: Generate minimal CVD analysis when insufficient data
+   */
+  private generateMinimalCVDAnalysis(
+    candles: CandleData[], 
+    trades: RecentTradeData[], 
+    timeframe: string
+  ): CVDAnalysis {
+    const currentPrice = candles.length > 0 ? candles[candles.length - 1].close : '0';
+    const totalVolume = candles.reduce((sum, candle) => sum + parseFloat(candle.volume || '0'), 0);
+    
+    return {
+      cvdValue: 0,
+      cvdChange: 0,
+      cvdChangePercent: 0,
+      trendDirection: 'neutral' as const,
+      confidence: 25, // Low confidence due to minimal data
+      divergenceType: 'none' as const,
+      buyerSellerAggression: {
+        buyerAggression: 50,
+        sellerAggression: 50,
+        dominantSide: 'neutral' as const,
+        aggressionRatio: 0.5,
+        averageTradeSize: totalVolume / Math.max(trades.length, 1),
+        largeTradeCount: 0,
+        retailTradeCount: trades.length,
+        timeDecay: 0.8
+      },
+      divergences: {
+        active: [],
+        recent: [],
+        strength: 0,
+        reliability: 0
+      },
+      absorptionPatterns: {
+        detected: false,
+        zones: [],
+        strength: 0,
+        volume: 0
+      },
+      flowAnalysis: {
+        phase: 'neutral' as const,
+        strength: 0,
+        sustainability: 0,
+        zones: []
+      },
+      smartMoneySignals: {
+        accumulation: { active: false, strength: 0, zones: [] },
+        distribution: { active: false, strength: 0, zones: [] },
+        absorption: { active: false, strength: 0, price: currentPrice },
+        testingPhase: { active: false, type: 'none' as const, strength: 0 }
+      },
+      realTimeMetrics: {
+        currentDelta: 0,
+        deltaVelocity: 0,
+        volumeProfile: { bullish: 50, bearish: 50 },
+        momentum: 0,
+        pressureIndex: 50,
+        flowState: 'balanced' as const
+      },
+      multiTimeframeAlignment: {
+        alignment: 'neutral' as const,
+        strength: 25,
+        timeframeSynergy: 25
+      },
+      alerts: [],
+      pressureHistoryData: {
+        pressure24h: [],
+        trendConsistency: 0,
+        volatilityProfile: 'low' as const,
+        institutionalFootprint: {
+          detected: false,
+          confidence: 0,
+          patterns: []
+        }
+      },
+      lastUpdate: new Date().toISOString(),
+      dataAge: 0
+    };
+  }
+
+  /**
    * Main CVD analysis entry point - comprehensive volume delta analysis
    */
   public async analyzeCVD(
@@ -26,26 +107,88 @@ export class CVDService {
     trades: RecentTradeData[],
     timeframe: string = '1H'
   ): Promise<CVDAnalysis> {
+    // 🔧 CRITICAL FIX: Validate input data types and structure
+    if (!Array.isArray(candles)) {
+      console.error('CVD: Invalid candles data type:', typeof candles);
+      throw new Error('CVD Analysis requires valid candles array');
+    }
+    
+    if (!Array.isArray(trades)) {
+      console.warn('CVD: Invalid trades data type, using empty array:', typeof trades);
+      trades = []; // Convert to empty array instead of failing
+    }
+    
+    // Filter out invalid candles
+    const validCandles = candles.filter(candle => 
+      candle && 
+      typeof candle === 'object' && 
+      candle.timestamp && 
+      candle.open && 
+      candle.high && 
+      candle.low && 
+      candle.close &&
+      !isNaN(parseFloat(candle.open)) &&
+      !isNaN(parseFloat(candle.high)) &&
+      !isNaN(parseFloat(candle.low)) &&
+      !isNaN(parseFloat(candle.close))
+    );
+    
+    if (validCandles.length !== candles.length) {
+      console.warn(`CVD: Filtered out ${candles.length - validCandles.length} invalid candles`);
+    }
+    
+    // Filter out invalid trades with enhanced validation
+    const validTrades = trades.filter(trade => {
+      if (!trade || typeof trade !== 'object') return false;
+      
+      // Timestamp validation - must be parseable and finite
+      if (!trade.timestamp) return false;
+      const timestamp = parseInt(trade.timestamp);
+      if (!Number.isFinite(timestamp) || timestamp <= 0) return false;
+      
+      // Size validation - must be finite positive number
+      if (!trade.size) return false;
+      const size = parseFloat(trade.size);
+      if (!Number.isFinite(size) || size <= 0) return false;
+      
+      // Side validation - normalize and validate
+      if (!trade.side) return false;
+      const normalizedSide = trade.side.toLowerCase();
+      if (normalizedSide !== 'buy' && normalizedSide !== 'sell') return false;
+      
+      // Normalize the side field for consistency
+      trade.side = normalizedSide;
+      
+      return true;
+    });
+    
+    if (validTrades.length !== trades.length) {
+      console.warn(`CVD: Filtered out ${trades.length - validTrades.length} invalid trades`);
+    }
+    
     // Graceful degradation for sparse data instead of hard failure
-    const hasMinimalData = candles.length >= 5 && trades.length >= 1;
-    const hasOptimalData = candles.length >= 20 && trades.length >= 10;
+    const hasMinimalData = validCandles.length >= 5 && validTrades.length >= 1;
+    const hasOptimalData = validCandles.length >= 20 && validTrades.length >= 10;
     
     if (!hasMinimalData) {
-      throw new Error('Insufficient data for CVD analysis. Need at least 5 candles and 1 trade.');
+      console.warn(`CVD: Insufficient data - ${validCandles.length} candles, ${validTrades.length} trades (need 5+ candles, 1+ trade)`);
+      // Return minimal analysis instead of throwing error
+      return this.generateMinimalCVDAnalysis(validCandles, validTrades, timeframe);
     }
     
     const dataQuality = hasOptimalData ? 'high' : 
-                      (candles.length >= 10 && trades.length >= 5) ? 'medium' : 'low';
+                      (validCandles.length >= 10 && validTrades.length >= 5) ? 'medium' : 'low';
     const warnings = [];
     
     if (!hasOptimalData) {
-      warnings.push(`Reduced data quality: ${candles.length} candles, ${trades.length} trades (optimal: 20+ candles, 10+ trades)`);
+      warnings.push(`Reduced data quality: ${validCandles.length} candles, ${validTrades.length} trades (optimal: 20+ candles, 10+ trades)`);
     }
 
     const analysisStart = Date.now();
 
-    // 1. Calculate Volume Delta Bars from candles and trades
-    const cvdHistory = this.calculateVolumeDeltaBars(candles, trades, timeframe);
+    // 🔧 CRITICAL FIX: Use validated data consistently throughout all operations
+    // 1. Calculate Volume Delta Bars from candles and trades (using validated data)
+    const cvdHistory = this.calculateVolumeDeltaBars(validCandles, validTrades, timeframe);
     
     // 2. Calculate current and previous CVD values
     const currentCVD = cvdHistory[cvdHistory.length - 1]?.cumulativeDelta || '0';
@@ -54,26 +197,26 @@ export class CVDService {
     const percentageChange = previousCVD !== '0' ? 
       ((parseFloat(deltaChange) / Math.abs(parseFloat(previousCVD))) * 100) : 0;
 
-    // 3. Analyze Buyer/Seller Aggression
-    const buyerSellerAggression = this.analyzeBuyerSellerAggression(cvdHistory, trades, timeframe);
+    // 3. Analyze Buyer/Seller Aggression (using validated trades)
+    const buyerSellerAggression = this.analyzeBuyerSellerAggression(cvdHistory, validTrades, timeframe);
 
-    // 4. Detect Divergences
-    const { activeDivergences, recentDivergences } = this.detectDivergences(candles, cvdHistory);
+    // 4. Detect Divergences (using validated candles)
+    const { activeDivergences, recentDivergences } = this.detectDivergences(validCandles, cvdHistory);
 
-    // 5. Identify Absorption Patterns
-    const absorptionPatterns = this.identifyAbsorptionPatterns(candles, cvdHistory);
+    // 5. Identify Absorption Patterns (using validated candles)
+    const absorptionPatterns = this.identifyAbsorptionPatterns(validCandles, cvdHistory);
 
-    // 6. Flow Analysis (Accumulation/Distribution)
-    const flowAnalysis = this.analyzeFlow(cvdHistory, candles);
+    // 6. Flow Analysis (Accumulation/Distribution) (using validated candles)
+    const flowAnalysis = this.analyzeFlow(cvdHistory, validCandles);
 
     // 7. Smart Money Signal Detection
     const smartMoneySignals = this.detectSmartMoneySignals(cvdHistory, absorptionPatterns, flowAnalysis);
 
-    // 8. Real-time Metrics with Historical Pressure Tracking
-    const realTimeMetrics = this.calculateRealTimeMetrics(cvdHistory, trades);
+    // 8. Real-time Metrics with Historical Pressure Tracking (using validated trades)
+    const realTimeMetrics = this.calculateRealTimeMetrics(cvdHistory, validTrades);
     
-    // 8b. Update Pressure History for 24h tracking
-    this.updatePressureHistory(timeframe, realTimeMetrics, candles[candles.length - 1], smartMoneySignals, absorptionPatterns);
+    // 8b. Update Pressure History for 24h tracking (using validated candles)
+    this.updatePressureHistory(timeframe, realTimeMetrics, validCandles[validCandles.length - 1], smartMoneySignals, absorptionPatterns);
 
     // 9. Multi-timeframe Analysis
     const multiTimeframeAlignment = await this.analyzeMultiTimeframeAlignment();
@@ -533,14 +676,41 @@ export class CVDService {
     candleIndex: number,
     totalCandles: number
   ): RecentTradeData[] {
+    // 🔧 CRITICAL FIX: Validate trades data before filtering
+    if (!Array.isArray(trades)) {
+      console.warn('CVD: Invalid trades data type provided, using empty array:', typeof trades);
+      return [];
+    }
+    
+    if (trades.length === 0) {
+      console.warn('CVD: Empty trades array provided');
+      return [];
+    }
+
     // First try exact timeframe match
     let candleTrades = trades.filter(trade => {
+      // 🔧 CRITICAL FIX: Validate trade object before processing
+      if (!trade || typeof trade !== 'object') {
+        console.warn('CVD: Invalid trade object:', trade);
+        return false;
+      }
+      
+      if (!trade.timestamp) {
+        console.warn('CVD: Trade missing timestamp:', trade);
+        return false;
+      }
+      
       const tradeTime = parseInt(trade.timestamp);
+      if (isNaN(tradeTime)) {
+        console.warn('CVD: Invalid trade timestamp:', trade.timestamp);
+        return false;
+      }
+      
       return tradeTime >= candleTime && tradeTime < candleTime + interval;
     });
 
     // If no exact matches and we have recent trades, try nearby allocation
-    if (candleTrades.length === 0 && trades.length > 0) {
+    if (candleTrades.length === 0 && Array.isArray(trades) && trades.length > 0) {
       // For older candles, try to allocate some nearby trades proportionally
       const isRecentCandle = candleIndex >= totalCandles - 10; // Last 10 candles
       
@@ -548,7 +718,12 @@ export class CVDService {
         // For recent candles, use trades from nearby time window (±interval)
         const expandedWindow = interval * 2;
         candleTrades = trades.filter(trade => {
+          // 🔧 CRITICAL FIX: Validate trade in expanded window search
+          if (!trade || !trade.timestamp) return false;
+          
           const tradeTime = parseInt(trade.timestamp);
+          if (isNaN(tradeTime)) return false;
+          
           return Math.abs(tradeTime - candleTime) < expandedWindow;
         });
         
