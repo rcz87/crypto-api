@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { getWsBase } from '../lib/env';
+import { useToast } from '@/hooks/use-toast';
 
 interface MarketData {
   type: string;
@@ -24,7 +25,9 @@ interface WebSocketContextType {
   lastMessage: any;
   marketData: MarketData | null;
   systemStatus: SystemStatus | null;
-  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
+  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error' | 'reconnecting';
+  reconnectAttempts: number;
+  maxReconnectAttempts: number;
   sendMessage: (message: any) => void;
   connect: () => void;
   disconnect: () => void;
@@ -41,15 +44,40 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   const [lastMessage, setLastMessage] = useState<any>(null);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error' | 'reconnecting'>('disconnected');
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
+  const maxReconnectAttempts = 15; // Increased for better stability
+  const { toast } = useToast();
 
   const getWebSocketUrl = () => {
     return getWsBase();
+  };
+
+  // Ping/Pong keep-alive mechanism
+  const startPingPong = () => {
+    // Clear any existing ping interval
+    stopPingPong();
+    
+    // Send ping every 45 seconds to keep connection alive
+    pingIntervalRef.current = setInterval(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'ping',
+          timestamp: new Date().toISOString()
+        }));
+      }
+    }, 45000); // 45 seconds
+  };
+
+  const stopPingPong = () => {
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
   };
 
   const connect = () => {
@@ -68,6 +96,16 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
         console.log('WebSocket connected to:', url);
         setIsConnected(true);
         setConnectionStatus('connected');
+        
+        // Show success toast only after reconnect attempts (not first connection)
+        if (reconnectAttempts.current > 0) {
+          toast({
+            title: '🟢 WebSocket Connected',
+            description: 'Real-time data streaming restored',
+            duration: 3000,
+          });
+        }
+        
         reconnectAttempts.current = 0;
         
         // Send initial connection message
@@ -75,6 +113,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
           type: 'connection',
           timestamp: new Date().toISOString()
         }));
+        
+        // Start ping/pong keep-alive mechanism
+        startPingPong();
       };
 
       ws.onmessage = (event) => {
@@ -100,6 +141,10 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
             case 'system_update':
               setSystemStatus(message);
               break;
+            case 'pong':
+              // Handle pong response (keep-alive confirmation)
+              console.debug('Received pong from server');
+              break;
             default:
               console.log('Received WebSocket message:', message);
           }
@@ -115,18 +160,50 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
         setConnectionStatus('disconnected');
         wsRef.current = null;
         
+        // Stop ping/pong when disconnected
+        stopPingPong();
+        
         // Attempt to reconnect if not intentionally closed
         if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
+          // Exponential backoff: start at 1s, max 30s
+          const baseDelay = 1000;
+          const delay = Math.min(baseDelay * Math.pow(2, reconnectAttempts.current), 30000);
           reconnectAttempts.current++;
           
+          setConnectionStatus('reconnecting');
+          
           console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts.current}/${maxReconnectAttempts})`);
+          
+          // Show reconnecting toast
+          if (reconnectAttempts.current === 1) {
+            toast({
+              title: '🟡 Connection Lost',
+              description: `Attempting to reconnect... (${reconnectAttempts.current}/${maxReconnectAttempts})`,
+              duration: 4000,
+            });
+          } else if (reconnectAttempts.current <= 5) {
+            toast({
+              title: '🟡 Reconnecting...',
+              description: `Attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`,
+              duration: 3000,
+            });
+          }
           
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, delay);
         } else if (reconnectAttempts.current >= maxReconnectAttempts) {
           console.log('Max reconnection attempts reached. Will retry in 5 minutes.');
+          setConnectionStatus('error');
+          
+          // Show error toast
+          toast({
+            title: '🔴 Connection Failed',
+            description: 'Maximum reconnection attempts reached. Will retry in 5 minutes.',
+            variant: 'destructive',
+            duration: 5000,
+          });
+          
           // Reset reconnection attempts after 5 minutes for fresh start
           setTimeout(() => {
             reconnectAttempts.current = 0;
@@ -139,6 +216,16 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
         setConnectionStatus('error');
+        
+        // Show error toast if it's the first error or after successful connection
+        if (reconnectAttempts.current === 0) {
+          toast({
+            title: '🔴 WebSocket Error',
+            description: 'Connection error occurred. Will attempt to reconnect.',
+            variant: 'destructive',
+            duration: 4000,
+          });
+        }
       };
 
     } catch (error) {
@@ -152,6 +239,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
+    
+    // Stop ping/pong mechanism
+    stopPingPong();
     
     if (wsRef.current) {
       wsRef.current.close(1000, 'Client disconnect');
@@ -187,6 +277,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     marketData,
     systemStatus,
     connectionStatus,
+    reconnectAttempts: reconnectAttempts.current,
+    maxReconnectAttempts,
     sendMessage,
     connect,
     disconnect

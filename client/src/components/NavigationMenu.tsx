@@ -31,6 +31,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
+import { ConnectionStatusIndicator, CompactConnectionStatusIndicator, DesktopConnectionStatusIndicator } from '@/components/ConnectionStatusIndicator';
 
 interface NavigationMenuProps {
   activeSection: string;
@@ -230,6 +231,10 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
           {/* Desktop Navigation Menu */}
           {!isMobile && (
             <div className="hidden md:flex items-center space-x-1">
+              {/* Connection Status for Desktop */}
+              <div className="mr-3">
+                <DesktopConnectionStatusIndicator />
+              </div>
               {menuItems.map((menu) => (
                 <DropdownMenu 
                   key={menu.id}
@@ -293,17 +298,18 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
 
           {/* Mobile Menu + Status Indicators */}
           <div className="flex items-center space-x-3">
+            {/* Connection Status */}
+            <div className="flex items-center space-x-2">
+              {isMobile ? (
+                <CompactConnectionStatusIndicator className="mr-1" />
+              ) : (
+                <ConnectionStatusIndicator showText={false} className="mr-2" />
+              )}
+              <div className="hidden sm:block text-xs text-gray-500 truncate max-w-32">guardiansofthegreentoken.com</div>
+            </div>
+            
             {/* Mobile Navigation */}
             <MobileNavigation />
-            
-            {/* Status Indicators */}
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              <div className="flex items-center space-x-2 px-2 sm:px-3 py-1 rounded-full bg-green-50">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-xs sm:text-sm font-medium text-green-700">Live</span>
-              </div>
-              <div className="hidden sm:block text-xs text-gray-500">guardiansofthegreentoken.com</div>
-            </div>
           </div>
         </div>
       </div>
