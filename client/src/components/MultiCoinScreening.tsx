@@ -12,9 +12,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Play, RefreshCw, TrendingUp, TrendingDown, Minus, Clock, Activity, Target, Search } from 'lucide-react';
+import { Play, RefreshCw, TrendingUp, TrendingDown, Minus, Clock, Activity, Target, Search, AlertTriangle, WifiOff } from 'lucide-react';
 import { DataTrustIndicator } from '@/components/DataTrustIndicator';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { TableSkeleton, ListSkeleton } from '@/components/ui/dashboard-skeleton';
+import { ErrorState, TimeoutWarning } from '@/components/ui/error-states';
+import { EmptyScreeningResults } from '@/components/ui/empty-states';
 
 interface ScreeningResult {
   symbol: string;
@@ -75,10 +78,11 @@ export default function MultiCoinScreening() {
   const [timeframe, setTimeframe] = useState('15m');
   const [isAutoRefresh, setIsAutoRefresh] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(30);
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
   const isMobile = useIsMobile();
 
   // Query untuk screening data with metadata tracking
-  const { data: queryResponse, isLoading, error, refetch, isRefetching } = useQuery<{
+  const { data: queryResponse, isLoading, error, refetch, isRefetching, isStale } = useQuery<{
     success: boolean;
     data: ScreeningData;
     timestamp: string;
@@ -122,6 +126,14 @@ export default function MultiCoinScreening() {
     enabled: !!symbols,
     refetchInterval: isAutoRefresh ? refreshInterval * 1000 : false,
     staleTime: 10000, // 10 seconds
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    onError: () => {
+      setShowTimeoutWarning(false);
+    },
+    onSuccess: () => {
+      setShowTimeoutWarning(false);
+    }
   });
 
   // Extract data and metadata
@@ -129,6 +141,18 @@ export default function MultiCoinScreening() {
   const metadata = queryResponse?._metadata;
 
   const handleRunScreening = () => {
+    setShowTimeoutWarning(false);
+    refetch();
+    // Show timeout warning after 10 seconds
+    setTimeout(() => {
+      if (isLoading || isRefetching) {
+        setShowTimeoutWarning(true);
+      }
+    }, 10000);
+  };
+
+  const handleRetry = () => {
+    setShowTimeoutWarning(false);
     refetch();
   };
 
@@ -297,13 +321,18 @@ export default function MultiCoinScreening() {
         </CardContent>
       </Card>
 
-      {/* Error Alert */}
+      {/* Enhanced Error Handling */}
       {error && (
-        <Alert className="bg-red-950 border-red-800 text-red-200" data-testid="error-alert">
-          <AlertDescription className="text-sm">
-            Error: {error instanceof Error ? error.message : 'Failed to fetch screening data'}
-          </AlertDescription>
-        </Alert>
+        <ErrorState 
+          error={error}
+          onRetry={handleRetry}
+          className="" 
+        />
+      )}
+
+      {/* Timeout Warning */}
+      {showTimeoutWarning && (isLoading || isRefetching) && (
+        <TimeoutWarning onRetry={handleRetry} />
       )}
 
       {/* Results Table */}
@@ -378,28 +407,61 @@ export default function MultiCoinScreening() {
         </Card>
       )}
 
-      {/* Loading State */}
-      {(isLoading || isRefetching) && (
-        <Card className="bg-gray-950 border-gray-800" data-testid="loading-state">
-          <CardContent className="p-6 text-center">
-            <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-3 text-green-400" />
-            <div className="text-sm font-medium">Running 8-Layer Analysis...</div>
-            <div className="text-xs text-gray-400 mt-1">
-              Processing: {symbols}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Enhanced Loading State */}
+      {(isLoading || isRefetching) && !error && (
+        <div className="space-y-4">
+          <Card className="bg-gray-950 border-gray-800" data-testid="loading-state">
+            <CardContent className="p-6 text-center">
+              <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-3 text-green-400" />
+              <div className="text-sm font-medium">Menjalankan Analisis 8-Layer...</div>
+              <div className="text-xs text-gray-400 mt-1">
+                Memproses: {symbols}
+              </div>
+              <div className="text-xs text-gray-500 mt-2">
+                Timeframe: {timeframe} | Menganalisis indikator teknis dan fundamental
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Skeleton for Results Table */}
+          <TableSkeleton 
+            rows={5} 
+            columns={10} 
+            className="bg-gray-950 border-gray-800"
+          />
+        </div>
       )}
 
-      {/* Empty State */}
+      {/* Enhanced Empty State */}
       {!isLoading && !data && !error && (
-        <Card className="bg-gray-950 border-gray-800" data-testid="empty-state">
-          <CardContent className="p-6 text-center">
-            <Target className="h-8 w-8 mx-auto mb-3 text-gray-500" />
-            <div className="text-sm font-medium text-gray-400">Ready to Screen</div>
-            <div className="text-xs text-gray-500 mt-1">
-              Select symbols and click "Run Scan" to start analysis
+        <EmptyScreeningResults onRefresh={handleRunScreening} />
+      )}
+
+      {/* No Results State */}
+      {!isLoading && data && data.results.length === 0 && (
+        <Card className="bg-gray-950 border-gray-800" data-testid="no-results-state">
+          <CardContent className="p-8 text-center">
+            <Search className="h-16 w-16 mx-auto mb-4 text-gray-500" />
+            <div className="text-lg font-semibold text-gray-300 mb-2">
+              Tidak Ada Hasil Ditemukan
             </div>
+            <div className="text-sm text-gray-500 mb-4">
+              Tidak ada sinyal trading untuk symbols: {symbols}
+            </div>
+            <div className="text-xs text-gray-600 space-y-1 mb-4">
+              <p>• Coba gunakan symbols yang berbeda</p>
+              <p>• Ganti timeframe untuk analisis yang berbeda</p>
+              <p>• Periksa ejaan symbols (contoh: BTC, ETH, SOL)</p>
+            </div>
+            <Button 
+              onClick={handleRunScreening}
+              variant="outline" 
+              className="border-blue-500 text-blue-400 hover:bg-blue-500/10"
+              data-testid="button-retry-screening"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Coba Lagi
+            </Button>
           </CardContent>
         </Card>
       )}

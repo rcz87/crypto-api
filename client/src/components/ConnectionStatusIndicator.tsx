@@ -32,24 +32,39 @@ export const ConnectionStatusIndicator = ({
           variant: 'default' as const,
           color: 'bg-green-500',
           icon: <Wifi className="w-3 h-3" />,
-          text: 'Connected',
-          description: 'Real-time data streaming'
+          text: 'Terhubung',
+          description: 'Data real-time mengalir lancar',
+          guidance: [
+            'Semua data dashboard update otomatis',
+            'Koneksi WebSocket stabil dan optimal',
+            'Tidak ada tindakan diperlukan'
+          ]
         };
       case 'connecting':
         return {
           variant: 'secondary' as const,
           color: 'bg-yellow-500',
           icon: <Loader2 className="w-3 h-3 animate-spin" />,
-          text: 'Connecting',
-          description: 'Establishing connection...'
+          text: 'Menyambung',
+          description: 'Sedang membangun koneksi ke server...',
+          guidance: [
+            'Tunggu beberapa detik untuk koneksi stabil',
+            'Pastikan koneksi internet Anda stabil',
+            'Jangan refresh halaman saat proses berlangsung'
+          ]
         };
       case 'reconnecting':
         return {
           variant: 'outline' as const,
           color: 'bg-orange-500',
           icon: <Loader2 className="w-3 h-3 animate-spin" />,
-          text: 'Reconnecting',
-          description: `Reconnecting... (${reconnectAttempts}/${maxReconnectAttempts})`
+          text: 'Menyambung Ulang',
+          description: `Percobaan ke-${reconnectAttempts} dari ${maxReconnectAttempts}`,
+          guidance: [
+            'Sistem otomatis mencoba sambung ulang',
+            'Periksa koneksi internet jika terus gagal',
+            'Data akan kembali normal setelah tersambung'
+          ]
         };
       case 'error':
         return {
@@ -57,7 +72,13 @@ export const ConnectionStatusIndicator = ({
           color: 'bg-red-500',
           icon: <AlertTriangle className="w-3 h-3" />,
           text: 'Error',
-          description: 'Connection failed. Retrying in 5 minutes.'
+          description: 'Koneksi gagal. Akan dicoba lagi dalam 5 menit.',
+          guidance: [
+            'Refresh halaman untuk mencoba koneksi ulang',
+            'Periksa koneksi internet dan firewall',
+            'Coba gunakan VPN jika masalah berlanjut',
+            'Hubungi admin jika error persisten'
+          ]
         };
       case 'disconnected':
       default:
@@ -65,8 +86,14 @@ export const ConnectionStatusIndicator = ({
           variant: 'outline' as const,
           color: 'bg-gray-500',
           icon: <WifiOff className="w-3 h-3" />,
-          text: 'Disconnected',
-          description: 'No real-time connection'
+          text: 'Terputus',
+          description: 'Tidak ada koneksi real-time',
+          guidance: [
+            'Data tidak akan update otomatis',
+            'Refresh halaman untuk koneksi ulang',
+            'Periksa koneksi internet Anda',
+            'Gunakan data manual sementara waktu'
+          ]
         };
     }
   };
@@ -97,26 +124,67 @@ export const ConnectionStatusIndicator = ({
             <StatusBadge />
           </div>
         </TooltipTrigger>
-        <TooltipContent>
-          <div className="space-y-1">
-            <p className="font-medium">{statusConfig.text}</p>
-            <p className="text-xs text-muted-foreground">{statusConfig.description}</p>
+        <TooltipContent className="max-w-sm">
+          <div className="space-y-3">
+            <div>
+              <p className="font-medium">{statusConfig.text}</p>
+              <p className="text-xs text-muted-foreground">{statusConfig.description}</p>
+            </div>
+            
             {connectionStatus === 'connected' && (
               <div className="text-xs text-green-600 space-y-1">
-                <p>WebSocket: Active • Data: Live</p>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Source: OKX</span>
-                  <span>Updated: {lastMessageAt ? formatToWIB(lastMessageAt) : 'No data'}</span>
+                <p className="font-medium">✅ WebSocket Aktif • Data Real-time</p>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Sumber:</span>
+                    <span>OKX Exchange</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Update:</span>
+                    <span>{lastMessageAt ? formatToWIB(lastMessageAt) : 'Belum ada data'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Latensi:</span>
+                    <span className="text-green-500">
+                      {connectionLatency !== null ? `${connectionLatency}ms` : 'Mengukur...'}
+                    </span>
+                  </div>
                 </div>
-                <p className="text-xs text-green-500">
-                  {connectionLatency !== null ? `Latency: ${connectionLatency}ms` : 'Latency: Measuring...'}
+              </div>
+            )}
+            
+            {/* Enhanced guidance for all states */}
+            <div className="border-t pt-2">
+              <p className="text-xs font-medium text-blue-400 mb-1">💡 Panduan:</p>
+              <ul className="text-xs text-muted-foreground space-y-0.5">
+                {statusConfig.guidance.map((tip, index) => (
+                  <li key={index}>• {tip}</li>
+                ))}
+              </ul>
+            </div>
+
+            {connectionStatus === 'reconnecting' && (
+              <div className="border-t pt-2">
+                <p className="text-xs text-orange-400 font-medium">
+                  🔄 Percobaan {reconnectAttempts} dari {maxReconnectAttempts}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Sistem akan berhenti mencoba jika gagal terus menerus
                 </p>
               </div>
             )}
-            {connectionStatus === 'reconnecting' && (
-              <p className="text-xs text-orange-600">
-                Attempt {reconnectAttempts} of {maxReconnectAttempts}
-              </p>
+            
+            {(connectionStatus === 'error' || connectionStatus === 'disconnected') && (
+              <div className="border-t pt-2">
+                <p className="text-xs font-medium text-red-400 mb-1">⚠️ Langkah Pemecahan:</p>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <div>1. Periksa koneksi internet</div>
+                  <div>2. Refresh halaman (F5 atau Ctrl+R)</div>
+                  <div>3. Tunggu 30 detik lalu coba lagi</div>
+                  <div>4. Nonaktifkan VPN/proxy jika ada</div>
+                  <div>5. Coba browser berbeda jika masalah berlanjut</div>
+                </div>
+              </div>
             )}
           </div>
         </TooltipContent>

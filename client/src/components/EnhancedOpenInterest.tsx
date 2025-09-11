@@ -2,9 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Activity, DollarSign, TrendingUp, PieChart, BarChart3, Zap, AlertTriangle, Target, TrendingDown, Clock, Users, Gauge } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { DataTrustIndicator } from '@/components/DataTrustIndicator';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { MetricsSkeleton, TabsSkeleton, CardSkeleton } from '@/components/ui/dashboard-skeleton';
+import { ErrorState, TimeoutWarning } from '@/components/ui/error-states';
+import { EmptyState } from '@/components/ui/empty-states';
 
 interface EnhancedOpenInterestData {
   current: {
@@ -52,10 +55,11 @@ interface EnhancedOpenInterestData {
 }
 
 export function EnhancedOpenInterest() {
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
   const isMobile = useIsMobile();
   
   // Enhanced Open Interest data with all institutional metrics and metadata tracking
-  const { data: enhancedOIData, isLoading, error } = useQuery<{
+  const { data: enhancedOIData, isLoading, error, refetch, isRefetching } = useQuery<{
     success: boolean;
     data: EnhancedOpenInterestData;
     timestamp: string;
@@ -69,6 +73,14 @@ export function EnhancedOpenInterest() {
     refetchInterval: 30000, // Refresh every 30 seconds
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    onError: () => {
+      setShowTimeoutWarning(false);
+    },
+    onSuccess: () => {
+      setShowTimeoutWarning(false);
+    }
   });
 
   // Historical OI data for trends
@@ -131,39 +143,65 @@ export function EnhancedOpenInterest() {
     }
   };
 
-  if (isLoading) {
+  // Handle retry with timeout warning
+  const handleRetry = () => {
+    setShowTimeoutWarning(false);
+    refetch();
+    // Show timeout warning after 15 seconds
+    setTimeout(() => {
+      if (isLoading || isRefetching) {
+        setShowTimeoutWarning(true);
+      }
+    }, 15000);
+  };
+
+  // Enhanced Loading State
+  if (isLoading && !error) {
     return (
-      <Card className="bg-gray-900 border-gray-800">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <Activity className="w-5 h-5" />
-            Enhanced Open Interest
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="animate-pulse space-y-3">
-            <div className="h-6 bg-gray-700 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-700 rounded w-1/2"></div>
-            <div className="h-4 bg-gray-700 rounded w-2/3"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        {/* Timeout Warning */}
+        {showTimeoutWarning && (
+          <TimeoutWarning onRetry={handleRetry} />
+        )}
+        
+        {/* Main OI Metrics Skeleton */}
+        <MetricsSkeleton 
+          metrics={4} 
+          className="bg-gray-900 border-gray-800"
+        />
+        
+        {/* Advanced Analytics Skeleton */}
+        <TabsSkeleton 
+          tabCount={3} 
+          contentHeight="h-60" 
+          className="bg-gray-900 border-gray-800"
+        />
+      </div>
     );
   }
 
+  // Enhanced Error State
   if (error || !enhancedOIData?.success) {
     return (
-      <Card className="bg-gray-900 border-gray-800">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <Activity className="w-5 h-5" />
-            Enhanced Open Interest
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-red-400">Failed to load enhanced open interest data</p>
-        </CardContent>
-      </Card>
+      <ErrorState 
+        error={error}
+        onRetry={handleRetry}
+        title="Data Open Interest Tidak Tersedia"
+        description="Gagal memuat data open interest enhanced. Periksa koneksi dan coba lagi."
+      />
+    );
+  }
+
+  // Enhanced Empty State
+  if (!isLoading && !error && !enhancedOIData?.data) {
+    return (
+      <EmptyState
+        icon={Activity}
+        title="Data Open Interest Kosong"
+        description="Data open interest belum tersedia untuk pair SOL/USDT."
+        actionText="Muat Ulang Data"
+        onAction={handleRetry}
+      />
     );
   }
 

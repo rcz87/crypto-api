@@ -28,6 +28,9 @@ import { useState, useMemo } from 'react';
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
 import { DataTrustIndicator } from '@/components/DataTrustIndicator';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { TabsSkeleton, MetricsSkeleton, ChartSkeleton } from '@/components/ui/dashboard-skeleton';
+import { ErrorState, TimeoutWarning } from '@/components/ui/error-states';
+import { EmptyState } from '@/components/ui/empty-states';
 
 // Enhanced Types
 interface EnhancedFundingRateData {
@@ -164,10 +167,11 @@ interface FundingCorrelationData {
 
 export function EnhancedFundingRate() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<'24h' | '7d' | '30d'>('24h');
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
   const isMobile = useIsMobile();
 
   // Enhanced API Queries with metadata tracking
-  const { data: enhancedData, isLoading, error } = useQuery<{
+  const { data: enhancedData, isLoading, error, refetch, isRefetching } = useQuery<{
     success: boolean;
     data: EnhancedFundingRateData;
     timestamp: string;
@@ -179,6 +183,14 @@ export function EnhancedFundingRate() {
   }>({
     queryKey: ['/api/sol/funding/enhanced'],
     refetchInterval: 30000, // 30 seconds
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    onError: () => {
+      setShowTimeoutWarning(false);
+    },
+    onSuccess: () => {
+      setShowTimeoutWarning(false);
+    }
   });
 
   const { data: historicalData } = useQuery<{
@@ -237,45 +249,71 @@ export function EnhancedFundingRate() {
     }
   }, [enhancedData]);
 
-  if (isLoading) {
+  // Handle retry with timeout warning
+  const handleRetry = () => {
+    setShowTimeoutWarning(false);
+    refetch();
+    // Show timeout warning after 15 seconds
+    setTimeout(() => {
+      if (isLoading || isRefetching) {
+        setShowTimeoutWarning(true);
+      }
+    }, 15000);
+  };
+
+  // Enhanced Loading State
+  if (isLoading && !error) {
     return (
-      <Card className="bg-gray-900 border-gray-800">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <Brain className="w-5 h-5" />
-            Enhanced Funding Intelligence
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-700 rounded w-3/4"></div>
-            <div className="h-20 bg-gray-700 rounded"></div>
-            <div className="h-4 bg-gray-700 rounded w-1/2"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        {/* Timeout Warning */}
+        {showTimeoutWarning && (
+          <TimeoutWarning onRetry={handleRetry} />
+        )}
+        
+        {/* Main Funding Rate Skeleton */}
+        <TabsSkeleton 
+          tabCount={4} 
+          contentHeight="h-80" 
+          className="bg-gray-900 border-gray-800"
+        />
+        
+        {/* Metrics Grid Skeleton */}
+        <MetricsSkeleton 
+          metrics={6} 
+          className="bg-gray-900 border-gray-800"
+        />
+        
+        {/* Historical Chart Skeleton */}
+        <ChartSkeleton 
+          height="h-64" 
+          className="bg-gray-900 border-gray-800"
+        />
+      </div>
     );
   }
 
+  // Enhanced Error State
   if (error || !enhancedData?.success) {
     return (
-      <Card className="bg-gray-900 border-gray-800">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <Brain className="w-5 h-5" />
-            Enhanced Funding Intelligence
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Data Unavailable</AlertTitle>
-            <AlertDescription>
-              Failed to load enhanced funding data. Please refresh.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <ErrorState 
+        error={error}
+        onRetry={handleRetry}
+        title="Data Funding Rate Tidak Tersedia"
+        description="Gagal memuat data funding rate enhanced. Periksa koneksi dan coba lagi."
+      />
+    );
+  }
+
+  // Enhanced Empty State
+  if (!isLoading && !error && !enhancedData?.data) {
+    return (
+      <EmptyState
+        icon={Brain}
+        title="Data Funding Rate Kosong"
+        description="Data funding rate belum tersedia untuk pair SOL/USDT."
+        actionText="Muat Ulang Data"
+        onAction={handleRetry}
+      />
     );
   }
 
