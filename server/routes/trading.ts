@@ -873,7 +873,80 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
-  // Volume History endpoint for Enhanced Volume Profile
+  // Multi-pair Volume History endpoint - supports all 65 coins
+  app.get('/api/:pair/volume-history', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          supported_format: 'btc, eth, sol, ada, etc.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const tradingSymbol = validation.symbol;
+      
+      // Get current and historical volume data for 24h comparison
+      const { okxService } = await import('../services/okx');
+      const completeData = await okxService.getCompleteData(tradingSymbol);
+      
+      const currentVolume = Number.isFinite(parseFloat(completeData.ticker.volume || completeData.ticker.tradingVolume24h)) ? parseFloat(completeData.ticker.volume || completeData.ticker.tradingVolume24h) : 0;
+      
+      // Get real historical volume data from OKX API
+      const historicalVolumeData = await getRealHistoricalVolume(tradingSymbol, currentVolume);
+      const volume24hAgo = historicalVolumeData.volume24hAgo;
+      const volumeChange24h = currentVolume - volume24hAgo;
+      const volumeChangePercentage = volume24hAgo > 0 ? (volumeChange24h / volume24hAgo) * 100 : 0;
+      
+      const responseTime = Date.now() - startTime;
+      
+      await storage.updateMetrics(responseTime);
+      
+      await storage.addLog({
+        level: 'info',
+        message: 'Volume history request completed',
+        details: `GET /api/${pair}/volume-history - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: {
+          volume24hAgo,
+          volumeChange24h,
+          volumeChangePercentage
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/volume-history:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Volume history request failed',
+        details: `GET /api/${pair}/volume-history - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Legacy SOL Volume History endpoint for backward compatibility
   app.get('/api/sol/volume-history', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
@@ -928,7 +1001,72 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
-  // SOL Volume Profile endpoint
+  // Multi-pair Volume Profile endpoint - supports all 65 coins
+  app.get('/api/:pair/volume-profile', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      const timeframe = (req.query.timeframe as string) || '1H';
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          supported_format: 'btc, eth, sol, ada, etc.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const tradingSymbol = validation.symbol;
+      
+      // Get required data for volume profile analysis
+      const volumeProfile = await okxService.getVolumeProfile(tradingSymbol, timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const validated = volumeProfileSchema.parse(volumeProfile);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Volume profile request completed',
+        details: `GET /api/${pair}/volume-profile - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/volume-profile:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Volume profile request failed',
+        details: `GET /api/${pair}/volume-profile - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Legacy SOL Volume Profile endpoint for backward compatibility
   app.get('/api/sol/volume-profile', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
