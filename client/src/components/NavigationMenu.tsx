@@ -154,7 +154,7 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
           <Menu className="w-5 h-5" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-80 h-full max-w-none bg-white p-0 sm:max-w-sm fixed left-0 top-0 translate-x-0 translate-y-0 sm:translate-x-0 sm:translate-y-0 overflow-hidden">
+      <DialogContent className="w-80 h-full max-w-none bg-white p-0 sm:max-w-sm fixed left-0 top-0 translate-x-0 translate-y-0 sm:translate-x-0 sm:translate-y-0 overflow-hidden flex flex-col">
         <DialogHeader className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SolCompleteData } from "@shared/schema";
 import { useState, useMemo } from "react";
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface RealTimeDataProps {
   solData?: SolCompleteData;
@@ -46,6 +47,7 @@ const calculateBuySellPercentage = (orderBook: any) => {
 
 const RealTimeDataComponent = ({ solData, isLoading, isLiveStream = false }: RealTimeDataProps) => {
   const [precision, setPrecision] = useState(0.01);
+  const isMobile = useIsMobile();
   
   // Memoized calculations for performance
   const { ticker, orderBook } = solData || {};

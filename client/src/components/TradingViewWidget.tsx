@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Activity, TrendingUp, Volume2 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TradingViewWidgetProps {
   data?: any;
@@ -17,6 +18,7 @@ export function TradingViewWidget({
   displaySymbol = "SOL/USDT-PERP" 
 }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const script = document.createElement('script');
@@ -99,10 +101,10 @@ export function TradingViewWidget({
         </div>
         
         {data?.ticker && (
-          <div className="flex items-center gap-6 text-sm">
+          <div className={`${isMobile ? 'space-y-3' : 'flex items-center gap-6'} text-sm`}>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Current Price:</span>
-              <span className="text-xl font-bold text-foreground">
+              <span className={`${isMobile ? 'text-lg' : 'text-xl'} font-bold text-foreground`}>
                 ${parseFloat(data.ticker.price || data.ticker.last || '0').toFixed(2)}
               </span>
             </div>
@@ -112,7 +114,7 @@ export function TradingViewWidget({
                 {data.ticker.change24h || `${parseFloat(data.ticker.changePercent || '0') >= 0 ? '+' : ''}${parseFloat(data.ticker.changePercent || '0').toFixed(2)}%`}
               </span>
             </div>
-            <div className="flex items-center gap-4 text-muted-foreground">
+            <div className={`flex items-center ${isMobile ? 'justify-between' : 'gap-4'} text-muted-foreground`}>
               <span>High: ${parseFloat(data.ticker.high24h || '0').toFixed(2)}</span>
               <span>Low: ${parseFloat(data.ticker.low24h || '0').toFixed(2)}</span>
             </div>
@@ -124,7 +126,7 @@ export function TradingViewWidget({
         <div 
           ref={containerRef}
           id="tradingview_chart"
-          className="w-full h-[500px] bg-gray-900 border border-gray-700 rounded-lg"
+          className={`w-full ${isMobile ? 'h-[300px] sm:h-[400px]' : 'h-[500px]'} bg-gray-900 border border-gray-700 rounded-lg touch-pan-x touch-pan-y select-none`}
           data-testid="tradingview-chart"
         />
       </CardContent>

@@ -364,36 +364,42 @@ export const DashboardContent = ({
       // DEFAULT: Show overview with TradingView
       default:
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Dashboard Overview</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Dashboard Overview</h2>
             
             {/* Status Overview */}
             <ErrorBoundary>
-              <StatusOverview 
-                healthData={healthData?.data} 
-                metricsData={metricsData?.data}
-                isLoading={healthLoading}
-              />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <StatusOverview 
+                  healthData={healthData?.data} 
+                  metricsData={metricsData?.data}
+                  isLoading={healthLoading}
+                />
+              </div>
             </ErrorBoundary>
 
             {/* Market Data Overview */}
-            <div className="mt-6">
+            <div className="mt-4 md:mt-6">
               <ErrorBoundary>
-                <TradingChart 
-                  data={solData} 
-                  isConnected={wsConnected}
-                />
+                <div className={`${isMobile ? 'px-2 -mx-2 min-h-[360px]' : ''}`}>
+                  <TradingChart 
+                    data={solData} 
+                    isConnected={wsConnected}
+                  />
+                </div>
               </ErrorBoundary>
             </div>
 
             {/* Real-time Data */}
-            <div className="mt-6">
+            <div className="mt-4 md:mt-6">
               <ErrorBoundary>
-                <RealTimeData 
-                  solData={solData} 
-                  isLoading={isDataLoading}
-                  isLiveStream={wsConnected && !!marketData}
-                />
+                <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                  <RealTimeData 
+                    solData={solData} 
+                    isLoading={isDataLoading}
+                    isLiveStream={wsConnected && !!marketData}
+                  />
+                </div>
               </ErrorBoundary>
             </div>
           </div>

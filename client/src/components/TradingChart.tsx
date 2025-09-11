@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Activity, TrendingUp, Volume2 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TradingChartProps {
   data?: any;
@@ -16,6 +17,7 @@ export function TradingChart({ data, isConnected }: TradingChartProps) {
   const candleSeries = useRef<any>(null);
   const volumeSeries = useRef<any>(null);
   const [timeframe, setTimeframe] = useState('1H');
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -46,7 +48,7 @@ export function TradingChart({ data, isConnected }: TradingChartProps) {
         secondsVisible: false,
       },
       width: chartContainerRef.current.clientWidth,
-      height: 500,
+      height: isMobile ? (window.innerWidth < 640 ? 300 : 400) : 500,
     });
 
     // Add price line series
@@ -74,8 +76,10 @@ export function TradingChart({ data, isConnected }: TradingChartProps) {
     // Handle resize
     const handleResize = () => {
       if (chartContainerRef.current && chart.current) {
+        const newHeight = isMobile ? (window.innerWidth < 640 ? 300 : 400) : 500;
         chart.current.applyOptions({
           width: chartContainerRef.current.clientWidth,
+          height: newHeight
         });
       }
     };
@@ -160,20 +164,21 @@ export function TradingChart({ data, isConnected }: TradingChartProps) {
             </Badge>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className={`${isMobile ? 'space-y-2' : 'flex items-center gap-2'}`}>
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Volume2 className="h-4 w-4" />
               <span>24h Vol: {data?.ticker?.vol24h ? parseFloat(data.ticker.vol24h).toLocaleString() : 'N/A'}</span>
             </div>
             
-            <div className="flex gap-1">
+            <div className={`${isMobile ? 'grid grid-cols-6 gap-1' : 'flex gap-1'}`}>
               {timeframes.map((tf) => (
                 <Button
                   key={tf}
                   variant={timeframe === tf ? "default" : "outline"}
                   size="sm"
                   onClick={() => setTimeframe(tf)}
-                  className="h-7 px-2 text-xs"
+                  className={`${isMobile ? 'h-6 px-1 text-xs' : 'h-7 px-2 text-xs'}`}
+                  data-testid={`chart-timeframe-${tf.toLowerCase()}`}
                 >
                   {tf}
                 </Button>
@@ -183,22 +188,24 @@ export function TradingChart({ data, isConnected }: TradingChartProps) {
         </div>
         
         {data?.ticker && (
-          <div className="flex items-center gap-6 text-sm">
+          <div className={`${isMobile ? 'space-y-2' : 'flex items-center gap-6'} text-sm`}>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Price:</span>
-              <span className="text-xl font-bold text-foreground">
+              <span className={`${isMobile ? 'text-lg' : 'text-xl'} font-bold text-foreground`}>
                 ${parseFloat(data.ticker.last).toFixed(6)}
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">24h Change:</span>
-              <span className={`font-semibold ${parseFloat(data.ticker.changePercent) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                {parseFloat(data.ticker.changePercent) >= 0 ? '+' : ''}{parseFloat(data.ticker.changePercent).toFixed(2)}%
-              </span>
-            </div>
-            <div className="flex items-center gap-4 text-muted-foreground">
-              <span>H: ${parseFloat(data.ticker.high24h).toFixed(6)}</span>
-              <span>L: ${parseFloat(data.ticker.low24h).toFixed(6)}</span>
+            <div className={`${isMobile ? 'flex justify-between' : 'flex items-center gap-6'}`}>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">24h Change:</span>
+                <span className={`font-semibold ${parseFloat(data.ticker.changePercent) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                  {parseFloat(data.ticker.changePercent) >= 0 ? '+' : ''}{parseFloat(data.ticker.changePercent).toFixed(2)}%
+                </span>
+              </div>
+              <div className="flex items-center gap-4 text-muted-foreground">
+                <span>H: ${parseFloat(data.ticker.high24h).toFixed(6)}</span>
+                <span>L: ${parseFloat(data.ticker.low24h).toFixed(6)}</span>
+              </div>
             </div>
           </div>
         )}
@@ -207,7 +214,7 @@ export function TradingChart({ data, isConnected }: TradingChartProps) {
       <CardContent>
         <div 
           ref={chartContainerRef}
-          className="w-full h-[500px] bg-background border rounded-lg"
+          className={`w-full ${isMobile ? 'h-[300px] sm:h-[400px]' : 'h-[500px]'} bg-background border rounded-lg touch-pan-x touch-pan-y`}
           data-testid="trading-chart-container"
         />
         
