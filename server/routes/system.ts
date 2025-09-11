@@ -89,14 +89,57 @@ export function registerSystemRoutes(app: Express): void {
     }
   });
 
-  // API Metrics endpoint (under /api namespace)
+  // API Metrics endpoint (under /api namespace) with production-safe security metrics
   app.get('/api/metrics', async (req: Request, res: Response) => {
     try {
-      const metrics = metricsCollector.getMetrics();
+      const isProduction = process.env.NODE_ENV === 'production';
+      
+      // Get basic metrics for all environments
+      let metrics = metricsCollector.getMetrics();
+      
+      // Add security metrics with production safety
+      try {
+        const { getEnhancedSecurityMetrics } = await import('../middleware/security');
+        const securityMetrics = getEnhancedSecurityMetrics();
+        
+        if (isProduction) {
+          // Production: Only include aggregate security stats, no detailed info
+          metrics = {
+            ...metrics,
+            security: {
+              securityHealth: 'operational',
+              rateLimitHits: securityMetrics.security?.totalRateLimitHits || 0,
+              suspiciousRequests: securityMetrics.security?.totalSuspiciousRequests || 0,
+              validationFailures: securityMetrics.security?.totalValidationFailures || 0,
+              blockedIPs: securityMetrics.security?.activelyBlockedIPs || 0,
+              lastSecurityEvent: securityMetrics.security?.lastSecurityEvent || 0,
+              // Note: Detailed thresholds, blocked IPs list, and store stats omitted in production
+            }
+          };
+        } else {
+          // Development: Full security metrics for debugging
+          metrics = {
+            ...metrics,
+            security: {
+              securityHealth: 'operational',
+              rateLimitHits: securityMetrics.security?.totalRateLimitHits || 0,
+              suspiciousRequests: securityMetrics.security?.totalSuspiciousRequests || 0,
+              validationFailures: securityMetrics.security?.totalValidationFailures || 0,
+              blockedIPs: securityMetrics.security?.activelyBlockedIPs || 0,
+              lastSecurityEvent: securityMetrics.security?.lastSecurityEvent || 0,
+            }
+          };
+        }
+      } catch {
+        // Fallback: basic metrics only if security middleware unavailable
+        console.warn('Security middleware unavailable, returning basic metrics only');
+      }
+      
       res.json({
         success: true,
         data: metrics,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        environment: isProduction ? 'production' : 'development'
       });
     } catch (error) {
       res.status(500).json({
@@ -107,11 +150,14 @@ export function registerSystemRoutes(app: Express): void {
     }
   });
 
-  // System logs endpoint
+  // System logs endpoint (with enhanced input validation)
   app.get('/api/logs', async (req: Request, res: Response) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 100;
-      const level = req.query.level as string;
+      // Enhanced input sanitization for query parameters
+      const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
+      const level = ['info', 'warning', 'error', 'debug'].includes(req.query.level as string) 
+        ? req.query.level as string 
+        : undefined;
       
       const logs = await storage.getRecentLogs(limit);
       

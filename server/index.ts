@@ -46,16 +46,44 @@ app.use(express.urlencoded({ extended: false }));
 // Import metrics collector
 import { metricsCollector } from "./utils/metrics";
 
+// Import enhanced security middleware
+import { enhancedRateLimit, InputSanitizer, getEnhancedSecurityMetrics } from "./middleware/security";
+
+// Apply enhanced security middleware (before other middleware for maximum protection)
+app.use(enhancedRateLimit);
+app.use(InputSanitizer.validateInput);
+
 // Security headers middleware
 app.use((req, res, next) => {
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  // Development-friendly CSP that allows localhost connections
+  // Production-ready CSP with explicit domain allowlists
   const isDev = process.env.NODE_ENV === 'development';
-  const cspPolicy = isDev 
-    ? "default-src 'self' http: https: ws: wss: 'unsafe-inline' 'unsafe-eval'"
-    : "default-src 'self' https: wss: 'unsafe-inline' 'unsafe-eval'";
+  
+  let cspPolicy;
+  if (isDev) {
+    // Development: Allow unsafe directives for dev tools and localhost
+    cspPolicy = "default-src 'self' http: https: ws: wss: 'unsafe-inline' 'unsafe-eval'";
+  } else {
+    // Production: Secure CSP with explicit domain allowlists
+    cspPolicy = [
+      "default-src 'self'",
+      "connect-src 'self' https://ws.okx.com wss://ws.okx.com https://rest.coinapi.io https://api.coinapi.io https://api.binance.com wss://stream.binance.com wss://*.replit.dev https://*.replit.dev",
+      "script-src 'self' 'sha256-n8Z7m8gNNvJlTq/Z+o4LH8rTq7PpOLz5Z1oN1eNhK5o=' 'nonce-trading-view'",
+      "style-src 'self' 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=' 'sha256-VQAKPRQs+v2o0Z0Q6QJ1FJ0+Z8K3U7W8tKJ7+J3w3tA='",
+      "font-src 'self' data:",
+      "img-src 'self' data: https:",
+      "media-src 'self'",
+      "object-src 'none'",
+      "frame-src 'none'",
+      "worker-src 'self'",
+      "manifest-src 'self'",
+      "base-uri 'self'",
+      "form-action 'self'"
+    ].join('; ');
+  }
+  
   res.setHeader('Content-Security-Policy', cspPolicy);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');

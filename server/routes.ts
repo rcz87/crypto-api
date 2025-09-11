@@ -41,40 +41,8 @@ import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
 import { backpressureManager } from "./utils/websocket";
 
-// Rate limiting middleware
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT = 100; // requests per minute
-const RATE_WINDOW = 60 * 1000; // 1 minute in milliseconds
-
-function rateLimit(req: Request, res: Response, next: Function) {
-  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
-  const now = Date.now();
-  
-  // Clean expired entries
-  const entries = Array.from(rateLimitMap.entries());
-  for (const [ip, data] of entries) {
-    if (now > data.resetTime) {
-      rateLimitMap.delete(ip);
-    }
-  }
-  
-  const clientData = rateLimitMap.get(clientIp);
-  
-  if (!clientData) {
-    rateLimitMap.set(clientIp, { count: 1, resetTime: now + RATE_WINDOW });
-  } else {
-    if (clientData.count >= RATE_LIMIT) {
-      return res.status(429).json({
-        success: false,
-        error: 'Rate limit exceeded. Maximum 100 requests per minute.',
-        timestamp: new Date().toISOString(),
-      });
-    }
-    clientData.count++;
-  }
-  
-  next();
-}
+// Enhanced security imports (rate limiting moved to middleware/security.ts)
+import { InputSanitizer, getEnhancedSecurityMetrics } from './middleware/security';
 
 // CORS middleware
 function corsMiddleware(req: Request, res: Response, next: Function) {
@@ -100,8 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // SOL trading routes (complete, funding, technical analysis, etc.)
   registerTradingRoutes(app);
 
-  // Apply middleware AFTER SEO routes
-  app.use('/api', rateLimit);
+  // Note: Enhanced rate limiting is now applied globally in server/index.ts
   
   // Mount the modules screener router first (has GET /api/screener endpoint frontend needs)
   app.use('/api/screener', screenerRouter);
@@ -143,13 +110,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // SOL confluence endpoint moved to registerTradingRoutes()
 
-  // Technical Indicators endpoint - RSI/EMA Professional Analysis
+  // Enhanced security metrics endpoint
+  app.get('/api/security/metrics', async (req: Request, res: Response) => {
+    try {
+      const enhancedMetrics = getEnhancedSecurityMetrics();
+      res.json({
+        success: true,
+        data: enhancedMetrics,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error in /api/security/metrics:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Technical Indicators endpoint - RSI/EMA Professional Analysis (with enhanced validation)
   app.get('/api/sol/technical', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
     try {
-      const timeframe = req.query.timeframe as string || '1H';
-      const limit = parseInt(req.query.limit as string) || 100;
+      // Enhanced input sanitization
+      const timeframe = InputSanitizer.sanitizeTimeframe(req.query.timeframe as string);
+      const limit = InputSanitizer.sanitizeNumeric(req.query.limit, 1, 1000, 100);
       
       // Initialize technical indicators service
       const technicalService = new TechnicalIndicatorsService();
@@ -195,13 +182,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Multi-Exchange Aggregated Orderbook endpoint
+  // Multi-Exchange Aggregated Orderbook endpoint (with enhanced validation)
   app.get('/api/sol/multi-exchange-orderbook', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
     try {
       const { multiExchangeService } = await import('./services/multiExchange.js');
-      const symbol = req.query.symbol as string || 'SOL-USDT';
+      // Enhanced input sanitization
+      const symbol = InputSanitizer.sanitizeSymbol(req.query.symbol as string) || 'SOL-USDT';
       
       const result = await multiExchangeService.getAggregatedOrderbook(symbol);
       const responseTime = Date.now() - startTime;
@@ -366,13 +354,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Fibonacci Analysis endpoint - Professional Fibonacci Retracements & Extensions
+  // Fibonacci Analysis endpoint - Professional Fibonacci Retracements & Extensions (with enhanced validation)
   app.get('/api/sol/fibonacci', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
     try {
-      const timeframe = req.query.timeframe as string || '1H';
-      const limit = parseInt(req.query.limit as string) || 100;
+      // Enhanced input sanitization
+      const timeframe = InputSanitizer.sanitizeTimeframe(req.query.timeframe as string);
+      const limit = InputSanitizer.sanitizeNumeric(req.query.limit, 1, 1000, 100);
       
       // Initialize fibonacci service
       const fibonacciService = new FibonacciService();
@@ -418,13 +407,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Order Flow Analysis endpoint - Professional Market Microstructure & Tape Reading
+  // Order Flow Analysis endpoint - Professional Market Microstructure & Tape Reading (with enhanced validation)
   app.get('/api/sol/order-flow', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
     try {
-      const timeframe = req.query.timeframe as string || '1H';
-      const tradeLimit = parseInt(req.query.tradeLimit as string) || 200;
+      // Enhanced input sanitization
+      const timeframe = InputSanitizer.sanitizeTimeframe(req.query.timeframe as string);
+      const tradeLimit = InputSanitizer.sanitizeNumeric(req.query.tradeLimit, 1, 1000, 200);
       
       // Initialize order flow service
       const orderFlowService = new OrderFlowService();

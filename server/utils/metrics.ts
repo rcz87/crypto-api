@@ -21,6 +21,13 @@ interface Metrics {
     lastRestCall: number;
     lastWsMessage: number;
   };
+  security: {
+    rateLimitHits: number;
+    validationFailures: number;
+    suspiciousRequests: number;
+    blockedIPs: number;
+    lastSecurityEvent: number;
+  };
 }
 
 class MetricsCollector {
@@ -28,7 +35,8 @@ class MetricsCollector {
     http: { count: 0, p95: 0, errors: 0 },
     cache: { hits: 0, misses: 0, size: 0 },
     ws: { reconnects: 0, activeClients: 0, bufferedAmount: 0 },
-    okx: { restStatus: 'down', wsStatus: 'down', lastRestCall: 0, lastWsMessage: 0 }
+    okx: { restStatus: 'down', wsStatus: 'down', lastRestCall: 0, lastWsMessage: 0 },
+    security: { rateLimitHits: 0, validationFailures: 0, suspiciousRequests: 0, blockedIPs: 0, lastSecurityEvent: 0 }
   };
 
   private responseTimes: number[] = [];
@@ -90,6 +98,26 @@ class MetricsCollector {
     this.metrics.okx.lastWsMessage = Date.now();
   }
 
+  // Security metrics
+  recordSecurityViolation(type: 'rate_limit' | 'validation' | 'suspicious') {
+    switch (type) {
+      case 'rate_limit':
+        this.metrics.security.rateLimitHits++;
+        break;
+      case 'validation':
+        this.metrics.security.validationFailures++;
+        break;
+      case 'suspicious':
+        this.metrics.security.suspiciousRequests++;
+        break;
+    }
+    this.metrics.security.lastSecurityEvent = Date.now();
+  }
+
+  updateBlockedIPs(count: number) {
+    this.metrics.security.blockedIPs = count;
+  }
+
   getMetrics() {
     const uptime = Math.floor((Date.now() - this.startTime) / 1000);
     const cacheHitRatio = this.metrics.cache.hits + this.metrics.cache.misses > 0 
@@ -117,6 +145,11 @@ class MetricsCollector {
         ...this.metrics.okx,
         restLatency: this.metrics.okx.lastRestCall > 0 ? Date.now() - this.metrics.okx.lastRestCall : -1,
         wsLatency: this.metrics.okx.lastWsMessage > 0 ? Date.now() - this.metrics.okx.lastWsMessage : -1
+      },
+      security: {
+        ...this.metrics.security,
+        securityHealth: this.metrics.security.lastSecurityEvent > 0 ? 
+          Date.now() - this.metrics.security.lastSecurityEvent < 300000 ? 'recent_activity' : 'quiet' : 'no_events'
       }
     };
   }
