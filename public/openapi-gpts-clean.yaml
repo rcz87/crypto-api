@@ -30,8 +30,12 @@ servers:
 tags:
   - name: Multi-Pair Analysis
     description: Analysis for any cryptocurrency pair - BTC, ETH, SOL, ADA, etc.
+  - name: Enhanced AI Analysis
+    description: GPT-5 powered AI signals with neural networks and pattern recognition
   - name: CoinAPI Multi-Exchange
     description: Cross-exchange data from 300+ exchanges
+  - name: Multi-Coin Screening
+    description: Institutional-grade screening across multiple cryptocurrencies
   - name: Regime Detection Autopilot
     description: HMM-based market regime classification and strategy filtering
 
@@ -428,6 +432,125 @@ paths:
                       deviation_pct:
                         type: number
                         example: 0.11
+
+  /api/ai/enhanced-signal:
+    get:
+      operationId: getEnhancedAISignal
+      summary: Get Enhanced AI Trading Signal with GPT-5 analysis
+      description: |
+        Advanced AI-powered trading signal using GPT-5 reasoning, neural networks, and pattern recognition.
+        Combines 10+ market patterns with institutional-grade analysis for SOL-USDT-SWAP.
+      tags: [Enhanced AI Analysis]
+      responses:
+        '200':
+          description: Enhanced AI signal with GPT-5 analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      signal_id:
+                        type: string
+                        example: "ai_signal_1757580001234"
+                      direction:
+                        type: string
+                        enum: [BUY, SELL, NEUTRAL]
+                        example: "NEUTRAL"
+                      confidence:
+                        type: number
+                        example: 58
+                      neural_prediction:
+                        type: object
+                        properties:
+                          prediction:
+                            type: number
+                            example: 0.5
+                          features_analyzed:
+                            type: number
+                            example: 50
+                      detected_patterns:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              example: "Predictive Institutional Flow"
+                            confidence:
+                              type: number
+                              example: 0.95
+                        example:
+                          - name: "Predictive Institutional Flow"
+                            confidence: 0.95
+                          - name: "Derivatives Gamma Squeeze Pattern"
+                            confidence: 0.95
+                      pattern_confluence:
+                        type: number
+                        example: 70.6
+                      reasoning:
+                        type: string
+                        example: "GPT-5 analysis indicates neutral market conditions with institutional flow patterns"
+                      risk_score:
+                        type: number
+                        example: 0.4
+                      timeframe:
+                        type: string
+                        example: "multi-timeframe"
+
+  /api/enhanced-ai/{pair}/signal:
+    get:
+      operationId: getEnhancedAIPairSignal
+      summary: Get Enhanced AI signal for any cryptocurrency pair
+      description: Advanced AI analysis for specific cryptocurrency using neural networks and GPT-5
+      tags: [Enhanced AI Analysis]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Cryptocurrency pair (btc, eth, sol, ada, etc.)
+          schema:
+            type: string
+            enum: [btc, eth, sol, ada, avax, doge, uni, matic, ltc, bch, atom, xrp, shib, ftm, near, dot, link, algo, icp, vet]
+            example: btc
+      responses:
+        '200':
+          description: Enhanced AI signal for specific cryptocurrency
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      signal_id:
+                        type: string
+                        example: "ai_btc_1757580001234"
+                      pair:
+                        type: string
+                        example: "BTC-USDT-SWAP"
+                      direction:
+                        type: string
+                        enum: [BUY, SELL, NEUTRAL]
+                        example: "BUY"
+                      confidence:
+                        type: number
+                        example: 72
+                      neural_prediction:
+                        type: number
+                        example: 0.72
+                      gpt_reasoning:
+                        type: string
+                        example: "Strong bullish momentum with institutional accumulation patterns detected"
 
   /api/coinapi/correlation:
     get:
