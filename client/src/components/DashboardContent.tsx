@@ -196,11 +196,35 @@ export const DashboardContent = ({
           </div>
         );
 
+      case 'oi-analysis':
+        return (
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">OI Sentiment Analysis</h2>
+            <ErrorBoundary>
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <EnhancedOpenInterest />
+              </div>
+            </ErrorBoundary>
+          </div>
+        );
+
       // FUNDING CATEGORY
       case 'funding-rate':
         return (
           <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
             <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Enhanced Funding Rate</h2>
+            <ErrorBoundary>
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <EnhancedFundingRate />
+              </div>
+            </ErrorBoundary>
+          </div>
+        );
+
+      case 'funding-trends':
+        return (
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Funding Trends</h2>
             <ErrorBoundary>
               <div className={isMobile ? 'px-2 -mx-2' : ''}>
                 <EnhancedFundingRate />
@@ -321,6 +345,18 @@ export const DashboardContent = ({
           </div>
         );
 
+      case 'whale-tracking':
+        return (
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Whale Tracking</h2>
+            <ErrorBoundary>
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <SMCAnalysis />
+              </div>
+            </ErrorBoundary>
+          </div>
+        );
+
       // DATA CATEGORY
       case 'api-docs':
         return (
@@ -351,6 +387,20 @@ export const DashboardContent = ({
         return (
           <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
             <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Configuration Panel</h2>
+            <ErrorBoundary>
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <ConfigurationPanel 
+                  healthData={healthData?.data}
+                />
+              </div>
+            </ErrorBoundary>
+          </div>
+        );
+
+      case 'preferences':
+        return (
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">User Preferences</h2>
             <ErrorBoundary>
               <div className={isMobile ? 'px-2 -mx-2' : ''}>
                 <ConfigurationPanel 
