@@ -1,0 +1,612 @@
+openapi: 3.0.3
+info:
+  title: CryptoSat Intelligence - Multi-Pair Trading Data Gateway API (GPTs Clean)
+  description: |
+    🛰️ CryptoSat Intelligence — Clean GPTs-compatible OpenAPI for Multi-Cryptocurrency Analysis.
+    
+    **🌐 CORE CAPABILITIES:**
+    - **Multi-Exchange Intelligence** - 300+ exchanges (Binance, Coinbase, Kraken, OKX, etc.)
+    - **Multi-Pair Support** - 65+ trading pairs (BTC, ETH, SOL, ADA, AVAX, DOGE, UNI, etc.)
+    - **Regime Detection Autopilot** - HMM-based market classification with strategy filtering
+    - **Cross-Exchange Arbitrage** - Real-time profit opportunities detection
+    - **Institutional Pricing** - TWAP/VWAP calculations for professional execution
+    - **Enhanced AI Reasoning** - GPT-5 powered pattern recognition
+    
+    **🎯 MULTI-PAIR ROUTING RULE:**
+    ALWAYS extract the cryptocurrency pair from user request. NEVER default to SOL unless explicitly requested.
+    Examples: BTC → use "btc", Ethereum → use "eth", Cardano → use "ada", Solana → use "sol"
+    
+    **✅ Supported Pairs:**
+    BTC, ETH, SOL, ADA, AVAX, DOGE, UNI, MATIC, LTC, BCH, ATOM, XRP, SHIB, FTM, NEAR, DOT, LINK, ALGO, ICP, VET, HBAR, FIL, ETC, TRX, APT, ARB, OP, LDO, RENDER, IMX, GRT, ENS, SAND, MANA, CRV, COMP, MKR, AAVE, SNX, UMA, YFI, 1INCH, SUSHI, BAL, ZRX, KNC, LRC, REN, STORJ, ZEC, DASH, EOS, THETA, FLOW, CHZ, ENJ, BAT, ZIL, ONT, QTUM, ICX, SC, WAVES
+  version: '6.0.0-gpts-clean'
+  contact:
+    email: admin@guardiansofthegreentoken.com
+    url: https://guardiansofthegreentoken.com
+
+servers:
+  - url: https://guardiansofthegreentoken.com
+    description: Production server with SSL
+
+tags:
+  - name: Multi-Pair Analysis
+    description: Analysis for any cryptocurrency pair - BTC, ETH, SOL, ADA, etc.
+  - name: CoinAPI Multi-Exchange
+    description: Cross-exchange data from 300+ exchanges
+  - name: Regime Detection Autopilot
+    description: HMM-based market regime classification and strategy filtering
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /api/pairs/supported:
+    get:
+      operationId: getSupportedTradingPairs
+      summary: Get all supported trading pairs
+      description: Returns list of all 65+ supported cryptocurrency pairs
+      tags: [Multi-Pair Analysis]
+      responses:
+        '200':
+          description: List of supported trading pairs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: 
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      pairs:
+                        type: array
+                        items:
+                          type: string
+                        example: ["btc", "eth", "sol", "ada", "avax", "doge", "uni", "matic", "ltc", "bch", "atom", "xrp", "shib", "ftm", "near", "dot", "link", "algo", "icp", "vet"]
+                      count:
+                        type: integer
+                        example: 65
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /api/{pair}/complete:
+    get:
+      operationId: getCompleteTradingData
+      summary: Get comprehensive trading data for any cryptocurrency
+      description: |
+        Complete analysis for specified cryptocurrency pair.
+        **ROUTING RULE**: Extract pair from user request - BTC/Bitcoin → "btc", ETH/Ethereum → "eth", etc.
+      tags: [Multi-Pair Analysis]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Cryptocurrency pair (btc, eth, sol, ada, avax, doge, uni, matic, etc.)
+          schema:
+            type: string
+            enum: [btc, eth, sol, ada, avax, doge, uni, matic, ltc, bch, atom, xrp, shib, ftm, near, dot, link, algo, icp, vet, hbar, fil, etc, trx, apt, arb, op, ldo, render, imx, grt, ens, sand, mana, crv, comp, mkr, aave, snx, uma, yfi, 1inch, sushi, bal, zrx, knc, lrc, ren, storj, zec, dash, eos, theta, flow, chz, enj, bat, zil, ont, qtum, icx, sc, waves]
+            example: btc
+      responses:
+        '200':
+          description: Complete trading data with real-time market information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      ticker:
+                        type: object
+                        properties:
+                          symbol:
+                            type: string
+                            example: "BTC-USDT-SWAP"
+                          last:
+                            type: string
+                            example: "113180.5"
+                          askPx:
+                            type: string
+                            example: "113181.2"
+                          bidPx:
+                            type: string
+                            example: "113180.1"
+                          high24h:
+                            type: string
+                            example: "115200.0"
+                          low24h:
+                            type: string
+                            example: "111500.0"
+                          vol24h:
+                            type: string
+                            example: "245678.12"
+
+  /api/{pair}/smc:
+    get:
+      operationId: getSmartMoneyConcepts
+      summary: Get Smart Money Concepts analysis for any cryptocurrency
+      description: SMC analysis with trend direction, structure breaks, and liquidity zones
+      tags: [Multi-Pair Analysis]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Cryptocurrency pair (btc, eth, sol, ada, etc.)
+          schema:
+            type: string
+            enum: [btc, eth, sol, ada, avax, doge, uni, matic, ltc, bch, atom, xrp, shib, ftm, near, dot, link, algo, icp, vet]
+            example: eth
+      responses:
+        '200':
+          description: Smart Money Concepts analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      trend:
+                        type: object
+                        properties:
+                          direction:
+                            type: string
+                            enum: [bullish, bearish, neutral]
+                            example: "bullish"
+                          strength:
+                            type: string
+                            enum: [weak, moderate, strong]
+                            example: "strong"
+
+  /api/{pair}/cvd:
+    get:
+      operationId: getCVDAnalysis
+      summary: Get Cumulative Volume Delta analysis for any cryptocurrency
+      description: Volume delta patterns and divergence detection
+      tags: [Multi-Pair Analysis]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Cryptocurrency pair (btc, eth, sol, ada, etc.)
+          schema:
+            type: string
+            enum: [btc, eth, sol, ada, avax, doge, uni, matic, ltc, bch, atom, xrp, shib, ftm, near, dot, link, algo, icp, vet]
+            example: ada
+      responses:
+        '200':
+          description: CVD analysis with volume patterns
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      cvd:
+                        type: object
+                        properties:
+                          current:
+                            type: number
+                            example: 156789.45
+                          trend:
+                            type: string
+                            enum: [bullish, bearish, neutral]
+                            example: "bullish"
+
+  /api/coinapi/health:
+    get:
+      operationId: getCoinAPIHealth
+      summary: Check CoinAPI service health and latency
+      description: Health status for multi-exchange data service covering 300+ exchanges
+      tags: [CoinAPI Multi-Exchange]
+      responses:
+        '200':
+          description: Service health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: "up"
+                      latency_ms:
+                        type: number
+                        example: 245
+
+  /api/coinapi/rate/{base}/{quote}:
+    get:
+      operationId: getExchangeRate
+      summary: Get real-time exchange rate between any two cryptocurrencies
+      description: Real-time rates with precision timing across multiple exchanges
+      tags: [CoinAPI Multi-Exchange]
+      parameters:
+        - name: base
+          in: path
+          required: true
+          description: Base cryptocurrency (BTC, ETH, SOL, ADA, etc.)
+          schema:
+            type: string
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, UNI, MATIC, LTC, BCH, ATOM, XRP, SHIB, FTM, NEAR, DOT, LINK, ALGO, ICP, VET]
+            example: BTC
+        - name: quote
+          in: path
+          required: true
+          description: Quote currency (typically USD, USDT, EUR)
+          schema:
+            type: string
+            enum: [USD, USDT, EUR, BTC, ETH]
+            example: USD
+      responses:
+        '200':
+          description: Real-time exchange rate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      rate:
+                        type: number
+                        example: 113180.5
+                      base:
+                        type: string
+                        example: "BTC"
+                      quote:
+                        type: string
+                        example: "USD"
+
+  /api/coinapi/multi-ticker/{asset}:
+    get:
+      operationId: getMultiExchangeTicker
+      summary: Get cross-exchange price comparison for any cryptocurrency
+      description: Price comparison across 300+ exchanges for arbitrage detection
+      tags: [CoinAPI Multi-Exchange]
+      parameters:
+        - name: asset
+          in: path
+          required: true
+          description: Cryptocurrency asset (BTC, ETH, SOL, ADA, etc.)
+          schema:
+            type: string
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, UNI, MATIC, LTC, BCH, ATOM, XRP, SHIB, FTM, NEAR, DOT, LINK, ALGO, ICP, VET]
+            example: ETH
+      responses:
+        '200':
+          description: Multi-exchange ticker data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      asset:
+                        type: string
+                        example: "ETH"
+                      exchanges:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            exchange:
+                              type: string
+                              example: "BINANCE"
+                            price:
+                              type: number
+                              example: 3456.78
+                            volume_24h:
+                              type: number
+                              example: 567890.12
+
+  /api/coinapi/arbitrage/{asset}:
+    get:
+      operationId: getArbitrageOpportunities
+      summary: Get arbitrage opportunities for any cryptocurrency
+      description: Real-time profit opportunities with calculations across exchanges
+      tags: [CoinAPI Multi-Exchange]
+      parameters:
+        - name: asset
+          in: path
+          required: true
+          description: Cryptocurrency asset (BTC, ETH, SOL, ADA, etc.)
+          schema:
+            type: string
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, UNI, MATIC, LTC, BCH, ATOM, XRP, SHIB, FTM, NEAR, DOT, LINK, ALGO, ICP, VET]
+            example: BTC
+      responses:
+        '200':
+          description: Arbitrage opportunities with profit calculations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      asset:
+                        type: string
+                        example: "BTC"
+                      opportunities:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            buy_exchange:
+                              type: string
+                              example: "COINBASE"
+                            sell_exchange:
+                              type: string
+                              example: "BINANCE"
+                            profit_percentage:
+                              type: number
+                              example: 0.15
+                            feasible:
+                              type: boolean
+                              example: true
+
+  /api/coinapi/twap/{symbolId}:
+    get:
+      operationId: getTWAPCalculation
+      summary: Get Time Weighted Average Price for institutional execution
+      description: TWAP calculation for professional trading execution timing
+      tags: [CoinAPI Multi-Exchange]
+      parameters:
+        - name: symbolId
+          in: path
+          required: true
+          description: Exchange symbol ID (e.g., BINANCE_SPOT_BTC_USDT, COINBASE_SPOT_ETH_USD)
+          schema:
+            type: string
+            example: BINANCE_SPOT_BTC_USDT
+        - name: hours
+          in: query
+          required: false
+          description: Time period in hours (default 24)
+          schema:
+            type: integer
+            default: 24
+            minimum: 1
+            maximum: 168
+      responses:
+        '200':
+          description: TWAP calculation with institutional metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      symbolId:
+                        type: string
+                        example: "BINANCE_SPOT_BTC_USDT"
+                      twap:
+                        type: number
+                        example: 113050.25
+                      current_price:
+                        type: number
+                        example: 113180.5
+                      deviation_pct:
+                        type: number
+                        example: 0.11
+
+  /api/coinapi/correlation:
+    get:
+      operationId: getCorrelationMatrix
+      summary: Get correlation matrix for portfolio risk management
+      description: Correlation analysis between cryptocurrencies for portfolio optimization
+      tags: [CoinAPI Multi-Exchange]
+      parameters:
+        - name: assets
+          in: query
+          required: true
+          description: Comma-separated list of cryptocurrency assets
+          schema:
+            type: string
+            example: "BTC,ETH,SOL,ADA"
+        - name: days
+          in: query
+          required: false
+          description: Time period in days (default 30)
+          schema:
+            type: integer
+            default: 30
+            minimum: 1
+            maximum: 365
+      responses:
+        '200':
+          description: Correlation matrix for portfolio analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      correlation_matrix:
+                        type: object
+                        example:
+                          BTC_ETH: 0.85
+                          BTC_SOL: 0.72
+                          ETH_SOL: 0.78
+
+  /api/regime/detect/{symbolId}:
+    get:
+      operationId: detectMarketRegime
+      summary: Detect current market regime for any cryptocurrency
+      description: HMM-based market regime classification with strategy filtering
+      tags: [Regime Detection Autopilot]
+      parameters:
+        - name: symbolId
+          in: path
+          required: true
+          description: Exchange symbol ID (e.g., BINANCE_SPOT_BTC_USDT, COINBASE_SPOT_ETH_USD)
+          schema:
+            type: string
+            example: BINANCE_SPOT_ETH_USDT
+      responses:
+        '200':
+          description: Market regime detection with strategy recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      symbolId:
+                        type: string
+                        example: "BINANCE_SPOT_ETH_USDT"
+                      current_regime:
+                        type: string
+                        enum: [trending, ranging, mean_revert, high_vol]
+                        example: "trending"
+                      regime_probability:
+                        type: number
+                        minimum: 0
+                        maximum: 1
+                        example: 0.87
+                      allowed_strategies:
+                        type: array
+                        items:
+                          type: string
+                        example: ["breakout", "momentum", "swing"]
+                      disabled_strategies:
+                        type: array
+                        items:
+                          type: string
+                        example: ["mean_reversion", "scalping"]
+
+  /api/regime/strategy-rules:
+    get:
+      operationId: getRegimeStrategyRules
+      summary: Get regime-based strategy rules and current market optimization
+      description: Strategy filtering rules based on detected market regimes
+      tags: [Regime Detection Autopilot]
+      responses:
+        '200':
+          description: Regime strategy rules and optimization guidelines
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      regime_rules:
+                        type: object
+                        properties:
+                          trending:
+                            type: object
+                            properties:
+                              allowed:
+                                type: array
+                                items:
+                                  type: string
+                                example: ["breakout", "momentum", "swing"]
+                              disabled:
+                                type: array
+                                items:
+                                  type: string
+                                example: ["mean_reversion", "scalping"]
+                          ranging:
+                            type: object
+                            properties:
+                              allowed:
+                                type: array
+                                items:
+                                  type: string
+                                example: ["mean_reversion", "scalping", "arbitrage"]
+                              disabled:
+                                type: array
+                                items:
+                                  type: string
+                                example: ["breakout", "momentum"]
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Optional API key (most endpoints are public)
+
+  responses:
+    TooManyRequests:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Rate limit exceeded"
+              retry_after:
+                type: integer
+                example: 60
+
+    ProblemResponse:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Internal server error"
+              details:
+                type: string
+                example: "Additional error details"

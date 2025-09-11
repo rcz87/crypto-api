@@ -62,7 +62,21 @@ export function registerTradingRoutes(app: Express): void {
     
     try {
       const { pair } = req.params;
-      const tradingSymbol = `${pair.toUpperCase()}-USDT-SWAP`;
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          supported_format: 'btc, eth, sol, ada, etc.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const tradingSymbol = validation.symbol;
       const completeData = await okxService.getCompleteData(tradingSymbol);
       const responseTime = Date.now() - startTime;
       

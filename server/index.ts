@@ -124,7 +124,7 @@ app.use((req, res, next) => {
   app.get('/openapi-4.0.1-gpts-compat.yaml', (req, res) => {
     res.setHeader('Content-Type', 'text/yaml');
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.sendFile(path.resolve(process.cwd(), 'public/openapi-4.0.1-gpts-compat.yaml'));
+    res.sendFile(path.resolve(process.cwd(), 'public/openapi-gpts-clean.yaml'));
   });
 
   // importantly only setup vite in development and after
