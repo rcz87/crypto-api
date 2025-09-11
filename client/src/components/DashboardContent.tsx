@@ -1,5 +1,6 @@
 import React from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Import all components
 import { StatusOverview } from '@/components/status-overview';
@@ -52,47 +53,52 @@ export const DashboardContent = ({
   selectedSymbol,
   selectedTvSymbol
 }: DashboardContentProps) => {
+  const isMobile = useIsMobile();
   
   const renderSection = () => {
     switch (activeSection) {
       // PASAR CATEGORY
       case 'overview':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Status Overview</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Status Overview</h2>
             <ErrorBoundary>
-              <StatusOverview 
-                healthData={healthData?.data} 
-                metricsData={metricsData?.data}
-                isLoading={healthLoading}
-              />
+              <div className={isMobile ? 'px-2' : ''}>
+                <StatusOverview 
+                  healthData={healthData?.data} 
+                  metricsData={metricsData?.data}
+                  isLoading={healthLoading}
+                />
+              </div>
             </ErrorBoundary>
           </div>
         );
 
       case 'tradingview':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Chart Utama</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Chart Utama</h2>
             <ErrorBoundary>
-              <TradingViewWidget 
-                data={solData} 
-                isConnected={wsConnected}
-                tvSymbol={selectedTvSymbol || "BINANCE:SOLUSDT"}
-                displaySymbol={selectedSymbol || "SOL/USDT"}
-              />
+              <div className={`${isMobile ? 'px-2 -mx-2' : ''}`}>
+                <TradingViewWidget 
+                  data={solData} 
+                  isConnected={wsConnected}
+                  tvSymbol={selectedTvSymbol || "BINANCE:SOLUSDT"}
+                  displaySymbol={selectedSymbol || "SOL/USDT"}
+                />
+              </div>
             </ErrorBoundary>
             
             {/* System Status Info */}
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-              <div className="text-sm text-blue-800 space-y-1">
+            <div className={`mt-4 p-3 md:p-4 bg-blue-50 rounded-lg ${isMobile ? 'mx-2' : ''}`}>
+              <div className={`text-xs md:text-sm text-blue-800 space-y-1 ${isMobile ? 'space-y-2' : ''}`}>
                 <div>🔍 <span className="font-medium">System Status:</span></div>
-                <div>🌐 API Base: {window.location.hostname === 'localhost' ? 'localhost:5000' : 'guardiansofthegreentoken.com'}</div>
+                <div className={isMobile ? 'break-all' : ''}>🌐 API Base: {window.location.hostname === 'localhost' ? 'localhost:5000' : 'guardiansofthegreentoken.com'}</div>
                 <div>WebSocket: {wsConnected ? '✅ Connected' : '❌ Disconnected'}</div>
                 <div>SOL Futures API: {solData?.data ? '✅ Available' : '❌ None'}</div>
                 <div>Candles Data: {solData?.candles ? '✅ Available' : '❌ None'}</div>
                 {solData?.candles && (
-                  <div>📊 Candles: 1H({(solData.candles['1H'] || []).length}) 4H({(solData.candles['4H'] || []).length}) 1D({(solData.candles['1D'] || []).length})</div>
+                  <div className={isMobile ? 'text-xs' : ''}>📊 Candles: 1H({(solData.candles['1H'] || []).length}) 4H({(solData.candles['4H'] || []).length}) 1D({(solData.candles['1D'] || []).length})</div>
                 )}
                 <div>⚡ Data Source: {marketData ? 'WebSocket + REST' : 'REST only'}</div>
               </div>
@@ -102,24 +108,28 @@ export const DashboardContent = ({
 
       case 'realtime':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Data Real-time</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Data Real-time</h2>
             <ErrorBoundary>
-              <RealTimeData 
-                solData={solData} 
-                isLoading={isDataLoading}
-                isLiveStream={wsConnected && !!marketData}
-              />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <RealTimeData 
+                  solData={solData} 
+                  isLoading={isDataLoading}
+                  isLiveStream={wsConnected && !!marketData}
+                />
+              </div>
             </ErrorBoundary>
           </div>
         );
 
       case 'multi-coin':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Multi-Coin Screening</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Multi-Coin Screening</h2>
             <ErrorBoundary>
-              <MultiCoinScreening />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <MultiCoinScreening />
+              </div>
             </ErrorBoundary>
           </div>
         );
@@ -356,7 +366,11 @@ export const DashboardContent = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className={`max-w-7xl mx-auto py-4 md:py-8 ${
+      isMobile 
+        ? 'px-2 sm:px-4' 
+        : 'px-4 sm:px-6 lg:px-8'
+    }`}>
       {renderSection()}
     </div>
   );

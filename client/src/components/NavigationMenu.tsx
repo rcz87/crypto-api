@@ -8,6 +8,14 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { 
   TrendingUp, 
   BarChart3, 
@@ -19,7 +27,9 @@ import {
   Settings,
   ChevronDown,
   Activity,
-  Layers
+  Layers,
+  Menu,
+  X
 } from 'lucide-react';
 
 interface NavigationMenuProps {
@@ -29,6 +39,8 @@ interface NavigationMenuProps {
 
 export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMenuProps) => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const menuItems = [
     {
@@ -129,6 +141,64 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
     }
   ];
 
+  // Mobile Navigation Component
+  const MobileNavigation = () => (
+    <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+      <DialogTrigger asChild>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="md:hidden p-2 h-10 w-10"
+          data-testid="mobile-menu-trigger"
+        >
+          <Menu className="w-5 h-5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="w-80 h-full max-w-none bg-white p-0 sm:max-w-sm fixed left-0 top-0 translate-x-0 translate-y-0 sm:translate-x-0 sm:translate-y-0">
+        <DialogHeader className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 rounded-lg">
+              <Database className="w-5 h-5" />
+            </div>
+            <DialogTitle className="text-lg font-semibold text-gray-900">
+              CryptoSat Intelligence
+            </DialogTitle>
+          </div>
+        </DialogHeader>
+        <div className="p-4 space-y-2">
+          {menuItems.map((menu) => (
+            <div key={menu.id} className="space-y-1">
+              <div className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 bg-gray-50 rounded-lg">
+                {menu.icon}
+                {menu.label}
+              </div>
+              {menu.items.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    onSectionChange(item.id);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full text-left px-6 py-3 rounded-lg transition-colors ${
+                    activeSection === item.id 
+                      ? 'bg-blue-50 text-blue-900 border border-blue-200' 
+                      : 'hover:bg-gray-50 text-gray-700'
+                  }`}
+                  data-testid={`mobile-nav-${item.id}`}
+                >
+                  <div className="flex flex-col space-y-1">
+                    <div className="font-medium text-sm">{item.label}</div>
+                    <div className="text-xs text-gray-500">{item.description}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   return (
     <nav className="bg-white border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -139,79 +209,88 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
               <Database className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-gray-900">CryptoSat Intelligence</h1>
+              <h1 className="text-lg font-semibold text-gray-900 hidden sm:block">CryptoSat Intelligence</h1>
+              <h1 className="text-base font-semibold text-gray-900 sm:hidden">CryptoSat</h1>
             </div>
           </div>
 
-          {/* Navigation Menu */}
-          <div className="flex items-center space-x-1">
-            {menuItems.map((menu) => (
-              <DropdownMenu 
-                key={menu.id}
-                open={openDropdown === menu.id}
-                onOpenChange={(open) => setOpenDropdown(open ? menu.id : null)}
-              >
-                <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant={activeSection.startsWith(menu.id) ? "default" : "ghost"}
-                    size="sm"
-                    className={`h-10 px-3 flex items-center gap-2 text-sm font-medium transition-colors ${
-                      activeSection.startsWith(menu.id) 
-                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                        : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
-                    data-testid={`nav-${menu.id}`}
-                  >
-                    {menu.icon}
-                    {menu.label}
-                    <ChevronDown className="w-3 h-3 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent 
-                  align="start" 
-                  className="w-80 bg-white border border-gray-200 shadow-lg"
-                  sideOffset={4}
+          {/* Desktop Navigation Menu */}
+          {!isMobile && (
+            <div className="hidden md:flex items-center space-x-1">
+              {menuItems.map((menu) => (
+                <DropdownMenu 
+                  key={menu.id}
+                  open={openDropdown === menu.id}
+                  onOpenChange={(open) => setOpenDropdown(open ? menu.id : null)}
                 >
-                  <DropdownMenuLabel className="px-3 py-2 text-sm font-semibold text-gray-900 bg-gray-50">
-                    {menu.label}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {menu.items.map((item) => (
-                    <DropdownMenuItem
-                      key={item.id}
-                      onClick={() => {
-                        onSectionChange(item.id);
-                        setOpenDropdown(null);
-                      }}
-                      className={`px-3 py-3 cursor-pointer transition-colors ${
-                        activeSection === item.id 
-                          ? 'bg-blue-50 text-blue-900' 
-                          : 'hover:bg-gray-50'
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant={activeSection.startsWith(menu.id) ? "default" : "ghost"}
+                      size="sm"
+                      className={`h-10 px-3 flex items-center gap-2 text-sm font-medium transition-colors ${
+                        activeSection.startsWith(menu.id) 
+                          ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                          : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
                       }`}
-                      data-testid={`nav-item-${item.id}`}
+                      data-testid={`nav-${menu.id}`}
                     >
-                      <div className="flex flex-col space-y-1">
-                        <div className="font-medium text-sm text-gray-900">
-                          {item.label}
+                      {menu.icon}
+                      {menu.label}
+                      <ChevronDown className="w-3 h-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent 
+                    align="start" 
+                    className="w-80 bg-white border border-gray-200 shadow-lg"
+                    sideOffset={4}
+                  >
+                    <DropdownMenuLabel className="px-3 py-2 text-sm font-semibold text-gray-900 bg-gray-50">
+                      {menu.label}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {menu.items.map((item) => (
+                      <DropdownMenuItem
+                        key={item.id}
+                        onClick={() => {
+                          onSectionChange(item.id);
+                          setOpenDropdown(null);
+                        }}
+                        className={`px-3 py-3 cursor-pointer transition-colors ${
+                          activeSection === item.id 
+                            ? 'bg-blue-50 text-blue-900' 
+                            : 'hover:bg-gray-50'
+                        }`}
+                        data-testid={`nav-item-${item.id}`}
+                      >
+                        <div className="flex flex-col space-y-1">
+                          <div className="font-medium text-sm text-gray-900">
+                            {item.label}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {item.description}
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {item.description}
-                        </div>
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ))}
-          </div>
-
-          {/* Status Indicators */}
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-green-50">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-sm font-medium text-green-700">Live</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ))}
             </div>
-            <div className="text-xs text-gray-500">guardiansofthegreentoken.com</div>
+          )}
+
+          {/* Mobile Menu + Status Indicators */}
+          <div className="flex items-center space-x-3">
+            {/* Mobile Navigation */}
+            <MobileNavigation />
+            
+            {/* Status Indicators */}
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="flex items-center space-x-2 px-2 sm:px-3 py-1 rounded-full bg-green-50">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-xs sm:text-sm font-medium text-green-700">Live</span>
+              </div>
+              <div className="hidden sm:block text-xs text-gray-500">guardiansofthegreentoken.com</div>
+            </div>
           </div>
         </div>
       </div>
