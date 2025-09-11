@@ -190,12 +190,74 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
-  // SOL Funding Rate endpoint
+  // Multi-pair Funding Rate endpoint - supports all 65 coins
+  app.get('/api/:pair/funding', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          supported_format: 'btc, eth, sol, ada, etc.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const tradingSymbol = validation.symbol;
+      const fundingData = await okxService.getFundingRate(tradingSymbol);
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const validated = fundingRateSchema.parse(fundingData);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Funding rate request completed',
+        details: `GET /api/${pair}/funding - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/funding:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Funding rate request failed',
+        details: `GET /api/${pair}/funding - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Keep legacy SOL funding endpoint for backward compatibility
   app.get('/api/sol/funding', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
     try {
-      const fundingData = await okxService.getFundingRate();
+      const fundingData = await okxService.getFundingRate('SOL-USDT-SWAP');
       const responseTime = Date.now() - startTime;
       
       // Validate the response data
@@ -235,13 +297,71 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
-  // Enhanced Open Interest endpoints
+  // Multi-pair Enhanced Open Interest endpoint - supports all 65 coins
+  app.get('/api/:pair/oi/enhanced', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          supported_format: 'btc, eth, sol, ada, etc.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const tradingSymbol = validation.symbol;
+      const { enhancedOpenInterestService } = await import('../services/enhancedOpenInterest');
+      const enhancedData = await enhancedOpenInterestService.getEnhancedOpenInterest(tradingSymbol);
+      const responseTime = Date.now() - startTime;
+      
+      await storage.updateMetrics(responseTime);
+      
+      await storage.addLog({
+        level: 'info',
+        message: 'Enhanced open interest request completed',
+        details: `GET /api/${pair}/oi/enhanced - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: enhancedData,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/oi/enhanced:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Enhanced open interest request failed',
+        details: `GET /api/${pair}/oi/enhanced - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Keep legacy SOL enhanced OI endpoint for backward compatibility
   app.get('/api/sol/oi/enhanced', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
     try {
       const { enhancedOpenInterestService } = await import('../services/enhancedOpenInterest');
-      const enhancedData = await enhancedOpenInterestService.getEnhancedOpenInterest();
+      const enhancedData = await enhancedOpenInterestService.getEnhancedOpenInterest('SOL-USDT-SWAP');
       const responseTime = Date.now() - startTime;
       
       await storage.updateMetrics(responseTime);
@@ -276,6 +396,66 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
+  // Multi-pair Open Interest History endpoint - supports all 65 coins
+  app.get('/api/:pair/oi/history', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      const timeframe = (req.query.timeframe as '24h' | '7d' | '30d') || '24h';
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          supported_format: 'btc, eth, sol, ada, etc.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const tradingSymbol = validation.symbol;
+      const { enhancedOpenInterestService } = await import('../services/enhancedOpenInterest');
+      const historicalData = await enhancedOpenInterestService.getHistoricalOpenInterest(tradingSymbol, timeframe);
+      const responseTime = Date.now() - startTime;
+      
+      await storage.updateMetrics(responseTime);
+      
+      await storage.addLog({
+        level: 'info',
+        message: 'Open interest history request completed',
+        details: `GET /api/${pair}/oi/history?timeframe=${timeframe} - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: historicalData,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/oi/history:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Open interest history request failed',
+        details: `GET /api/${pair}/oi/history - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Keep legacy SOL OI history endpoint for backward compatibility
   app.get('/api/sol/oi/history', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
