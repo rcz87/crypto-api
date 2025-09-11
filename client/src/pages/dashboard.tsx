@@ -1,17 +1,33 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useEffect, useState } from "react";
+import { useParams, useLocation } from "wouter";
 import { SolCompleteData } from "@shared/schema";
 import { NavigationMenu } from "@/components/NavigationMenu";
 import { DashboardContent } from "@/components/DashboardContent";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { useSymbol } from "@/contexts/SymbolContext";
+import { marketDataAdapter } from "@/lib/dataAdapter";
 
 export default function Dashboard() {
   const [activeSection, setActiveSection] = useState("tradingview");
+  const params = useParams();
+  const [, setLocation] = useLocation();
+  const { symbol, setSymbol } = useSymbol();
   
-  // Multi-coin support - default to SOL but can be extended
-  const [selectedPair] = useState('SOL');
-  const [selectedSymbol] = useState('SOL/USDT-PERP');
-  const [selectedTvSymbol] = useState('OKX:SOLUSDTPERP');
+  // Get symbol from URL or use context symbol
+  const urlSymbol = params.symbol?.toUpperCase() || symbol;
+  
+  // Update context when URL changes
+  useEffect(() => {
+    if (urlSymbol && urlSymbol !== symbol) {
+      setSymbol(urlSymbol);
+    }
+  }, [urlSymbol]);
+  
+  // Format symbol for different uses
+  const selectedPair = urlSymbol.replace('USDT', '');
+  const selectedSymbol = `${selectedPair}/USDT-PERP`;
+  const selectedTvSymbol = `OKX:${urlSymbol}PERP`;
 
   const { data: healthData, isLoading: healthLoading, error: healthError } = useQuery({
     queryKey: ["/health"],

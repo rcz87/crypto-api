@@ -32,6 +32,8 @@ import {
   X
 } from 'lucide-react';
 import { ConnectionStatusIndicator, CompactConnectionStatusIndicator, DesktopConnectionStatusIndicator } from '@/components/ConnectionStatusIndicator';
+import { SymbolSearch } from '@/components/SymbolSearch';
+import { useSymbol } from '@/contexts/SymbolContext';
 
 interface NavigationMenuProps {
   activeSection: string;
@@ -213,18 +215,21 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
     </Dialog>
   );
 
+  const { symbol } = useSymbol();
+
   return (
     <nav className="bg-white border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
-          {/* Logo/Brand */}
+          {/* Logo/Brand and Symbol Search */}
           <div className="flex items-center space-x-4">
             <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 rounded-lg">
               <Database className="w-5 h-5" />
             </div>
-            <div>
+            <div className="flex items-center space-x-3">
               <h1 className="text-lg font-semibold text-gray-900 hidden sm:block">CryptoSat Intelligence</h1>
               <h1 className="text-base font-semibold text-gray-900 sm:hidden">CryptoSat</h1>
+              <SymbolSearch />
             </div>
           </div>
 
