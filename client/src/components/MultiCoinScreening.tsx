@@ -90,62 +90,21 @@ export default function MultiCoinScreening() {
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
   const isMobile = useIsMobile();
 
-  // Query untuk screening data with metadata tracking
-  const { data: queryResponse, isLoading, error, refetch, isRefetching, isStale } = useQuery<{
-    success: boolean;
-    data: ScreeningData;
-    timestamp: string;
-    _metadata?: {
-      latency: number;
-      requestTime: string;
-      dataSource: string;
-    };
-  }>({
-    queryKey: ['/api/screener', symbols, timeframe],
-    queryFn: async () => {
-      const requestStart = performance.now();
-      const params = new URLSearchParams({
-        symbols: symbols.trim(),
-        timeframe: timeframe,
-        limit: '100'
-      });
-      
-      const response = await fetch(`/api/screener?${params}`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const result = await response.json();
-      if (!result.success) {
-        throw new Error(result.error || 'Screening failed');
-      }
-      
-      // Inject metadata if not present
-      const requestEnd = performance.now();
-      if (!result._metadata) {
-        result._metadata = {
-          latency: Math.round(requestEnd - requestStart),
-          requestTime: new Date().toISOString(),
-          dataSource: 'Screener API'
-        };
-      }
-      
-      return result;
-    },
-    enabled: !!symbols,
+  // Use market screener with symbol array
+  const symbolArray = symbols.split(',').map(s => s.trim().toUpperCase());
+  
+  // Query untuk screening data menggunakan marketDataAdapter
+  const { data: queryResponse, isLoading, error, refetch, isRefetching, isStale } = useQuery({
+    queryKey: ['screener', symbolArray, timeframe],
+    queryFn: () => marketDataAdapter.screener(symbolArray),
+    enabled: symbolArray.length > 0 && symbolArray[0].length > 0,
     refetchInterval: isAutoRefresh ? refreshInterval * 1000 : false,
     staleTime: 10000, // 10 seconds
     retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    onError: () => {
-      setShowTimeoutWarning(false);
-    },
-    onSuccess: () => {
-      setShowTimeoutWarning(false);
-    }
+    retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
-  // Extract data and metadata
+  // Extract data
   const data = queryResponse?.data;
   const metadata = queryResponse?._metadata;
 
@@ -368,7 +327,7 @@ export default function MultiCoinScreening() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.results.slice(0, 10).map((result) => (
+                  {data.results.slice(0, 10).map((result: any) => (
                     <tr key={result.symbol} className="border-b border-gray-800/50 hover:bg-gray-900/50">
                       <td className="py-2 px-2 font-medium text-white text-xs">
                         {result.symbol}
