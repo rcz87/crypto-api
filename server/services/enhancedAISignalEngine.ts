@@ -483,11 +483,11 @@ export class EnhancedAISignalEngine {
         technicalData.rsi.current / 100,
         technicalData.momentum.overall === 'bullish' ? 0.8 : 
         technicalData.momentum.overall === 'bearish' ? 0.2 : 0.5,
-        technicalData.ema?.direction === 'bullish' ? 0.8 : 
-        technicalData.ema?.direction === 'bearish' ? 0.2 : 0.5,
+        technicalData.ema?.trend?.direction === 'bullish' ? 0.8 : 
+        technicalData.ema?.trend?.direction === 'bearish' ? 0.2 : 0.5,
         technicalData.macd.current.histogram,
-        technicalData.bollinger?.position === 'above' ? 0.8 :
-        technicalData.bollinger?.position === 'below' ? 0.2 : 0.5,
+        technicalData.bollingerBands?.current?.position === 'above' ? 0.8 :
+        technicalData.bollingerBands?.current?.position === 'below' ? 0.2 : 0.5,
         technicalData.stochastic.current.k / 100,
         technicalData.stochastic.current.d / 100,
         technicalData.cci.current.value / 200 + 0.5, // Normalize CCI
@@ -506,10 +506,10 @@ export class EnhancedAISignalEngine {
 
       // CVD Analysis features (10 features)
       features.push(
-        (cvdData?.current || 0) / 1000000, // Normalize CVD value
+        (cvdData?.cvdValue || 0) / 1000000, // Normalize CVD value
         (cvdData?.confidence || 50) / 100,
-        cvdData?.trend?.direction === 'bullish' ? 0.8 : cvdData?.trend?.direction === 'bearish' ? 0.2 : 0.5,
-        cvdData?.divergence?.direction === 'bullish' ? 0.8 : cvdData?.divergence?.direction === 'bearish' ? 0.2 : 0.5,
+        cvdData?.trendDirection === 'bullish' ? 0.8 : cvdData?.trendDirection === 'bearish' ? 0.2 : 0.5,
+        cvdData?.divergenceType === 'bullish' ? 0.8 : cvdData?.divergenceType === 'bearish' ? 0.2 : 0.5,
         0.5, // buyerSellerAggression ratio placeholder
         0.5, // dominantSide placeholder
         1000, // averageTradeSize placeholder
