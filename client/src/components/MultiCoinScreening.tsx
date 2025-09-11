@@ -1,10 +1,13 @@
 /**
  * Multi-Coin Screening Component
- * Terintegrasi dengan dashboard utama sebagai section
+ * Enhanced with symbol-aware architecture and data adapter
  */
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSymbol } from '@/contexts/SymbolContext';
+import { useLocation } from 'wouter';
+import { marketDataAdapter } from '@/lib/dataAdapter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,12 +15,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Play, RefreshCw, TrendingUp, TrendingDown, Minus, Clock, Activity, Target, Search, AlertTriangle, WifiOff } from 'lucide-react';
+import { Play, RefreshCw, TrendingUp, TrendingDown, Minus, Clock, Activity, Target, Search, AlertTriangle, WifiOff, Star } from 'lucide-react';
 import { DataTrustIndicator } from '@/components/DataTrustIndicator';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { TableSkeleton, ListSkeleton } from '@/components/ui/dashboard-skeleton';
 import { ErrorState, TimeoutWarning } from '@/components/ui/error-states';
 import { EmptyScreeningResults } from '@/components/ui/empty-states';
+import { cn } from '@/lib/utils';
 
 interface ScreeningResult {
   symbol: string;
@@ -67,14 +71,19 @@ const TIMEFRAMES = [
 ];
 
 const POPULAR_SETS = {
-  'Top 5': 'SOL,BTC,ETH,BNB,XRP',
-  'Top 10': 'SOL,BTC,ETH,BNB,XRP,ADA,DOGE,MATIC,DOT,AVAX',
-  'DeFi': 'UNI,AAVE,COMP,SUSHI,MKR,CRV,YFI,SNX',
-  'Layer 1': 'SOL,ETH,BNB,ADA,DOT,AVAX,ATOM,NEAR'
+  'Top 5': 'SOLUSDT,BTCUSDT,ETHUSDT,BNBUSDT,XRPUSDT',
+  'Top 10': 'SOLUSDT,BTCUSDT,ETHUSDT,BNBUSDT,XRPUSDT,ADAUSDT,DOGEUSDT,MATICUSDT,DOTUSDT,AVAXUSDT',
+  'DeFi': 'UNIUSDT,AAVEUSDT,COMPUSDT,SUSHIUSDT,MKRUSDT,CRVUSDT,YFIUSDT,SNXUSDT',
+  'Layer 1': 'SOLUSDT,ETHUSDT,BNBUSDT,ADAUSDT,DOTUSDT,AVAXUSDT,ATOMUSDT,NEARUSDT',
+  'AI Coins': 'FETUSDT,OCEANUSDT,AGIXUSDT,RENDERUSDT,TAOUSDT,ARKMUSDT',
+  'Meme Coins': 'DOGEUSDT,SHIBUSDT,PEPEUSDT,WIFUSDT',
+  'Gaming': 'AXSUSDT,SANDUSDT,MANAUSDT,GALAUSDT,IMXUSDT'
 };
 
 export default function MultiCoinScreening() {
-  const [symbols, setSymbols] = useState('SOL,BTC,ETH,BNB,XRP');
+  const [, setLocation] = useLocation();
+  const { watchlist, addToWatchlist, removeFromWatchlist } = useSymbol();
+  const [symbols, setSymbols] = useState('SOLUSDT,BTCUSDT,ETHUSDT,BNBUSDT,XRPUSDT');
   const [timeframe, setTimeframe] = useState('15m');
   const [isAutoRefresh, setIsAutoRefresh] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(30);
