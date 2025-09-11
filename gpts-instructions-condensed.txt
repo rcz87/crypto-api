@@ -20,9 +20,10 @@ ALWAYS extract the specific cryptocurrency from user request. NEVER default to S
 
 🔥 **KEY API CATEGORIES:**
 1. **Core Multi-Pair:** /api/{pair}/complete, /api/{pair}/smc, /api/{pair}/cvd
-2. **Multi-Exchange:** /api/coinapi/health, /api/coinapi/arbitrage/{asset}, /api/coinapi/multi-ticker/{asset}
-3. **Institutional Analytics:** /api/coinapi/twap/{symbolId}, /api/coinapi/correlation, /api/coinapi/history/{symbolId}
-4. **Regime Detection:** /api/regime/detect/{symbolId}, /api/regime/strategy-rules, /api/regime/batch
+2. **Multi-Coin Screening:** /api/screener/screen (POST - screen multiple coins for BUY/SELL/HOLD opportunities)
+3. **Multi-Exchange:** /api/coinapi/health, /api/coinapi/arbitrage/{asset}, /api/coinapi/multi-ticker/{asset}
+4. **Institutional Analytics:** /api/coinapi/twap/{symbolId}, /api/coinapi/correlation, /api/coinapi/history/{symbolId}
+5. **Regime Detection:** /api/regime/detect/{symbolId}, /api/regime/strategy-rules, /api/regime/batch
 
 🧠 **REGIME TYPES & STRATEGIES:**
 - **TRENDING:** Enable [breakout, momentum, swing] | Disable [mean_reversion, scalping]
@@ -89,6 +90,8 @@ ALWAYS extract the specific cryptocurrency from user request. NEVER default to S
 - Bitcoin: /api/btc/complete + /api/coinapi/multi-ticker/BTC + /api/regime/detect/BINANCE_SPOT_BTC_USDT
 - Ethereum: /api/eth/complete + /api/coinapi/arbitrage/ETH + /api/regime/detect/COINBASE_SPOT_ETH_USD
 - Cardano: /api/ada/complete + /api/coinapi/multi-ticker/ADA + /api/regime/detect/BINANCE_SPOT_ADA_USDT
+- **Multi-Coin Screening:** POST /api/screener/screen dengan {"symbols": ["BTC","ETH","SOL","ADA","AVAX"], "timeframe": "15m"}
+- **Market Opportunities:** Use screening untuk find best BUY/SELL opportunities across multiple coins
 - Cross-exchange: /api/coinapi/arbitrage/BTC + /api/coinapi/rate/ETH/USD
 - Correlation: /api/coinapi/correlation?assets=BTC,ETH,ADA,AVAX untuk portfolio context
 - Regime analysis: /api/regime/strategy-rules untuk current market optimization

@@ -473,6 +473,116 @@ paths:
                           BTC_SOL: 0.72
                           ETH_SOL: 0.78
 
+  /api/screener/screen:
+    post:
+      operationId: screenMultipleCoins
+      summary: Screen multiple cryptocurrencies for trading opportunities
+      description: Institutional-grade multi-coin screening using 8-layer SharpSignal analysis to find BUY/SELL/HOLD opportunities
+      tags: [Multi-Coin Screening]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - symbols
+              properties:
+                symbols:
+                  type: array
+                  items:
+                    type: string
+                  example: ["BTC", "ETH", "SOL", "ADA", "AVAX"]
+                  description: List of cryptocurrency symbols to screen (max 50)
+                timeframe:
+                  type: string
+                  enum: ["1m", "5m", "15m", "30m", "1h", "4h", "1d"]
+                  default: "15m"
+                  example: "15m"
+      responses:
+        '200':
+          description: Screening results with trading recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            symbol:
+                              type: string
+                              example: "BTC"
+                            score:
+                              type: number
+                              example: 75
+                            label:
+                              type: string
+                              enum: ["BUY", "SELL", "HOLD"]
+                              example: "BUY"
+                            confidence:
+                              type: number
+                              example: 0.85
+                            riskLevel:
+                              type: string
+                              enum: ["low", "medium", "high"]
+                              example: "medium"
+                            summary:
+                              type: string
+                              example: "Strong bullish momentum with whale accumulation"
+                            layers:
+                              type: object
+                              properties:
+                                smc:
+                                  type: object
+                                  properties:
+                                    bias:
+                                      type: string
+                                      example: "bullish"
+                                    strength:
+                                      type: number
+                                      example: 85
+                                indicators:
+                                  type: object
+                                  properties:
+                                    rsi:
+                                      type: number
+                                      example: 65.5
+                                    emaTrend:
+                                      type: string
+                                      example: "bullish"
+                      stats:
+                        type: object
+                        properties:
+                          totalSymbols:
+                            type: number
+                            example: 5
+                          buySignals:
+                            type: number
+                            example: 2
+                          sellSignals:
+                            type: number
+                            example: 1
+                          holdSignals:
+                            type: number
+                            example: 2
+                          avgScore:
+                            type: number
+                            example: 68.5
+                          topPicks:
+                            type: array
+                            items:
+                              type: string
+                            example: ["BTC", "ETH"]
+
   /api/regime/detect/{symbolId}:
     get:
       operationId: detectMarketRegime
