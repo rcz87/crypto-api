@@ -154,18 +154,27 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
           <Menu className="w-5 h-5" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-80 h-full max-w-none bg-white p-0 sm:max-w-sm fixed left-0 top-0 translate-x-0 translate-y-0 sm:translate-x-0 sm:translate-y-0">
-        <DialogHeader className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 rounded-lg">
-              <Database className="w-5 h-5" />
+      <DialogContent className="w-80 h-full max-w-none bg-white p-0 sm:max-w-sm fixed left-0 top-0 translate-x-0 translate-y-0 sm:translate-x-0 sm:translate-y-0 overflow-hidden">
+        <DialogHeader className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-1.5 rounded-lg">
+                <Database className="w-4 h-4" />
+              </div>
+              <DialogTitle className="text-base font-semibold text-gray-900">
+                CryptoSat Intelligence
+              </DialogTitle>
             </div>
-            <DialogTitle className="text-lg font-semibold text-gray-900">
-              CryptoSat Intelligence
-            </DialogTitle>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              data-testid="mobile-menu-close"
+            >
+              <X className="w-4 h-4 text-gray-500" />
+            </button>
           </div>
         </DialogHeader>
-        <div className="p-4 space-y-2">
+        <div className="p-4 overflow-y-auto flex-1 space-y-2">
           {menuItems.map((menu) => (
             <div key={menu.id} className="space-y-1">
               <div className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 bg-gray-50 rounded-lg">
@@ -179,10 +188,10 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
                     onSectionChange(item.id);
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full text-left px-6 py-3 rounded-lg transition-colors ${
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors touch-manipulation ${
                     activeSection === item.id 
                       ? 'bg-blue-50 text-blue-900 border border-blue-200' 
-                      : 'hover:bg-gray-50 text-gray-700'
+                      : 'hover:bg-gray-50 active:bg-gray-100 text-gray-700'
                   }`}
                   data-testid={`mobile-nav-${item.id}`}
                 >

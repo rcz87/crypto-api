@@ -137,40 +137,48 @@ export const DashboardContent = ({
       // ANALISIS TEKNIS CATEGORY
       case 'technical-indicators':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Indikator Teknis</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Indikator Teknis</h2>
             <ErrorBoundary>
-              <TechnicalIndicators className="w-full" />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <TechnicalIndicators className="w-full" />
+              </div>
             </ErrorBoundary>
           </div>
         );
 
       case 'fibonacci':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Fibonacci Analysis</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Fibonacci Analysis</h2>
             <ErrorBoundary>
-              <FibonacciAnalysis className="w-full" />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <FibonacciAnalysis className="w-full" />
+              </div>
             </ErrorBoundary>
           </div>
         );
 
       case 'confluence':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">8-Layer Confluence Scoring</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">8-Layer Confluence Scoring</h2>
             <ErrorBoundary>
-              <ConfluenceScoring timeframe="1H" className="w-full" />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <ConfluenceScoring timeframe="1H" className="w-full" />
+              </div>
             </ErrorBoundary>
           </div>
         );
 
       case 'mtf-analysis':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Enhanced Multi-Timeframe Analysis</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Enhanced Multi-Timeframe Analysis</h2>
             <ErrorBoundary>
-              <EnhancedMTFAnalysis />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <EnhancedMTFAnalysis />
+              </div>
             </ErrorBoundary>
           </div>
         );
@@ -178,10 +186,12 @@ export const DashboardContent = ({
       // MINAT TERBUKA CATEGORY
       case 'open-interest':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Enhanced Open Interest</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Enhanced Open Interest</h2>
             <ErrorBoundary>
-              <EnhancedOpenInterest />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <EnhancedOpenInterest />
+              </div>
             </ErrorBoundary>
           </div>
         );
@@ -189,10 +199,12 @@ export const DashboardContent = ({
       // FUNDING CATEGORY
       case 'funding-rate':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Enhanced Funding Rate</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Enhanced Funding Rate</h2>
             <ErrorBoundary>
-              <EnhancedFundingRate />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <EnhancedFundingRate />
+              </div>
             </ErrorBoundary>
           </div>
         );
@@ -200,20 +212,24 @@ export const DashboardContent = ({
       // LIKUIDASI CATEGORY
       case 'liquidity-heatmap':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Liquidity Heatmap - VIP8+</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Liquidity Heatmap - VIP8+</h2>
             <ErrorBoundary>
-              <LiquidityHeatmap />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <LiquidityHeatmap />
+              </div>
             </ErrorBoundary>
           </div>
         );
 
       case 'order-flow':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Order Flow Analysis</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Order Flow Analysis</h2>
             <ErrorBoundary>
-              <OrderFlowAnalysis className="w-full" />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <OrderFlowAnalysis className="w-full" />
+              </div>
             </ErrorBoundary>
           </div>
         );
@@ -221,30 +237,36 @@ export const DashboardContent = ({
       // VOLUME CATEGORY
       case 'volume-profile':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Enhanced Volume Profile</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Enhanced Volume Profile</h2>
             <ErrorBoundary>
-              <EnhancedVolumeProfile />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <EnhancedVolumeProfile />
+              </div>
             </ErrorBoundary>
           </div>
         );
 
       case 'cvd-analysis':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">CVD Analysis - Smart Money Detection</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">CVD Analysis - Smart Money Detection</h2>
             <ErrorBoundary>
-              <CVDAnalysisComponent className="col-span-1" />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <CVDAnalysisComponent className="col-span-1" />
+              </div>
             </ErrorBoundary>
           </div>
         );
 
       case 'volume-delta':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Volume Delta Analysis</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Volume Delta Analysis</h2>
             <ErrorBoundary>
-              <VolumeDelta />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <VolumeDelta />
+              </div>
             </ErrorBoundary>
           </div>
         );
@@ -252,30 +274,36 @@ export const DashboardContent = ({
       // AI TRADING CATEGORY
       case 'enhanced-ai':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Enhanced AI Engine - Phase 2</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Enhanced AI Engine - Phase 2</h2>
             <ErrorBoundary>
-              <EnhancedAISection />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <EnhancedAISection />
+              </div>
             </ErrorBoundary>
           </div>
         );
 
       case 'ai-signals':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">AI Signal Dashboard</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">AI Signal Dashboard</h2>
             <ErrorBoundary>
-              <AISignalDashboard />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <AISignalDashboard />
+              </div>
             </ErrorBoundary>
           </div>
         );
 
       case 'live-signals':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Live Trading Signals</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Live Trading Signals</h2>
             <ErrorBoundary>
-              <LiveTradingSignals className="w-full" />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <LiveTradingSignals className="w-full" />
+              </div>
             </ErrorBoundary>
           </div>
         );
@@ -283,10 +311,12 @@ export const DashboardContent = ({
       // SMART MONEY CATEGORY
       case 'smc-analysis':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Smart Money Concepts Analysis</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Smart Money Concepts Analysis</h2>
             <ErrorBoundary>
-              <SMCAnalysis />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <SMCAnalysis />
+              </div>
             </ErrorBoundary>
           </div>
         );
@@ -294,20 +324,24 @@ export const DashboardContent = ({
       // DATA CATEGORY
       case 'api-docs':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">API Documentation</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">API Documentation</h2>
             <ErrorBoundary>
-              <APIDocumentation />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <APIDocumentation />
+              </div>
             </ErrorBoundary>
           </div>
         );
 
       case 'system-logs':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">System Logs</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">System Logs</h2>
             <ErrorBoundary>
-              <SystemLogs />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <SystemLogs />
+              </div>
             </ErrorBoundary>
           </div>
         );
@@ -315,12 +349,14 @@ export const DashboardContent = ({
       // KONFIGURASI CATEGORY
       case 'configuration':
         return (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Configuration Panel</h2>
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Configuration Panel</h2>
             <ErrorBoundary>
-              <ConfigurationPanel 
-                healthData={healthData?.data}
-              />
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <ConfigurationPanel 
+                  healthData={healthData?.data}
+                />
+              </div>
             </ErrorBoundary>
           </div>
         );
