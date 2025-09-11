@@ -119,6 +119,14 @@ app.use((req, res, next) => {
     throw err;
   });
 
+  // Serve OpenAPI schema explicitly BEFORE Vite in both modes
+  const path = await import('path');
+  app.get('/openapi-4.0.1-gpts-compat.yaml', (req, res) => {
+    res.setHeader('Content-Type', 'text/yaml');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.sendFile(path.resolve(process.cwd(), 'public/openapi-4.0.1-gpts-compat.yaml'));
+  });
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
