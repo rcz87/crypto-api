@@ -265,8 +265,8 @@ export class EnhancedOpenInterestService {
       this.calculateAverage(historical.map(d => d.openInterest)) : openInterest;
     const oiPressureRatio = avgOI > 0 ? (openInterest / avgOI - 1) * 100 : 0;
     
-    // Mock Long/Short Ratio (in real implementation, this would come from API)
-    const longShortRatio = 0.45 + (Math.random() * 0.3); // 45-75% longs
+    // Real Long/Short Ratio using funding rates and price momentum
+    const longShortRatio = await this.calculateRealLongShortRatio(symbol, openInterest, currentPrice);
     
     // Institutional Dominance Score
     const institutionalScore = Math.min(100, 
