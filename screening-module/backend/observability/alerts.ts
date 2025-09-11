@@ -33,7 +33,8 @@ export class ErrorRateAlerter {
     logger.info('Starting ErrorRateAlerter', {
       intervalMs: this.config.intervalMs,
       threshold: this.config.threshold * 100,
-      serviceName: this.config.serviceName || 'screener'
+      serviceName: this.config.serviceName || 'screener',
+      telegramChatId: this.config.telegramChatId.substring(0, 8) + '***' // Mask for security
     });
 
     this.timer = setInterval(async () => {
@@ -162,7 +163,12 @@ export class TradingAlerter {
     if (this.isRunning) return;
     
     this.isRunning = true;
-    logger.info('Starting TradingAlerter', this.config);
+    logger.info('Starting TradingAlerter', {
+      intervalMs: this.config.intervalMs,
+      signalVolumeThreshold: this.config.signalVolumeThreshold,
+      equityDropThreshold: this.config.equityDropThreshold,
+      telegramChatId: this.config.telegramChatId.substring(0, 8) + '***' // Mask for security
+    });
     
     this.timer = setInterval(async () => {
       try {

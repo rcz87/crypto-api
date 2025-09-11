@@ -1160,21 +1160,31 @@ export class TechnicalIndicatorsService {
     }
 
     // Filter and validate candle data
-    const validCandles = candles.filter(candle => 
-      candle && 
-      typeof candle === 'object' &&
-      candle.timestamp &&
-      candle.open && candle.high && candle.low && candle.close &&
-      !isNaN(parseFloat(candle.open)) &&
-      !isNaN(parseFloat(candle.high)) &&
-      !isNaN(parseFloat(candle.low)) &&
-      !isNaN(parseFloat(candle.close)) &&
-      parseFloat(candle.high) >= parseFloat(candle.low) &&
-      parseFloat(candle.high) >= parseFloat(candle.open) &&
-      parseFloat(candle.high) >= parseFloat(candle.close) &&
-      parseFloat(candle.low) <= parseFloat(candle.open) &&
-      parseFloat(candle.low) <= parseFloat(candle.close)
-    );
+    // Institutional-grade OHLC validation matching CVD service standards
+    const validCandles = candles.filter(candle => {
+      if (!candle || typeof candle !== 'object' || !candle.timestamp) return false;
+      
+      const open = parseFloat(candle.open || '0');
+      const high = parseFloat(candle.high || '0');
+      const low = parseFloat(candle.low || '0');
+      const close = parseFloat(candle.close || '0');
+      const volume = parseFloat(candle.volume || '0');
+      
+      // Check all prices are valid finite numbers
+      if (!Number.isFinite(open) || !Number.isFinite(high) || 
+          !Number.isFinite(low) || !Number.isFinite(close) || 
+          !Number.isFinite(volume)) return false;
+      
+      // All prices must be positive, volume non-negative
+      if (open <= 0 || high <= 0 || low <= 0 || close <= 0 || volume < 0) return false;
+      
+      // Institutional-grade OHLC relationship validation
+      if (high < Math.max(open, close)) return false; // High must be >= max(open, close)
+      if (low > Math.min(open, close)) return false;   // Low must be <= min(open, close)
+      if (low > high) return false;                    // Low must be <= high
+      
+      return true;
+    });
 
     if (validCandles.length !== candles.length) {
       console.warn(`⚠️ Filtered out ${candles.length - validCandles.length} invalid candles`);

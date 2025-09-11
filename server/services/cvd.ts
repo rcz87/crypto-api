@@ -30,12 +30,18 @@ export class CVDService {
     const totalVolume = candles.reduce((sum, candle) => sum + parseFloat(candle.volume || '0'), 0);
     
     return {
-      cvdValue: 0,
-      cvdChange: 0,
-      cvdChangePercent: 0,
-      trendDirection: 'neutral' as const,
-      confidence: 25, // Low confidence due to minimal data
-      divergenceType: 'none' as const,
+      timeframe,
+      currentCVD: 0,
+      previousCVD: 0,
+      deltaChange: 0,
+      percentageChange: 0,
+      cvdHistory: [], // Empty history for minimal data
+      confidence: {
+        overall: 25,
+        dataQuality: 20,
+        signalClarity: 15,
+        timeframeSynergy: 10
+      },
       buyerSellerAggression: {
         buyerAggression: 50,
         sellerAggression: 50,
@@ -46,12 +52,8 @@ export class CVDService {
         retailTradeCount: trades.length,
         timeDecay: 0.8
       },
-      divergences: {
-        active: [],
-        recent: [],
-        strength: 0,
-        reliability: 0
-      },
+      activeDivergences: [],
+      recentDivergences: [],
       absorptionPatterns: {
         detected: false,
         zones: [],
@@ -71,27 +73,30 @@ export class CVDService {
         testingPhase: { active: false, type: 'none' as const, strength: 0 }
       },
       realTimeMetrics: {
-        currentDelta: 0,
-        deltaVelocity: 0,
-        volumeProfile: { bullish: 50, bearish: 50 },
-        momentum: 0,
-        pressureIndex: 50,
-        flowState: 'balanced' as const
+        currentBuyPressure: 50,
+        currentSellPressure: 50,
+        momentum: 'neutral' as const,
+        velocity: 0,
+        acceleration: 0
       },
       multiTimeframeAlignment: {
-        alignment: 'neutral' as const,
-        strength: 25,
-        timeframeSynergy: 25
+        [timeframe]: {
+          cvd: '0',
+          trend: 'neutral' as const,
+          strength: 'weak' as const
+        }
       },
       alerts: [],
       pressureHistoryData: {
-        pressure24h: [],
-        trendConsistency: 0,
-        volatilityProfile: 'low' as const,
-        institutionalFootprint: {
-          detected: false,
-          confidence: 0,
-          patterns: []
+        history: [],
+        analytics: {
+          pressureChange24h: {
+            buyPressureChange: 0,
+            sellPressureChange: 0,
+            trendDirection: 'neutral' as const
+          },
+          manipulationEvents: [],
+          absorptionLevels: []
         }
       },
       lastUpdate: new Date().toISOString(),
@@ -118,20 +123,27 @@ export class CVDService {
       trades = []; // Convert to empty array instead of failing
     }
     
-    // Filter out invalid candles
-    const validCandles = candles.filter(candle => 
-      candle && 
-      typeof candle === 'object' && 
-      candle.timestamp && 
-      candle.open && 
-      candle.high && 
-      candle.low && 
-      candle.close &&
-      !isNaN(parseFloat(candle.open)) &&
-      !isNaN(parseFloat(candle.high)) &&
-      !isNaN(parseFloat(candle.low)) &&
-      !isNaN(parseFloat(candle.close))
-    );
+    // Filter out invalid candles with institutional-grade OHLC validation
+    const validCandles = candles.filter(candle => {
+      if (!candle || typeof candle !== 'object' || !candle.timestamp) return false;
+      
+      const open = parseFloat(candle.open || '0');
+      const high = parseFloat(candle.high || '0');
+      const low = parseFloat(candle.low || '0');
+      const close = parseFloat(candle.close || '0');
+      
+      // Check all prices are valid finite numbers
+      if (!Number.isFinite(open) || !Number.isFinite(high) || 
+          !Number.isFinite(low) || !Number.isFinite(close)) return false;
+      
+      // Institutional-grade OHLC relationship validation
+      if (high < Math.max(open, close)) return false; // High must be >= max(open, close)
+      if (low > Math.min(open, close)) return false;   // Low must be <= min(open, close)
+      if (low > high) return false;                    // Low must be <= high
+      if (open <= 0 || high <= 0 || low <= 0 || close <= 0) return false; // All prices > 0
+      
+      return true;
+    });
     
     if (validCandles.length !== candles.length) {
       console.warn(`CVD: Filtered out ${candles.length - validCandles.length} invalid candles`);
