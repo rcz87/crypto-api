@@ -61,25 +61,45 @@ async function fetchMarketData(symbol: string, timeframe: string, limit: number)
     };
     
     return { candles, derivatives };
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Failed to fetch market data for ${symbol}`, error);
-    throw new Error(`Market data fetch failed: ${error.message}`);
+    throw new Error(`Market data fetch failed: ${error?.message || 'Unknown error'}`);
   }
 }
 
 // Enhanced SMC computation (placeholder)
 function computeSMC(candles: any[]) {
   try {
+    // Add safety check for empty candles array
+    if (!candles || candles.length === 0) {
+      return {
+        bias: "neutral" as const,
+        strength: 0,
+        confidence: 0.1,
+        notes: "No candle data available"
+      };
+    }
+
     // Simple trend analysis based on recent price action
     const recentCandles = candles.slice(-20);
-    const closes = recentCandles.map(c => c.close);
-    const highs = recentCandles.map(c => c.high);
-    const lows = recentCandles.map(c => c.low);
+    const closes = recentCandles.map(c => c?.close).filter(c => c != null);
+    const highs = recentCandles.map(c => c?.high).filter(h => h != null);
+    const lows = recentCandles.map(c => c?.low).filter(l => l != null);
     
-    // Calculate trend strength
+    // Safety check for empty filtered arrays
+    if (closes.length === 0 || highs.length === 0 || lows.length === 0) {
+      return {
+        bias: "neutral" as const,
+        strength: 0,
+        confidence: 0.1,
+        notes: "Insufficient valid candle data"
+      };
+    }
+    
+    // Calculate trend strength with safe array operations
     const priceChange = (closes[closes.length - 1] - closes[0]) / closes[0];
     const volatility = Math.max(...highs) - Math.min(...lows);
-    const avgClose = closes.reduce((a, b) => a + b) / closes.length;
+    const avgClose = closes.reduce((a, b) => a + b, 0) / closes.length;
     const normalizedVolatility = volatility / avgClose;
     
     let bias: "bullish" | "bearish" | "neutral" = "neutral";
@@ -171,12 +191,17 @@ export class ScreenerService {
             
             // Calculate professional risk metrics
             const proIndicators = computeProIndicators(ltfCandles);
+            // Safe access to latest close price with fallback
+            const latestClose = ltfCandles && ltfCandles.length > 0 
+              ? ltfCandles[ltfCandles.length - 1]?.close || 200 // Default price if undefined
+              : 200; // Default price if no candles
+              
             const riskCalc = computeRisk(ltfCandles, proIndicators, {
               accountEquity: 10000, // Default portfolio size
               riskPerTradePct: 0.5,  // 0.5% risk per trade
               atrSLMult: 1.5,        // 1.5x ATR stop loss
               maxPositionPct: 10     // Max 10% position size
-            }, ltfCandles[ltfCandles.length - 1].close, confluence.label === 'BUY');
+            }, latestClose, confluence.label === 'BUY');
             
             // Generate tradable signal with professional risk management
             const tradableSignal = composeTradableSignal(
@@ -229,8 +254,8 @@ export class ScreenerService {
             // Record signal metrics for observability
             try {
               recordSignalMetrics(symbol, confluence.label, confluence.confidence || 0);
-            } catch (error) {
-              logger.error('Failed to record signal metrics', { error: error.message });
+            } catch (error: any) {
+              logger.error('Failed to record signal metrics', { error: error?.message || 'Unknown error' });
             }
             
             // Record execution if tradable signal is valid
@@ -263,7 +288,6 @@ export class ScreenerService {
               regimeReason: confluence.regimeReason,
               dynamicThresholds: confluence.dynamicThresholds,
               regimeAdjustment: confluence.regimeAdjustment,
-              proIndicators: confluence.proIndicators,
               // MTF Analysis
               htf: confluence.htf,
               mtf: confluence.mtf,
@@ -303,7 +327,7 @@ export class ScreenerService {
             });
 
             return result;
-          } catch (error) {
+          } catch (error: any) {
             logger.error(`Failed to process ${symbol}`, error);
             // Return neutral result on failure
             return {
@@ -312,7 +336,7 @@ export class ScreenerService {
               label: "HOLD" as const,
               riskLevel: "high" as const,
               confidence: 0,
-              summary: `Processing failed: ${error.message}`,
+              summary: `Processing failed: ${error?.message || 'Unknown error'}`,
               layers: {
                 smc: { bias: "neutral" as const, strength: 0, confidence: 0.1 },
                 indicators: { rsi: null, emaTrend: "neutral" as const },
@@ -377,12 +401,12 @@ export class ScreenerService {
     } catch (error) {
       const processingTime = Date.now() - startTime;
       logger.error('Screening run failed', { 
-        error: error.message, 
+        error: (error as any)?.message || 'Unknown error', 
         processingTime,
         symbolsRequested: request.symbols.length
       });
       
-      throw new Error(`Screening failed after ${processingTime}ms: ${error.message}`);
+      throw new Error(`Screening failed after ${processingTime}ms: ${(error as any)?.message || 'Unknown error'}`);
     }
   }
 
@@ -405,12 +429,12 @@ export class ScreenerService {
         },
         testProcessingTime: testResult.processingTime
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Health check failed', error);
       return {
         status: 'unhealthy',
         timestamp: Date.now(),
-        error: error.message
+        error: error?.message || 'Unknown error'
       };
     }
   }
