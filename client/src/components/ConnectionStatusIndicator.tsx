@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useWebSocketContext } from '@/hooks/WebSocketProvider';
 import { Wifi, WifiOff, Loader2, AlertTriangle } from 'lucide-react';
+import { formatToWIB, formatLatency } from '@/lib/utils';
 
 interface ConnectionStatusIndicatorProps {
   className?: string;
@@ -19,7 +20,9 @@ export const ConnectionStatusIndicator = ({
     isConnected, 
     connectionStatus, 
     reconnectAttempts, 
-    maxReconnectAttempts 
+    maxReconnectAttempts,
+    lastMessageAt,
+    connectionLatency 
   } = useWebSocketContext();
 
   const getStatusConfig = () => {
@@ -99,9 +102,16 @@ export const ConnectionStatusIndicator = ({
             <p className="font-medium">{statusConfig.text}</p>
             <p className="text-xs text-muted-foreground">{statusConfig.description}</p>
             {connectionStatus === 'connected' && (
-              <p className="text-xs text-green-600">
-                WebSocket: Active • Data: Live
-              </p>
+              <div className="text-xs text-green-600 space-y-1">
+                <p>WebSocket: Active • Data: Live</p>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Source: OKX</span>
+                  <span>Updated: {lastMessageAt ? formatToWIB(lastMessageAt) : 'No data'}</span>
+                </div>
+                <p className="text-xs text-green-500">
+                  {connectionLatency !== null ? `Latency: ${connectionLatency}ms` : 'Latency: Measuring...'}
+                </p>
+              </div>
             )}
             {connectionStatus === 'reconnecting' && (
               <p className="text-xs text-orange-600">

@@ -28,6 +28,8 @@ interface WebSocketContextType {
   connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error' | 'reconnecting';
   reconnectAttempts: number;
   maxReconnectAttempts: number;
+  lastMessageAt: Date | null;
+  connectionLatency: number | null;
   sendMessage: (message: any) => void;
   connect: () => void;
   disconnect: () => void;
@@ -45,12 +47,15 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error' | 'reconnecting'>('disconnected');
+  const [lastMessageAt, setLastMessageAt] = useState<Date | null>(null);
+  const [connectionLatency, setConnectionLatency] = useState<number | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 15; // Increased for better stability
+  const pingTimestampRef = useRef<number | null>(null);
   const { toast } = useToast();
 
   const getWebSocketUrl = () => {
@@ -65,6 +70,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     // Send ping every 45 seconds to keep connection alive
     pingIntervalRef.current = setInterval(() => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
+        pingTimestampRef.current = performance.now();
         wsRef.current.send(JSON.stringify({
           type: 'ping',
           timestamp: new Date().toISOString()
@@ -129,6 +135,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
           }
           
           setLastMessage(message);
+          setLastMessageAt(new Date());
           
           // Route message based on type
           switch (message.type) {
@@ -142,7 +149,12 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
               setSystemStatus(message);
               break;
             case 'pong':
-              // Handle pong response (keep-alive confirmation)
+              // Handle pong response and calculate latency
+              if (pingTimestampRef.current) {
+                const latency = performance.now() - pingTimestampRef.current;
+                setConnectionLatency(Math.round(latency));
+                pingTimestampRef.current = null;
+              }
               console.debug('Received pong from server');
               break;
             default:
@@ -250,6 +262,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     
     setIsConnected(false);
     setConnectionStatus('disconnected');
+    setLastMessageAt(null);
+    setConnectionLatency(null);
     reconnectAttempts.current = 0;
   };
 
@@ -279,6 +293,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     connectionStatus,
     reconnectAttempts: reconnectAttempts.current,
     maxReconnectAttempts,
+    lastMessageAt,
+    connectionLatency,
     sendMessage,
     connect,
     disconnect
@@ -309,6 +325,8 @@ export function useWebSocket() {
     marketData: context.marketData,
     systemStatus: context.systemStatus,
     connectionStatus: context.connectionStatus,
+    lastMessageAt: context.lastMessageAt,
+    connectionLatency: context.connectionLatency,
     sendMessage: context.sendMessage
   };
 }

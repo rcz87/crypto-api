@@ -29,6 +29,8 @@ import {
   Rocket
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { DataTrustIndicator } from '@/components/DataTrustIndicator';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Import tooltip component for educational explanations
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -106,22 +108,33 @@ interface StrategyPerformanceData {
 
 export function AISignalDashboard() {
   const [selectedStrategy, setSelectedStrategy] = useState<string>('');
+  const isMobile = useIsMobile();
 
-  // AI Signal Query
+  // AI Signal Query with metadata tracking
   const { data: signalData, isLoading: signalLoading, error: signalError } = useQuery<{
     success: boolean;
     data: AISignalData;
     timestamp: string;
+    _metadata?: {
+      latency: number;
+      requestTime: string;
+      dataSource: string;
+    };
   }>({
     queryKey: ['/api/ai/signal'],
     refetchInterval: 45000, // 45 seconds
   });
 
-  // Strategy Performance Query
+  // Strategy Performance Query with metadata tracking
   const { data: performanceData, isLoading: performanceLoading } = useQuery<{
     success: boolean;
     data: StrategyPerformanceData;
     timestamp: string;
+    _metadata?: {
+      latency: number;
+      requestTime: string;
+      dataSource: string;
+    };
   }>({
     queryKey: ['/api/ai/strategy-performance'],
     refetchInterval: 120000, // 2 minutes
@@ -221,6 +234,20 @@ export function AISignalDashboard() {
             </div>
           )}
         </CardTitle>
+        {/* Data Trust Indicator for AI Signals */}
+        {signalData?._metadata && (
+          <div className={`mt-2 ${isMobile ? 'flex-col space-y-1' : 'flex justify-between items-center'}`}>
+            <DataTrustIndicator
+              dataSource={signalData._metadata.dataSource}
+              timestamp={signalData._metadata.requestTime}
+              latency={signalData._metadata.latency}
+              isRealTime={true}
+              size={isMobile ? 'sm' : 'md'}
+              orientation={isMobile ? 'vertical' : 'horizontal'}
+              className="opacity-80"
+            />
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
         <Tabs defaultValue="signal" className="w-full">

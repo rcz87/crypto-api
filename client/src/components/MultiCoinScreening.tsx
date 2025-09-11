@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Play, RefreshCw, TrendingUp, TrendingDown, Minus, Clock, Activity, Target, Search } from 'lucide-react';
+import { DataTrustIndicator } from '@/components/DataTrustIndicator';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ScreeningResult {
   symbol: string;
@@ -73,11 +75,22 @@ export default function MultiCoinScreening() {
   const [timeframe, setTimeframe] = useState('15m');
   const [isAutoRefresh, setIsAutoRefresh] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(30);
+  const isMobile = useIsMobile();
 
-  // Query untuk screening data
-  const { data, isLoading, error, refetch, isRefetching } = useQuery<ScreeningData>({
+  // Query untuk screening data with metadata tracking
+  const { data: queryResponse, isLoading, error, refetch, isRefetching } = useQuery<{
+    success: boolean;
+    data: ScreeningData;
+    timestamp: string;
+    _metadata?: {
+      latency: number;
+      requestTime: string;
+      dataSource: string;
+    };
+  }>({
     queryKey: ['/api/screener', symbols, timeframe],
     queryFn: async () => {
+      const requestStart = performance.now();
       const params = new URLSearchParams({
         symbols: symbols.trim(),
         timeframe: timeframe,
@@ -94,12 +107,26 @@ export default function MultiCoinScreening() {
         throw new Error(result.error || 'Screening failed');
       }
       
-      return result.data;
+      // Inject metadata if not present
+      const requestEnd = performance.now();
+      if (!result._metadata) {
+        result._metadata = {
+          latency: Math.round(requestEnd - requestStart),
+          requestTime: new Date().toISOString(),
+          dataSource: 'Screener API'
+        };
+      }
+      
+      return result;
     },
     enabled: !!symbols,
     refetchInterval: isAutoRefresh ? refreshInterval * 1000 : false,
     staleTime: 10000, // 10 seconds
   });
+
+  // Extract data and metadata
+  const data = queryResponse?.data;
+  const metadata = queryResponse?._metadata;
 
   const handleRunScreening = () => {
     refetch();
@@ -149,6 +176,20 @@ export default function MultiCoinScreening() {
           <CardDescription className="text-sm">
             8-layer analysis engine untuk multiple crypto pairs
           </CardDescription>
+          {/* Data Trust Indicator for Screening Results */}
+          {metadata && (
+            <div className={`mt-2 ${isMobile ? 'flex-col space-y-1' : 'flex justify-between items-center'}`}>
+              <DataTrustIndicator
+                dataSource={metadata.dataSource}
+                timestamp={metadata.requestTime}
+                latency={metadata.latency}
+                isRealTime={false}
+                size={isMobile ? 'sm' : 'md'}
+                orientation={isMobile ? 'vertical' : 'horizontal'}
+                className="opacity-80"
+              />
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Preset Buttons */}

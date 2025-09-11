@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
+import { DataTrustIndicator } from '@/components/DataTrustIndicator';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Enhanced Types
 interface EnhancedFundingRateData {
@@ -162,12 +164,18 @@ interface FundingCorrelationData {
 
 export function EnhancedFundingRate() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<'24h' | '7d' | '30d'>('24h');
+  const isMobile = useIsMobile();
 
-  // Enhanced API Queries
+  // Enhanced API Queries with metadata tracking
   const { data: enhancedData, isLoading, error } = useQuery<{
     success: boolean;
     data: EnhancedFundingRateData;
     timestamp: string;
+    _metadata?: {
+      latency: number;
+      requestTime: string;
+      dataSource: string;
+    };
   }>({
     queryKey: ['/api/sol/funding/enhanced'],
     refetchInterval: 30000, // 30 seconds
@@ -309,6 +317,20 @@ export function EnhancedFundingRate() {
             </Badge>
           </div>
         </CardTitle>
+        {/* Data Trust Indicator */}
+        {enhancedData?._metadata && (
+          <div className={`mt-2 ${isMobile ? 'flex-col space-y-1' : 'flex justify-between items-center'}`}>
+            <DataTrustIndicator
+              dataSource={enhancedData._metadata.dataSource}
+              timestamp={enhancedData._metadata.requestTime}
+              latency={enhancedData._metadata.latency}
+              isRealTime={true}
+              size={isMobile ? 'sm' : 'md'}
+              orientation={isMobile ? 'vertical' : 'horizontal'}
+              className="opacity-80"
+            />
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
         <Tabs defaultValue="overview" className="w-full">

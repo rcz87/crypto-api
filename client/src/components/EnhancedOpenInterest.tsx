@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Activity, DollarSign, TrendingUp, PieChart, BarChart3, Zap, AlertTriangle, Target, TrendingDown, Clock, Users, Gauge } from 'lucide-react';
 import { useMemo } from 'react';
+import { DataTrustIndicator } from '@/components/DataTrustIndicator';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface EnhancedOpenInterestData {
   current: {
@@ -50,11 +52,18 @@ interface EnhancedOpenInterestData {
 }
 
 export function EnhancedOpenInterest() {
-  // Enhanced Open Interest data with all institutional metrics
+  const isMobile = useIsMobile();
+  
+  // Enhanced Open Interest data with all institutional metrics and metadata tracking
   const { data: enhancedOIData, isLoading, error } = useQuery<{
     success: boolean;
     data: EnhancedOpenInterestData;
     timestamp: string;
+    _metadata?: {
+      latency: number;
+      requestTime: string;
+      dataSource: string;
+    };
   }>({
     queryKey: ['/api/sol/oi/enhanced'],
     refetchInterval: 30000, // Refresh every 30 seconds
@@ -167,6 +176,20 @@ export function EnhancedOpenInterest() {
           <Activity className="w-5 h-5" />
           Enhanced Open Interest Analysis
         </CardTitle>
+        {/* Data Trust Indicator */}
+        {enhancedOIData?._metadata && (
+          <div className={`mt-2 ${isMobile ? 'flex-col space-y-1' : 'flex justify-between items-center'}`}>
+            <DataTrustIndicator
+              dataSource={enhancedOIData._metadata.dataSource}
+              timestamp={enhancedOIData._metadata.requestTime}
+              latency={enhancedOIData._metadata.latency}
+              isRealTime={true}
+              size={isMobile ? 'sm' : 'md'}
+              orientation={isMobile ? 'vertical' : 'horizontal'}
+              className="opacity-80"
+            />
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Main OI Metrics */}
