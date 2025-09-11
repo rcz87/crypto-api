@@ -22,6 +22,7 @@ import {
   volumeHistorySchema
 } from '../../shared/schema.js';
 import { validateAndFormatPair, getSupportedPairs } from '../utils/pairValidator.js';
+import { calculateTimeToNextCandleClose, getTimeToCloseDescription } from '../utils/timeCalculator.js';
 
 /**
  * Get real historical volume data from OKX API for 24h comparison
@@ -118,9 +119,23 @@ export function registerTradingRoutes(app: Express): void {
         details: `GET /api/${pair}/complete - ${responseTime}ms - 200 OK`,
       });
       
+      // Add accurate timing information
+      const currentCandle = validated.candles['1H'][validated.candles['1H'].length - 1];
+      const timingInfo = calculateTimeToNextCandleClose('1H', currentCandle?.timestamp);
+      
       res.json({
         success: true,
-        data: validated,
+        data: {
+          ...validated,
+          _timing: {
+            current_utc: new Date().toISOString(),
+            next_candle_close: timingInfo.nextCloseTime.toISOString(),
+            minutes_remaining: timingInfo.minutesRemaining,
+            seconds_remaining: timingInfo.secondsRemaining,
+            accuracy: timingInfo.accuracy,
+            description: getTimeToCloseDescription('1H', currentCandle?.timestamp)
+          }
+        },
         timestamp: new Date().toISOString(),
       });
       
@@ -165,9 +180,23 @@ export function registerTradingRoutes(app: Express): void {
         details: `GET /api/sol/complete - ${responseTime}ms - 200 OK`,
       });
       
+      // Add accurate timing information for SOL
+      const currentCandle = validated.candles['1H'][validated.candles['1H'].length - 1];
+      const timingInfo = calculateTimeToNextCandleClose('1H', currentCandle?.timestamp);
+      
       res.json({
         success: true,
-        data: validated,
+        data: {
+          ...validated,
+          _timing: {
+            current_utc: new Date().toISOString(),
+            next_candle_close: timingInfo.nextCloseTime.toISOString(),
+            minutes_remaining: timingInfo.minutesRemaining,
+            seconds_remaining: timingInfo.secondsRemaining,
+            accuracy: timingInfo.accuracy,
+            description: getTimeToCloseDescription('1H', currentCandle?.timestamp)
+          }
+        },
         timestamp: new Date().toISOString(),
       });
       

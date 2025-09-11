@@ -31,10 +31,10 @@ export class CVDService {
     
     return {
       timeframe,
-      currentCVD: 0,
-      previousCVD: 0,
-      deltaChange: 0,
-      percentageChange: 0,
+      currentCVD: '0',
+      previousCVD: '0',
+      deltaChange: '0',
+      percentageChange: '0',
       cvdHistory: [], // Empty history for minimal data
       confidence: {
         overall: 25,
@@ -43,9 +43,19 @@ export class CVDService {
         timeframeSynergy: 10
       },
       buyerSellerAggression: {
-        buyerAggression: 50,
-        sellerAggression: 50,
-        dominantSide: 'neutral' as const,
+        buyerAggression: {
+          percentage: 50,
+          strength: 'weak' as const,
+          volume: '0',
+          averageSize: '0'
+        },
+        sellerAggression: {
+          percentage: 50,
+          strength: 'weak' as const,
+          volume: '0',
+          averageSize: '0'
+        },
+        dominantSide: 'balanced' as const,
         aggressionRatio: 0.5,
         averageTradeSize: totalVolume / Math.max(trades.length, 1),
         largeTradeCount: 0,
@@ -54,23 +64,18 @@ export class CVDService {
       },
       activeDivergences: [],
       recentDivergences: [],
-      absorptionPatterns: {
-        detected: false,
-        zones: [],
-        strength: 0,
-        volume: 0
-      },
+      absorptionPatterns: [],
       flowAnalysis: {
-        phase: 'neutral' as const,
-        strength: 0,
-        sustainability: 0,
+        phase: 'ranging' as const,
+        strength: 'weak' as const,
+        sustainability: 'weak' as const,
         zones: []
       },
       smartMoneySignals: {
-        accumulation: { active: false, strength: 0, zones: [] },
-        distribution: { active: false, strength: 0, zones: [] },
-        absorption: { active: false, strength: 0, price: currentPrice },
-        testingPhase: { active: false, type: 'none' as const, strength: 0 }
+        accumulation: { active: false, strength: 'weak' as const, zones: [] },
+        distribution: { active: false, strength: 'weak' as const, zones: [] },
+        absorption: { active: false, strength: 'weak' as const, price: currentPrice },
+        testingPhase: { active: false, type: 'none' as const, strength: 'weak' as const }
       },
       realTimeMetrics: {
         currentBuyPressure: 50,
