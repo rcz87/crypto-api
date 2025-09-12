@@ -3136,9 +3136,9 @@ export function registerTradingRoutes(app: Express): void {
       
       const tradingSymbol = validation.symbol;
       
-      // Import Enhanced AI Signal Engine dynamically
-      const { EnhancedAISignalEngine } = await import('../services/enhancedAISignalEngine');
-      const enhancedAI = new EnhancedAISignalEngine();
+      // Use singleton Enhanced AI Signal Engine instance
+      const { enhancedAISignalEngine } = await import('../services/enhancedAISignalEngine');
+      const enhancedAI = enhancedAISignalEngine;
       
       // Generate enhanced AI signal
       const enhancedSignal = await enhancedAI.generateEnhancedAISignal(tradingSymbol);
@@ -3194,9 +3194,9 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
-      // Import Enhanced AI Signal Engine dynamically
-      const { EnhancedAISignalEngine } = await import('../services/enhancedAISignalEngine');
-      const enhancedAI = new EnhancedAISignalEngine();
+      // Use singleton Enhanced AI Signal Engine instance
+      const { enhancedAISignalEngine } = await import('../services/enhancedAISignalEngine');
+      const enhancedAI = enhancedAISignalEngine;
       
       // Get enhanced performance metrics (using existing patterns data)
       const performanceData = {
