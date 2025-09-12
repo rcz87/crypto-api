@@ -1459,54 +1459,18 @@ export class CVDService {
   private getPressureHistoryData(timeframe: string) {
     const history = this.pressureHistory.get(timeframe) || [];
     
-    // Enhanced: Initialize with sample data if empty for demonstration
+    // Return empty data if insufficient real data - no mock data
     if (history.length < 2) {
-      // Create sample historical pressure data for demonstration
-      const currentTime = new Date();
-      const sampleHistory = [];
-      
-      for (let i = 23; i >= 0; i--) {
-        const timestamp = new Date(currentTime.getTime() - (i * 60 * 60 * 1000)).toISOString();
-        const buyPressure = 45 + Math.random() * 10 + (i > 12 ? -5 : 5); // Trending down initially, then up
-        const sellPressure = 100 - buyPressure;
-        
-        sampleHistory.push({
-          timestamp,
-          buyPressure: parseFloat(buyPressure.toFixed(2)),
-          sellPressure: parseFloat(sellPressure.toFixed(2)),
-          price: 200 + Math.random() * 10 + (i > 12 ? -2 : 2),
-          volume: 1000000 + Math.random() * 500000,
-          manipulationLevel: i === 5 || i === 15 ? 85 + Math.random() * 10 : undefined,
-          absorptionPrice: i === 8 || i === 18 ? 200 + Math.random() * 10 : undefined
-        });
-      }
-      
-      // Store sample data
-      this.pressureHistory.set(timeframe, sampleHistory);
-      
       return {
-        history: sampleHistory,
+        history: [],
         analytics: {
           pressureChange24h: {
-            buyPressureChange: sampleHistory[sampleHistory.length - 1].buyPressure - sampleHistory[0].buyPressure,
-            sellPressureChange: sampleHistory[sampleHistory.length - 1].sellPressure - sampleHistory[0].sellPressure,
-            trendDirection: sampleHistory[sampleHistory.length - 1].buyPressure > sampleHistory[0].buyPressure ? 'bullish' as const : 'bearish' as const
+            buyPressureChange: 0,
+            sellPressureChange: 0,
+            trendDirection: 'neutral' as const
           },
-          manipulationEvents: sampleHistory
-            .filter(h => h.manipulationLevel && h.manipulationLevel > 70)
-            .map(h => ({
-              timestamp: h.timestamp,
-              price: h.price,
-              confidence: h.manipulationLevel!,
-              type: 'high_confidence_manipulation' as const
-            })),
-          absorptionLevels: sampleHistory
-            .filter(h => h.absorptionPrice)
-            .map(h => ({
-              timestamp: h.timestamp,
-              price: h.absorptionPrice!,
-              volume: h.volume
-            }))
+          manipulationEvents: [],
+          absorptionLevels: []
         }
       };
     }

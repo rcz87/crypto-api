@@ -500,14 +500,14 @@ export class AISignalEngine {
   }
 
   private async analyzeSentiment(_symbol: string): Promise<SentimentData> {
-    // Placeholder — integrate with news & social APIs
+    // Real sentiment analysis disabled - return neutral values instead of mock data
     return {
       overall_sentiment: "neutral",
-      sentiment_score: 0.1,
-      news_impact: 0.3,
-      social_sentiment: 0.05,
+      sentiment_score: 0,
+      news_impact: 0,
+      social_sentiment: 0,
       institutional_flow: "neutral",
-      market_fear_greed: 55,
+      market_fear_greed: 50,
     };
   }
 
@@ -691,14 +691,14 @@ export class AISignalEngine {
   private async evaluatePopulation(pop: StrategyOptimization[]): Promise<StrategyOptimization[]> {
     return pop.map(s => ({
       ...s,
-      fitness_score: Math.random() * 0.4 + 0.4,
+      fitness_score: 0.5, // Placeholder score - real backtesting disabled
       backtest_results: {
-        total_return: (Math.random() - 0.3) * 0.5,
-        sharpe_ratio: Math.random() * 2,
-        max_drawdown: Math.random() * 0.2,
-        win_rate: 0.4 + Math.random() * 0.3,
-        profit_factor: 0.8 + Math.random() * 1.2,
-        total_trades: Math.floor(Math.random() * 100) + 20,
+        total_return: 0,
+        sharpe_ratio: 0,
+        max_drawdown: 0,
+        win_rate: 0,
+        profit_factor: 0,
+        total_trades: 0,
       },
     }));
   }
