@@ -1,0 +1,51 @@
+Rekomendasi:
+
+Pilih satu metode embed. Untuk kontrol penuh, ganti script ke tv.js (https://s3.tradingview.com/tv.js) dan panggil new TradingView.widget({ ... }) dengan konfigurasi objek JavaScript. Jika tetap ingin embed, gunakan embed-widget-advanced-chart.js tanpa memanggil TradingView.widget, melainkan sisipkan JSON murni sebagai innerHTML script di dalam kontainer.
+
+Buat ID kontainer stabil menggunakan useRef (hindari Date.now() dalam deps) agar proses unmount/mount lebih terkontrol.
+
+Pastikan script hanya dimuat sekali; gunakan flag lokal atau modul sehingga script tidak diduplikasi di <head>.
+
+2. Parent Component — DashboardContent.tsx
+
+Mengimpor dan merender <TradingViewWidget> dengan data pasar, status koneksi, simbol dinamis dan label tampilan.
+
+Mengganti view ketika activeSection === 'tradingview'.
+
+Saran:
+
+Pastikan hanya merender widget saat diperlukan (mis. saat tab aktif) untuk menghindari memuat script ketika tidak digunakan.
+
+Memo-kan selectedTvSymbol agar perubahan simbol hanya terjadi saat user mengganti pair, bukan setiap render.
+
+3. Root Component — dashboard.tsx
+
+Mengambil data pasar melalui REST (dengan interval 60 detik) dan WebSocket.
+
+Menggabungkan data WebSocket dan REST untuk membentuk displayMarketData.
+
+Memilih selectedTvSymbol berdasarkan URL (/SOLUSDT → OKX:SOLUSDTPERP) dan meneruskannya ke widget.
+
+Rekomendasi:
+
+Pastikan penyatuan data WebSocket dan REST tidak menghasilkan property undefined yang dapat memicu error rendering.
+
+Simpan lastTickerRef hanya sebagai fallback; usahakan displayMarketData selalu ada saat data valid.
+
+4. Rencana Solusi untuk Masalah Saat Ini
+
+Switch ke Library tv.js: Ganti sumber script ke https://s3.tradingview.com/tv.js, inisialisasi widget melalui new TradingView.widget({...}), dan pastikan konfigurasi berupa object JS, bukan JSON string.
+
+Fallback Chart:
+
+Jika tv.js gagal (mis. CSP ketat), implementasikan fallback menggunakan Lightweight Charts atau Chart.js dengan candlestick plugin.
+
+Buat wrapper komponen yang merender fallback chart ketika tv.js tidak dapat dimuat (misal karena error koneksi atau CSP).
+
+Hybrid Approach:
+
+Gunakan embed widget sebagai backup ketiga, tetapi pastikan JSON valid dan tidak memanggil API TradingView.widget.
+
+Rancang error boundary untuk menampilkan fallback chart jika embed juga gagal di-parse.
+
+Dengan membenahi metode embed menjadi konsisten (library atau embed), menstabilkan ID kontainer, dan menyiapkan fallback chart, Anda akan menghilangkan error TradingView is not defined, JSON parsing error, serta memastikan komponen dapat melakukan unmount/mount dengan benar.

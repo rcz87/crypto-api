@@ -1,167 +1,231 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Activity, TrendingUp, Volume2, Loader2 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
+declare global {
+  interface Window { TradingView?: any }
+}
+
 interface TradingViewWidgetProps {
   data?: any;
   isConnected?: boolean;
-  tvSymbol?: string;
-  displaySymbol?: string;
+  tvSymbol?: string;        // contoh: "OKX:SOLUSDTPERP" | "BINANCE:SOLUSDT"
+  displaySymbol?: string;   // contoh: "SOL/USDT"
 }
 
-// Global flag to prevent multiple script loads
-let isScriptLoading = false;
-let scriptLoaded = false;
+let tvScriptLoading = false;
+let tvScriptLoaded = false;
 
-export function TradingViewWidget({ 
-  data, 
+function ensureTvJs(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    console.log('[TradingView] ensureTvJs - checking availability...');
+    
+    if (window.TradingView?.widget) {
+      console.log('[TradingView] tv.js already loaded');
+      return resolve();
+    }
+
+    if (tvScriptLoaded) {
+      console.log('[TradingView] Script marked as loaded, waiting for TradingView...');
+      // Wait a bit more for TradingView to be available
+      let attempts = 0;
+      const checkInterval = setInterval(() => {
+        attempts++;
+        if (window.TradingView?.widget) {
+          clearInterval(checkInterval);
+          resolve();
+        } else if (attempts > 50) { // 5 seconds max
+          clearInterval(checkInterval);
+          reject(new Error("TradingView not available after script load"));
+        }
+      }, 100);
+      return;
+    }
+
+    if (tvScriptLoading) {
+      console.log('[TradingView] Script loading in progress, waiting...');
+      // tunggu sampai ready
+      const iv = setInterval(() => {
+        if (window.TradingView?.widget) {
+          clearInterval(iv);
+          tvScriptLoaded = true;
+          resolve();
+        }
+      }, 100);
+      return;
+    }
+
+    console.log('[TradingView] Loading tv.js script from CDN...');
+    tvScriptLoading = true;
+    const s = document.createElement("script");
+    s.src = "https://s3.tradingview.com/tv.js";
+    s.async = true;
+    s.onload = () => {
+      console.log('[TradingView] tv.js script loaded successfully');
+      tvScriptLoading = false;
+      tvScriptLoaded = true;
+      
+      // Additional wait for TradingView to be available
+      let attempts = 0;
+      const checkInterval = setInterval(() => {
+        attempts++;
+        if (window.TradingView?.widget) {
+          console.log('[TradingView] TradingView.widget now available');
+          clearInterval(checkInterval);
+          resolve();
+        } else if (attempts > 50) { // 5 seconds max
+          clearInterval(checkInterval);
+          reject(new Error("TradingView.widget not available after script load"));
+        }
+      }, 100);
+    };
+    s.onerror = (e) => {
+      console.error('[TradingView] Failed to load tv.js script:', e);
+      tvScriptLoading = false;
+      reject(new Error("Gagal memuat TradingView tv.js"));
+    };
+    document.head.appendChild(s);
+  });
+}
+
+export function TradingViewWidget({
+  data,
   isConnected,
   tvSymbol = "OKX:SOLUSDTPERP",
-  displaySymbol = "SOL/USDT-PERP" 
+  displaySymbol = "SOL/USDT-PERP",
 }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef(`tv_${Math.random().toString(36).slice(2)}`); // ID stabil seumur komponen
+  const widgetRef = useRef<any>(null);
   const isMobile = useIsMobile();
+
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const containerId = `tradingview_${Date.now()}`;
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadTradingViewScript = () => {
-      return new Promise<void>((resolve, reject) => {
-        if (scriptLoaded) {
-          resolve();
-          return;
-        }
+    let cancelled = false;
 
-        if (isScriptLoading) {
-          // Wait for ongoing script load
-          const checkInterval = setInterval(() => {
-            if (scriptLoaded) {
-              clearInterval(checkInterval);
-              resolve();
-            } else if (!isScriptLoading) {
-              clearInterval(checkInterval);
-              reject(new Error('Script loading failed'));
-            }
-          }, 100);
-          return;
-        }
-
-        isScriptLoading = true;
-
-        const script = document.createElement('script');
-        script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-        script.async = true;
-        
-        script.onload = () => {
-          isScriptLoading = false;
-          scriptLoaded = true;
-          resolve();
-        };
-        
-        script.onerror = () => {
-          isScriptLoading = false;
-          reject(new Error('Failed to load TradingView script'));
-        };
-
-        document.head.appendChild(script);
-      });
-    };
-
-    const initializeWidget = async () => {
+    const init = async () => {
       try {
+        console.log('[TradingView] Init started for symbol:', tvSymbol);
         setIsLoading(true);
-        setError(null);
-
-        await loadTradingViewScript();
+        setErr(null);
         
-        // Wait for TradingView to be available
-        if (typeof window.TradingView === 'undefined') {
-          throw new Error('TradingView library not loaded');
+        console.log('[TradingView] Loading tv.js script...');
+        await ensureTvJs();
+        
+        if (cancelled) {
+          console.log('[TradingView] Init cancelled');
+          return;
         }
         
-        if (containerRef.current) {
-          // Clear container safely
-          try {
-            containerRef.current.innerHTML = '';
-          } catch (e) {
-            // Ignore DOM cleanup errors
+        if (!containerRef.current) {
+          console.log('[TradingView] Container ref is null');
+          return;
+        }
+
+        console.log('[TradingView] Cleaning up previous widget...');
+        // Cleanup widget lama jika ada (navigasi / symbol berubah)
+        try { 
+          if (widgetRef.current?.remove) {
+            widgetRef.current.remove();
           }
-
-          // Create widget container
-          const widgetContainer = document.createElement('div');
-          widgetContainer.className = 'tradingview-widget-container';
-          widgetContainer.style.height = '100%';
-          widgetContainer.style.width = '100%';
-
-          // Create widget div
-          const widgetDiv = document.createElement('div');
-          widgetDiv.className = 'tradingview-widget';
-          widgetDiv.id = containerId;
-          widgetDiv.style.height = '100%';
-          widgetDiv.style.width = '100%';
-
-          widgetContainer.appendChild(widgetDiv);
-          containerRef.current.appendChild(widgetContainer);
-
-          // Safe symbol processing to prevent injection
-          const safeSymbol = tvSymbol.replace(/['"\\]/g, '');
-          const safeContainerId = containerId.replace(/['"\\]/g, '');
-
-          // Create widget directly using API instead of template literals
-          const widget = new window.TradingView.widget({
-            autosize: true,
-            symbol: safeSymbol,
-            interval: "60",
-            timezone: "Etc/UTC", 
-            theme: "dark",
-            style: "1",
-            locale: "en",
-            toolbar_bg: "#1f2937",
-            enable_publishing: false,
-            allow_symbol_change: false,
-            container_id: safeContainerId,
-            height: isMobile ? 400 : 500,
-            width: "100%",
-            overrides: {
-              "paneProperties.background": "#111827",
-              "paneProperties.vertGridProperties.color": "#374151",
-              "paneProperties.horzGridProperties.color": "#374151",
-              "symbolWatermarkProperties.transparency": 90,
-              "scalesProperties.textColor": "#9CA3AF",
-              "mainSeriesProperties.candleStyle.upColor": "#10B981",
-              "mainSeriesProperties.candleStyle.downColor": "#EF4444",
-              "mainSeriesProperties.candleStyle.borderUpColor": "#10B981",
-              "mainSeriesProperties.candleStyle.borderDownColor": "#EF4444",
-              "mainSeriesProperties.candleStyle.wickUpColor": "#10B981",
-              "mainSeriesProperties.candleStyle.wickDownColor": "#EF4444"
-            },
-            studies: [
-              "Volume@tv-basicstudies",
-              "RSI@tv-basicstudies",
-              "MACD@tv-basicstudies"
-            ]
-          });
-
-          setIsLoading(false);
+        } catch (e) {
+          console.log('[TradingView] Error removing widget:', e);
         }
-      } catch (err) {
-        console.error('TradingView initialization error:', err);
-        setError('Failed to load TradingView chart');
+        
+        // Safe container cleanup
+        try {
+          if (containerRef.current.firstChild) {
+            containerRef.current.innerHTML = "";
+          }
+        } catch (e) {
+          console.log('[TradingView] Error clearing container:', e);
+        }
+
+        // Buat div target dengan ID stabil
+        const mount = document.createElement("div");
+        mount.id = widgetIdRef.current;
+        mount.style.height = "100%";
+        mount.style.width = "100%";
+        
+        try {
+          containerRef.current.appendChild(mount);
+          console.log('[TradingView] Mount div created with ID:', widgetIdRef.current);
+        } catch (e) {
+          console.log('[TradingView] Error appending mount div:', e);
+          return;
+        }
+
+        if (!window.TradingView?.widget) {
+          throw new Error('TradingView.widget is not available after loading tv.js');
+        }
+
+        const cfg = {
+          symbol: tvSymbol,
+          interval: "60",
+          container_id: widgetIdRef.current,
+          timezone: "Etc/UTC",
+          theme: "dark",
+          autosize: true,
+          allow_symbol_change: false,
+          studies: [
+            "Volume@tv-basicstudies",
+            "RSI@tv-basicstudies",
+            "MACD@tv-basicstudies",
+          ],
+          overrides: {
+            "paneProperties.background": "#111827",
+            "paneProperties.vertGridProperties.color": "#374151",
+            "paneProperties.horzGridProperties.color": "#374151",
+            "symbolWatermarkProperties.transparency": 90,
+            "scalesProperties.textColor": "#9CA3AF",
+            "mainSeriesProperties.candleStyle.upColor": "#10B981",
+            "mainSeriesProperties.candleStyle.downColor": "#EF4444",
+            "mainSeriesProperties.candleStyle.borderUpColor": "#10B981",
+            "mainSeriesProperties.candleStyle.borderDownColor": "#EF4444",
+            "mainSeriesProperties.candleStyle.wickUpColor": "#10B981",
+            "mainSeriesProperties.candleStyle.wickDownColor": "#EF4444",
+          },
+        };
+
+        console.log('[TradingView] Creating widget with config:', cfg);
+        widgetRef.current = new window.TradingView.widget(cfg);
+        console.log('[TradingView] Widget created successfully');
+        setIsLoading(false);
+        
+      } catch (e: any) {
+        console.error('[TradingView] Init error:', e);
+        setErr(e?.message || "Gagal memuat chart TradingView");
         setIsLoading(false);
       }
     };
 
-    initializeWidget();
+    init();
 
     return () => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
+      cancelled = true;
+      console.log('[TradingView] Cleanup started');
+      try { 
+        if (widgetRef.current?.remove) {
+          widgetRef.current.remove();
+        }
+      } catch (e) {
+        console.log('[TradingView] Cleanup widget error:', e);
+      }
+      
+      try {
+        if (containerRef.current && containerRef.current.firstChild) {
+          containerRef.current.innerHTML = "";
+        }
+      } catch (e) {
+        console.log('[TradingView] Cleanup container error:', e);
       }
     };
-  }, [tvSymbol, containerId, isMobile]);
+    // re-init saat ganti symbol saja
+  }, [tvSymbol]);
 
   return (
     <Card className="w-full">
@@ -225,14 +289,14 @@ export function TradingViewWidget({
           )}
           
           {/* Error State */}
-          {error && !isLoading && (
+          {err && !isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-900 rounded-lg">
               <div className="flex flex-col items-center gap-3 text-center">
                 <div className="p-3 bg-red-500/20 rounded-full">
                   <TrendingUp className="h-6 w-6 text-red-400" />
                 </div>
                 <div className="text-sm text-red-400">
-                  {error}
+                  {err}
                 </div>
                 <div className="text-xs text-gray-500">
                   Please refresh the page to try again

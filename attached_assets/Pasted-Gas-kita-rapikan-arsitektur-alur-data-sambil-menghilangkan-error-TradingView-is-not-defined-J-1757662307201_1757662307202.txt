@@ -1,0 +1,280 @@
+Gas, kita rapikan arsitektur & alur data sambil menghilangkan error (“TradingView is not defined”, JSON parse, dan stuck “Loading”). Rekomendasi utamanya: switch dari embed-widget → library tv.js supaya pakai new TradingView.widget(...) dengan kontrol penuh, tanpa JSON-string embed.
+
+Keputusan Teknis Singkat
+
+Saat ini Anda memuat embed-widget-advanced-chart.js tapi memanggil TradingView.widget → tidak kompatibel → muncullah ketiga error tadi.
+
+Solusi stabil: Gunakan library https://s3.tradingview.com/tv.js + API new TradingView.widget({...}).
+
+Fallback: Lightweight Charts (resmi TradingView) ketika tv.js gagal dimuat.
+
+1) Refactor Komponen: TradingViewWidget.tsx (tv.js)
+
+Tujuan: 1) load tv.js sekali, 2) ID container stabil (bukan Date.now()), 3) cleanup aman, 4) tidak ada JSON parsing.
+
+// src/components/TradingViewWidget.tsx
+import { useEffect, useRef, useState } from "react";
+
+declare global {
+  interface Window { TradingView?: any }
+}
+
+interface TradingViewWidgetProps {
+  data?: any;
+  isConnected?: boolean;
+  tvSymbol?: string;        // contoh: "OKX:SOLUSDTPERP" | "BINANCE:SOLUSDT"
+  displaySymbol?: string;   // contoh: "SOL/USDT"
+}
+
+let tvScriptLoading = false;
+let tvScriptLoaded = false;
+
+function ensureTvJs(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (window.TradingView?.widget) return resolve();
+
+    if (tvScriptLoaded) return resolve();
+
+    if (tvScriptLoading) {
+      // tunggu sampai ready
+      const iv = setInterval(() => {
+        if (window.TradingView?.widget) {
+          clearInterval(iv);
+          tvScriptLoaded = true;
+          resolve();
+        }
+      }, 100);
+      return;
+    }
+
+    tvScriptLoading = true;
+    const s = document.createElement("script");
+    s.src = "https://s3.tradingview.com/tv.js";
+    s.async = true;
+    s.onload = () => {
+      tvScriptLoading = false;
+      tvScriptLoaded = true;
+      resolve();
+    };
+    s.onerror = () => {
+      tvScriptLoading = false;
+      reject(new Error("Gagal memuat TradingView tv.js"));
+    };
+    document.head.appendChild(s);
+  });
+}
+
+export function TradingViewWidget({
+  data,
+  isConnected,
+  tvSymbol = "OKX:SOLUSDTPERP",
+  displaySymbol = "SOL/USDT-PERP",
+}: TradingViewWidgetProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef(`tv_${Math.random().toString(36).slice(2)}`); // ID stabil seumur komponen
+  const widgetRef = useRef<any>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const init = async () => {
+      try {
+        setIsLoading(true);
+        setErr(null);
+        await ensureTvJs();
+        if (cancelled || !containerRef.current) return;
+
+        // Cleanup widget lama jika ada (navigasi / symbol berubah)
+        try { widgetRef.current?.remove?.(); } catch {}
+        containerRef.current.innerHTML = "";
+
+        // Buat div target dengan ID stabil
+        const mount = document.createElement("div");
+        mount.id = widgetIdRef.current;
+        mount.style.height = "100%";
+        mount.style.width = "100%";
+        containerRef.current.appendChild(mount);
+
+        const cfg = {
+          symbol: tvSymbol,
+          interval: "60",
+          container_id: widgetIdRef.current,
+          timezone: "Etc/UTC",
+          theme: "dark",
+          autosize: true,
+          allow_symbol_change: false,
+          studies: [
+            "Volume@tv-basicstudies",
+            "RSI@tv-basicstudies",
+            "MACD@tv-basicstudies",
+          ],
+          overrides: {
+            "paneProperties.background": "#111827",
+            "paneProperties.vertGridProperties.color": "#374151",
+            "paneProperties.horzGridProperties.color": "#374151",
+            "symbolWatermarkProperties.transparency": 90,
+            "scalesProperties.textColor": "#9CA3AF",
+            "mainSeriesProperties.candleStyle.upColor": "#10B981",
+            "mainSeriesProperties.candleStyle.downColor": "#EF4444",
+            "mainSeriesProperties.candleStyle.borderUpColor": "#10B981",
+            "mainSeriesProperties.candleStyle.borderDownColor": "#EF4444",
+            "mainSeriesProperties.candleStyle.wickUpColor": "#10B981",
+            "mainSeriesProperties.candleStyle.wickDownColor": "#EF4444",
+          },
+        };
+
+        widgetRef.current = new window.TradingView!.widget(cfg);
+        setIsLoading(false);
+      } catch (e: any) {
+        setErr(e?.message || "Gagal memuat chart TradingView");
+        setIsLoading(false);
+      }
+    };
+
+    init();
+
+    return () => {
+      cancelled = true;
+      try { widgetRef.current?.remove?.(); } catch {}
+      if (containerRef.current) containerRef.current.innerHTML = "";
+    };
+    // re-init saat ganti symbol saja
+  }, [tvSymbol]);
+
+  return (
+    <div className="w-full">
+      {/* Header ringkas, bisa ganti dengan Card Anda */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-semibold">{displaySymbol} Futures Chart</div>
+        <div className={`text-xs ${isConnected ? 'text-emerald-500' : 'text-red-400'}`}>
+          {isConnected ? 'Real-time' : 'Disconnected'}
+        </div>
+      </div>
+
+      <div
+        ref={containerRef}
+        className="bg-gray-900 border border-gray-700 rounded-lg relative"
+        style={{ height: 500 }}
+      >
+        {isLoading && (
+          <div className="absolute inset-0 grid place-items-center text-emerald-500">
+            Loading TradingView…
+          </div>
+        )}
+        {err && !isLoading && (
+          <div className="absolute inset-0 grid place-items-center text-red-400">
+            {err}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+Kenapa ini menghapus error:
+
+TradingView is not defined → hilang karena kita memuat tv.js, bukan embed-widget.
+
+Unexpected end of JSON input → hilang karena tidak ada JSON parse; kita kirim object JS ke TradingView.widget.
+
+removeChild DOM → hilang karena ID kontainer stabil (useRef), cleanup teratur, dan tidak ada Date.now() pada dependency yang memicu re-render liar.
+
+2) Integrasi di Parent (DashboardContent.tsx)
+
+Tidak perlu ubah pola data. Cukup pastikan symbol yang Anda kirim sesuai format TradingView (contoh: OKX:SOLUSDTPERP atau BINANCE:SOLUSDT).
+
+import { TradingViewWidget } from "@/components/TradingViewWidget";
+
+<TradingViewWidget
+  data={displayMarketData}
+  isConnected={wsConnected}
+  tvSymbol={selectedTvSymbol || "BINANCE:SOLUSDT"}
+  displaySymbol={selectedSymbol || "SOL/USDT"}
+/>
+
+
+Tips:
+
+Memo-kan selectedTvSymbol supaya tidak berubah tiap render (hindari trigger init ulang).
+
+Pastikan switch symbol hanya terjadi saat user mengganti pair / URL berubah.
+
+3) Root (dashboard.tsx) – Alur Data Aman
+
+Tetap pakai prioritas WebSocket → REST fallback seperti yang Anda tulis (bagus).
+
+Pastikan object displayMarketData stable shape (hindari undefined property yang bisa bikin UI berkedip).
+
+Contoh ringkas:
+
+const displayMarketData = marketData
+  ? {
+      ...marketData,
+      ticker: wsTicker ?? marketData.ticker,
+      orderBook: wsOrderBook ?? marketData.orderBook,
+    }
+  : lastTickerRef.current; // fallback terakhir yang valid
+
+4) Alternatif: Jika Ingin Tetap Embed (bukan rekomendasi)
+
+Kalau Anda memaksa embed (karena simpel), jangan panggil TradingView.widget. Sisipkan JSON murni di script.innerHTML:
+
+// HANYA untuk embed, bukan tv.js
+const s = document.createElement("script");
+s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+s.async = true;
+// JSON murni: tidak ada trailing comma, tidak ada undefined
+s.innerHTML = JSON.stringify({
+  autosize: true,
+  symbol: tvSymbol,
+  interval: "60",
+  timezone: "Etc/UTC",
+  theme: "dark",
+  allow_symbol_change: false,
+  studies: ["Volume@tv-basicstudies","RSI@tv-basicstudies","MACD@tv-basicstudies"]
+});
+container.appendChild(s);
+
+5) Fallback Charts (Progressive Enhancement)
+
+Jika tv.js gagal load (misal CSP ketat / offline), render fallback:
+
+Lightweight Charts (resmi TradingView) → cepat, ringan
+
+Atau Chart.js + candlestick plugin untuk backup.
+
+Pola:
+
+if (err || timeoutLoadTv) {
+  return <LightweightChart data={...derivedOHLCV} />;
+}
+
+6) Guard Produksi & CSP
+
+HTTPS penuh (jangan ada http: mixed content).
+
+Jika pakai CSP ketat, izinkan:
+
+script-src → https://s3.tradingview.com
+
+frame-src → https://*.tradingview.com
+
+connect-src → https://*.tradingview.com (kalau perlu)
+
+Jangan render komponen di SSR (cek typeof window kalau pakai Next/SSR).
+
+7) Checklist Debug Cepat
+
+Console: pastikan tidak ada TradingView is not defined / JSON parse.
+
+Network: tv.js status 200; Type: application/javascript.
+
+Elements: pastikan <div id={widgetIdRef.current}> muncul.
+
+Symbol valid (gunakan format EXCHANGE:SYMBOL, contoh OKX:SOLUSDTPERP).
+
+Tidak ada ID dinamis di dependency useEffect (hindari Date.now() di deps).
