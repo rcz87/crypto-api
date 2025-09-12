@@ -94,10 +94,11 @@ paths:
         - name: pair
           in: path
           required: true
-          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          description: Trading pair symbol - supports all 65+ pairs (BTC, ETH, SOL, ADA, etc.)
           schema:
             type: string
-            pattern: '^[A-Z0-9]{2,10}$'
+            pattern: '^[A-Za-z0-9]{2,10}$'
+            enum: [BTC, ETH, SOL, ADA, DOT, MATIC, LTC, BCH, ETC, LINK, UNI, AAVE, ATOM, XRP, DOGE, SHIB, AVAX, FTM, NEAR, ALGO, MANA, SAND, AXS, ENJ, CRV, COMP, MKR, YFI, SUSHI, 1INCH, BAT, ZRX, KNC, LRC, REN, STORJ, GRT, FIL, AR, THETA, ICP, EGLD, HBAR, VET, CHZ, ENS, IMX, GMT, APE, GALA, LOOKS, MAGIC, OP, ARB, BLUR, SUI, PEPE, FLOKI, BONK, WIF, BOME, POPCAT, MEW, RENDER, BNB]
           example: BTC
       responses:
         '200':
