@@ -27,7 +27,8 @@ export default function Dashboard() {
   // Format symbol for different uses
   const selectedPair = urlSymbol.replace('USDT', '');
   const selectedSymbol = `${selectedPair}/USDT-PERP`;
-  const selectedTvSymbol = `OKX:${urlSymbol}PERP`;
+  // Don't hardcode OKX symbol - let TradingView widget handle symbol mapping
+  const selectedTvSymbol = undefined; // Will use fallback: "BINANCE:SOLUSDT"
 
   const { data: healthData, isLoading: healthLoading, error: healthError } = useQuery({
     queryKey: ["/health"],

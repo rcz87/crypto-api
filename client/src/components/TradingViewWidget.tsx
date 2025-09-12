@@ -14,7 +14,7 @@ declare global {
 interface TradingViewWidgetProps {
   data?: any;
   isConnected?: boolean;
-  tvSymbol?: string;        // contoh: "OKX:SOLUSDTPERP" | "BINANCE:SOLUSDT"
+  tvSymbol?: string;        // contoh: "BINANCE:SOLUSDTPERP" | "BINANCE:SOLUSDT"
   displaySymbol?: string;   // contoh: "SOL/USDT"
 }
 
@@ -119,7 +119,7 @@ function ensureTvJs(timeoutMs = 12000): Promise<void> {
 export function TradingViewWidget({
   data,
   isConnected,
-  tvSymbol = "OKX:SOLUSDTPERP",
+  tvSymbol = "BINANCE:SOLUSDTPERP", // Changed to known working symbol
   displaySymbol = "SOL/USDT-PERP",
 }: TradingViewWidgetProps) {
   const isMobile = useIsMobile();
@@ -152,10 +152,19 @@ export function TradingViewWidget({
     const root = rootRef.current;
     if (!root) return;
     try {
-      // Membersihkan seluruh isi tanpa removeChild spesifik (lebih aman)
-      root.innerHTML = "";
+      // Safe DOM cleanup - remove children one by one instead of innerHTML
+      while (root.firstChild) {
+        root.removeChild(root.firstChild);
+      }
+      log("DOM cleared safely with manual removeChild");
     } catch (e) {
-      log("safeClearRoot error (ignored)", e);
+      // Fallback to innerHTML if removeChild fails
+      try {
+        root.innerHTML = "";
+        log("Fallback to innerHTML cleanup");
+      } catch (e2) {
+        log("safeClearRoot error (ignored)", e2);
+      }
     }
   }
 
@@ -204,8 +213,15 @@ export function TradingViewWidget({
         throw new Error("TradingView.widget belum tersedia");
       }
 
+      // Map OKX symbol to TradingView compatible symbol
+      let tvSymbol = symbol;
+      if (symbol === "SOL-USDT-SWAP") {
+        // Use working TradingView symbol for SOL
+        tvSymbol = "BINANCE:SOLUSDT"; // Binance SOL/USDT spot pair
+      }
+      
       const cfg = {
-        symbol,
+        symbol: tvSymbol,
         interval: "60",
         container_id: mountIdRef.current,
         timezone: "Etc/UTC",
@@ -214,23 +230,27 @@ export function TradingViewWidget({
         allow_symbol_change: false,
         studies: [
           "Volume@tv-basicstudies",
-          "RSI@tv-basicstudies",
+          "RSI@tv-basicstudies", 
           "MACD@tv-basicstudies",
         ],
         overrides: {
-          "paneProperties.background": "#111827",
+          "paneProperties.background": "#1f2937",
           "paneProperties.vertGridProperties.color": "#374151",
           "paneProperties.horzGridProperties.color": "#374151",
           "symbolWatermarkProperties.transparency": 90,
-          "scalesProperties.textColor": "#9CA3AF",
-          "mainSeriesProperties.candleStyle.upColor": "#10B981",
-          "mainSeriesProperties.candleStyle.downColor": "#EF4444",
-          "mainSeriesProperties.candleStyle.borderUpColor": "#10B981",
-          "mainSeriesProperties.candleStyle.borderDownColor": "#EF4444",
-          "mainSeriesProperties.candleStyle.wickUpColor": "#10B981",
-          "mainSeriesProperties.candleStyle.wickDownColor": "#EF4444",
+          "scalesProperties.textColor": "#d1d5db",
+          "scalesProperties.lineColor": "#6b7280",
+          "mainSeriesProperties.candleStyle.upColor": "#10b981",
+          "mainSeriesProperties.candleStyle.downColor": "#ef4444",
+          "mainSeriesProperties.candleStyle.borderUpColor": "#10b981",
+          "mainSeriesProperties.candleStyle.borderDownColor": "#ef4444",
+          "mainSeriesProperties.candleStyle.wickUpColor": "#10b981",
+          "mainSeriesProperties.candleStyle.wickDownColor": "#ef4444",
+          "volumePaneSize": "medium",
         },
       } as const;
+      
+      log("Trying TradingView symbol:", tvSymbol, "from original:", symbol);
 
       log("Create widget dengan config:", cfg);
       widgetRef.current = new window.TradingView.widget(cfg);
@@ -246,6 +266,7 @@ export function TradingViewWidget({
           break;
         }
         if (Date.now() - START > MAX) {
+          log("TIMEOUT: iframe tidak muncul dalam", MAX, "ms");
           throw new Error("Timeout menunggu iframe TradingView");
         }
         await new Promise((r) => setTimeout(r, 150));
