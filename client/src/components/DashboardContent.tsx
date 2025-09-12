@@ -95,7 +95,7 @@ export const DashboardContent = ({
                 <div>🔍 <span className="font-medium">System Status:</span></div>
                 <div className={isMobile ? 'break-all' : ''}>🌐 API Base: {window.location.hostname === 'localhost' ? 'localhost:5000' : 'guardiansofthegreentoken.com'}</div>
                 <div>WebSocket: {wsConnected ? '✅ Connected' : '❌ Disconnected'}</div>
-                <div>SOL Futures API: {solData?.data ? '✅ Available' : '❌ None'}</div>
+                <div>SOL Futures API: {solData?.ticker ? '✅ Available' : '❌ None'}</div>
                 <div>Candles Data: {solData?.candles ? '✅ Available' : '❌ None'}</div>
                 {solData?.candles && (
                   <div className={isMobile ? 'text-xs' : ''}>📊 Candles: 1H({(solData.candles['1H'] || []).length}) 4H({(solData.candles['4H'] || []).length}) 1D({(solData.candles['1D'] || []).length})</div>

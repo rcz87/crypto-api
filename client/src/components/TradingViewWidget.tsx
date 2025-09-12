@@ -77,9 +77,18 @@ export function TradingViewWidget({
 
         await loadTradingViewScript();
         
+        // Wait for TradingView to be available
+        if (typeof window.TradingView === 'undefined') {
+          throw new Error('TradingView library not loaded');
+        }
+        
         if (containerRef.current) {
-          // Clear container
-          containerRef.current.innerHTML = '';
+          // Clear container safely
+          try {
+            containerRef.current.innerHTML = '';
+          } catch (e) {
+            // Ignore DOM cleanup errors
+          }
 
           // Create widget container
           const widgetContainer = document.createElement('div');
@@ -94,48 +103,47 @@ export function TradingViewWidget({
           widgetDiv.style.height = '100%';
           widgetDiv.style.width = '100%';
 
-          // Create script with configuration as JavaScript object literal
-          const configScript = document.createElement('script');
-          configScript.type = 'text/javascript';
-          configScript.innerHTML = `
-            new TradingView.widget({
-              "autosize": true,
-              "symbol": "${tvSymbol}",
-              "interval": "60",
-              "timezone": "Etc/UTC", 
-              "theme": "dark",
-              "style": "1",
-              "locale": "en",
-              "toolbar_bg": "#1f2937",
-              "enable_publishing": false,
-              "allow_symbol_change": false,
-              "container_id": "${containerId}",
-              "height": ${isMobile ? 400 : 500},
-              "width": "100%",
-              "overrides": {
-                "paneProperties.background": "#111827",
-                "paneProperties.vertGridProperties.color": "#374151",
-                "paneProperties.horzGridProperties.color": "#374151",
-                "symbolWatermarkProperties.transparency": 90,
-                "scalesProperties.textColor": "#9CA3AF",
-                "mainSeriesProperties.candleStyle.upColor": "#10B981",
-                "mainSeriesProperties.candleStyle.downColor": "#EF4444",
-                "mainSeriesProperties.candleStyle.borderUpColor": "#10B981",
-                "mainSeriesProperties.candleStyle.borderDownColor": "#EF4444",
-                "mainSeriesProperties.candleStyle.wickUpColor": "#10B981",
-                "mainSeriesProperties.candleStyle.wickDownColor": "#EF4444"
-              },
-              "studies": [
-                "Volume@tv-basicstudies",
-                "RSI@tv-basicstudies",
-                "MACD@tv-basicstudies"
-              ]
-            });
-          `;
-
           widgetContainer.appendChild(widgetDiv);
-          widgetContainer.appendChild(configScript);
           containerRef.current.appendChild(widgetContainer);
+
+          // Safe symbol processing to prevent injection
+          const safeSymbol = tvSymbol.replace(/['"\\]/g, '');
+          const safeContainerId = containerId.replace(/['"\\]/g, '');
+
+          // Create widget directly using API instead of template literals
+          const widget = new window.TradingView.widget({
+            autosize: true,
+            symbol: safeSymbol,
+            interval: "60",
+            timezone: "Etc/UTC", 
+            theme: "dark",
+            style: "1",
+            locale: "en",
+            toolbar_bg: "#1f2937",
+            enable_publishing: false,
+            allow_symbol_change: false,
+            container_id: safeContainerId,
+            height: isMobile ? 400 : 500,
+            width: "100%",
+            overrides: {
+              "paneProperties.background": "#111827",
+              "paneProperties.vertGridProperties.color": "#374151",
+              "paneProperties.horzGridProperties.color": "#374151",
+              "symbolWatermarkProperties.transparency": 90,
+              "scalesProperties.textColor": "#9CA3AF",
+              "mainSeriesProperties.candleStyle.upColor": "#10B981",
+              "mainSeriesProperties.candleStyle.downColor": "#EF4444",
+              "mainSeriesProperties.candleStyle.borderUpColor": "#10B981",
+              "mainSeriesProperties.candleStyle.borderDownColor": "#EF4444",
+              "mainSeriesProperties.candleStyle.wickUpColor": "#10B981",
+              "mainSeriesProperties.candleStyle.wickDownColor": "#EF4444"
+            },
+            studies: [
+              "Volume@tv-basicstudies",
+              "RSI@tv-basicstudies",
+              "MACD@tv-basicstudies"
+            ]
+          });
 
           setIsLoading(false);
         }
