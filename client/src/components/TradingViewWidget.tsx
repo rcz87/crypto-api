@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Activity, TrendingUp, Volume2 } from 'lucide-react';
+import { Activity, TrendingUp, Volume2, Loader2 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TradingViewWidgetProps {
@@ -11,6 +11,10 @@ interface TradingViewWidgetProps {
   displaySymbol?: string;
 }
 
+// Global flag to prevent multiple script loads
+let isScriptLoading = false;
+let scriptLoaded = false;
+
 export function TradingViewWidget({ 
   data, 
   isConnected,
@@ -19,63 +23,137 @@ export function TradingViewWidget({
 }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const containerId = `tradingview_${Date.now()}`;
 
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      autosize: true,
-      symbol: tvSymbol, // Use prop instead of hardcoded
-      interval: '1H',
-      toolbar_bg: '#1f2937',
-      overrides: {
-        "paneProperties.background": "#111827",
-        "paneProperties.vertGridProperties.color": "#374151",
-        "paneProperties.horzGridProperties.color": "#374151",
-        "symbolWatermarkProperties.transparency": 90,
-        "scalesProperties.textColor": "#9CA3AF",
-        "mainSeriesProperties.candleStyle.upColor": "#10B981",
-        "mainSeriesProperties.candleStyle.downColor": "#EF4444",
-        "mainSeriesProperties.candleStyle.borderUpColor": "#10B981",
-        "mainSeriesProperties.candleStyle.borderDownColor": "#EF4444",
-        "mainSeriesProperties.candleStyle.wickUpColor": "#10B981",
-        "mainSeriesProperties.candleStyle.wickDownColor": "#EF4444"
-      },
-      timezone: 'Etc/UTC',
-      theme: 'dark',
-      style: '1',
-      locale: 'en',
-      enable_publishing: false,
-      withdateranges: true,
-      hide_side_toolbar: false,
-      allow_symbol_change: false,
-      details: true,
-      hotlist: false,
-      calendar: false,
-      studies: [
-        'Volume',
-        'RSI@tv-basicstudies',
-        'MACD@tv-basicstudies',
-        'EMA@tv-basicstudies',
-        'BB@tv-basicstudies',
-        'StochasticRSI@tv-basicstudies'
-      ],
-      container_id: 'tradingview_chart'
-    });
+    const loadTradingViewScript = () => {
+      return new Promise<void>((resolve, reject) => {
+        if (scriptLoaded) {
+          resolve();
+          return;
+        }
 
-    // Clean container and append script
-    if (containerRef.current) {
-      containerRef.current.innerHTML = '';
-      containerRef.current.appendChild(script);
-    }
+        if (isScriptLoading) {
+          // Wait for ongoing script load
+          const checkInterval = setInterval(() => {
+            if (scriptLoaded) {
+              clearInterval(checkInterval);
+              resolve();
+            } else if (!isScriptLoading) {
+              clearInterval(checkInterval);
+              reject(new Error('Script loading failed'));
+            }
+          }, 100);
+          return;
+        }
+
+        isScriptLoading = true;
+
+        const script = document.createElement('script');
+        script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+        script.async = true;
+        
+        script.onload = () => {
+          isScriptLoading = false;
+          scriptLoaded = true;
+          resolve();
+        };
+        
+        script.onerror = () => {
+          isScriptLoading = false;
+          reject(new Error('Failed to load TradingView script'));
+        };
+
+        document.head.appendChild(script);
+      });
+    };
+
+    const initializeWidget = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        await loadTradingViewScript();
+        
+        if (containerRef.current) {
+          // Clear container
+          containerRef.current.innerHTML = '';
+
+          // Create widget container
+          const widgetContainer = document.createElement('div');
+          widgetContainer.className = 'tradingview-widget-container';
+          widgetContainer.style.height = '100%';
+          widgetContainer.style.width = '100%';
+
+          // Create widget div
+          const widgetDiv = document.createElement('div');
+          widgetDiv.className = 'tradingview-widget';
+          widgetDiv.id = containerId;
+          widgetDiv.style.height = '100%';
+          widgetDiv.style.width = '100%';
+
+          // Create script with configuration as JavaScript object literal
+          const configScript = document.createElement('script');
+          configScript.type = 'text/javascript';
+          configScript.innerHTML = `
+            new TradingView.widget({
+              "autosize": true,
+              "symbol": "${tvSymbol}",
+              "interval": "60",
+              "timezone": "Etc/UTC", 
+              "theme": "dark",
+              "style": "1",
+              "locale": "en",
+              "toolbar_bg": "#1f2937",
+              "enable_publishing": false,
+              "allow_symbol_change": false,
+              "container_id": "${containerId}",
+              "height": ${isMobile ? 400 : 500},
+              "width": "100%",
+              "overrides": {
+                "paneProperties.background": "#111827",
+                "paneProperties.vertGridProperties.color": "#374151",
+                "paneProperties.horzGridProperties.color": "#374151",
+                "symbolWatermarkProperties.transparency": 90,
+                "scalesProperties.textColor": "#9CA3AF",
+                "mainSeriesProperties.candleStyle.upColor": "#10B981",
+                "mainSeriesProperties.candleStyle.downColor": "#EF4444",
+                "mainSeriesProperties.candleStyle.borderUpColor": "#10B981",
+                "mainSeriesProperties.candleStyle.borderDownColor": "#EF4444",
+                "mainSeriesProperties.candleStyle.wickUpColor": "#10B981",
+                "mainSeriesProperties.candleStyle.wickDownColor": "#EF4444"
+              },
+              "studies": [
+                "Volume@tv-basicstudies",
+                "RSI@tv-basicstudies",
+                "MACD@tv-basicstudies"
+              ]
+            });
+          `;
+
+          widgetContainer.appendChild(widgetDiv);
+          widgetContainer.appendChild(configScript);
+          containerRef.current.appendChild(widgetContainer);
+
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.error('TradingView initialization error:', err);
+        setError('Failed to load TradingView chart');
+        setIsLoading(false);
+      }
+    };
+
+    initializeWidget();
 
     return () => {
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
       }
     };
-  }, [tvSymbol]); // Re-initialize when symbol changes
+  }, [tvSymbol, containerId, isMobile]);
 
   return (
     <Card className="w-full">
@@ -125,10 +203,36 @@ export function TradingViewWidget({
       <CardContent>
         <div 
           ref={containerRef}
-          id="tradingview_chart"
-          className={`w-full ${isMobile ? 'h-[300px] sm:h-[400px]' : 'h-[500px]'} bg-gray-900 border border-gray-700 rounded-lg touch-pan-x touch-pan-y select-none`}
+          className={`w-full ${isMobile ? 'h-[300px] sm:h-[400px]' : 'h-[500px]'} bg-gray-900 border border-gray-700 rounded-lg touch-pan-x touch-pan-y select-none relative`}
           data-testid="tradingview-chart"
-        />
+        >
+          {/* Loading State */}
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 rounded-lg">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+                <div className="text-sm text-gray-400">Loading TradingView Chart...</div>
+              </div>
+            </div>
+          )}
+          
+          {/* Error State */}
+          {error && !isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 rounded-lg">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <div className="p-3 bg-red-500/20 rounded-full">
+                  <TrendingUp className="h-6 w-6 text-red-400" />
+                </div>
+                <div className="text-sm text-red-400">
+                  {error}
+                </div>
+                <div className="text-xs text-gray-500">
+                  Please refresh the page to try again
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
