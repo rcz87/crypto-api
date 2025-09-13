@@ -219,6 +219,53 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
+  // Add alias for multi-ticker endpoint (fix for frontend/tests expecting /api/multi-ticker)
+  app.get('/api/multi-ticker', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      // Default to SOL if no asset specified in query
+      const asset = (req.query.asset as string)?.toUpperCase() || 'SOL';
+      const { coinAPIService } = await import('../services/coinapi.js');
+      const enhancedResponse = await coinAPIService.getMultiExchangeTicker(asset);
+      const responseTime = Date.now() - startTime;
+      
+      await storage.updateMetrics(responseTime);
+      
+      res.json({
+        success: true,
+        data: {
+          asset: asset,
+          exchanges: enhancedResponse.tickers.length,
+          tickers: enhancedResponse.tickers
+        },
+        degraded: enhancedResponse.degradation.degraded,
+        fallback_reason: enhancedResponse.degradation.fallback_reason,
+        data_source: enhancedResponse.degradation.data_source,
+        metadata: {
+          source: 'CoinAPI via alias',
+          response_time_ms: responseTime,
+          health_status: {
+            status: enhancedResponse.degradation.health_status.status,
+            p95_latency: enhancedResponse.degradation.health_status.p95_latency,
+            error_rate: enhancedResponse.degradation.health_status.error_rate
+          }
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/multi-ticker:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // Multi-pair Funding Rate endpoint - supports all 65 coins
   app.get('/api/:pair/funding', async (req: Request, res: Response) => {
     const startTime = Date.now();

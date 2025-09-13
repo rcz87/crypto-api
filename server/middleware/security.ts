@@ -344,11 +344,8 @@ export function enhancedRateLimit(req: Request, res: Response, next: NextFunctio
   const tier = getRateLimitTier(path);
   const config = RATE_LIMIT_TIERS[tier];
   
-  // Skip rate limiting for local development
-  if (process.env.NODE_ENV === 'development' && 
-      (clientIP === '127.0.0.1' || clientIP === '::1' || clientIP === 'localhost')) {
-    return next();
-  }
+  // SECURITY: Rate limiting applies to ALL environments and IPs
+  // No development bypass to prevent production security gaps
 
   // Check if IP is blocked
   if (securityMonitor.isBlocked(clientIP)) {
@@ -426,10 +423,73 @@ export class InputSanitizer {
     return sqlPatterns.some(pattern => pattern.test(input));
   }
 
+  // Enhanced XSS detection and prevention
+  static containsXSS(input: string): boolean {
+    const xssPatterns = [
+      // Script tags and variants
+      /<script[^>]*>/i,
+      /<\/script>/i,
+      /javascript:/i,
+      /vbscript:/i,
+      /data:text\/html/i,
+      
+      // Event handlers
+      /on\w+\s*=/i,
+      /onerror\s*=/i,
+      /onload\s*=/i,
+      /onclick\s*=/i,
+      /onmouseover\s*=/i,
+      
+      // HTML injection attempts
+      /<(iframe|object|embed|form|img|svg|math|details|input)[^>]*>/i,
+      /<\w+[^>]*?on\w+[^>]*>/i,
+      
+      // Expression and eval attempts
+      /expression\s*\(/i,
+      /eval\s*\(/i,
+      /alert\s*\(/i,
+      /confirm\s*\(/i,
+      /prompt\s*\(/i,
+      
+      // URL-based XSS
+      /^https?:\/\/.*<script/i,
+      /%3C.*%3E/i,
+      
+      // CSS injection
+      /style\s*=.*expression/i,
+      /@import/i
+    ];
+    
+    return xssPatterns.some(pattern => pattern.test(input));
+  }
+
+  // Sanitize input by removing dangerous characters
+  static sanitizeInput(input: string): string {
+    if (!input || typeof input !== 'string') return '';
+    
+    return input
+      .replace(/[<>"'&]/g, '') // Remove HTML-dangerous chars
+      .replace(/javascript:/gi, '') // Remove JS protocols
+      .replace(/vbscript:/gi, '') // Remove VB protocols
+      .replace(/data:/gi, '') // Remove data URLs
+      .replace(/on\w+=/gi, '') // Remove event handlers
+      .replace(/expression\(/gi, '') // Remove CSS expressions
+      .replace(/eval\(/gi, '') // Remove eval calls
+      .replace(/alert\(/gi, '') // Remove alert calls
+      .trim()
+      .slice(0, 200); // Limit length
+  }
+
   // Comprehensive input validation middleware
   static validateInput(req: Request, res: Response, next: NextFunction): void {
     const clientIP = getClientIP(req);
     let hasViolation = false;
+    let violationReason = '';
+
+    // Ensure all API responses use JSON content type
+    if (req.path.startsWith('/api/')) {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    }
 
     // Check query parameters
     for (const [key, value] of Object.entries(req.query)) {
@@ -438,12 +498,30 @@ export class InputSanitizer {
         if (InputSanitizer.containsSQLInjection(value)) {
           securityMonitor.recordSuspiciousActivity(clientIP, `SQL injection attempt in query param: ${key}`);
           hasViolation = true;
+          violationReason = 'SQL injection detected';
+        }
+        
+        // Check for XSS attacks
+        if (InputSanitizer.containsXSS(value)) {
+          securityMonitor.recordSuspiciousActivity(clientIP, `XSS attempt in query param: ${key}`);
+          hasViolation = true;
+          violationReason = 'XSS payload detected';
         }
 
         // Check for excessively long inputs
-        if (value.length > 100) {
+        if (value.length > 200) {
           securityMonitor.recordValidationFailure(clientIP, req.path);
           hasViolation = true;
+          violationReason = 'Input too long';
+        }
+        
+        // Additional validation for trading symbol parameters
+        if (key.toLowerCase().includes('symbol') || key.toLowerCase().includes('pair')) {
+          if (!/^[a-zA-Z0-9\-_\/]+$/.test(value) || value.length > 20) {
+            securityMonitor.recordValidationFailure(clientIP, req.path);
+            hasViolation = true;
+            violationReason = 'Invalid trading symbol format';
+          }
         }
       }
     }
@@ -467,13 +545,22 @@ export class InputSanitizer {
       if (InputSanitizer.containsSQLInjection(bodyStr)) {
         securityMonitor.recordSuspiciousActivity(clientIP, 'SQL injection attempt in request body');
         hasViolation = true;
+        violationReason = 'SQL injection in body';
+      }
+      
+      // XSS check in body
+      if (InputSanitizer.containsXSS(bodyStr)) {
+        securityMonitor.recordSuspiciousActivity(clientIP, 'XSS attempt in request body');
+        hasViolation = true;
+        violationReason = 'XSS payload in body';
       }
     }
 
     if (hasViolation) {
       res.status(400).json({
         success: false,
-        error: 'Invalid input detected',
+        error: 'Security violation detected',
+        details: violationReason,
         timestamp: new Date().toISOString(),
       });
       return;
