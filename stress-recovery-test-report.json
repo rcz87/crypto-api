@@ -1,0 +1,297 @@
+{
+  "summary": {
+    "overallScore": 97,
+    "totalTimeSeconds": 76,
+    "timestamp": "2025-09-13T12:55:48.516Z"
+  },
+  "results": {
+    "extreme_load": [
+      {
+        "concurrency": 10,
+        "successful": 10,
+        "failed": 0,
+        "timeouts": 0,
+        "successRate": 1,
+        "totalTime": 327.89213199999995,
+        "avgLatency": 332,
+        "maxLatency": 396,
+        "p95Latency": 396,
+        "degraded": false
+      },
+      {
+        "concurrency": 25,
+        "successful": 25,
+        "failed": 0,
+        "timeouts": 0,
+        "successRate": 1,
+        "totalTime": 356.8707049999998,
+        "avgLatency": 285,
+        "maxLatency": 358,
+        "p95Latency": 300,
+        "degraded": false
+      },
+      {
+        "concurrency": 50,
+        "successful": 50,
+        "failed": 0,
+        "timeouts": 0,
+        "successRate": 1,
+        "totalTime": 480.6625039999999,
+        "avgLatency": 321,
+        "maxLatency": 511,
+        "p95Latency": 459,
+        "degraded": false
+      },
+      {
+        "concurrency": 100,
+        "successful": 100,
+        "failed": 0,
+        "timeouts": 0,
+        "successRate": 1,
+        "totalTime": 444.62608100000034,
+        "avgLatency": 322,
+        "maxLatency": 450,
+        "p95Latency": 413,
+        "degraded": false
+      }
+    ],
+    "memory_pressure": {
+      "initialMemory": {
+        "used": 336,
+        "total": 370
+      },
+      "postStressMemory": {
+        "used": 334,
+        "total": 373
+      },
+      "recoveryMemory": {
+        "used": 335,
+        "total": 373
+      },
+      "memoryIncrease": -2,
+      "memoryRecovered": -1,
+      "successfulRequests": 20
+    },
+    "system_recovery": {
+      "tests": [
+        {
+          "iteration": 1,
+          "timestamp": "2025-09-13T12:54:53.923Z",
+          "successful": 3,
+          "total": 3,
+          "successRate": 1,
+          "avgResponseTime": 191,
+          "testDuration": 363
+        },
+        {
+          "iteration": 2,
+          "timestamp": "2025-09-13T12:54:57.139Z",
+          "successful": 3,
+          "total": 3,
+          "successRate": 1,
+          "avgResponseTime": 140,
+          "testDuration": 216
+        },
+        {
+          "iteration": 3,
+          "timestamp": "2025-09-13T12:55:00.374Z",
+          "successful": 3,
+          "total": 3,
+          "successRate": 1,
+          "avgResponseTime": 142,
+          "testDuration": 235
+        },
+        {
+          "iteration": 4,
+          "timestamp": "2025-09-13T12:55:03.596Z",
+          "successful": 3,
+          "total": 3,
+          "successRate": 1,
+          "avgResponseTime": 138,
+          "testDuration": 221
+        },
+        {
+          "iteration": 5,
+          "timestamp": "2025-09-13T12:55:06.793Z",
+          "successful": 3,
+          "total": 3,
+          "successRate": 1,
+          "avgResponseTime": 124,
+          "testDuration": 197
+        },
+        {
+          "iteration": 6,
+          "timestamp": "2025-09-13T12:55:09.989Z",
+          "successful": 3,
+          "total": 3,
+          "successRate": 1,
+          "avgResponseTime": 124,
+          "testDuration": 196
+        },
+        {
+          "iteration": 7,
+          "timestamp": "2025-09-13T12:55:13.190Z",
+          "successful": 3,
+          "total": 3,
+          "successRate": 1,
+          "avgResponseTime": 126,
+          "testDuration": 201
+        },
+        {
+          "iteration": 8,
+          "timestamp": "2025-09-13T12:55:16.388Z",
+          "successful": 3,
+          "total": 3,
+          "successRate": 1,
+          "avgResponseTime": 126,
+          "testDuration": 196
+        },
+        {
+          "iteration": 9,
+          "timestamp": "2025-09-13T12:55:19.593Z",
+          "successful": 3,
+          "total": 3,
+          "successRate": 1,
+          "avgResponseTime": 130,
+          "testDuration": 204
+        },
+        {
+          "iteration": 10,
+          "timestamp": "2025-09-13T12:55:22.793Z",
+          "successful": 3,
+          "total": 3,
+          "successRate": 1,
+          "avgResponseTime": 125,
+          "testDuration": 200
+        }
+      ],
+      "overallSuccessRate": 1,
+      "avgResponseTime": 136.6,
+      "improving": false
+    },
+    "websocket_resilience": [
+      {
+        "endpoint": "/api/sol/cvd",
+        "tests": [
+          {
+            "attempt": 1,
+            "status": 200,
+            "ok": true,
+            "responseTime": 183.34523699999409,
+            "hasData": true
+          },
+          {
+            "attempt": 2,
+            "status": 200,
+            "ok": true,
+            "responseTime": 173.25558399999863,
+            "hasData": true
+          },
+          {
+            "attempt": 3,
+            "status": 200,
+            "ok": true,
+            "responseTime": 178.58153600000514,
+            "hasData": true
+          }
+        ],
+        "successRate": 1,
+        "avgResponseTime": 178
+      },
+      {
+        "endpoint": "/api/sol/confluence",
+        "tests": [
+          {
+            "attempt": 1,
+            "status": 200,
+            "ok": true,
+            "responseTime": 754.6873399999968,
+            "hasData": true
+          },
+          {
+            "attempt": 2,
+            "status": 200,
+            "ok": true,
+            "responseTime": 731.3180410000059,
+            "hasData": true
+          },
+          {
+            "attempt": 3,
+            "status": 200,
+            "ok": true,
+            "responseTime": 722.8776090000028,
+            "hasData": true
+          }
+        ],
+        "successRate": 1,
+        "avgResponseTime": 736
+      },
+      {
+        "endpoint": "/api/metrics",
+        "tests": [
+          {
+            "attempt": 1,
+            "status": 200,
+            "ok": true,
+            "responseTime": 2.5347659999970347,
+            "hasData": true
+          },
+          {
+            "attempt": 2,
+            "status": 200,
+            "ok": true,
+            "responseTime": 2.7086159999962547,
+            "hasData": true
+          },
+          {
+            "attempt": 3,
+            "status": 200,
+            "ok": true,
+            "responseTime": 2.9905460000009043,
+            "hasData": true
+          }
+        ],
+        "successRate": 1,
+        "avgResponseTime": 3
+      }
+    ],
+    "database_resilience": [
+      {
+        "endpoint": "/api/metrics",
+        "status": 200,
+        "ok": true,
+        "hasFallbackIndicators": false,
+        "responseTime": 4.225662999990163
+      },
+      {
+        "endpoint": "/api/health",
+        "status": 0,
+        "ok": false,
+        "hasFallbackIndicators": false,
+        "responseTime": 8.63440699999046
+      },
+      {
+        "endpoint": "/api/sol/complete",
+        "status": 200,
+        "ok": true,
+        "hasFallbackIndicators": false,
+        "responseTime": 229.15657000000647
+      }
+    ],
+    "degradation_threshold": {
+      "p95Latency": 195.85479300000588,
+      "avgLatency": 183.8212040499995,
+      "maxLatency": 241.57373400000506,
+      "degradationTriggered": false,
+      "degradationSignalsPresent": false,
+      "requests": 20
+    }
+  },
+  "recommendations": [
+    "Monitor system under sustained high load",
+    "Verify degradation triggers at 700ms P95 latency",
+    "Test WebSocket reconnection in production",
+    "Test database connection pooling under stress",
+    "Implement circuit breakers for external APIs"
+  ]
+}

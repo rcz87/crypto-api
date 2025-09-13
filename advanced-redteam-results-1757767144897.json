@@ -1,0 +1,299 @@
+{
+  "xssVulnerabilities": [
+    {
+      "endpoint": "/api/sol/complete?symbol=",
+      "payload": "<script>alert(\"xss\")</script>...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/complete?symbol=",
+      "payload": "<img src=x onerror=alert(\"xss\")>...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/complete?symbol=",
+      "payload": "javascript:alert(\"xss\")...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/complete?symbol=",
+      "payload": "<svg onload=alert(\"xss\")>...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/complete?symbol=",
+      "payload": "\"><script>alert(\"xss\")</script>...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/complete?symbol=",
+      "payload": "'><script>alert('xss')</script>...",
+      "statusCode": 400,
+      "blocked": true,
+      "dangerous": false
+    },
+    {
+      "endpoint": "/api/sol/complete?symbol=",
+      "payload": "<iframe src=\"javascript:alert('xss')\">...",
+      "statusCode": 400,
+      "blocked": true,
+      "dangerous": false
+    },
+    {
+      "endpoint": "/api/sol/complete?symbol=",
+      "payload": "${alert(\"xss\")}...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/complete?symbol=",
+      "payload": "{{alert(\"xss\")}}...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/complete?symbol=",
+      "payload": "<script>fetch(\"/api/security/metrics\").then(r=>r.j...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/btc/complete?timeframe=",
+      "payload": "<script>alert(\"xss\")</script>...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/btc/complete?timeframe=",
+      "payload": "<img src=x onerror=alert(\"xss\")>...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/btc/complete?timeframe=",
+      "payload": "javascript:alert(\"xss\")...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/btc/complete?timeframe=",
+      "payload": "<svg onload=alert(\"xss\")>...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/btc/complete?timeframe=",
+      "payload": "\"><script>alert(\"xss\")</script>...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/btc/complete?timeframe=",
+      "payload": "'><script>alert('xss')</script>...",
+      "statusCode": 400,
+      "blocked": true,
+      "dangerous": false
+    },
+    {
+      "endpoint": "/api/btc/complete?timeframe=",
+      "payload": "<iframe src=\"javascript:alert('xss')\">...",
+      "statusCode": 400,
+      "blocked": true,
+      "dangerous": false
+    },
+    {
+      "endpoint": "/api/btc/complete?timeframe=",
+      "payload": "${alert(\"xss\")}...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/btc/complete?timeframe=",
+      "payload": "{{alert(\"xss\")}}...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/btc/complete?timeframe=",
+      "payload": "<script>fetch(\"/api/security/metrics\").then(r=>r.j...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/funding?symbol=",
+      "payload": "<script>alert(\"xss\")</script>...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/funding?symbol=",
+      "payload": "<img src=x onerror=alert(\"xss\")>...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/funding?symbol=",
+      "payload": "javascript:alert(\"xss\")...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/funding?symbol=",
+      "payload": "<svg onload=alert(\"xss\")>...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/funding?symbol=",
+      "payload": "\"><script>alert(\"xss\")</script>...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/funding?symbol=",
+      "payload": "'><script>alert('xss')</script>...",
+      "statusCode": 400,
+      "blocked": true,
+      "dangerous": false
+    },
+    {
+      "endpoint": "/api/sol/funding?symbol=",
+      "payload": "<iframe src=\"javascript:alert('xss')\">...",
+      "statusCode": 400,
+      "blocked": true,
+      "dangerous": false
+    },
+    {
+      "endpoint": "/api/sol/funding?symbol=",
+      "payload": "${alert(\"xss\")}...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/funding?symbol=",
+      "payload": "{{alert(\"xss\")}}...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    },
+    {
+      "endpoint": "/api/sol/funding?symbol=",
+      "payload": "<script>fetch(\"/api/security/metrics\").then(r=>r.j...",
+      "statusCode": 200,
+      "blocked": false,
+      "dangerous": true
+    }
+  ],
+  "resourceStress": {
+    "beforeMetrics": {
+      "uptime": 802,
+      "memory": {
+        "used": 339,
+        "total": 371
+      },
+      "http": {
+        "count": 879,
+        "p95": 309,
+        "errors": 1,
+        "errorRate": "0.11%"
+      },
+      "cache": {
+        "hits": 1091,
+        "misses": 340,
+        "size": 18,
+        "hitRatio": "76.2%"
+      },
+      "ws": {
+        "reconnects": 0,
+        "activeClients": 0,
+        "bufferedAmount": 0
+      },
+      "okx": {
+        "restStatus": "up",
+        "wsStatus": "up",
+        "lastRestCall": 1757767131401,
+        "lastWsMessage": 1757767134429,
+        "restLatency": 3042,
+        "wsLatency": 14
+      },
+      "security": {
+        "securityHealth": "operational",
+        "rateLimitHits": 0,
+        "suspiciousRequests": 9,
+        "validationFailures": 1,
+        "blockedIPs": 1,
+        "lastSecurityEvent": 1757767133156
+      }
+    },
+    "afterMetrics": {
+      "uptime": 812,
+      "memory": {
+        "used": 373,
+        "total": 405
+      },
+      "http": {
+        "count": 1081,
+        "p95": 207,
+        "errors": 1,
+        "errorRate": "0.09%"
+      },
+      "cache": {
+        "hits": 2852,
+        "misses": 379,
+        "size": 18,
+        "hitRatio": "88.3%"
+      },
+      "ws": {
+        "reconnects": 0,
+        "activeClients": 0,
+        "bufferedAmount": 0
+      },
+      "okx": {
+        "restStatus": "up",
+        "wsStatus": "up",
+        "lastRestCall": 1757767144153,
+        "lastWsMessage": 1757767144713,
+        "restLatency": 575,
+        "wsLatency": 15
+      },
+      "security": {
+        "securityHealth": "operational",
+        "rateLimitHits": 0,
+        "suspiciousRequests": 9,
+        "validationFailures": 1,
+        "blockedIPs": 1,
+        "lastSecurityEvent": 1757767133156
+      }
+    },
+    "loadRequests": 199
+  },
+  "ipBlockRecovery": false,
+  "timestamp": "2025-09-13T12:38:42.052Z"
+}
