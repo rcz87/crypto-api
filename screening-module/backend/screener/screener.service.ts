@@ -314,16 +314,16 @@ export class ScreenerService {
               logger.error('Failed to record signal metrics', { error: error?.message || 'Unknown error' });
             }
             
-            // Record execution if tradable signal is valid
-            if (signalResult.signalId && tradableSignal.meta.valid && tradableSignal.side !== 'none') {
+            // Record execution if tradable signal is valid with proper fallbacks
+            if (signalResult.signalId && tradableSignal.meta.valid && tradableSignal.side !== 'none' && tradableSignal.entry !== null) {
               recordExecution(signalResult.signalId, {
                 side: tradableSignal.side,
-                entry: tradableSignal.entry!,
-                sl: tradableSignal.sl,
-                tp1: tradableSignal.tp1,
-                tp2: tradableSignal.tp2,
-                qty: tradableSignal.qty,
-                notional: tradableSignal.notional,
+                entry: tradableSignal.entry,
+                sl: tradableSignal.sl || undefined,
+                tp1: tradableSignal.tp1 || undefined,
+                tp2: tradableSignal.tp2 || undefined,
+                qty: tradableSignal.qty || undefined,
+                notional: tradableSignal.notional || undefined,
                 fees: tradableSignal.costs.fees,
                 slip: tradableSignal.costs.slip,
                 spread: tradableSignal.costs.spread,
@@ -354,13 +354,13 @@ export class ScreenerService {
                 riskAmount: riskCalc.riskAmount,
                 riskRewardRatio: riskCalc.riskRewardRatio
               },
-              // Enhanced Tradable Signal
+              // Enhanced Tradable Signal with deterministic fallbacks
               tradableSignal: {
                 side: tradableSignal.side,
-                entry: tradableSignal.entry,
-                sl: tradableSignal.sl,
-                tp1: tradableSignal.tp1,
-                tp2: tradableSignal.tp2,
+                entry: tradableSignal.entry || (tradableSignal.side !== 'none' ? latestClose : null),
+                sl: tradableSignal.sl || (tradableSignal.side !== 'none' ? latestClose * (tradableSignal.side === 'long' ? 0.98 : 1.02) : null),
+                tp1: tradableSignal.tp1 || (tradableSignal.side !== 'none' ? latestClose * (tradableSignal.side === 'long' ? 1.03 : 0.97) : null),
+                tp2: tradableSignal.tp2 || (tradableSignal.side !== 'none' ? latestClose * (tradableSignal.side === 'long' ? 1.06 : 0.94) : null),
                 qty: tradableSignal.qty,
                 notional: tradableSignal.notional,
                 rr1: tradableSignal.rr1,
