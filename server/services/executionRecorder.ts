@@ -12,6 +12,7 @@ import {
   type AiPatternPerformance
 } from "@shared/schema";
 import type { EnhancedAISignal, EnhancedMarketPattern } from "./enhancedAISignalEngine";
+import { EventEmitter } from '../observability/eventEmitter.js';
 
 export interface ExecutionResult {
   exit_price: number;
@@ -88,6 +89,28 @@ export class ExecutionRecorder {
       
       if (result[0]) {
         console.log(`⚡ Execution recorded: ${signalId} - Entry: $${executionDetails.entry_price}`);
+        
+        // Event Logging: Signal Triggered (Entry Filled)
+        try {
+          // Get signal data to extract actual symbol
+          const signalData = await db
+            .select({ symbol: aiSignals.symbol })
+            .from(aiSignals)
+            .where(eq(aiSignals.signal_id, signalId))
+            .limit(1);
+          
+          const actualSymbol = signalData[0]?.symbol || 'SOL-USDT-SWAP';
+          
+          await EventEmitter.triggered({
+            signal_id: signalId, // Use the same UUID from the signal
+            symbol: actualSymbol, // Use actual symbol from signal
+            entry_fill: executionDetails.entry_price,
+            time_to_trigger_ms: 0 // TODO: Calculate actual trigger time from signal creation
+          });
+        } catch (error) {
+          console.error('Event logging failed for triggered signal:', error);
+        }
+        
         return result[0].id;
       }
       
@@ -158,7 +181,38 @@ export class ExecutionRecorder {
 
       await db.insert(aiOutcomes).values(outcomeData);
 
-      console.log(`📈 Outcome recorded: ${signalId} - P&L: $${pnl.toFixed(2)} (${pnlPercentage.toFixed(2)}%)`);
+      console.log(`📈 Outcome recorded: ${signalId} - P&L: $${pnl.toFixed(2)} (${pnlPercentage.toFixed(2)}%)`);      
+
+      // Event Logging: Signal Closed (Position Closed)
+      try {
+        const entryTime = execution.entry_time ? new Date(execution.entry_time).getTime() : Date.now();
+        const exitTime = outcome.exit_time ? new Date(outcome.exit_time).getTime() : Date.now();
+        const timeInTrade = Math.max(0, exitTime - entryTime);
+        
+        // Use actual symbol from signal data
+        const actualSymbol = signal.symbol || 'SOL-USDT-SWAP';
+        
+        // Map exit reasons and determine if we should use invalidated or closed
+        const isStopLoss = outcome.exit_reason === 'stop_loss';
+        
+        if (isStopLoss) {
+          await EventEmitter.invalidated({
+            signal_id: signalId, // Use the same UUID from the signal
+            symbol: actualSymbol,
+            reason: 'sl' as 'sl' | 'hard_invalidate' | 'expiry'
+          });
+        } else {
+          await EventEmitter.closed({
+            signal_id: signalId, // Use the same UUID from the signal
+            symbol: actualSymbol, // Use actual symbol from signal
+            rr_realized: riskRewardRatio,
+            time_in_trade_ms: timeInTrade,
+            exit_reason: outcome.exit_reason as 'tp' | 'manual' | 'sl' | 'time' | 'other'
+          });
+        }
+      } catch (error) {
+        console.error('Event logging failed for closed signal:', error);
+      }
 
       // Update pattern performance metrics
       if (signal.patterns && Array.isArray(signal.patterns)) {

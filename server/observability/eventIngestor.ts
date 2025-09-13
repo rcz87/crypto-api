@@ -114,8 +114,8 @@ export async function insertPublished(evt: EventPublished): Promise<void> {
       signal_id: evt.signal_id,
       symbol: evt.symbol,
       side,
-      confluence_score: evt.confluence_score.toString(),
-      rr_target: evt.rr.toString(),
+      confluence_score: evt.confluence_score,
+      rr_target: evt.rr,
       expiry_minutes: evt.expiry_minutes,
       rules_version: evt.rules_version,
       ts_published: evt.ts_published ? new Date(evt.ts_published) : new Date(),
@@ -143,7 +143,7 @@ export async function insertTriggered(evt: EventTriggered): Promise<void> {
     await connection.db.insert(signalTriggers).values({
       signal_id: evt.signal_id,
       ts_triggered: evt.ts_triggered ? new Date(evt.ts_triggered) : new Date(),
-      entry_fill: evt.entry_fill.toString(),
+      entry_fill: evt.entry_fill,
       time_to_trigger_ms: evt.time_to_trigger_ms,
     });
     
@@ -194,7 +194,7 @@ export async function insertClosed(evt: EventClosed): Promise<void> {
     await connection.db.insert(signalClosures).values({
       signal_id: evt.signal_id,
       ts_closed: evt.ts_closed ? new Date(evt.ts_closed) : new Date(),
-      rr_realized: evt.rr_realized.toString(),
+      rr_realized: evt.rr_realized,
       time_in_trade_ms: evt.time_in_trade_ms,
       exit_reason: evt.exit_reason,
     });

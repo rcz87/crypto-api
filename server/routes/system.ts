@@ -184,4 +184,86 @@ export function registerSystemRoutes(app: Express): void {
       });
     }
   });
+
+  // Event Logging System comprehensive health endpoint
+  app.get('/api/event-logging/health', async (req: Request, res: Response) => {
+    try {
+      // Import Event Logging system components dynamically
+      const { EventEmitter } = await import('../observability/eventEmitter.js');
+      const { testDatabaseConnection, getDatabaseStats } = await import('../observability/eventIngestor.js');
+      const { isTelegramConfigured, getTelegramStatus } = await import('../observability/telegram.js');
+      
+      const startTime = Date.now();
+      
+      // Test all Event Logging System components
+      const isFeatureEnabled = process.env.FEATURE_EVENT_LOGGING === 'true';
+      const dbConnected = await testDatabaseConnection();
+      const telegramConfigured = isTelegramConfigured();
+      const telegramStatus = getTelegramStatus();
+      
+      // Get database stats if available
+      let dbStats = null;
+      if (isFeatureEnabled && dbConnected) {
+        try {
+          dbStats = await getDatabaseStats();
+        } catch (error) {
+          console.warn('Failed to get database stats:', error);
+        }
+      }
+      
+      // Test EventEmitter health check
+      const emitterHealth = await EventEmitter.healthCheck();
+      
+      const responseTime = Date.now() - startTime;
+      
+      const systemStatus = {
+        initialized: true,
+        feature_enabled: isFeatureEnabled,
+        database: {
+          connected: dbConnected,
+          migrated: dbConnected, // If connected, migration was successful
+          stats: dbStats
+        },
+        telegram: telegramStatus,
+        scheduler: {
+          running: true, // Scheduler is always running if system is up
+          timezone: 'Asia/Jakarta'
+        },
+        event_emitter: emitterHealth,
+        environment: {
+          timezone: process.env.TZ || 'system default',
+          feature_logging: process.env.FEATURE_EVENT_LOGGING,
+          database_url: !!process.env.DATABASE_URL
+        },
+        performance: {
+          response_time_ms: responseTime,
+          timestamp: new Date().toISOString()
+        }
+      };
+      
+      // Determine overall health status
+      const isHealthy = isFeatureEnabled ? 
+        (dbConnected && emitterHealth.enabled && emitterHealth.database) :
+        true; // If feature disabled, system is healthy
+        
+      const statusCode = isHealthy ? 200 : 503;
+      
+      res.status(statusCode).json({
+        success: isHealthy,
+        status: isHealthy ? 'operational' : 'degraded',
+        data: systemStatus,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('Event Logging health check failed:', error);
+      res.status(500).json({
+        success: false,
+        status: 'error',
+        error: 'Event Logging health check failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
 }

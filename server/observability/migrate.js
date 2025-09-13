@@ -1,10 +1,10 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
 
 /**
  * Event Logging System - Database Migration Script
  * 
  * This script runs the PostgreSQL migration for the event logging system.
- * Usage: node server/observability/migrate.js
+ * Usage: tsx server/observability/migrate.js
  */
 
 import { migrate } from './eventIngestor.js';

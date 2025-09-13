@@ -365,6 +365,57 @@ export const insertSystemLogsSchema = createInsertSchema(systemLogs).omit({
   timestamp: true,
 });
 
+// ========================
+// EVENT LOGGING SCHEMAS
+// ========================
+
+// Event Logging Zod schemas for lifecycle tracking
+export const eventPublishedSchema = z.object({
+  signal_id: z.string().uuid(),
+  symbol: z.string(),
+  confluence_score: z.number(),
+  rr: z.number(),
+  scenarios: z.object({
+    primary: z.object({
+      side: z.enum(['long', 'short'])
+    })
+  }).optional(),
+  expiry_minutes: z.number().int(),
+  rules_version: z.string(),
+  ts_published: z.string().optional()
+});
+
+export const eventTriggeredSchema = z.object({
+  signal_id: z.string().uuid(),
+  symbol: z.string(),
+  entry_fill: z.number(),
+  time_to_trigger_ms: z.number().int(),
+  ts_triggered: z.string().optional()
+});
+
+export const eventInvalidatedSchema = z.object({
+  signal_id: z.string().uuid(),
+  symbol: z.string(),
+  reason: z.enum(['sl', 'hard_invalidate', 'expiry']),
+  ts_invalidated: z.string().optional()
+});
+
+export const eventClosedSchema = z.object({
+  signal_id: z.string().uuid(),
+  symbol: z.string(),
+  rr_realized: z.number(),
+  time_in_trade_ms: z.number().int(),
+  exit_reason: z.enum(['tp', 'manual', 'sl', 'time', 'other']),
+  ts_closed: z.string().optional()
+});
+
+// Event Logging Type exports
+export type EventPublished = z.infer<typeof eventPublishedSchema>;
+export type EventTriggered = z.infer<typeof eventTriggeredSchema>;
+export type EventInvalidated = z.infer<typeof eventInvalidatedSchema>;
+export type EventClosed = z.infer<typeof eventClosedSchema>;
+
+
 // SMC (Smart Money Concept) Analysis Schema
 export const fvgSchema = z.object({
   id: z.string(),
@@ -1383,47 +1434,3 @@ export type InsertSignalInvalidation = z.infer<typeof insertSignalInvalidationSc
 export type InsertSignalClosure = z.infer<typeof insertSignalClosureSchema>;
 export type InsertWeeklyScorecard = z.infer<typeof insertWeeklyScorecardSchema>;
 
-// Event schemas for validation
-export const eventPublishedSchema = z.object({
-  signal_id: z.string(),
-  symbol: z.string(),
-  confluence_score: z.number(),
-  rr: z.number(),
-  scenarios: z.object({
-    primary: z.object({
-      side: z.enum(['long', 'short']),
-    }),
-  }),
-  expiry_minutes: z.number(),
-  rules_version: z.string(),
-  ts_published: z.string().optional(),
-});
-
-export const eventTriggeredSchema = z.object({
-  signal_id: z.string(),
-  symbol: z.string(),
-  entry_fill: z.number(),
-  time_to_trigger_ms: z.number(),
-  ts_triggered: z.string().optional(),
-});
-
-export const eventInvalidatedSchema = z.object({
-  signal_id: z.string(),
-  symbol: z.string(),
-  reason: z.enum(['sl', 'hard_invalidate', 'expiry']),
-  ts_invalidated: z.string().optional(),
-});
-
-export const eventClosedSchema = z.object({
-  signal_id: z.string(),
-  symbol: z.string(),
-  rr_realized: z.number(),
-  time_in_trade_ms: z.number(),
-  exit_reason: z.enum(['tp', 'manual', 'sl', 'time', 'other']),
-  ts_closed: z.string().optional(),
-});
-
-export type EventPublished = z.infer<typeof eventPublishedSchema>;
-export type EventTriggered = z.infer<typeof eventTriggeredSchema>;
-export type EventInvalidated = z.infer<typeof eventInvalidatedSchema>;
-export type EventClosed = z.infer<typeof eventClosedSchema>;

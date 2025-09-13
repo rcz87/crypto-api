@@ -294,7 +294,7 @@ export class ScreenerService {
             );
             
             // Track signal for performance analysis
-            const signalId = recordSignal({
+            const signalResult = recordSignal({
               ts: Date.now(),
               symbol,
               label: confluence.label,
@@ -315,8 +315,8 @@ export class ScreenerService {
             }
             
             // Record execution if tradable signal is valid
-            if (signalId && tradableSignal.meta.valid && tradableSignal.side !== 'none') {
-              recordExecution(signalId, {
+            if (signalResult.signalId && tradableSignal.meta.valid && tradableSignal.side !== 'none') {
+              recordExecution(signalResult.signalId, {
                 side: tradableSignal.side,
                 entry: tradableSignal.entry!,
                 sl: tradableSignal.sl,
@@ -327,8 +327,9 @@ export class ScreenerService {
                 fees: tradableSignal.costs.fees,
                 slip: tradableSignal.costs.slip,
                 spread: tradableSignal.costs.spread,
-                risk_amount: riskCalc.riskAmount
-              });
+                risk_amount: riskCalc.riskAmount,
+                symbol: symbol
+              }, signalResult.eventSignalId || undefined);
             }
             
             const result = {

@@ -113,8 +113,9 @@ export async function runBacktest(
       
       // Record signal if enabled
       let signalId: number | null = null;
+      let eventSignalId: string | null = null;
       if (saveToDb) {
-        signalId = recordSignal({
+        const signalResult = recordSignal({
           ts: currentCandle.ts,
           symbol: ctx.symbol,
           label: signal.label,
@@ -126,6 +127,8 @@ export async function runBacktest(
           mtf_aligned: signal.mtf?.agree,
           summary: signal.summary
         });
+        signalId = signalResult.signalId;
+        eventSignalId = signalResult.eventSignalId;
       }
       
       // Skip HOLD signals
@@ -172,8 +175,9 @@ export async function runBacktest(
           qty: 1, // Normalized to 1 unit
           fees: fee,
           slip: slippageCost,
-          spread: spreadCost
-        });
+          spread: spreadCost,
+          symbol: ctx.symbol
+        }, eventSignalId || undefined);
       }
       
       // Simulate trade execution over subsequent candles
@@ -259,8 +263,9 @@ export async function runBacktest(
           pnl_pct: (pnlNet / entry) * 100,
           rr,
           reason: exitReason,
-          duration_mins: Math.round((exitTs - currentCandle.ts) / (1000 * 60))
-        });
+          duration_mins: Math.round((exitTs - currentCandle.ts) / (1000 * 60)),
+          symbol: ctx.symbol
+        }, eventSignalId || undefined);
       }
     }
     

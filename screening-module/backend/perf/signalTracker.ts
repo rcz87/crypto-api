@@ -15,6 +15,7 @@ export type TrackedSignal = {
   htf_bias?: string;
   mtf_aligned?: boolean;
   summary?: string;
+  event_signal_id?: string; // For consistent UUID propagation
 };
 
 export type TrackedExecution = {
@@ -29,6 +30,7 @@ export type TrackedExecution = {
   slip?: number | null;
   spread?: number | null;
   risk_amount?: number | null;
+  symbol?: string; // For consistent symbol in events
 };
 
 export type TrackedOutcome = {
@@ -39,9 +41,10 @@ export type TrackedOutcome = {
   rr: number;
   reason?: string;
   duration_mins?: number;
+  symbol?: string; // For consistent symbol in events
 };
 
-export function recordSignal(sig: TrackedSignal): number | null {
+export function recordSignal(sig: TrackedSignal): { signalId: number | null, eventSignalId: string | null } {
   try {
     const stmt = db.prepare(`
       INSERT OR IGNORE INTO signals 
@@ -69,17 +72,46 @@ export function recordSignal(sig: TrackedSignal): number | null {
 
     if (row) {
       logger.debug('Signal recorded', { signalId: row.id, symbol: sig.symbol, label: sig.label });
-      return row.id;
+      
+      // Generate UUID exactly once for the entire signal lifecycle
+      const { randomUUID } = require('crypto');
+      const eventSignalId = sig.event_signal_id || randomUUID();
+      
+      // Event Logging: Signal Published - Async fire-and-forget
+      setImmediate(async () => {
+        try {
+          const { EventEmitter } = await import('../../server/observability/eventEmitter.js');
+          
+          // Use the same UUID generated above - no re-generation!
+          await EventEmitter.published({
+            signal_id: eventSignalId,
+            symbol: sig.symbol,
+            confluence_score: sig.score / 100, // Convert 0-100 to 0-1
+            rr: 2.0, // Default RR for screening signals
+            scenarios: {
+              primary: {
+                side: sig.label === 'BUY' ? 'long' : 'short'
+              }
+            },
+            expiry_minutes: 240, // 4H expiry for screening signals
+            rules_version: 'screening-1.0'
+          });
+        } catch (error) {
+          logger.error('Event logging failed for published signal', { error, signalId: row.id });
+        }
+      });
+      
+      return { signalId: row.id, eventSignalId };
     }
 
-    return null;
+    return { signalId: null, eventSignalId: null };
   } catch (error) {
     logger.error('Failed to record signal', { error, signal: sig });
     return null;
   }
 }
 
-export function recordExecution(signalId: number, exec: TrackedExecution): boolean {
+export function recordExecution(signalId: number, exec: TrackedExecution, eventSignalId?: string): boolean {
   try {
     const stmt = db.prepare(`
       INSERT INTO executions 
@@ -103,6 +135,25 @@ export function recordExecution(signalId: number, exec: TrackedExecution): boole
     );
 
     logger.debug('Execution recorded', { signalId, side: exec.side, entry: exec.entry });
+    
+    // Event Logging: Signal Triggered (Entry Filled) - Async fire-and-forget
+    if (eventSignalId) {
+      setImmediate(async () => {
+        try {
+          const { EventEmitter } = await import('../../server/observability/eventEmitter.js');
+          
+          await EventEmitter.triggered({
+            signal_id: eventSignalId,
+            symbol: exec.symbol || 'SOL-USDT-SWAP', // Use provided symbol or fallback
+            entry_fill: exec.entry,
+            time_to_trigger_ms: 0 // TODO: Calculate actual trigger time
+          });
+        } catch (error) {
+          logger.error('Event logging failed for triggered signal', { error, signalId });
+        }
+      });
+    }
+    
     return true;
   } catch (error) {
     logger.error('Failed to record execution', { error, signalId, execution: exec });
@@ -110,7 +161,7 @@ export function recordExecution(signalId: number, exec: TrackedExecution): boole
   }
 }
 
-export function recordOutcome(signalId: number, out: TrackedOutcome): boolean {
+export function recordOutcome(signalId: number, out: TrackedOutcome, eventSignalId?: string): boolean {
   try {
     const stmt = db.prepare(`
       INSERT INTO outcomes 
@@ -130,6 +181,41 @@ export function recordOutcome(signalId: number, out: TrackedOutcome): boolean {
     );
 
     logger.debug('Outcome recorded', { signalId, pnl: out.pnl, reason: out.reason });
+    
+    // Event Logging: Signal Closed (Position Closed) - Async fire-and-forget
+    if (eventSignalId) {
+      setImmediate(async () => {
+        try {
+          const { EventEmitter } = await import('../../server/observability/eventEmitter.js');
+          
+          // Map screening module reasons to standard exit reasons
+          const exitReason = out.reason === 'tp' ? 'tp' : 
+                            out.reason === 'sl' ? 'sl' : 
+                            out.reason === 'manual' ? 'manual' : 
+                            out.reason === 'time' ? 'time' : 'other';
+          
+          // Use invalidated for SL hits, closed for profitable exits
+          if (exitReason === 'sl') {
+            await EventEmitter.invalidated({
+              signal_id: eventSignalId,
+              symbol: out.symbol || 'SOL-USDT-SWAP',
+              reason: 'sl' as 'sl' | 'hard_invalidate' | 'expiry'
+            });
+          } else {
+            await EventEmitter.closed({
+              signal_id: eventSignalId,
+              symbol: out.symbol || 'SOL-USDT-SWAP', // Use provided symbol or fallback
+              rr_realized: out.rr,
+              time_in_trade_ms: (out.duration_mins || 0) * 60 * 1000,
+              exit_reason: exitReason as 'tp' | 'manual' | 'sl' | 'time' | 'other'
+            });
+          }
+        } catch (error) {
+          logger.error('Event logging failed for closed signal', { error, signalId });
+        }
+      });
+    }
+    
     return true;
   } catch (error) {
     logger.error('Failed to record outcome', { error, signalId, outcome: out });

@@ -148,10 +148,10 @@ perfRouter.post('/backtest', express.json({ limit: '5mb' }), async (req, res) =>
     });
     
   } catch (error) {
-    logger.error('Backtest failed', { error: error.message });
+    logger.error('Backtest failed', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(400).json({
       error: 'BACKTEST_FAILED',
-      details: error.message
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -199,10 +199,10 @@ perfRouter.get('/summary', async (req, res) => {
     });
     
   } catch (error) {
-    logger.error('Failed to get performance summary', { error: error.message });
+    logger.error('Failed to get performance summary', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       error: 'SUMMARY_FAILED',
-      details: error.message
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -263,10 +263,10 @@ perfRouter.get('/equity', async (req, res) => {
     });
     
   } catch (error) {
-    logger.error('Failed to get equity curve', { error: error.message });
+    logger.error('Failed to get equity curve', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       error: 'EQUITY_FAILED',
-      details: error.message
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -311,10 +311,10 @@ perfRouter.get('/trades', async (req, res) => {
     });
     
   } catch (error) {
-    logger.error('Failed to get trades', { error: error.message });
+    logger.error('Failed to get trades', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       error: 'TRADES_FAILED',
-      details: error.message
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -331,10 +331,10 @@ perfRouter.get('/positions', async (req, res) => {
     });
     
   } catch (error) {
-    logger.error('Failed to get open positions', { error: error.message });
+    logger.error('Failed to get open positions', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       error: 'POSITIONS_FAILED',
-      details: error.message
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -344,12 +344,13 @@ perfRouter.post('/track', express.json(), async (req, res) => {
   try {
     const signal = TrackSignalSchema.parse(req.body);
     
-    const signalId = recordSignal(signal);
+    const result = recordSignal(signal);
     
-    if (signalId) {
+    if (result.signalId) {
       res.json({
         success: true,
-        signal_id: signalId,
+        signal_id: result.signalId,
+        event_signal_id: result.eventSignalId,
         message: 'Signal tracked successfully'
       });
     } else {
@@ -360,10 +361,10 @@ perfRouter.post('/track', express.json(), async (req, res) => {
     }
     
   } catch (error) {
-    logger.error('Failed to track signal', { error: error.message });
+    logger.error('Failed to track signal', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(400).json({
       error: 'TRACKING_FAILED',
-      details: error.message
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -388,10 +389,10 @@ perfRouter.get('/stats', async (req, res) => {
     });
     
   } catch (error) {
-    logger.error('Failed to get stats', { error: error.message });
+    logger.error('Failed to get stats', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       error: 'STATS_FAILED',
-      details: error.message
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -431,10 +432,10 @@ perfRouter.get('/performance/:period', async (req, res) => {
     });
     
   } catch (error) {
-    logger.error('Failed to get performance by period', { error: error.message });
+    logger.error('Failed to get performance by period', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       error: 'PERFORMANCE_FAILED',
-      details: error.message
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -453,10 +454,10 @@ perfRouter.delete('/cleanup', async (req, res) => {
     });
     
   } catch (error) {
-    logger.error('Failed to cleanup old data', { error: error.message });
+    logger.error('Failed to cleanup old data', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       error: 'CLEANUP_FAILED',
-      details: error.message
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -479,10 +480,10 @@ perfRouter.post('/reset', async (req, res) => {
     });
     
   } catch (error) {
-    logger.error('Failed to reset database', { error: error.message });
+    logger.error('Failed to reset database', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({
       error: 'RESET_FAILED',
-      details: error.message
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -490,7 +491,7 @@ perfRouter.post('/reset', async (req, res) => {
 // Middleware for error handling
 perfRouter.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('Performance API error', {
-    error: error.message,
+    error: error instanceof Error ? error.message : 'Unknown error',
     path: req.path,
     method: req.method
   });
