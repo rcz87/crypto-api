@@ -23,6 +23,8 @@ import OpenAI from "openai";
 import { okxService } from "./okx"; // kept for parity, inject if needed
 import { enhancedFundingRateService } from "./enhancedFundingRate";
 import { storage } from "../storage";
+import { EventEmitter } from '../observability/eventEmitter.js';
+import { v4 as uuid } from 'uuid';
 
 // === Types ===
 export interface MarketPattern {
@@ -392,8 +394,11 @@ export class AISignalEngine {
     const winRate = dominant.historical_accuracy; // 0..1
     const rr = dominant.risk_reward_ratio;       // e.g., 2.5
 
+    // Generate unique signal ID for lifecycle tracking
+    const signalId = uuid();
+
     const signal: AISignal = {
-      signal_id: `ai_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+      signal_id: signalId,
       timestamp: new Date().toISOString(),
       signal_type: "entry",
       direction,
@@ -415,6 +420,27 @@ export class AISignalEngine {
         profit_factor: rr,
       },
     };
+
+    // Event Logging: Signal Published
+    try {
+      await EventEmitter.published({
+        signal_id: signalId,
+        symbol: 'SOL-USDT-SWAP', // Extract from method parameter when needed
+        confluence_score: dominant.confidence,
+        rr: rr,
+        scenarios: {
+          primary: {
+            side: direction === 'long' ? 'long' : 'short'
+          }
+        },
+        expiry_minutes: this.convertMaxHoldingTimeToMinutes(signal.execution_details.max_holding_time),
+        rules_version: process.env.RULES_VERSION || 'ai-signal-1.0',
+        ts_published: signal.timestamp
+      });
+    } catch (error) {
+      // Event logging failure should not break signal generation
+      console.error('AI Signal Engine: Event logging failed:', error);
+    }
 
     return signal;
   }
@@ -661,6 +687,27 @@ export class AISignalEngine {
       momentum_breakout: "30 minutes - 2 hours",
     };
     return map[pattern.id] ?? "1-4 hours";
+  }
+
+  // Utility method for converting max holding time to minutes for event logging
+  private convertMaxHoldingTimeToMinutes(maxHoldingTime: string): number {
+    if (maxHoldingTime.includes('hours')) {
+      const hours = parseInt(maxHoldingTime.split('-')[0] || '2');
+      return hours * 60;
+    }
+    if (maxHoldingTime.includes('minutes')) {
+      const minutes = parseInt(maxHoldingTime.split(' ')[0] || '120');
+      return minutes;
+    }
+    if (maxHoldingTime.includes('H')) {
+      const hours = parseInt(maxHoldingTime.replace('H', ''));
+      return hours * 60;
+    }
+    if (maxHoldingTime.includes('m')) {
+      return parseInt(maxHoldingTime.replace('m', ''));
+    }
+    // Default fallback
+    return 240; // 4 hours in minutes
   }
 
   private async generatePopulation(_base: Partial<StrategyOptimization>): Promise<StrategyOptimization[]> {

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, decimal, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, decimal, integer, jsonb, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -82,6 +82,46 @@ export const aiPatternPerformance = pgTable("ai_pattern_performance", {
   adaptation_factor: decimal("adaptation_factor", { precision: 4, scale: 3 }).default("1.0"), // confidence multiplier
   learning_velocity: decimal("learning_velocity", { precision: 4, scale: 3 }).default("0.1"), // how fast it adapts
   timestamp: timestamp("timestamp").defaultNow(),
+});
+
+// Event Logging System - Signal Lifecycle Tracking Tables
+export const signals = pgTable("signals", {
+  signal_id: uuid("signal_id").primaryKey(), // UUID from signal generation
+  symbol: text("symbol").notNull(),
+  side: text("side").notNull(), // 'long' | 'short'
+  confluence_score: decimal("confluence_score", { precision: 4, scale: 2 }).notNull(),
+  rr_target: decimal("rr_target", { precision: 4, scale: 2 }).notNull(),
+  expiry_minutes: integer("expiry_minutes").notNull(),
+  rules_version: text("rules_version").notNull(),
+  ts_published: timestamp("ts_published", { withTimezone: true }).defaultNow(),
+});
+
+export const signalTriggers = pgTable("signal_triggers", {
+  signal_id: uuid("signal_id").notNull().references(() => signals.signal_id, { onDelete: "cascade" }),
+  ts_triggered: timestamp("ts_triggered", { withTimezone: true }).notNull(),
+  entry_fill: decimal("entry_fill", { precision: 18, scale: 8 }).notNull(),
+  time_to_trigger_ms: integer("time_to_trigger_ms").notNull(),
+});
+
+export const signalInvalidations = pgTable("signal_invalidations", {
+  signal_id: uuid("signal_id").notNull().references(() => signals.signal_id, { onDelete: "cascade" }),
+  ts_invalidated: timestamp("ts_invalidated", { withTimezone: true }).notNull(),
+  reason: text("reason").notNull(), // 'sl' | 'hard_invalidate' | 'expiry'
+});
+
+export const signalClosures = pgTable("signal_closures", {
+  signal_id: uuid("signal_id").notNull().references(() => signals.signal_id, { onDelete: "cascade" }),
+  ts_closed: timestamp("ts_closed", { withTimezone: true }).notNull(),
+  rr_realized: decimal("rr_realized", { precision: 5, scale: 2 }).notNull(),
+  time_in_trade_ms: integer("time_in_trade_ms").notNull(),
+  exit_reason: text("exit_reason").notNull(), // 'tp' | 'manual' | 'sl' | 'time' | 'other'
+});
+
+export const weeklyScorecard = pgTable("weekly_scorecard", {
+  week_start: text("week_start").primaryKey(), // DATE as string (YYYY-MM-DD)
+  bins: jsonb("bins").notNull(), // winrate data per confluence bin
+  monotonic_ok: integer("monotonic_ok").notNull(), // 1 for true, 0 for false
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
 // OKX ticker data schema
@@ -1323,3 +1363,67 @@ export type InsertAiSignal = z.infer<typeof insertAiSignalSchema>;
 export type InsertAiExecution = z.infer<typeof insertAiExecutionSchema>;
 export type InsertAiOutcome = z.infer<typeof insertAiOutcomeSchema>;
 export type InsertAiPatternPerformance = z.infer<typeof insertAiPatternPerformanceSchema>;
+
+// Event Logging System insert schemas
+export const insertSignalSchema = createInsertSchema(signals);
+export const insertSignalTriggerSchema = createInsertSchema(signalTriggers);
+export const insertSignalInvalidationSchema = createInsertSchema(signalInvalidations);
+export const insertSignalClosureSchema = createInsertSchema(signalClosures);
+export const insertWeeklyScorecardSchema = createInsertSchema(weeklyScorecard);
+
+// Event Logging System types
+export type Signal = typeof signals.$inferSelect;
+export type SignalTrigger = typeof signalTriggers.$inferSelect;
+export type SignalInvalidation = typeof signalInvalidations.$inferSelect;
+export type SignalClosure = typeof signalClosures.$inferSelect;
+export type WeeklyScorecard = typeof weeklyScorecard.$inferSelect;
+export type InsertSignal = z.infer<typeof insertSignalSchema>;
+export type InsertSignalTrigger = z.infer<typeof insertSignalTriggerSchema>;
+export type InsertSignalInvalidation = z.infer<typeof insertSignalInvalidationSchema>;
+export type InsertSignalClosure = z.infer<typeof insertSignalClosureSchema>;
+export type InsertWeeklyScorecard = z.infer<typeof insertWeeklyScorecardSchema>;
+
+// Event schemas for validation
+export const eventPublishedSchema = z.object({
+  signal_id: z.string(),
+  symbol: z.string(),
+  confluence_score: z.number(),
+  rr: z.number(),
+  scenarios: z.object({
+    primary: z.object({
+      side: z.enum(['long', 'short']),
+    }),
+  }),
+  expiry_minutes: z.number(),
+  rules_version: z.string(),
+  ts_published: z.string().optional(),
+});
+
+export const eventTriggeredSchema = z.object({
+  signal_id: z.string(),
+  symbol: z.string(),
+  entry_fill: z.number(),
+  time_to_trigger_ms: z.number(),
+  ts_triggered: z.string().optional(),
+});
+
+export const eventInvalidatedSchema = z.object({
+  signal_id: z.string(),
+  symbol: z.string(),
+  reason: z.enum(['sl', 'hard_invalidate', 'expiry']),
+  ts_invalidated: z.string().optional(),
+});
+
+export const eventClosedSchema = z.object({
+  signal_id: z.string(),
+  symbol: z.string(),
+  rr_realized: z.number(),
+  time_in_trade_ms: z.number(),
+  exit_reason: z.enum(['tp', 'manual', 'sl', 'time', 'other']),
+  ts_closed: z.string().optional(),
+});
+
+export type EventPublished = z.infer<typeof eventPublishedSchema>;
+export type EventTriggered = z.infer<typeof eventTriggeredSchema>;
+export type EventInvalidated = z.infer<typeof eventInvalidatedSchema>;
+export type EventClosed = z.infer<typeof eventClosedSchema>;

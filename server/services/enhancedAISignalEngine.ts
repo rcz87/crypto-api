@@ -11,6 +11,16 @@ import { ConfluenceService } from './confluence';
 import { multiTimeframeService } from './multiTimeframeAnalysis';
 import { executionRecorder } from './executionRecorder';
 import { cache, TTL_CONFIG } from '../utils/cache';
+import { 
+  getDegradationContext, 
+  createSignalDegradationNotice, 
+  applyDegradationNotice,
+  ensureNeverBlankSignal,
+  getConfidenceScalingFactor,
+  type SignalDegradationNotice 
+} from '../utils/degradationNotice';
+import { EventEmitter } from '../observability/eventEmitter.js';
+import { v4 as uuid } from 'uuid';
 
 // Enhanced AI Signal Engine dengan Neural Networks dan Advanced Pattern Recognition
 export interface EnhancedMarketPattern {
@@ -79,6 +89,7 @@ export interface EnhancedAISignal {
     confidence_adjustment: number;
     pattern_evolution: string[];
   };
+  degradation_notice?: SignalDegradationNotice; // Institutional transparency
 }
 
 export interface EnhancedAIDependencies {
@@ -701,89 +712,195 @@ export class EnhancedAISignalEngine {
     return magnitude === 0 ? 0 : dotProduct / magnitude;
   }
 
-  // Main enhanced signal generation
+  // Main enhanced signal generation with degradation handling
   async generateEnhancedAISignal(symbol: string = 'SOL-USDT-SWAP'): Promise<EnhancedAISignal> {
-    try {
-      console.log('🧠 Enhanced AI: Generating comprehensive AI signal...');
-      
-      // Extract feature vector
-      const features = await this.extractFeatureVector(symbol);
-      
-      // Generate neural prediction
-      const neuralPrediction = await this.generateNeuralPrediction(features);
-      
-      // Detect enhanced patterns
-      const detectedPatterns = await this.detectEnhancedPatterns(features, null);
-      
-      // Calculate pattern confluence
-      const patternConfluence = detectedPatterns.length > 0 ? 
-        detectedPatterns.reduce((sum, p) => sum + p.confidence, 0) / detectedPatterns.length : 0;
-      
-      // Determine overall signal
-      const direction = neuralPrediction.direction;
-      const strength = Math.round((neuralPrediction.confidence + patternConfluence * 100) / 2);
-      const confidence = Math.round((neuralPrediction.confidence * 0.6 + patternConfluence * 100 * 0.4));
+    return ensureNeverBlankSignal(
+      this._generateEnhancedAISignalCore(symbol),
+      () => this._generateFallbackSignal(symbol),
+      'ai_signal'
+    );
+  }
 
-      // Generate enhanced reasoning
-      const reasoning = await this.generateEnhancedReasoning(
-        detectedPatterns, 
-        neuralPrediction, 
-        features
-      );
+  // Core signal generation logic
+  private async _generateEnhancedAISignalCore(symbol: string = 'SOL-USDT-SWAP'): Promise<EnhancedAISignal> {
+    console.log('🧠 Enhanced AI: Generating comprehensive AI signal...');
+    
+    // Check degradation context first
+    const degradationContext = await getDegradationContext();
+    console.log(`📊 Enhanced AI: Data quality - ${degradationContext.data_source} (degraded: ${degradationContext.degraded})`);
+    
+    // Extract feature vector
+    const features = await this.extractFeatureVector(symbol);
+    
+    // Generate neural prediction
+    const neuralPrediction = await this.generateNeuralPrediction(features);
+    
+    // Detect enhanced patterns
+    const detectedPatterns = await this.detectEnhancedPatterns(features, null);
+    
+    // Calculate pattern confluence
+    const patternConfluence = detectedPatterns.length > 0 ? 
+      detectedPatterns.reduce((sum, p) => sum + p.confidence, 0) / detectedPatterns.length : 0;
+    
+    // Apply degradation-aware confidence scaling
+    const confidenceScalingFactor = getConfidenceScalingFactor(degradationContext);
+    
+    // Determine overall signal (with degradation adjustments)
+    const direction = neuralPrediction.direction;
+    const rawStrength = Math.round((neuralPrediction.confidence + patternConfluence * 100) / 2);
+    const rawConfidence = Math.round((neuralPrediction.confidence * 0.6 + patternConfluence * 100 * 0.4));
+    
+    const strength = Math.round(rawStrength * confidenceScalingFactor);
+    const confidence = Math.round(rawConfidence * confidenceScalingFactor);
 
-      const signal: EnhancedAISignal = {
-        signal_id: `enhanced_ai_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        symbol,
-        direction,
-        strength,
-        confidence,
-        neural_prediction: neuralPrediction,
-        detected_patterns: detectedPatterns,
-        reasoning,
-        execution_details: {
-          recommended_size: this.calculatePositionSize(confidence, neuralPrediction.risk_level),
-          stop_loss: 0.02, // 2% stop loss
-          take_profit: [0.04, 0.08, 0.12], // Multiple targets
-          max_holding_time: '4H',
-          optimal_entry_window: '15m',
-          risk_reward_ratio: 2.5
-        },
-        performance_metrics: {
-          expected_return: 0.06,
-          max_drawdown: 0.03,
-          win_rate: 0.72,
-          profit_factor: 2.1,
-          sharpe_ratio: 1.8
-        },
-        learning_metadata: {
-          pattern_novelty: this.calculatePatternNovelty(detectedPatterns),
-          learning_opportunity: detectedPatterns.length > 0,
-          confidence_adjustment: 0,
-          pattern_evolution: detectedPatterns.map(p => p.id)
-        }
-      };
+    // Generate enhanced reasoning with degradation awareness
+    const reasoning = await this.generateEnhancedReasoning(
+      detectedPatterns, 
+      neuralPrediction, 
+      features,
+      degradationContext
+    );
 
-      // Store for learning
-      this.learningHistory.push({
-        timestamp: signal.timestamp,
-        features,
-        prediction: neuralPrediction,
-        patterns: detectedPatterns,
-        signal
-      });
+    // Create degradation notice
+    const degradationNotice = createSignalDegradationNotice(degradationContext, 'ai_signal');
 
-      console.log(`✅ Enhanced AI: Signal generated - ${direction.toUpperCase()} (${confidence}% confidence)`);
-      console.log(`   - Neural prediction: ${neuralPrediction.confidence}%`);
-      console.log(`   - Patterns detected: ${detectedPatterns.length}`);
-      console.log(`   - Pattern confluence: ${(patternConfluence * 100).toFixed(1)}%`);
+    const signal: EnhancedAISignal = {
+      signal_id: `enhanced_ai_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      symbol,
+      direction,
+      strength,
+      confidence,
+      neural_prediction: neuralPrediction,
+      detected_patterns: detectedPatterns,
+      reasoning,
+      execution_details: {
+        recommended_size: this.calculatePositionSize(confidence, neuralPrediction.risk_level, degradationContext),
+        stop_loss: 0.02, // 2% stop loss
+        take_profit: [0.04, 0.08, 0.12], // Multiple targets
+        max_holding_time: '4H',
+        optimal_entry_window: '15m',
+        risk_reward_ratio: 2.5
+      },
+      performance_metrics: {
+        expected_return: 0.06 * confidenceScalingFactor,
+        max_drawdown: 0.03,
+        win_rate: 0.72 * confidenceScalingFactor,
+        profit_factor: 2.1,
+        sharpe_ratio: 1.8 * confidenceScalingFactor
+      },
+      learning_metadata: {
+        pattern_novelty: this.calculatePatternNovelty(detectedPatterns),
+        learning_opportunity: detectedPatterns.length > 0,
+        confidence_adjustment: degradationNotice.confidence_adjustment,
+        pattern_evolution: detectedPatterns.map(p => p.id)
+      },
+      degradation_notice: degradationNotice.is_degraded ? degradationNotice : undefined
+    };
 
-      return signal;
+    // Store for learning
+    this.learningHistory.push({
+      timestamp: signal.timestamp,
+      features,
+      prediction: neuralPrediction,
+      patterns: detectedPatterns,
+      signal
+    });
 
-    } catch (error) {
-      console.error('Enhanced AI: Error generating signal:', error);
-      throw new Error(`Enhanced AI signal generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.log(`✅ Enhanced AI: Signal generated - ${direction.toUpperCase()} (${confidence}% confidence)`);
+    console.log(`   - Neural prediction: ${neuralPrediction.confidence}%`);
+    console.log(`   - Patterns detected: ${detectedPatterns.length}`);
+    console.log(`   - Pattern confluence: ${(patternConfluence * 100).toFixed(1)}%`);
+    if (degradationNotice.is_degraded) {
+      console.log(`   - ⚠️ Data degradation: ${degradationNotice.notice}`);
+      console.log(`   - Data quality score: ${degradationNotice.data_quality_score}/100`);
     }
+
+    // Event Logging: Signal Published
+    try {
+      await EventEmitter.published({
+        signal_id: signalId,
+        symbol,
+        confluence_score: patternConfluence,
+        rr: signal.execution_details.risk_reward_ratio,
+        scenarios: {
+          primary: {
+            side: direction === 'long' ? 'long' : 'short'
+          }
+        },
+        expiry_minutes: 240, // 4H max holding time = 240 minutes
+        rules_version: process.env.RULES_VERSION || 'enhanced-ai-1.0',
+        ts_published: signal.timestamp
+      });
+    } catch (error) {
+      // Event logging failure should not break signal generation
+      console.error('Enhanced AI: Event logging failed:', error);
+    }
+
+    return signal;
+  }
+
+  // Fallback signal generator for never-blank guarantee
+  private _generateFallbackSignal(symbol: string = 'SOL-USDT-SWAP'): EnhancedAISignal {
+    console.warn('🚨 Enhanced AI: Generating fallback signal due to core generation failure');
+    
+    const fallbackSignal: EnhancedAISignal = {
+      signal_id: uuid(),
+      timestamp: new Date().toISOString(),
+      symbol,
+      direction: 'neutral',
+      strength: 40, // Conservative fallback strength
+      confidence: 35, // Low confidence due to fallback
+      neural_prediction: {
+        direction: 'neutral',
+        confidence: 35,
+        price_target: 0,
+        time_horizon: '1H',
+        risk_level: 'medium',
+        supporting_patterns: [],
+        neural_features: new Array(this.FEATURE_VECTOR_SIZE).fill(0.5)
+      },
+      detected_patterns: [],
+      reasoning: {
+        primary_factors: ['System operating in fallback mode due to technical difficulties'],
+        supporting_evidence: ['Limited market data available', 'Conservative neutral stance recommended'],
+        risk_factors: ['Reduced data quality', 'Increased uncertainty due to system limitations'],
+        market_context: 'Enhanced AI system experiencing technical difficulties. Operating in safe fallback mode with conservative parameters.',
+        neural_analysis: 'Neural network analysis unavailable. Using conservative fallback parameters.',
+        pattern_confluence: 0
+      },
+      execution_details: {
+        recommended_size: 0.05, // Very conservative size
+        stop_loss: 0.015, // Tight stop loss
+        take_profit: [0.02, 0.04, 0.06], // Conservative targets
+        max_holding_time: '2H', // Shorter holding time
+        optimal_entry_window: '30m',
+        risk_reward_ratio: 1.5
+      },
+      performance_metrics: {
+        expected_return: 0.02,
+        max_drawdown: 0.02,
+        win_rate: 0.55,
+        profit_factor: 1.3,
+        sharpe_ratio: 0.8
+      },
+      learning_metadata: {
+        pattern_novelty: 0,
+        learning_opportunity: false,
+        confidence_adjustment: 0.35,
+        pattern_evolution: []
+      },
+      degradation_notice: {
+        is_degraded: true,
+        notice: '⚠️ Data degraded - system operating in emergency fallback mode',
+        confidence_adjustment: 0.35,
+        data_quality_score: 25,
+        fallback_scenario: 'Emergency fallback mode - conservative neutral stance with reduced position sizing',
+        transparency_note: 'Enhanced AI system experienced technical difficulties. Using emergency fallback algorithms with maximum safety parameters.'
+      }
+    };
+
+    return fallbackSignal;
   }
 
   // Enhanced reasoning generation

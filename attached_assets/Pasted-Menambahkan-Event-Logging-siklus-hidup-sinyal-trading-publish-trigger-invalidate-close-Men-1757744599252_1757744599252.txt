@@ -1,0 +1,390 @@
+Menambahkan Event Logging siklus hidup sinyal trading (publish → trigger → invalidate → close).
+
+Menyimpan event ke PostgreSQL dengan skema rapih dan dapat diaudit.
+
+Membuat Weekly Scorecard (winrate per bin confluence + monotonicity check).
+
+Mengirim laporan mingguan ke Telegram (Asia/Jakarta).
+
+Jangan mengubah logika sinyal yang ada. Tambahkan hook/emit non-invasif.
+
+🎯 GOALS
+
+Event schema terpasang & teruji (insert/select OK).
+
+Engine sinyal memancarkan 4 event: signal_published, signal_triggered, signal_invalidated, signal_closed.
+
+Weekly Scorecard terkirim otomatis ke Telegram dengan winrate per bin confluence & monotonicity check.
+
+Semua timestamp memakai Asia/Jakarta (WIB).
+
+🧩 TEKNIS (Deteksi Stack & Setup)
+
+Deteksi stack:
+
+Jika ada package.json & Express → implement Node.js (prioritas).
+
+Jika kode utama Flask (Python) → implement Flask versi analog.
+
+Env yang WAJIB (tambahkan ke .env / Replit Secrets):
+
+DATABASE_URL=postgres://user:pass@host:5432/db
+
+TZ=Asia/Jakarta
+
+TELEGRAM_BOT_TOKEN=xxxxx
+
+TELEGRAM_CHAT_ID=-100xxxxxxxx
+
+FEATURE_EVENT_LOGGING=true
+
+🗂️ PERUBAHAN FILE & STRUKTUR
+
+Buat/ubah file berikut (Node path utama; Python ada di bawah):
+
+/src/observability/db.sql               # SQL migration (PostgreSQL)
+/src/observability/eventEmitter.js      # Library emit event
+/src/observability/eventIngestor.js     # Helper insert + safety
+/src/observability/weeklyScorecard.js   # Hitung & kirim Telegram
+/src/observability/telegram.js          # Helper kirim pesan
+/src/observability/index.js             # Orkestrasi + cron
+
+
+Tambahkan import & hook minimal di modul engine sinyal saat:
+
+sinyal dipublikasikan (publish)
+
+entry terisi (trigger)
+
+invalid (kena SL/expire/hard-invalidate)
+
+closed (TP/close manual)
+
+🧱 MIGRASI SQL (PostgreSQL) — simpan sebagai /src/observability/db.sql
+-- Tabel utama: signals + detail event (trigger/invalid/close)
+CREATE TABLE IF NOT EXISTS signals (
+  signal_id UUID PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  side TEXT CHECK (side IN ('long','short')) NOT NULL,
+  confluence_score NUMERIC(4,2) NOT NULL,
+  rr_target NUMERIC(4,2) NOT NULL,
+  expiry_minutes INT NOT NULL,
+  rules_version TEXT NOT NULL,
+  ts_published TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS signal_triggers (
+  signal_id UUID REFERENCES signals(signal_id) ON DELETE CASCADE,
+  ts_triggered TIMESTAMPTZ NOT NULL,
+  entry_fill NUMERIC(18,8) NOT NULL,
+  time_to_trigger_ms INT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS signal_invalidations (
+  signal_id UUID REFERENCES signals(signal_id) ON DELETE CASCADE,
+  ts_invalidated TIMESTAMPTZ NOT NULL,
+  reason TEXT CHECK (reason IN ('sl','hard_invalidate','expiry')) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS signal_closures (
+  signal_id UUID REFERENCES signals(signal_id) ON DELETE CASCADE,
+  ts_closed TIMESTAMPTZ NOT NULL,
+  rr_realized NUMERIC(5,2) NOT NULL,
+  time_in_trade_ms INT NOT NULL,
+  exit_reason TEXT CHECK (exit_reason IN ('tp','manual','sl','time','other')) NOT NULL
+);
+
+-- Indeks penting
+CREATE INDEX IF NOT EXISTS idx_signals_symbol ON signals(symbol);
+CREATE INDEX IF NOT EXISTS idx_signals_ts ON signals(ts_published);
+CREATE INDEX IF NOT EXISTS idx_triggers_ts ON signal_triggers(ts_triggered);
+CREATE INDEX IF NOT EXISTS idx_closures_ts ON signal_closures(ts_closed);
+
+-- (Opsional) Tabel ringkasan mingguan
+CREATE TABLE IF NOT EXISTS weekly_scorecard (
+  week_start DATE PRIMARY KEY,
+  bins JSONB NOT NULL,
+  monotonic_ok BOOLEAN NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+📦 LIB: Event Emitter — /src/observability/eventEmitter.js (Node)
+import { insertPublished, insertTriggered, insertInvalidated, insertClosed } from './eventIngestor.js';
+
+export const EventEmitter = {
+  async published(evt) {
+    if (process.env.FEATURE_EVENT_LOGGING !== 'true') return;
+    // required fields guard
+    const required = ['signal_id','symbol','confluence_score','rr','scenarios','expiry_minutes','rules_version'];
+    for (const k of required) if (evt[k] === undefined) throw new Error(`published missing ${k}`);
+    await insertPublished(evt);
+  },
+  async triggered(evt) {
+    if (process.env.FEATURE_EVENT_LOGGING !== 'true') return;
+    const required = ['signal_id','symbol','entry_fill','time_to_trigger_ms'];
+    for (const k of required) if (evt[k] === undefined) throw new Error(`triggered missing ${k}`);
+    await insertTriggered(evt);
+  },
+  async invalidated(evt) {
+    if (process.env.FEATURE_EVENT_LOGGING !== 'true') return;
+    const required = ['signal_id','symbol','reason'];
+    for (const k of required) if (evt[k] === undefined) throw new Error(`invalidated missing ${k}`);
+    await insertInvalidated(evt);
+  },
+  async closed(evt) {
+    if (process.env.FEATURE_EVENT_LOGGING !== 'true') return;
+    const required = ['signal_id','symbol','rr_realized','time_in_trade_ms','exit_reason'];
+    for (const k of required) if (evt[k] === undefined) if (evt[k] === undefined) throw new Error(`closed missing ${k}`);
+    await insertClosed(evt);
+  }
+};
+
+🗄️ LIB: Ingestor (PG) — /src/observability/eventIngestor.js
+import pg from 'pg';
+const { Pool } = pg;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+export async function migrate() {
+  const fs = await import('node:fs/promises');
+  const sql = await fs.readFile(new URL('./db.sql', import.meta.url), 'utf8');
+  await pool.query(sql);
+}
+
+export async function insertPublished(p) {
+  const q = `
+    INSERT INTO signals(signal_id,symbol,side,confluence_score,rr_target,expiry_minutes,rules_version,ts_published)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8, now()))
+    ON CONFLICT (signal_id) DO NOTHING`;
+  const side = p.scenarios?.primary?.side || p.side;
+  await pool.query(q, [p.signal_id, p.symbol, side, p.confluence_score, p.rr, p.expiry_minutes, p.rules_version, p.ts_published]);
+}
+export async function insertTriggered(t) {
+  const q = `INSERT INTO signal_triggers(signal_id,ts_triggered,entry_fill,time_to_trigger_ms) VALUES ($1, COALESCE($2, now()), $3, $4)`;
+  await pool.query(q, [t.signal_id, t.ts_triggered, t.entry_fill, t.time_to_trigger_ms]);
+}
+export async function insertInvalidated(i) {
+  const q = `INSERT INTO signal_invalidations(signal_id,ts_invalidated,reason) VALUES ($1, COALESCE($2, now()), $3)`;
+  await pool.query(q, [i.signal_id, i.ts_invalidated, i.reason]);
+}
+export async function insertClosed(c) {
+  const q = `INSERT INTO signal_closures(signal_id,ts_closed,rr_realized,time_in_trade_ms,exit_reason) VALUES ($1, COALESCE($2, now()), $3, $4, $5)`;
+  await pool.query(q, [c.signal_id, c.ts_closed, c.rr_realized, c.time_in_trade_ms, c.exit_reason]);
+}
+
+📣 TELEGRAM Helper — /src/observability/telegram.js
+export async function sendTelegram(text) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return;
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  const body = { chat_id: chatId, text, parse_mode: 'Markdown' };
+  await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+}
+
+📈 WEEKLY SCORECARD — /src/observability/weeklyScorecard.js
+import pg from 'pg';
+import { sendTelegram } from './telegram.js';
+const { Pool } = pg;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+const BINS = [
+  { label: '0.80+', cond: 'confluence_score >= 0.80' },
+  { label: '0.70-0.79', cond: 'confluence_score >= 0.70 AND confluence_score < 0.80' },
+  { label: '0.60-0.69', cond: 'confluence_score >= 0.60 AND confluence_score < 0.70' },
+  { label: '0.50-0.59', cond: 'confluence_score >= 0.50 AND confluence_score < 0.60' }
+];
+
+function fmt(n){ return (n==null)?'-':Number(n).toFixed(3); }
+
+export async function generateWeeklyScorecard() {
+  // rentang minggu ini (WIB)
+  const { rows: [{ week_start }] } = await pool.query(`SELECT (date_trunc('week', (now() at time zone 'Asia/Jakarta'))::date) AS week_start`);
+  const res = {};
+  for (const b of BINS) {
+    const q = `
+      WITH weekly AS (
+        SELECT s.signal_id, s.confluence_score, c.rr_realized
+        FROM signals s JOIN signal_closures c USING (signal_id)
+        WHERE s.ts_published >= date_trunc('week', now() at time zone 'Asia/Jakarta')
+          AND s.ts_published <  date_trunc('week', now() at time zone 'Asia/Jakarta') + interval '7 day'
+          AND ${b.cond}
+      )
+      SELECT count(*)::int AS n,
+             avg( (rr_realized > 0)::int )::numeric(5,3) AS winrate
+      FROM weekly;
+    `;
+    const row = (await pool.query(q)).rows[0];
+    res[b.label] = { n: row.n, winrate: Number(row.winrate ?? 0) };
+  }
+
+  // monotonicity: winrate harus naik seiring bin
+  const order = ['0.50-0.59','0.60-0.69','0.70-0.79','0.80+'];
+  let monoOK = true;
+  for (let i=0; i<order.length-1; i++){
+    const a = res[order[i]].winrate, b = res[order[i+1]].winrate;
+    if (b < a) { monoOK = false; break; }
+  }
+
+  // simpan ringkasan
+  await pool.query(
+    `INSERT INTO weekly_scorecard(week_start, bins, monotonic_ok)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (week_start) DO UPDATE SET bins=$2, monotonic_ok=$3`,
+    [week_start, res, monoOK]
+  );
+
+  // kirim telegram
+  const lines = [];
+  lines.push(`*Weekly Scorecard* — start ${week_start}`);
+  for (const k of order) {
+    const { n, winrate } = res[k];
+    lines.push(`• ${k}: n=${n}, winrate=${fmt(winrate)}`);
+  }
+  lines.push(`Monotonicity: ${monoOK ? '✅ OK' : '❌ Broken'}`);
+  await sendTelegram(lines.join('\n'));
+
+  return { week_start, res, monotonic_ok: monoOK };
+}
+
+🧭 ORCHESTRATOR — /src/observability/index.js
+import { migrate } from './eventIngestor.js';
+import { generateWeeklyScorecard } from './weeklyScorecard.js';
+
+// Jalankan migrasi saat start
+await migrate();
+
+// Scheduler mingguan (Minggu 23:59 WIB)
+function nextRunWIB() {
+  const now = new Date();
+  // Set ke Minggu 23:59:00 WIB
+  const day = now.getUTCDay(); // 0 = Minggu UTC, hati2 zona
+  // Supaya simpel di Replit: jalankan tiap 1 jam, cek window WIB
+}
+
+setInterval(async () => {
+  const wibNow = new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
+  const d = new Date(wibNow);
+  const isSunday = d.getDay() === 0; // 0 = Minggu untuk locale
+  const hh = d.getHours(), mm = d.getMinutes();
+  if (isSunday && hh === 23 && mm >= 59) {
+    try { await generateWeeklyScorecard(); } catch(e){ console.error('scorecard err', e); }
+  }
+}, 60 * 1000);
+
+
+Catatan: Kalau kamu punya scheduler sendiri/cron runner, panggil generateWeeklyScorecard() dari sana. Yang di atas fallback sederhana berbasis interval.
+
+🎯 INTEGRASI KE ENGINE SINYAL (HOOK WAJIB)
+
+Di kode yang menghasilkan sinyal (tepat setelah JSON signal siap):
+
+import { EventEmitter } from '../observability/eventEmitter.js';
+import { v4 as uuid } from 'uuid';
+
+const signalId = uuid();
+
+await EventEmitter.published({
+  signal_id: signalId,
+  symbol: "SOL-USDT-SWAP",
+  confluence_score: 0.82,
+  rr: 1.9,
+  scenarios: { primary: { side: "long" } },
+  expiry_minutes: 30,
+  rules_version: process.env.RULES_VERSION || 'analysis-mode-1.2',
+  ts_published: new Date().toISOString()
+});
+
+
+Saat entry terisi (mis. watcher mendeteksi trigger):
+
+await EventEmitter.triggered({
+  signal_id: signalId,
+  symbol: "SOL-USDT-SWAP",
+  entry_fill: 222.10,
+  time_to_trigger_ms: 420000
+});
+
+
+Saat invalid:
+
+await EventEmitter.invalidated({
+  signal_id: signalId,
+  symbol: "SOL-USDT-SWAP",
+  reason: "sl" // 'sl' | 'hard_invalidate' | 'expiry'
+});
+
+
+Saat closed:
+
+await EventEmitter.closed({
+  signal_id: signalId,
+  symbol: "SOL-USDT-SWAP",
+  rr_realized: 1.65,
+  time_in_trade_ms: 900000,
+  exit_reason: "tp" // 'tp' | 'manual' | 'sl' | 'time' | 'other'
+});
+
+
+Wajib: gunakan UUID per sinyal dan pakai ID yang sama untuk semua event-nya.
+
+🧪 SMOKE TEST (Agent jalankan setelah integrasi)
+
+Jalankan migrasi: node src/observability/index.js (sekali)
+
+Simulasikan 1 siklus sinyal (publish → trigger → close).
+
+Verifikasi di Postgres:
+
+SELECT * FROM signals ORDER BY ts_published DESC LIMIT 1;
+
+SELECT * FROM signal_triggers WHERE signal_id='...'
+
+SELECT * FROM signal_closures WHERE signal_id='...'
+
+Jalankan generateWeeklyScorecard() sekali (manual) → cek Telegram.
+
+✅ ACCEPTANCE CRITERIA (WAJIB LULUS)
+
+ signals, signal_triggers, signal_invalidations, signal_closures terbentuk dan terisi.
+
+ Hook 4 event bekerja di engine sinyal (tanpa mengubah logika sinyal).
+
+ Weekly Scorecard mengirim pesan ke Telegram (WIB), memuat: winrate per bin + status Monotonicity.
+
+ Semua waktu konsisten Asia/Jakarta.
+
+ Kode aman meski FEATURE_EVENT_LOGGING=false (tidak meledak).
+
+🛡️ GUARDRAILS (Jangan dilanggar)
+
+No breaking changes ke endpoint publik & format JSON sinyal.
+
+Jangan menulis angka acak; semua nilai berasal dari event sebenarnya.
+
+Idempotent: signal_published ON CONFLICT DO NOTHING (hindari duplikasi).
+
+Error handling: kegagalan logging tidak menghentikan alur sinyal (log & lanjut).
+
+🔁 VERSI FLASK (Jika stack Python)
+
+Buat observability/ package: db.sql, emitter.py, ingestor.py, weekly_scorecard.py, telegram.py, __init__.py.
+
+Gunakan psycopg/asyncpg + SQL yang sama.
+
+Hook 4 event dipanggil dari modul Flask/engine saat titik publish/trigger/invalid/close.
+
+Scheduler mingguan: gunakan APScheduler atau cron OS memanggil weekly_scorecard.main().
+
+📣 OUTPUT YANG KU HARAPKAN DARI KAMU (AI Agent)
+
+PR/commit berisi file baru di /src/observability/* + migrasi SQL.
+
+Diff yang menambahkan hook 4 event di engine sinyal.
+
+Satu skrip utilitas untuk menjalankan scorecard manual (sekali panggil).
+
+Catatan singkat cara set env & cara test cepat.
+
+TL;DR
+
+Tambahkan event logging 4 tahap, simpan di Postgres, bikin weekly scorecard (bin confluence + monotonicity), kirim ke Telegram, semua WIB. Jangan ubah logic sinyal. Pastikan idempotent, non-invasif, dan tested.
