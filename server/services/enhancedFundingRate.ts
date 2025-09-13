@@ -356,7 +356,7 @@ export class EnhancedFundingRateService {
     try {
       // Get real current price from OKX ticker data
       const ticker = await okxService.getTicker(symbol);
-      const currentPrice = parseFloat(ticker.last);
+      const currentPrice = parseFloat(ticker.price);
       
       // 🔧 CRITICAL FIX: Enhanced price validation with NaN handling
       if (isNaN(currentPrice) || currentPrice === null || currentPrice === undefined) {
