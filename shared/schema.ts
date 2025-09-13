@@ -329,6 +329,10 @@ export const solCompleteDataSchema = z.object({
   }),
   orderBook: orderBookSchema,
   recentTrades: z.array(recentTradeSchema),
+  fundingRate: z.any().optional(), // Allow flexible funding rate schema
+  openInterest: z.any().optional(), // Allow flexible open interest schema
+  cvdAnalysis: z.any().optional(), // Allow flexible CVD analysis schema
+  confluenceAnalysis: z.any().optional(), // Allow flexible confluence analysis schema
   lastUpdate: z.string(),
 });
 

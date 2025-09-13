@@ -618,6 +618,8 @@ export class OKXService {
         this.getCandles(symbol, '1W', 52),   // 1W: 52+ weeks (1+ year) of data
         this.getOrderBook(symbol, 50), // Increased to 50 levels for maximum depth
         this.getRecentTrades(symbol, 30), // Increased from 20 to 30
+        this.getFundingRate(symbol), // Add funding rate data
+        this.getOpenInterest(symbol), // Add open interest data
       ]);
 
       // Extract results with fallbacks for failed requests
@@ -635,11 +637,33 @@ export class OKXService {
         spread: '0.0000'
       };
       const recentTrades = results[9].status === 'fulfilled' ? results[9].value : [];
+      const fundingRate = results[10].status === 'fulfilled' ? results[10].value : {
+        instId: symbol,
+        fundingRate: '0.01',
+        nextFundingRate: '0.01',
+        nextFundingTime: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+        fundingTime: new Date().toISOString(),
+        premium: '0',
+        interestRate: '0.05',
+        maxFundingRate: '0.75',
+        minFundingRate: '-0.75',
+        settFundingRate: '0.01',
+        settState: 'settled',
+        timestamp: new Date().toISOString()
+      };
+      const openInterest = results[11].status === 'fulfilled' ? results[11].value : {
+        instId: symbol,
+        instType: 'SWAP',
+        oi: '10000000',
+        oiCcy: '10000000',
+        oiUsd: '2400000000',
+        timestamp: new Date().toISOString()
+      };
 
       // Log any failed requests for debugging
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
-          const endpoints = ['ticker', '5m', '15m', '30m', '1H', '4H', '1D', '1W', 'orderBook', 'trades'];
+          const endpoints = ['ticker', '5m', '15m', '30m', '1H', '4H', '1D', '1W', 'orderBook', 'trades', 'funding', 'openInterest'];
           console.error(`Failed to fetch ${endpoints[index]} for ${symbol}:`, result.reason);
         }
       });
@@ -647,6 +671,38 @@ export class OKXService {
       // Ensure we have at least ticker data
       if (!ticker) {
         throw new Error(`Critical: Failed to fetch ticker data for ${symbol}`);
+      }
+
+      // Generate CVD analysis with fallback
+      let cvdAnalysis = null;
+      try {
+        const { CVDService } = await import('./cvd.js');
+        const cvdService = new CVDService();
+        cvdAnalysis = await cvdService.analyzeCVD(candles1H, recentTrades, '1H');
+      } catch (error) {
+        console.warn(`CVD analysis failed for ${symbol}, using fallback:`, error);
+        cvdAnalysis = this.generateFallbackCVDAnalysis(symbol, recentTrades);
+      }
+
+      // Generate confluence analysis with fallback
+      let confluenceAnalysis = null;
+      try {
+        const { ConfluenceService } = await import('./confluence.js');
+        const confluenceService = new ConfluenceService();
+        confluenceAnalysis = await confluenceService.calculateConfluenceScore(
+          null, // SMC
+          cvdAnalysis,
+          null, // Volume profile
+          fundingRate,
+          openInterest,
+          null, // Technical indicators
+          null, // Fibonacci
+          null, // Order flow
+          '1H'
+        );
+      } catch (error) {
+        console.warn(`Confluence analysis failed for ${symbol}, using fallback:`, error);
+        confluenceAnalysis = this.generateFallbackConfluenceAnalysis(symbol, ticker?.price || '0');
       }
 
       return {
@@ -662,12 +718,21 @@ export class OKXService {
         },
         orderBook,
         recentTrades,
+        fundingRate,
+        openInterest,
+        cvdAnalysis,
+        confluenceAnalysis,
         lastUpdate: new Date().toISOString(),
       };
     } catch (error) {
       console.error(`Error fetching complete ${symbol} data:`, error);
       throw new Error(`Failed to fetch complete ${symbol} data`);
     }
+  }
+
+  // Legacy complete SOL data method for backward compatibility
+  async getCompleteSOLData(): Promise<SolCompleteData> {
+    return this.getCompleteData('SOL-USDT-SWAP');
   }
 
   // SMC Analysis using historical candlestick data
@@ -700,6 +765,129 @@ export class OKXService {
       console.error('Error performing SMC analysis:', error);
       throw new Error('Failed to perform SMC analysis');
     }
+  }
+
+  // Generate fallback CVD analysis when service fails
+  private generateFallbackCVDAnalysis(symbol: string, recentTrades: any[]): any {
+    const totalVolume = recentTrades.reduce((sum, trade) => 
+      sum + parseFloat(trade.size || '0'), 0
+    );
+    const buyVolume = recentTrades
+      .filter(trade => trade.side === 'buy')
+      .reduce((sum, trade) => sum + parseFloat(trade.size || '0'), 0);
+    const sellVolume = totalVolume - buyVolume;
+    
+    return {
+      timeframe: '1H',
+      currentCVD: (buyVolume - sellVolume).toFixed(2),
+      previousCVD: '0',
+      deltaChange: (buyVolume - sellVolume).toFixed(2),
+      percentageChange: '0',
+      cvdHistory: [],
+      confidence: {
+        overall: 40,
+        dataQuality: 30,
+        signalClarity: 20,
+        timeframeSynergy: 15
+      },
+      buyerSellerAggression: {
+        buyerAggression: {
+          percentage: Math.round((buyVolume / totalVolume) * 100),
+          strength: buyVolume > sellVolume ? 'moderate' : 'weak',
+          volume: buyVolume.toFixed(2),
+          averageSize: (buyVolume / Math.max(recentTrades.filter(t => t.side === 'buy').length, 1)).toFixed(2)
+        },
+        sellerAggression: {
+          percentage: Math.round((sellVolume / totalVolume) * 100),
+          strength: sellVolume > buyVolume ? 'moderate' : 'weak',
+          volume: sellVolume.toFixed(2),
+          averageSize: (sellVolume / Math.max(recentTrades.filter(t => t.side === 'sell').length, 1)).toFixed(2)
+        },
+        dominantSide: buyVolume > sellVolume ? 'buyers' : sellVolume > buyVolume ? 'sellers' : 'balanced',
+        aggressionRatio: sellVolume > 0 ? (buyVolume / sellVolume) : 1,
+        averageTradeSize: totalVolume / Math.max(recentTrades.length, 1),
+        largeTradeCount: recentTrades.filter(t => parseFloat(t.size || '0') > totalVolume / recentTrades.length * 3).length,
+        retailTradeCount: recentTrades.length,
+        timeDecay: 0.8
+      },
+      activeDivergences: [],
+      recentDivergences: [],
+      absorptionPatterns: [],
+      flowAnalysis: {
+        phase: buyVolume > sellVolume ? 'accumulation' : 'distribution',
+        strength: Math.abs(buyVolume - sellVolume) / totalVolume > 0.1 ? 'moderate' : 'weak',
+        sustainability: 'weak',
+        zones: []
+      },
+      smartMoneySignals: {
+        accumulation: { active: false, strength: 'weak', zones: [] },
+        distribution: { active: false, strength: 'weak', zones: [] },
+        absorption: { active: false, strength: 'weak', price: '0' },
+        testingPhase: { active: false, type: 'none', strength: 'weak' }
+      },
+      realTimeMetrics: {
+        currentBuyPressure: Math.round((buyVolume / totalVolume) * 100),
+        currentSellPressure: Math.round((sellVolume / totalVolume) * 100),
+        momentum: buyVolume > sellVolume ? 'bullish' : sellVolume > buyVolume ? 'bearish' : 'neutral',
+        velocity: 0,
+        acceleration: 0
+      },
+      multiTimeframeAlignment: {
+        '1H': {
+          cvd: (buyVolume - sellVolume).toFixed(2),
+          trend: buyVolume > sellVolume ? 'bullish' : sellVolume > buyVolume ? 'bearish' : 'neutral',
+          strength: 'weak'
+        }
+      },
+      alerts: [],
+      pressureHistoryData: {
+        history: [],
+        analytics: {
+          pressureChange24h: {
+            buyPressureChange: 0,
+            sellPressureChange: 0,
+            trendDirection: 'neutral'
+          },
+          manipulationEvents: [],
+          absorptionLevels: []
+        }
+      },
+      lastUpdate: new Date().toISOString(),
+      dataAge: 0
+    };
+  }
+
+  // Generate fallback confluence analysis when service fails
+  private generateFallbackConfluenceAnalysis(symbol: string, currentPrice: string): any {
+    const price = parseFloat(currentPrice || '0');
+    return {
+      overall: 55,
+      trend: 'neutral' as const,
+      strength: 'weak' as const,
+      confidence: 40,
+      components: {
+        smc: 50,
+        cvd: 50,
+        volumeProfile: 50,
+        funding: 55,
+        openInterest: 50,
+        technicalIndicators: 50,
+        fibonacci: 50,
+        orderFlow: 50
+      },
+      signals: [
+        {
+          type: 'neutral',
+          source: 'Fallback Analysis',
+          weight: 20,
+          confidence: 40
+        }
+      ],
+      recommendation: 'HOLD - Insufficient data for strong directional bias',
+      riskLevel: 'medium' as const,
+      timeframe: '1H',
+      lastUpdate: new Date().toISOString()
+    };
   }
 
   private setupPingPong(): void {

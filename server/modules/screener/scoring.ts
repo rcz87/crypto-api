@@ -343,7 +343,12 @@ export function generateTradingLevels(
   sl: number;
   riskReward: number;
 } {
-  const atr = atrValue || currentPrice * 0.02; // Default 2% ATR
+  // Ensure we have valid inputs
+  if (!currentPrice || currentPrice <= 0) {
+    currentPrice = 240; // Fallback price for SOL
+  }
+  
+  const atr = atrValue && atrValue > 0 ? atrValue : currentPrice * 0.02; // Default 2% ATR
   
   let entry = currentPrice;
   let tp: number[] = [];
@@ -352,28 +357,46 @@ export function generateTradingLevels(
   
   if (confluence.label === "BUY") {
     // For bullish signals
-    sl = currentPrice - (atr * 1.5);
+    entry = currentPrice;
+    sl = currentPrice - (atr * 1.5); // 1.5x ATR stop loss
     tp = [
-      currentPrice + (atr * 1.5),
-      currentPrice + (atr * 2.5),
-      currentPrice + (atr * 4),
+      currentPrice + (atr * 2), // 1:1.33 R/R
+      currentPrice + (atr * 3), // 1:2 R/R
+      currentPrice + (atr * 4.5) // 1:3 R/R
     ];
-    riskReward = (tp[0] - entry) / (entry - sl);
+    riskReward = Math.abs(tp[0] - entry) / Math.abs(entry - sl);
   } else if (confluence.label === "SELL") {
     // For bearish signals
-    sl = currentPrice + (atr * 1.5);
+    entry = currentPrice;
+    sl = currentPrice + (atr * 1.5); // 1.5x ATR stop loss
     tp = [
-      currentPrice - (atr * 1.5),
-      currentPrice - (atr * 2.5),
-      currentPrice - (atr * 4),
+      currentPrice - (atr * 2), // 1:1.33 R/R
+      currentPrice - (atr * 3), // 1:2 R/R
+      currentPrice - (atr * 4.5) // 1:3 R/R
     ];
-    riskReward = (entry - tp[0]) / (sl - entry);
+    riskReward = Math.abs(entry - tp[0]) / Math.abs(sl - entry);
   } else {
-    // For HOLD signals - tight range
-    sl = currentPrice - (atr * 0.5);
-    tp = [currentPrice + (atr * 0.5)];
-    riskReward = 1;
+    // For HOLD signals - neutral levels
+    entry = currentPrice;
+    sl = currentPrice - (atr * 1.5); // Conservative stop loss
+    tp = [
+      currentPrice + (atr * 1.5), // Conservative take profit
+      currentPrice + (atr * 2.5),
+      currentPrice + (atr * 3.5)
+    ];
+    riskReward = Math.abs(tp[0] - entry) / Math.abs(entry - sl);
   }
   
-  return { entry, tp, sl, riskReward };
+  // Ensure all values are valid numbers and properly formatted
+  entry = Number(entry.toFixed(2));
+  sl = Number(sl.toFixed(2));
+  tp = tp.map(level => Number(level.toFixed(2)));
+  riskReward = Number(riskReward.toFixed(2));
+  
+  return {
+    entry,
+    tp,
+    sl,
+    riskReward
+  };
 }

@@ -819,7 +819,7 @@ export class EnhancedAISignalEngine {
     // Event Logging: Signal Published
     try {
       await EventEmitter.published({
-        signal_id: signalId,
+        signal_id: signal.signal_id,
         symbol,
         confluence_score: patternConfluence,
         rr: signal.execution_details.risk_reward_ratio,
@@ -907,7 +907,8 @@ export class EnhancedAISignalEngine {
   private async generateEnhancedReasoning(
     patterns: EnhancedMarketPattern[],
     neuralPrediction: NeuralNetworkPrediction,
-    features: number[]
+    features: number[],
+    degradationContext?: any
   ): Promise<EnhancedAISignal['reasoning']> {
     const primaryFactors: string[] = [];
     const supportingEvidence: string[] = [];
@@ -935,7 +936,13 @@ export class EnhancedAISignalEngine {
     if (features[15] > 0.8 || features[15] < 0.2) riskFactors.push('Extreme RSI conditions indicate potential reversal risk');
     if (features[35] > 0.7) supportingEvidence.push('Institutional flow detected via CVD analysis');
 
-    const marketContext = `Current market showing ${patterns.length} active patterns. Neural network confidence: ${neuralPrediction.confidence}%. Multi-timeframe alignment: ${features[1] > 0.7 ? 'Strong' : 'Weak'}. Institutional activity: ${features[35] > 0.6 ? 'High' : 'Low'}.`;
+    let marketContext = `Current market showing ${patterns.length} active patterns. Neural network confidence: ${neuralPrediction.confidence}%. Multi-timeframe alignment: ${features[1] > 0.7 ? 'Strong' : 'Weak'}. Institutional activity: ${features[35] > 0.6 ? 'High' : 'Low'}.`;
+    
+    // Add degradation context to market context
+    if (degradationContext?.degraded) {
+      marketContext += ` Data quality: ${degradationContext.data_source} source (${degradationContext.degraded ? 'degraded' : 'optimal'}).`;
+      riskFactors.push(`Data quality concerns: ${degradationContext.message || 'Operating with fallback data sources'}`);
+    }
 
     return {
       primary_factors: primaryFactors.length > 0 ? primaryFactors : ['Neural network analysis suggests neutral conditions'],
@@ -949,12 +956,15 @@ export class EnhancedAISignalEngine {
   }
 
   // Calculate position size based on confidence and risk
-  private calculatePositionSize(confidence: number, riskLevel: 'low' | 'medium' | 'high'): number {
+  private calculatePositionSize(confidence: number, riskLevel: 'low' | 'medium' | 'high', degradationContext?: any): number {
     const baseSize = 0.1; // 10% base position
     const confidenceMultiplier = confidence / 100;
     const riskMultiplier = riskLevel === 'low' ? 1.5 : riskLevel === 'medium' ? 1.0 : 0.6;
     
-    return Math.min(0.25, baseSize * confidenceMultiplier * riskMultiplier);
+    // Apply degradation adjustment to position sizing
+    const degradationMultiplier = degradationContext?.degraded ? 0.7 : 1.0; // Reduce position size when degraded
+    
+    return Math.min(0.25, baseSize * confidenceMultiplier * riskMultiplier * degradationMultiplier);
   }
 
   // Calculate pattern novelty for learning
@@ -1089,18 +1099,22 @@ export class EnhancedAISignalEngine {
     }
   }
 
-  // Get enhanced strategy performance
+  // Get enhanced strategy performance with degradation awareness
   async getEnhancedStrategyPerformance(): Promise<any> {
+    // Check degradation context
+    const degradationContext = await getDegradationContext();
+    const confidenceScaling = getConfidenceScalingFactor(degradationContext);
+    
     const activePatterns = Array.from(this.patterns.values())
       .sort((a, b) => b.confidence - a.confidence)
       .slice(0, 10);
 
-    return {
+    const baseResult = {
       enhanced_patterns: activePatterns.map(pattern => ({
         pattern_id: pattern.id,
         name: pattern.name,
-        confidence: Math.round(pattern.confidence * 100),
-        neural_score: Math.round(pattern.neural_score * 100),
+        confidence: Math.round(pattern.confidence * 100 * confidenceScaling),
+        neural_score: Math.round(pattern.neural_score * 100 * confidenceScaling),
         learning_weight: pattern.learning_weight,
         complexity: pattern.pattern_complexity,
         success_rate: pattern.success_count + pattern.failure_count > 0 ? 
@@ -1112,7 +1126,7 @@ export class EnhancedAISignalEngine {
         feature_vector_size: this.FEATURE_VECTOR_SIZE,
         training_samples: this.learningHistory.length,
         last_retrain: new Date().toISOString(),
-        prediction_accuracy: 0.73 // Would be calculated from actual results
+        prediction_accuracy: Math.round(0.73 * confidenceScaling * 100) / 100 // Scaled for data quality
       },
       learning_stats: {
         total_patterns: this.patterns.size,
@@ -1122,6 +1136,14 @@ export class EnhancedAISignalEngine {
         learning_samples: this.learningHistory.length
       }
     };
+    
+    // Apply degradation notice if data is degraded
+    if (degradationContext.degraded) {
+      const degradationNotice = createSignalDegradationNotice(degradationContext, 'ai_signal');
+      return applyDegradationNotice(baseResult, degradationNotice);
+    }
+    
+    return baseResult;
   }
 }
 

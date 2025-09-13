@@ -44,6 +44,9 @@ import { backpressureManager } from "./utils/websocket";
 // Enhanced security imports (rate limiting moved to middleware/security.ts)
 import { InputSanitizer, getEnhancedSecurityMetrics } from './middleware/security';
 
+// Degradation utilities import
+import { applyDegradationNotice } from './utils/degradationNotice';
+
 // CORS middleware
 function corsMiddleware(req: Request, res: Response, next: Function) {
   res.header('Access-Control-Allow-Origin', '*');
@@ -1682,21 +1685,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update metrics
       await storage.updateMetrics(responseTime);
       
-      // Log successful request
+      // Log successful request with degradation awareness
+      const degradationInfo = enhancedSignal.degradation_notice ? ` (degraded: ${enhancedSignal.degradation_notice.data_quality_score}/100)` : '';
       await storage.addLog({
         level: 'info',
         message: 'Enhanced AI signal generated successfully',
-        details: `GET /api/ai/enhanced-signal - ${responseTime}ms - Direction: ${enhancedSignal.direction} (${enhancedSignal.confidence}% confidence)`,
+        details: `GET /api/ai/enhanced-signal - ${responseTime}ms - Direction: ${enhancedSignal.direction} (${enhancedSignal.confidence}% confidence)${degradationInfo}`,
       });
       
-      console.log(`✅ Enhanced AI Signal completed in ${responseTime}ms - ${enhancedSignal.direction.toUpperCase()} with ${enhancedSignal.confidence}% confidence`);
+      console.log(`✅ Enhanced AI Signal completed in ${responseTime}ms - ${enhancedSignal.direction.toUpperCase()} with ${enhancedSignal.confidence}% confidence${degradationInfo}`);
       
-      res.json({
+      // Prepare base response
+      const baseResponse = {
         success: true,
         data: enhancedSignal,
         timestamp: new Date().toISOString(),
         responseTime: `${responseTime}ms`
-      });
+      };
+      
+      // Apply degradation notice to response if signal is degraded
+      const finalResponse = enhancedSignal.degradation_notice 
+        ? applyDegradationNotice(baseResponse, enhancedSignal.degradation_notice)
+        : baseResponse;
+      
+      res.json(finalResponse);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -1731,13 +1743,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update metrics
       await storage.updateMetrics(responseTime);
       
-      // Log successful request
+      // Log successful request with degradation awareness
+      const degradationInfo = enhancedPerformance.degradation_notice ? ` (data quality: ${enhancedPerformance.degradation_notice.data_quality_score}/100)` : '';
       await storage.addLog({
         level: 'info',
         message: 'Enhanced AI performance metrics retrieved',
-        details: `GET /api/ai/enhanced-performance - ${responseTime}ms - Patterns: ${enhancedPerformance.enhanced_patterns.length}`,
+        details: `GET /api/ai/enhanced-performance - ${responseTime}ms - Patterns: ${enhancedPerformance.enhanced_patterns.length}${degradationInfo}`,
       });
       
+      // Prepare final response (degradation notice already applied in service if needed)
       res.json({
         success: true,
         data: enhancedPerformance,
