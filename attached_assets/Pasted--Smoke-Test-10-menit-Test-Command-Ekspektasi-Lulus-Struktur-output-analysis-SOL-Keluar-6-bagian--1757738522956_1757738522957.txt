@@ -1,0 +1,148 @@
+✅ Smoke Test (10 menit)
+Test	Command	Ekspektasi Lulus
+Struktur output	/analysis SOL	Keluar 6 bagian lengkap + JSON Signal.
+2 skenario saat mixed	Simulasikan confluence 60–70%	Keluar Long & Short + level invalidasi JELAS.
+1 skenario saat kuat	Simulasikan confluence ≥ 80%	Primary scenario + Hedge (invalidasi).
+Sniper timing	/analysis SOL (5m timing)	Terdapat “Trigger long/short” spesifik, bukan narasi umum.
+RR ≥ 1.5	Data apapun	JSON risk_reward ≥ 1.5, kecuali mode TTL scalping (boleh 1.2–1.5).
+TTL/expiry sinyal	Tambahkan expiry_minutes: 30	Sinyal kedaluwarsa otomatis bila tak tersentuh.
+Zona waktu	Default Asia/Jakarta	Timestamp sesuai WIB.
+
+Lulus = semua kotak centang ✅, kalau ada yang gagal → perbaiki prompt handler, bukan ngurangin ketegasan.
+
+🎯 Confluence Scoring (8-layer)
+
+Simple, audit-able, dan gampang di-debug.
+
+Layer	Bobot	Contoh Kriteria “Match”
+SMC (BOS/CHoCH/OB/FVG)	0.20	BOS + reclaim OB / FVG imbalance to fill
+CVD / Volume Delta	0.15	Delta positif konsisten + sweep liquidity
+RSI/EMA/MACD	0.15	RSI 50+ + harga di atas EMA50/200 + MACD histogram > 0
+Price Action / Structure	0.10	HH/HL intact atau break struktur valid
+Open Interest	0.15	OI naik selaras volume (bukan short squeeze doang)
+Funding Rate	0.10	Funding netral–sedikit positif saat uptrend sehat
+Orderbook / Flow	0.10	Bid ladder support + iceberg detect / absorption
+Fibonacci / Key Levels	0.05	Reaksi di 0.5–0.618 / 1.272–1.618 extension
+
+Skor akhir = Σ (bobot × match_bool_or_score)
+
+≥ 0.75 → Strong confluence → 1 Primary + 1 Hedge
+
+0.50–0.74 → Mixed → 2 skenario paralel
+
+< 0.50 → WAIT → tidak kirim sinyal entry; kirim “monitor-only” dengan trigger jelas
+
+Catatan: jangan biarkan GPT “mengarang match”. Wajib tulis bukti singkat per layer (1 baris).
+
+🛡️ Guardrails (biar tegas tapi tetap waras)
+Aturan	Kenapa	Implementasi Cepat
+SL < Entry < TP (long) / TP < Entry < SL (short)	Anti angka nyasar	Validasi numerik sebelum publish.
+RR minimal 1.5	Kualitas setup	Kecuali mode scalp TTL 15, boleh 1.2–1.5.
+TP/SL logis	Anti over-optimis	Batas max TP2 = 2× ATR(14) H1 dari entry.
+Expiry	Disiplin eksekusi	expiry_minutes default 30–45. Auto-cancel bila tak trigger.
+Skenario wajib	Anti “takut salah”	Mixed → 2 skenario; Kuat → Primary + Hedge.
+Angka harus beralasan	Anti halu	Anchor ke level: OB/FVG/POC/HTF SR, bukan angka bulat.
+📣 Format Alert Telegram (human-friendly)
+[SIGNAL] SOL-USDT-SWAP — 13 Sep 10:32 WIB
+Bias 1D: Bullish (82%) | Struktur 4H: Intact
+
+PRIMARY (Long):
+• Entry: 221.8–222.4
+• SL: 219.7  | TP1: 224.6  | TP2: 227.3  | RR: 1.9
+• Alasan: BOS + reclaim OB 15m, delta > 0, OI naik sehat
+• Invalidation: Close 15m < 219.9
+
+HEDGE (Jika invalid):
+• Short di 219.6 | SL 221.1 | TP 217.8 / 216.5 | RR 1.7
+
+Sniper 5m:
+• Long trigger: CHoCH 5m + reclaim EMA50 + delta positif
+• Short trigger: 5m LH + swept H, delta - | tape sell pressure
+
+Expiry: 30 menit (auto-cancel jika tidak trigger)
+
+🧩 JSON Signal (untuk bot & audit)
+{
+  "symbol": "SOL-USDT-SWAP",
+  "timestamp_wib": "2025-09-13T10:32:00+07:00",
+  "bias_1d": "bullish",
+  "confluence_score": 0.82,
+  "setup_15m": "BOS + reclaim OB + delta > 0",
+  "scenarios": {
+    "primary": {
+      "side": "long",
+      "entry_zone": [221.8, 222.4],
+      "stop_loss": 219.7,
+      "take_profit": [224.6, 227.3],
+      "risk_reward": 1.9,
+      "invalidation_note": "15m close < 219.9"
+    },
+    "hedge_or_alt": {
+      "side": "short",
+      "entry": 219.6,
+      "stop_loss": 221.1,
+      "take_profit": [217.8, 216.5],
+      "risk_reward": 1.7
+    }
+  },
+  "risk_plan": {
+    "max_risk_per_trade": "1.5%",
+    "mode": "scalp_ttl_15",
+    "expiry_minutes": 30
+  },
+  "layers": {
+    "smc": "BOS 15m, reclaim OB",
+    "cvd": "positif, no absorption di ask",
+    "rsi_ema_macd": "RSI>50, di atas EMA50, MACD>0",
+    "structure": "4H intact (HH/HL)",
+    "oi": "naik bersamaan volume",
+    "funding": "sedikit positif",
+    "orderflow": "bid ladder aktif",
+    "fibo": "reclaim 0.5–0.618"
+  }
+}
+
+
+Minimal 5 field wajib untuk validasi: symbol, confluence_score, scenarios.primary, risk_plan.expiry_minutes, layers.
+
+📈 Observability (biar bisa “belajar”)
+Metric	Definisi	Target / Tindakan
+Trigger Rate	% sinyal yang menyentuh entry	Terlalu rendah → entry zone terlalu sempit.
+Fill → Invalidate Ratio	Diisi lalu kena SL	> 45%? → filter layer/naikkan skor ambang.
+RR Realized	RR rata-rata tercapai	< 1.3? → kebanyakan TP ambisius / SL mepet.
+Time-to-Trigger	Menit dari publish ke trigger	> expiry → kecilkan spread entry / tunggu konfirmasi ekstra.
+Winrate by Confluence Bin	0.5–0.59 / 0.6–0.69 / 0.7–0.79 / ≥0.8	Naik monotonic? Kalau tidak → bobot layer perlu kalibrasi.
+🧭 Decision Micro-Flow (pseudocode singkat)
+score = Σ layer_i.weight * layer_i.match
+if score >= 0.75:
+   produce PRIMARY + HEDGE
+elif 0.50 <= score < 0.75:
+   produce LONG & SHORT (kedua sisi) + invalidation levels
+else:
+   produce MONITOR-ONLY + sniper triggers (no entry levels)
+validate RR, SL/TP order, expiry
+publish markdown + json
+
+🧱 Patch Prompt (tambahan kecil yang krusial)
+
+Tambahkan di sistem prompt-mu:
+
+“Angka selalu di-anchor ke level teknikal (OB/FVG/SR/POC/Fibo). Dilarang memakai angka bulat tanpa alasan.”
+
+“Expiry default 30–45 menit; sertakan expiry_minutes pada JSON.”
+
+“RR minimal 1.5 (kecuali mode scalp_ttl_15: 1.2–1.5).”
+
+“Jika confluence < 0.50 → JANGAN keluarkan level entry. Hanya monitor + trigger.”
+
+TL;DR
+
+Mode ANALYSIS sudah bagus. Dengan checklist di atas, output kamu bakal:
+
+Tegas (no hedging) tapi terukur (guardrails & RR).
+
+Audit-able (confluence score & layers terang).
+
+Actionable (sniper 5m + expiry).
+
+Belajar (observability metrics siap tuning).

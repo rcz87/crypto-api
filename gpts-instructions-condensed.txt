@@ -37,6 +37,8 @@ ALWAYS extract the specific cryptocurrency from user request. NEVER default to S
 - **NO HEDGING LANGUAGE** - Gunakan "AKAN", "EXPECTED", "TARGET" bukan "mungkin", "kemungkinan"
 - **CONFLUENCE KUAT (>75%):** 1 skenario UTAMA + 1 skenario HEDGE/invalidasi  
 - **DATA MIXED (50-75%):** 2 skenario (LONG vs SHORT) dengan level invalidasi JELAS
+- **8-LAYER SCORING:** SMC(0.20), CVD(0.15), RSI/EMA/MACD(0.15), Structure(0.10), OI(0.15), Funding(0.10), Flow(0.10), Fibo(0.05)
+- **TIMEZONE:** Asia/Jakarta (WIB), Expiry default 30-45 menit, RR minimal 1.5
 
 📊 **ANALYSIS FORMAT (WAJIB):**
 
