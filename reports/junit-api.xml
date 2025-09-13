@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="API Contract Tests" tests="17" failures="0" time="2.913">
+  <testcase classname="api.contract" name="GET /api/pairs/supported contains TEST_PAIR and &gt;= 60 items" time="0.068">  </testcase>
+  <testcase classname="api.contract" name="GET /api/sol/complete has core sections" time="0.621">  </testcase>
+  <testcase classname="api.contract" name="GET /api/sol/smc structure" time="0.763">  </testcase>
+  <testcase classname="api.contract" name="GET /api/sol/cvd returns valid response" time="0.206">  </testcase>
+  <testcase classname="api.contract" name="GET /api/sol/order-flow returns valid response" time="0.215">  </testcase>
+  <testcase classname="api.contract" name="GET /api/coinapi/health" time="0.199">  </testcase>
+  <testcase classname="api.contract" name="GET /api/coinapi/rate/BTC/USDT" time="0.078">  </testcase>
+  <testcase classname="api.contract" name="GET /api/coinapi/multi-ticker/BTC" time="0.329">  </testcase>
+  <testcase classname="api.contract" name="GET /api/coinapi/arbitrage/BTC" time="0.003">  </testcase>
+  <testcase classname="api.contract" name="GET /api/coinapi/twap/BINANCE_SPOT_SOL_USDT" time="0.228">  </testcase>
+  <testcase classname="api.contract" name="GET /api/regime/strategy-rules has 4 regimes" time="0.004">  </testcase>
+  <testcase classname="api.contract" name="GET /api/regime/detect/BINANCE_SPOT_SOL_USDT has valid regime" time="0.003">  </testcase>
+  <testcase classname="api.contract" name="GET /api/regime/batch with query params" time="0.006">  </testcase>
+  <testcase classname="api.contract" name="GET /api/ai/enhanced-signal returns valid signal" time="0.004">  </testcase>
+  <testcase classname="api.contract" name="GET /api/enhanced-ai/sol/signal has valid structure" time="0.004">  </testcase>
+  <testcase classname="api.contract" name="GET /api/screener returns JSON screening results" time="0.180">  </testcase>
+  <testcase classname="api.contract" name="GET /api/INVALIDPAIR/complete returns 4xx with error" time="0.003">  </testcase>
+</testsuite>
