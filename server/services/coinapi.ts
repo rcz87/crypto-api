@@ -45,6 +45,36 @@ export interface ValidatedHistoricalData {
   source: 'api' | 'cache' | 'fallback';
 }
 
+// Enhanced interfaces with degradation metadata
+export interface DegradationMetadata {
+  degraded: boolean;
+  fallback_reason?: string;
+  data_source: 'coinapi' | 'okx_fallback' | 'last_good_cache' | 'degraded_coinapi';
+  health_status: HealthStatus;
+}
+
+export interface EnhancedMultiExchangeResponse {
+  tickers: ValidatedTickerData[];
+  degradation: DegradationMetadata;
+}
+
+export interface EnhancedArbitrageResponse {
+  opportunities: Array<{
+    buy_exchange: string;
+    sell_exchange: string;
+    buy_price: number;
+    sell_price: number;
+    profit_percentage: number;
+    profit_usd: number;
+  }>;
+  best_opportunity: {
+    buy_exchange: string;
+    sell_exchange: string;
+    profit_percentage: number;
+  } | null;
+  degradation: DegradationMetadata;
+}
+
 export interface CoinAPIQuote {
   symbol_id: string;
   time_exchange: string;
@@ -377,6 +407,46 @@ export class CoinAPIService {
     console.log(`🏥 CoinAPI Health Check: ${status} (p95: ${p95Latency}ms, avg: ${avgLatency.toFixed(1)}ms, errors: ${errorRate.toFixed(1)}%)`);
     
     return this.currentHealthStatus;
+  }
+  
+  /**
+   * Build degradation metadata from health status and source information
+   */
+  private async buildDegradationMetadata(
+    source: 'api' | 'cache' | 'fallback',
+    healthStatus?: HealthStatus
+  ): Promise<DegradationMetadata> {
+    const currentHealth = healthStatus || await this.healthCheck();
+    
+    // Determine if system is degraded
+    const isDegraded = currentHealth.status !== 'healthy' || source !== 'api';
+    
+    // Map fallback reason based on health status and source
+    let fallbackReason: string | undefined;
+    let dataSource: 'coinapi' | 'okx_fallback' | 'last_good_cache' | 'degraded_coinapi';
+    
+    if (source === 'api') {
+      if (currentHealth.status === 'healthy') {
+        dataSource = 'coinapi';
+      } else {
+        dataSource = 'degraded_coinapi';
+        fallbackReason = currentHealth.degradation_reason || 
+          (currentHealth.status === 'degraded' ? 'api_degraded' : 'api_down');
+      }
+    } else if (source === 'fallback') {
+      dataSource = 'okx_fallback';
+      fallbackReason = currentHealth.degradation_reason || 'coinapi_unavailable';
+    } else { // source === 'cache'
+      dataSource = 'last_good_cache';
+      fallbackReason = 'using_cached_data';
+    }
+    
+    return {
+      degraded: isDegraded,
+      fallback_reason: isDegraded ? fallbackReason : undefined,
+      data_source: dataSource,
+      health_status: currentHealth
+    };
   }
   
   /**
@@ -803,9 +873,9 @@ export class CoinAPIService {
 
   /**
    * Get ticker data for multiple exchanges for a specific asset (Enhanced with fallback mechanisms)
-   * Returns aggregated view across multiple exchanges
+   * Returns aggregated view across multiple exchanges with degradation metadata
    */
-  async getMultiExchangeTicker(asset: string = 'SOL'): Promise<ValidatedTickerData[]> {
+  async getMultiExchangeTicker(asset: string = 'SOL'): Promise<EnhancedMultiExchangeResponse> {
     const cacheKey = this.getCacheKey('multi_ticker', { asset });
     const lastGoodKey = this.getLastGoodCacheKey('multi_ticker', { asset });
     
@@ -871,12 +941,20 @@ export class CoinAPIService {
         'ticker'
       );
       
-      // Return validated ticker data
-      return result.data.map(ticker => ({
+      // Build degradation metadata
+      const degradation = await this.buildDegradationMetadata(result.source);
+      
+      // Return enhanced response with validated ticker data and degradation metadata
+      const validatedTickers: ValidatedTickerData[] = result.data.map(ticker => ({
         ...ticker,
         data_quality: result.quality,
         source: result.source
       }));
+      
+      return {
+        tickers: validatedTickers,
+        degradation
+      };
     }, TTL_CONFIG.TICKER);
   }
 
@@ -961,28 +1039,15 @@ export class CoinAPIService {
   }
 
   /**
-   * Get arbitrage opportunities across exchanges
+   * Get arbitrage opportunities across exchanges with degradation metadata
    */
-  async getArbitrageOpportunities(asset: string = 'SOL'): Promise<{
-    opportunities: Array<{
-      buy_exchange: string;
-      sell_exchange: string;
-      buy_price: number;
-      sell_price: number;
-      profit_percentage: number;
-      profit_usd: number;
-    }>;
-    best_opportunity: {
-      buy_exchange: string;
-      sell_exchange: string;
-      profit_percentage: number;
-    } | null;
-  }> {
+  async getArbitrageOpportunities(asset: string = 'SOL'): Promise<EnhancedArbitrageResponse> {
     const cacheKey = this.getCacheKey('arbitrage', { asset });
     
     return cache.getSingleFlight(cacheKey, async () => {
       try {
-        const tickers = await this.getMultiExchangeTicker(asset);
+        const multiExchangeResponse = await this.getMultiExchangeTicker(asset);
+        const tickers = multiExchangeResponse.tickers;
         const opportunities = [];
 
         // Compare prices across exchanges
@@ -1040,6 +1105,7 @@ export class CoinAPIService {
         return {
           opportunities: opportunities.slice(0, 10), // Top 10 opportunities
           best_opportunity: bestOpportunity,
+          degradation: multiExchangeResponse.degradation // Pass through degradation metadata
         };
       } catch (error) {
         console.error(`Error finding arbitrage opportunities for ${asset}:`, error);

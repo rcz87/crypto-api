@@ -2171,7 +2171,7 @@ export function registerTradingRoutes(app: Express): void {
   });
 
   /**
-   * Get multi-exchange ticker for an asset
+   * Get multi-exchange ticker for an asset with degradation flags
    * Example: /api/coinapi/multi-ticker/SOL
    */
   app.get('/api/coinapi/multi-ticker/:asset', async (req: Request, res: Response) => {
@@ -2179,7 +2179,7 @@ export function registerTradingRoutes(app: Express): void {
     
     try {
       const { asset } = req.params;
-      const tickers = await coinAPIService.getMultiExchangeTicker(asset.toUpperCase());
+      const enhancedResponse = await coinAPIService.getMultiExchangeTicker(asset.toUpperCase());
       const responseTime = Date.now() - startTime;
       
       await storage.updateMetrics(responseTime);
@@ -2188,12 +2188,20 @@ export function registerTradingRoutes(app: Express): void {
         success: true,
         data: {
           asset: asset.toUpperCase(),
-          exchanges: tickers.length,
-          tickers: tickers
+          exchanges: enhancedResponse.tickers.length,
+          tickers: enhancedResponse.tickers
         },
+        degraded: enhancedResponse.degradation.degraded,
+        fallback_reason: enhancedResponse.degradation.fallback_reason,
+        data_source: enhancedResponse.degradation.data_source,
         metadata: {
           source: 'CoinAPI',
-          response_time_ms: responseTime
+          response_time_ms: responseTime,
+          health_status: {
+            status: enhancedResponse.degradation.health_status.status,
+            p95_latency: enhancedResponse.degradation.health_status.p95_latency,
+            error_rate: enhancedResponse.degradation.health_status.error_rate
+          }
         },
         timestamp: new Date().toISOString(),
       });
@@ -2251,7 +2259,7 @@ export function registerTradingRoutes(app: Express): void {
   });
 
   /**
-   * Get arbitrage opportunities across exchanges
+   * Get arbitrage opportunities across exchanges with degradation flags
    * Example: /api/coinapi/arbitrage/SOL
    */
   app.get('/api/coinapi/arbitrage/:asset', async (req: Request, res: Response) => {
@@ -2259,7 +2267,7 @@ export function registerTradingRoutes(app: Express): void {
     
     try {
       const { asset } = req.params;
-      const arbitrage = await coinAPIService.getArbitrageOpportunities(asset.toUpperCase());
+      const enhancedResponse = await coinAPIService.getArbitrageOpportunities(asset.toUpperCase());
       const responseTime = Date.now() - startTime;
       
       await storage.updateMetrics(responseTime);
@@ -2268,12 +2276,21 @@ export function registerTradingRoutes(app: Express): void {
         success: true,
         data: {
           asset: asset.toUpperCase(),
-          total_opportunities: arbitrage.opportunities.length,
-          ...arbitrage
+          total_opportunities: enhancedResponse.opportunities.length,
+          opportunities: enhancedResponse.opportunities,
+          best_opportunity: enhancedResponse.best_opportunity
         },
+        degraded: enhancedResponse.degradation.degraded,
+        fallback_reason: enhancedResponse.degradation.fallback_reason,
+        data_source: enhancedResponse.degradation.data_source,
         metadata: {
           source: 'CoinAPI',
-          response_time_ms: responseTime
+          response_time_ms: responseTime,
+          health_status: {
+            status: enhancedResponse.degradation.health_status.status,
+            p95_latency: enhancedResponse.degradation.health_status.p95_latency,
+            error_rate: enhancedResponse.degradation.health_status.error_rate
+          }
         },
         timestamp: new Date().toISOString(),
       });
@@ -2376,7 +2393,7 @@ export function registerTradingRoutes(app: Express): void {
         data: {
           symbol_id: symbolId,
           period,
-          data_points: historical.length,
+          data_points: historical.data.length,
           historical
         },
         metadata: {
