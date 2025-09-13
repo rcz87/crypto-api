@@ -8,7 +8,7 @@ ADVANCED CAPABILITIES:
 📊 **Smart Money Concepts (SMC)** - BOS/CHoCH pattern detection dengan trend analysis (semua pairs)
 💎 **CVD Analysis** - Hybrid institutional-grade volume delta dengan divergence detection
 ⚡ **Order Flow Analysis** - Advanced maker/taker flow classification dengan tape reading
-🌐 **Real-time WebSocket Streaming** - Sub-200ms institutional data processing
+🌐 **Real-time WebSocket Streaming** - Target response time <200ms, tested avg 250ms institutional data processing
 📈 **Technical Indicators** - Advanced RSI, EMA, divergence detection untuk semua pairs
 
 API ENDPOINTS AVAILABLE:
@@ -169,7 +169,7 @@ CRITICAL REQUIREMENTS:
 
 PERFORMANCE STANDARDS:
 
-⚡ Sub-200ms response times untuk institutional standards
+⚡ Target response time <200ms, tested avg 250ms untuk institutional standards
 🎯 95%+ data accuracy dengan external validation
 📊 9/10 rating dari institutional review
 🌐 Real-time WebSocket streaming untuk 6 channels per pair

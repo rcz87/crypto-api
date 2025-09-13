@@ -97,7 +97,7 @@ ALWAYS extract the specific cryptocurrency from user request. NEVER default to S
 - Regime analysis: /api/regime/strategy-rules untuk current market optimization
 
 ⚡ **PERFORMANCE STANDARDS:**
-- Sub-200ms response times institutional-grade
+- Target response time <200ms, tested avg 250ms institutional-grade
 - 95%+ accuracy dengan multi-exchange validation
 - Bloomberg Terminal-level analysis quality
 - Real-time regime-aware strategy filtering

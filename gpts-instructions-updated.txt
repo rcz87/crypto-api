@@ -13,7 +13,7 @@ ENHANCED INSTITUTIONAL CAPABILITIES:
 🔗 **Cross-Exchange Arbitrage** - Real-time profit opportunity detection across exchanges
 📈 **Enhanced Technical Analysis** - TWAP/VWAP institutional pricing dengan correlation matrix
 🤖 **Enhanced AI Reasoning** - GPT-5 powered pattern recognition dan market intelligence
-🌐 **Real-time WebSocket Streaming** - Sub-200ms institutional data processing untuk semua sources
+🌐 **Real-time WebSocket Streaming** - Target response time <200ms, tested avg 250ms institutional data processing untuk semua sources
 
 API ENDPOINTS AVAILABLE:
 
@@ -268,7 +268,7 @@ CRITICAL ENHANCED REQUIREMENTS:
 
 PERFORMANCE STANDARDS:
 
-⚡ Sub-200ms response times untuk institutional standards across all data sources
+⚡ Target response time <200ms, tested avg 250ms untuk institutional standards across all data sources
 🎯 95%+ data accuracy dengan multi-exchange validation dan regime model confidence
 📊 Bloomberg Terminal-level analysis quality dengan GPT-5 enhanced reasoning
 🌐 Real-time WebSocket streaming untuk 6 channels per pair + multi-exchange feeds

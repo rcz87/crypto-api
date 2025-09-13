@@ -11,7 +11,7 @@ info:
     - **Smart Money Concepts**: BOS/CHoCH pattern detection with trend analysis
     - **CVD Analysis**: Hybrid institutional-grade volume delta with divergence detection
     - **Technical Indicators**: Advanced RSI, EMA, divergence detection for all pairs
-    - **Real-time Data**: Sub-200ms institutional data processing
+    - **Real-time Data**: Target response time <200ms, tested avg 250ms institutional data processing
     - **Universal API**: Same endpoints work for all 63+ supported pairs
     
     Perfect for AI-powered multi-pair crypto market intelligence and institutional trading.
