@@ -1,0 +1,127 @@
+TL;DR
+
+Status: 100% lulus contract tests → siap tempur.
+
+Next: pasang SLO, observability, fallback, dan runbook insiden.
+
+Deliverables di bawah: checklist go-live, alert rules, header versi, dan contoh fallback CoinAPI.
+
+🎛️ SLO & Alert Rules (pasang sekarang)
+Metric	Target (SLO)	Alert (p95)	Catatan Aksi
+REST Latency	p95 < 450ms	>650ms (5m)	Per endpoint (complete/smc/cvd).
+WS Roundtrip	p95 < 250ms	>350ms (5m)	Channel: orderflow/quotes.
+Error Rate	< 1%/5m	>2% (5m)	500/429 dipisah.
+Freshness Data	< 3s delay	>5s (3m)	Time skew cek di payload.
+Screener TTL	< 60s batch	>90s (5m)	Throttle by pairs.
+
+Minimal 4 golden signals: latency, error rate, throughput, freshness.
+
+🧱 Production Hardening (prioritas eksekusi)
+Area	Aksi	Status
+Versioning	Tambah header X-Model-Version, X-Features-Version, X-Rules-Version di semua respon.	☐
+Rate Limit	Standarkan header: RateLimit-Limit/Remaining/Reset/Policy (semua endpoint).	☐
+Fallback Data	Jika CoinAPI status=down → fallback: OKX/last-good-cache untuk rate/twap.	☐
+Circuit Breaker	Trip pada 5xx berturut-turut (≥5/30s) per provider.	☐
+Schema Freeze	Bekukan JSON schema complete/smc/cvd/order-flow; tambah schema_version.	☐
+Security	Scope API key (read-only vs screen/backtest), CORS whitelist dashboard, X-Request-Id.	☐
+Runbook	Buat 1 halaman “Insiden 500/latency” (di bawah).	☐
+🧩 Header yang Wajib Ada (copy-paste ke middleware)
+
+Respons:
+Content-Type, X-Request-Id, X-API-Version, X-Model-Version, X-Features-Version, X-Rules-Version,
+RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, RateLimit-Policy.
+
+Contoh nilai versi:
+
+X-Model-Version: gpts-ai-signal-2025.09.13
+
+X-Features-Version: layers-8.3
+
+X-Rules-Version: analysis-mode-1.2
+
+🛡️ Fallback & Degradasi (anti-lumpuh)
+
+Kondisi: GET /api/coinapi/health → down atau p95 latency > 700ms.
+Aksi otomatis:
+
+Rates/TWAP: pakai provider kedua (OKX) atau last-good (TTL ±30s).
+
+Arbitrage/Multi-Ticker: downgrade ke single-exchange best bid/ask (flag: degraded=true).
+
+Signal Engine: tambahkan catatan “data degraded” di output analisa (tetap kasih skenario, jangan blank).
+
+Pseudocode cepat:
+
+async function safeCoinAPI(fn, fallbackFn) {
+  const ok = await isCoinAPIHealthy({ p95: 700 });
+  if (ok) return await fn();
+  const cache = await lastGoodCache();
+  return cache ?? await fallbackFn(); // OKX or local calc
+}
+
+🧪 Negative/Red Team Tests (biar tahan banting)
+
+Pair tak dikenal → 404 + problem+json (SUDAH ✅, lanjutkan).
+
+Burst 100 rps → tetap kasih 429 + header rate-limit.
+
+Data “aneh”: OI negatif, funding NaN, orderbook spread < 0 → respon 200 tanpa sinyal entry + tanda data_quality: "bad".
+
+📣 Format Alert Telegram (final)
+
+Tetapkan expiry default (30–45 menit), RR minimal (1.5; scalp 1.2–1.5).
+
+Kirim dua pesan:
+
+Ringkas human (seperti yang sudah gue draft),
+
+Raw JSON (inline code block) untuk audit/backtest.
+
+📈 Observability: Event Schema (biar bisa belajar)
+Event	Field Wajib
+signal_published	symbol, confluence_score, rr, scenarios.primary.side, expiry_minutes, rules_version
+signal_triggered	symbol, entry_fill, time_to_trigger_ms
+signal_invalidated	symbol, reason (sl/hard_invalidate/expiry)
+signal_closed	symbol, rr_realized, time_in_trade_ms
+
+Tarik weekly scorecard: winrate per bin skor (0.5–0.59 / 0.6–0.69 / 0.7–0.79 / ≥0.8). Harus monoton naik; kalau tidak, kalibrasi bobot layer.
+
+🧭 Runbook Insiden (anti-panik)
+
+Gejala: p95 latency > SLO atau error rate > 2% (5 menit)
+
+Cek dashboard: endpoint mana spike.
+
+Kill-switch CoinAPI → aktifkan fallback (flag env/feature toggle).
+
+Turunkan batch screener (concurrency ↓, TTL ↑).
+
+Flush cache yang korup (hanya namespace bermasalah).
+
+Catat X-Request-Id contoh untuk root cause.
+
+Update status (internal channel + banner di dashboard jika perlu).
+
+Post-mortem 24 jam: apa yang diperbaiki + pencegahan.
+
+🗓️ Rencana 48 Jam
+
+ Pasang header versi + rate-limit standar.
+
+ Implement fallback + circuit breaker provider.
+
+ Tambah 4 alert (latency, error, freshness, ws_rtt).
+
+ Buat runbook insiden 1 halaman (salin template di atas).
+
+ Nyalakan weekly scorecard (bin confluence).
+
+🗓️ Rencana 7 Hari
+
+ Freeze schema + tambah schema_version.
+
+ Negative tests & burst tests di CI.
+
+ Dashboard SLO (p50/p95, error rate, freshness).
+
+ Simpan 100 sampel sinyal/pekan untuk QA manual (sanity check level).

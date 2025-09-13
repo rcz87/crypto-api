@@ -1,0 +1,161 @@
+“Runbook Insiden (anti-panik)” itu simpel: panduan 1 halaman berisi langkah cepat saat sistemmu ngadat (latency naik, error rate meledak, data basi). Biar pas ada kejadian, kamu atau tim nggak mikir dari nol—langsung eksekusi langkah standar, aktifkan fallback, dan pulihkan layanan.
+
+Di bawah ini versi ringkas + siap pakai.
+
+TL;DR
+
+Runbook = SOP darurat. Isinya:
+
+Kapan dipakai (threshold/trigger)
+
+Siapa ngapain (peran)
+
+Langkah 10 menit (cek → isolasi → fallback → pulih)
+
+Template komunikasi (Telegram/WA)
+
+Kriteria selesai + post-mortem
+
+1) Kapan Dipakai (Triggers)
+Sinyal	Ambang	Arti
+REST p95 latency	> 650 ms selama 5 menit	API melambat
+WS round-trip p95	> 350 ms selama 5 menit	Stream realtime delay
+Error rate	> 2% selama 5 menit	Banyak 5xx/4xx
+Data freshness	> 5 detik	Data basi (lag)
+Screener batch	> 90 detik	Overload screening
+2) Peran Singkat
+
+Incident Owner (kamu): ambil keputusan, aktifkan fallback, update status.
+
+Ops (kamu/otomasi): restart/scale, atur rate-limit, cek log.
+
+Comms (kamu/Telegram bot): kirim status ke channel internal.
+
+Kalau solo—tenang, urutan langkah di bawah udah “single-player friendly”.
+
+3) Langkah Cepat 10 Menit (Anti-Panik)
+
+Identifikasi cepat
+
+Endpoint mana naik p95/error? (complete/smc/cvd/screener/coinapi/*)
+
+Apakah /api/coinapi/health = down atau latency_ms gila?
+
+Aktifkan fallback (jika provider bermasalah)
+
+Matikan CoinAPI sementara, pakai OKX/cache:
+
+FEATURE_COINAPI_ENABLED=false
+
+FALLBACK_PROVIDER=okx
+
+FEATURE_DEGRADED_MODE=true
+
+Restart service (Docker): docker compose up -d
+
+Turunkan beban screener
+
+SCREENER_MAX_CONCURRENCY=2 (turun)
+
+SCREENER_TTL_SECONDS=90 (naik, beri napas)
+
+Rate-limit & proteksi
+
+Terapkan RateLimit-Policy konservatif (mis: 60;w=60;burst=10).
+
+Bersihkan cache korup (namespace spesifik)
+
+Misal Redis: DEL cache:coinapi:* atau hanya kunci yang error.
+
+Verifikasi
+
+Ulangi kontrak test inti (6 tes cepat) atau ping 3 endpoint terpadat.
+
+Pastikan p95 & error rate turun di 5 menit berikutnya.
+
+Komunikasi (lihat template di bawah)
+
+Umumkan DEGRADED → RECOVERED beserta metrik.
+
+Catat X-Request-Id & waktu untuk investigasi lanjut.
+
+4) Template Komunikasi (Telegram/WA)
+
+DEGRADED (awal):
+
+[INCIDENT] Degraded Mode — 13 Sep 10:42 WIB
+- Gejala: p95 /api/* = 820ms, error rate 2.8% (5m)
+- Penyebab awal: CoinAPI health=down
+- Aksi: Fallback=OKX, Screener concurrency=2, TTL=90s
+- Perkiraan: recovery <15 menit
+X-Request-Id contoh: 7c2b...f1
+
+
+RECOVERED (pemulihan):
+
+[RESOLVED] Normal Mode — 13 Sep 10:57 WIB
+- p95 /api/* = 310ms, error rate 0.4% (5m)
+- Provider dipulihkan: CoinAPI up
+- Konfigurasi kembali normal: concurrency=4, TTL=60s
+- Tindak lanjut: post-mortem 24 jam
+
+5) Keputusan Cepat (Decision Tree Mini)
+
+Error rate naik?
+
+Ya → Lihat /coinapi/health.
+
+Down → Fallback ON → Turunkan load → Umumkan degraded.
+
+Up → Cek screener overload → Turunkan concurrency & TTL.
+
+Latency naik tapi error rendah?
+
+Cek WS round-trip & freshness. Jika lag → degrade data to cache.
+
+Data basi (freshness > 5s)?
+
+Periksa stream provider; kalau lambat → cache-first + flag degraded.
+
+6) Kriteria Selesai (Declare “Recovered”)
+
+REST p95 < 450 ms dan error rate < 1% selama 10 menit berturut.
+
+WS p95 < 250 ms dan freshness < 3 s.
+
+Endpoint kontrak tes inti lulus semua.
+
+Fallback off, konfigurasi kembali normal.
+
+7) Post-Mortem (Template 10 Menit)
+
+Judul: Latency spike / Error 5xx — {tanggal}
+Timeline: {detik-menit kejadian → mitigasi → pulih}
+Dampak: endpoint/fitur yang kena, durasi, user terdampak
+Akar masalah (sementara/akhir): {provider down / overload / bug}
+Apa yang bekerja baik: {fallback cepat, runbook jelas}
+Apa yang perlu diperbaiki: {alert threshold, caching, concurrency}
+Aksi pencegahan (owner & tenggat): {list 3–5 butir}
+
+8) Variabel & Toggle yang Disarankan
+Kunci	Contoh	Fungsi
+FEATURE_COINAPI_ENABLED	true/false	Kill-switch provider
+FALLBACK_PROVIDER	okx/cache	Sumber data cadangan
+FEATURE_DEGRADED_MODE	true/false	Tandai output “degraded=true”
+SCREENER_MAX_CONCURRENCY	2..8	Kendali beban screening
+SCREENER_TTL_SECONDS	60..120	Batas waktu batch
+RATE_LIMIT_POLICY	60;w=60;burst=10	Proteksi lonjakan trafik
+
+Setelah ubah env → deploy ulang (mis. docker compose up -d).
+
+9) Quick Smoke Test (pasca-mitigasi)
+
+GET /api/pairs/supported → 200 + RateLimit headers ada
+
+GET /api/sol/complete → 200 + smc/cvd/orderBook hadir
+
+GET /api/coinapi/health → up atau fallback aktif & response tetap cepat
+
+POST /api/screener/screen → 200 JSON, tidak HTML
+
+p95 turun, error < 1%

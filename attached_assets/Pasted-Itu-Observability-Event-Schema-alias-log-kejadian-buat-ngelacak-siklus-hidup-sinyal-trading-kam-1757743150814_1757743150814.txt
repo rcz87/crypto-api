@@ -1,0 +1,222 @@
+Itu “Observability: Event Schema” — alias log kejadian buat ngelacak siklus hidup sinyal trading kamu dari lahir → dieksekusi → gagal/berhasil → selesai. Tujuannya: biar sistemmu bisa belajar dari histori (self-improvement), ningkatin akurasi konfluensi, dan bikin laporan mingguan yang nggak halu.
+
+TL;DR
+
+Apa: Format event standar yang kamu catat setiap kali ada sinyal.
+
+Kenapa: Biar bisa hitung winrate per bin confluence, cek RR real, time-to-trigger, dan kalibrasi bobot layer.
+
+Hasil: Scorecard mingguan → kalau winrate tidak naik seiring skor, bobot layer perlu disetel.
+
+Intinya Apa Aja Event-nya?
+Event	Kapan Dipicu	Data Wajib	Fungsi
+signal_published	Saat sinyal diposting	symbol, confluence_score, rr, scenarios.primary.side, expiry_minutes, rules_version	Rekam “niat awal” sinyal (skor & target RR).
+signal_triggered	Saat entry ke-fill	symbol, entry_fill, time_to_trigger_ms	Ukur respon pasar (cepet/lemot) dan validasi quality entry zone.
+signal_invalidated	Saat sinyal batal	symbol, reason (sl/hard_invalidate/expiry)	Tahu kenapa gagal (kena SL? kadaluarsa? invalid?).
+signal_closed	Saat posisi beres	symbol, rr_realized, time_in_trade_ms	Hasil akhir: RR beneran, durasi trade, win/lose.
+
+Weekly scorecard: hitung winrate per bin confluence (0.5–0.59 / 0.6–0.69 / 0.7–0.79 / ≥0.8). Idealnya naik terus. Kalau tidak, bobot layer perlu kalibrasi.
+
+Kenapa Penting (dengan bahasa trader)
+
+Confluence Score ≠ sakti. Harus terbukti korelasinya sama hasil.
+
+Monotonicity Check: Bin confluence lebih tinggi → harus punya winrate lebih tinggi.
+
+Actionable Feedback: Ketahuan layer mana yang suka “ngeracunin” skor (mis. funding + OI sering bikin false long).
+
+Implement Cepat (15 menit)
+
+Tambahkan emitter di engine sinyal buat kirim 4 event ini (publish/trigger/invalid/close).
+
+Simpan ke PostgreSQL (atau Redis stream + worker ke Postgres).
+
+Cron mingguan (Minggu 23:59 WIB) bikin scorecard & kirim ke Telegram internal.
+
+Skema Teknis (PostgreSQL)
+
+Opsi A – tabel terpisah (paling gampang di-query):
+
+CREATE TABLE signals (
+  signal_id UUID PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  side TEXT CHECK (side IN ('long','short')),
+  confluence_score NUMERIC(4,2) NOT NULL,
+  rr_target NUMERIC(4,2) NOT NULL,
+  expiry_minutes INT NOT NULL,
+  rules_version TEXT NOT NULL,
+  ts_published TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE signal_triggers (
+  signal_id UUID REFERENCES signals(signal_id) ON DELETE CASCADE,
+  ts_triggered TIMESTAMPTZ NOT NULL,
+  entry_fill NUMERIC(18,8) NOT NULL,
+  time_to_trigger_ms INT NOT NULL
+);
+
+CREATE TABLE signal_invalidations (
+  signal_id UUID REFERENCES signals(signal_id) ON DELETE CASCADE,
+  ts_invalidated TIMESTAMPTZ NOT NULL,
+  reason TEXT CHECK (reason IN ('sl','hard_invalidate','expiry')) NOT NULL
+);
+
+CREATE TABLE signal_closures (
+  signal_id UUID REFERENCES signals(signal_id) ON DELETE CASCADE,
+  ts_closed TIMESTAMPTZ NOT NULL,
+  rr_realized NUMERIC(5,2) NOT NULL,
+  time_in_trade_ms INT NOT NULL,
+  exit_reason TEXT CHECK (exit_reason IN ('tp','manual','sl','time','other')) NOT NULL
+);
+
+
+Opsi B – satu tabel event (fleksibel):
+
+CREATE TABLE signal_events (
+  id BIGSERIAL PRIMARY KEY,
+  signal_id UUID NOT NULL,
+  event_type TEXT CHECK (event_type IN ('published','triggered','invalidated','closed')) NOT NULL,
+  payload JSONB NOT NULL,
+  ts TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Buat materialized view untuk laporan mingguan.
+
+Contoh Payload JSON (nyambung sama yang udah kamu punya)
+
+signal_published
+
+{
+  "signal_id": "2b3b1b5e-1e4a-4c2a-8f83-d2e14e3e5a77",
+  "symbol": "SOL-USDT-SWAP",
+  "confluence_score": 0.82,
+  "rr": 1.9,
+  "scenarios": { "primary": { "side": "long" } },
+  "expiry_minutes": 30,
+  "rules_version": "analysis-mode-1.2"
+}
+
+
+signal_triggered
+
+{
+  "signal_id": "2b3b1b5e-1e4a-4c2a-8f83-d2e14e3e5a77",
+  "symbol": "SOL-USDT-SWAP",
+  "entry_fill": 222.10,
+  "time_to_trigger_ms": 420000
+}
+
+
+signal_invalidated
+
+{
+  "signal_id": "2b3b1b5e-1e4a-4c2a-8f83-d2e14e3e5a77",
+  "symbol": "SOL-USDT-SWAP",
+  "reason": "sl"
+}
+
+
+signal_closed
+
+{
+  "signal_id": "2b3b1b5e-1e4a-4c2a-8f83-d2e14e3e5a77",
+  "symbol": "SOL-USDT-SWAP",
+  "rr_realized": 1.65,
+  "time_in_trade_ms": 900000,
+  "exit_reason": "tp"
+}
+
+Query Scorecard Mingguan (Postgres)
+
+Winrate per bin confluence + monotonicity check:
+
+WITH weekly AS (
+  SELECT s.signal_id, s.confluence_score, c.rr_realized,
+         (c.rr_realized > 0)::int AS is_win
+  FROM signals s
+  JOIN signal_closures c USING (signal_id)
+  WHERE s.ts_published >= date_trunc('week', now()) - interval '0 week'
+    AND s.ts_published <  date_trunc('week', now()) + interval '1 week'
+)
+, bins AS (
+  SELECT CASE
+           WHEN confluence_score >= 0.8 THEN '0.80+'
+           WHEN confluence_score >= 0.7 THEN '0.70-0.79'
+           WHEN confluence_score >= 0.6 THEN '0.60-0.69'
+           WHEN confluence_score >= 0.5 THEN '0.50-0.59'
+           ELSE '<0.50'
+         END AS bin,
+         count(*) AS n,
+         avg(is_win)::numeric(5,3) AS winrate
+  FROM weekly
+  GROUP BY 1
+)
+SELECT * FROM bins ORDER BY bin;
+
+
+Deteksi pelanggaran monotonic:
+
+WITH x AS (
+  SELECT bin, winrate,
+         ROW_NUMBER() OVER (ORDER BY bin) AS rn
+  FROM (
+    SELECT bin, winrate
+    FROM (
+      -- pakai query 'bins' di atas
+      SELECT CASE
+               WHEN confluence_score >= 0.8 THEN '4'
+               WHEN confluence_score >= 0.7 THEN '3'
+               WHEN confluence_score >= 0.6 THEN '2'
+               WHEN confluence_score >= 0.5 THEN '1'
+               ELSE '0'
+             END sort_key,
+             CASE
+               WHEN confluence_score >= 0.8 THEN '0.80+'
+               WHEN confluence_score >= 0.7 THEN '0.70-0.79'
+               WHEN confluence_score >= 0.6 THEN '0.60-0.69'
+               WHEN confluence_score >= 0.5 THEN '0.50-0.59'
+               ELSE '<0.50'
+             END bin,
+             avg((rr_realized > 0)::int)::numeric(5,3) AS winrate
+      FROM signals s JOIN signal_closures c USING(signal_id)
+      WHERE s.ts_published >= date_trunc('week', now())
+      GROUP BY 1,2
+    ) t ORDER BY sort_key
+  ) z
+)
+SELECT a.bin AS lower_bin, b.bin AS higher_bin,
+       a.winrate AS lower_wr, b.winrate AS higher_wr,
+       (b.winrate < a.winrate) AS violates_monotonic
+FROM x a JOIN x b ON b.rn = a.rn + 1
+WHERE b.winrate < a.winrate;
+
+
+Kalau hasilnya ada baris, berarti monotonicity rusak → saatnya kalibrasi bobot layer.
+
+Kalibrasi Bobot Confluence (praktis & aman)
+
+Breakdown winrate per layer (contoh: saat smc=match vs smc=not_match).
+
+Hitung lift per layer:
+- lift = winrate(layer=match) - winrate(overall)
+
+Naikkan bobot layer dengan lift positif konsisten; turunkan yang negatif.
+
+Batasi perubahan ±0.02–0.05 per minggu (biar stabil, anti overfit).
+
+Simpan rules_version baru → audit lewat event signal_published.
+
+Automasi Laporan (tiap Minggu, WIB)
+
+Cron: Minggu 23:59 Asia/Jakarta
+
+Output:
+
+Tabel winrate per bin,
+
+Monotonic check (emoji ✅/❌),
+
+Top 3 layer +lift, bottom 3 layer -lift,
+
+Rekomendasi bobot (delta kecil).
+
+Kirim ke Telegram internal + simpan PDF/PNG ke dashboard.
