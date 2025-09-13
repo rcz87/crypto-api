@@ -56,3 +56,53 @@ System preference: Real-time data accuracy with professional trading standards
 - **Fonts**: Google Fonts (Inter, DM Sans, Fira Code, Geist Mono).
 - **Icons**: Lucide React.
 - **Charting**: TradingView embedded widget.
+
+# Future Development Plans
+
+## Phase 1: Event-Driven Signal Notifier
+**Target**: Q1 2025 implementation of autonomous Telegram alert system for high-quality trading signals.
+
+**Core Features:**
+- **Event-Driven Architecture**: WebSocket-triggered analysis (no polling loops) with real-time OKX data integration
+- **Signal Quality Gating**: Multi-layer filtering system requiring confluence ≥0.75, p_win ≥threshold per regime, RR ≥1.5
+- **Anti-Spam Protection**: Intelligent cooldown (8min per symbol), zone deduplication (ATR×0.2), auto-expiry (30-45min)
+- **Dual Output Format**: Human-friendly Telegram messages + structured JSON for automation
+- **Integration Points**: Leverages existing SharpSignalEngine, enhanced services, and OKXFetcher without modifications
+
+**Technical Specifications:**
+- **Microservice Design**: Isolated from core system to ensure zero disruption to current 79% resilience score
+- **Trigger Criteria**: Sniper 5m confirmations, spread ≤0.08%, regime-specific probability thresholds
+- **Observability**: p95 latency ≤350ms, error rate <1%, comprehensive logging for signal outcomes
+
+## Phase 2: Self-Learning Framework  
+**Target**: Q2 2025 implementation of autonomous model improvement and optimization system.
+
+**Machine Learning Pipeline:**
+- **L1 Calibration**: Probability accuracy optimization with Isotonic Regression and regime-specific threshold tuning
+- **L2 Contextual Bandit**: Dynamic 8-layer weight optimization per market regime and timeframe
+- **L3 Meta Learning**: Advanced timing optimization and adaptive position sizing through reinforcement learning
+
+**Core Components:**
+- **ExecutionRecorder**: Comprehensive signal and outcome logging with MFE/MAE tracking, time-to-fill analysis
+- **Champion-Challenger System**: Automated model promotion/demotion based on PR-AUC, Brier score, and P&L metrics
+- **Risk Management**: Circuit breakers (3 SL pause), adaptive sizing, drawdown protection with auto-scaling
+- **Feedback Loop**: Telegram inline feedback integration for rapid human-in-the-loop labeling
+
+**Safety Mechanisms:**
+- **Paper Trading**: 10% exploration allocation for safe model testing without capital risk
+- **Auto-Rollback**: Automatic reversion to previous model if performance degrades beyond thresholds
+- **Data Validation**: Comprehensive outcome labeling with win/lose classification, realized RR tracking
+
+**Integration Strategy:**
+- **Non-Invasive Design**: Add-on architecture preserving all existing functionality and performance
+- **Database Expansion**: New tables (ai_signals, ai_outcomes) without touching current schema
+- **API Extension**: New endpoints (/api/ai/*) supplementing existing trading infrastructure
+
+## Implementation Priorities
+1. **Immediate**: Event-driven notifier as standalone microservice (Phase 1)
+2. **Medium-term**: Self-learning data collection and basic L1 calibration (Phase 2A)  
+3. **Long-term**: Advanced bandit optimization and meta-learning capabilities (Phase 2B)
+
+## Success Metrics
+- **Phase 1**: Signal quality improvement (reduce false positives by 60%), user satisfaction via Telegram feedback
+- **Phase 2**: Model performance gains (15-25% improvement in risk-adjusted returns), automated optimization cycles
