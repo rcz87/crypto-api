@@ -41,7 +41,7 @@ describe('Order Flow Analysis Performance Benchmarks', () => {
     orderFlowService = new OrderFlowService();
   });
 
-  describe('Sub-200ms Latency Validation', () => {
+  describe('Target-200ms Latency Validation', () => {
     test('Trade classification should complete under 200ms with 1000 trades', () => {
       const trades = generateLargeTradeSet(1000);
       

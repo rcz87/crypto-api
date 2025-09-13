@@ -29,7 +29,7 @@ describe('CVD Analysis Performance Benchmarks', () => {
     cvdService = new CVDService();
   });
 
-  describe('Sub-200ms Latency Validation', () => {
+  describe('Target-200ms Latency Validation', () => {
     test('CVD calculation should complete under 200ms with 100 candles', async () => {
       const { candles, trades } = generateLargeDataSet(100);
       

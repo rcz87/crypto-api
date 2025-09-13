@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "SOL Crypto Trading Data Gateway",
-    "description": "Advanced institutional-grade SOL-USDT-SWAP perpetual futures trading data gateway with 8-layer SharpSignalEngine analysis, live trading signals, and premium orderbook capabilities.\n\nFeatures:\n- Real-time BUY/SELL/HOLD trading signals with risk management\n- Multi-timeframe synchronized analysis (15M, 1H, 4H, 1D)\n- Advanced derivatives intelligence (CVD, SMC, Order Flow, Fibonacci)\n- Premium VIP8+ institutional analytics and liquidity heatmaps\n- Sub-200ms response times and enterprise-grade reliability\n\nPerfect for AI-powered trading analysis and institutional derivatives trading.\n",
+    "description": "Advanced institutional-grade SOL-USDT-SWAP perpetual futures trading data gateway with 8-layer SharpSignalEngine analysis, live trading signals, and premium orderbook capabilities.\n\nFeatures:\n- Real-time BUY/SELL/HOLD trading signals with risk management\n- Multi-timeframe synchronized analysis (15M, 1H, 4H, 1D)\n- Advanced derivatives intelligence (CVD, SMC, Order Flow, Fibonacci)\n- Premium VIP8+ institutional analytics and liquidity heatmaps\n- Target response time <200ms, tested avg 250ms and enterprise-grade reliability\n\nPerfect for AI-powered trading analysis and institutional derivatives trading.\n",
     "version": "2.0.0",
     "contact": {
       "name": "SOL Trading Gateway",
