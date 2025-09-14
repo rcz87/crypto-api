@@ -31,12 +31,14 @@ const sharedTechnicalService = new TechnicalIndicatorsService();
 const sharedCVDService = new CVDService();
 const sharedConfluenceService = new ConfluenceService();
 
-// Create Enhanced AI with real service dependencies
-const enhancedAISignalEngine = new EnhancedAISignalEngine({
+// Use Enhanced AI singleton instance with shared service dependencies
+const enhancedAISignalEngine = EnhancedAISignalEngine.getInstance({
   technicalService: sharedTechnicalService,
   cvdService: sharedCVDService,
   confluenceService: sharedConfluenceService
 });
+
+console.log('🎯 Routes: Enhanced AI engine initialized with shared services');
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
 import { backpressureManager } from "./utils/websocket";

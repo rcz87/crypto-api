@@ -99,6 +99,7 @@ export interface EnhancedAIDependencies {
 }
 
 export class EnhancedAISignalEngine {
+  private static instance: EnhancedAISignalEngine | null = null;
   private patterns: Map<string, EnhancedMarketPattern> = new Map();
   private neuralModel: tf.LayersModel | null = null;
   private patternMemory: Map<string, number[]> = new Map();
@@ -107,13 +108,24 @@ export class EnhancedAISignalEngine {
   private technicalService: TechnicalIndicatorsService;
   private cvdService: CVDService;
   private confluenceService: ConfluenceService;
+  
+  // Memory management
+  private intervals: NodeJS.Timeout[] = [];
+  private isInitialized = false;
+  private isDestroyed = false;
 
-  private readonly FEATURE_VECTOR_SIZE = 50;
-  private readonly PATTERN_MEMORY_SIZE = 1000;
+  // Optimized constants for memory efficiency
+  private readonly FEATURE_VECTOR_SIZE = 25; // Reduced from 50 to optimize memory
+  private readonly PATTERN_MEMORY_SIZE = 500; // Reduced from 1000 to optimize memory  
   private readonly LEARNING_RATE = 0.001;
   private readonly ADAPTATION_THRESHOLD = 0.7;
+  private readonly MAX_LEARNING_HISTORY = 100; // Prevent unbounded growth
+  private readonly MEMORY_CLEANUP_INTERVAL = 300000; // 5 minutes
 
-  constructor(deps: EnhancedAIDependencies = {}) {
+  private constructor(deps: EnhancedAIDependencies = {}) {
+    // Private constructor to prevent direct instantiation
+    console.log('🔧 Enhanced AI: Initializing singleton instance...');
+    
     // Use injected services or create new instances as fallback
     this.technicalService = deps.technicalService || new TechnicalIndicatorsService();
     this.cvdService = deps.cvdService || new CVDService();
@@ -123,10 +135,42 @@ export class EnhancedAISignalEngine {
     this.initializeOpenAI();
     this.initializeNeuralNetwork();
     
-    // Enhanced background processes
-    setInterval(() => this.evolvePatterns(), 1800000); // Every 30 minutes
-    setInterval(() => this.retrainNeuralNetwork(), 3600000); // Every hour
-    setInterval(() => this.adaptPatternWeights(), 900000); // Every 15 minutes
+    this.startBackgroundProcesses();
+    this.isInitialized = true;
+  }
+  
+  // Singleton pattern implementation with dependency injection support
+  public static getInstance(deps?: EnhancedAIDependencies): EnhancedAISignalEngine {
+    if (!EnhancedAISignalEngine.instance) {
+      console.log('🔧 Enhanced AI: Creating new singleton instance...');
+      EnhancedAISignalEngine.instance = new EnhancedAISignalEngine(deps || {});
+    } else {
+      console.log('🔄 Enhanced AI: Reusing existing singleton instance');
+    }
+    return EnhancedAISignalEngine.instance;
+  }
+  
+  // Enhanced background processes with proper cleanup
+  private startBackgroundProcesses(): void {
+    if (this.isDestroyed) return;
+    
+    // Store interval IDs for cleanup
+    this.intervals.push(setInterval(() => {
+      if (!this.isDestroyed) this.evolvePatterns();
+    }, 1800000)); // Every 30 minutes
+    
+    this.intervals.push(setInterval(() => {
+      if (!this.isDestroyed) this.retrainNeuralNetwork();
+    }, 3600000)); // Every hour
+    
+    this.intervals.push(setInterval(() => {
+      if (!this.isDestroyed) this.adaptPatternWeights();
+    }, 900000)); // Every 15 minutes
+    
+    // Memory cleanup process
+    this.intervals.push(setInterval(() => {
+      if (!this.isDestroyed) this.performMemoryCleanup();
+    }, this.MEMORY_CLEANUP_INTERVAL));
   }
 
   // Initialize enhanced market patterns with neural scoring
@@ -517,16 +561,17 @@ export class EnhancedAISignalEngine {
 
       // CVD Analysis features (10 features)
       features.push(
-        (cvdData?.cvdValue || 0) / 1000000, // Normalize CVD value
-        (cvdData?.confidence || 50) / 100,
-        cvdData?.trendDirection === 'bullish' ? 0.8 : cvdData?.trendDirection === 'bearish' ? 0.2 : 0.5,
-        cvdData?.divergenceType === 'bullish' ? 0.8 : cvdData?.divergenceType === 'bearish' ? 0.2 : 0.5,
-        0.5, // buyerSellerAggression ratio placeholder
-        0.5, // dominantSide placeholder
-        1000, // averageTradeSize placeholder
-        0, // largeTradeCount placeholder
-        0.5, // institutionalFlow placeholder
-        0.5  // riskLevel placeholder
+        parseFloat(cvdData?.currentCVD || '0') / 1000000, // Normalize CVD value
+        (cvdData?.confidence?.overall || 50) / 100,
+        cvdData?.flowAnalysis?.phase === 'markup' ? 0.8 : cvdData?.flowAnalysis?.phase === 'markdown' ? 0.2 : 0.5,
+        cvdData?.activeDivergences && cvdData.activeDivergences.length > 0 ? 0.8 : 0.5, // Has active divergences
+        cvdData?.buyerSellerAggression?.buyerAggression?.percentage / 100 || 0.5,
+        cvdData?.buyerSellerAggression?.dominantSide === 'buyers' ? 0.8 : 
+        cvdData?.buyerSellerAggression?.dominantSide === 'sellers' ? 0.2 : 0.5,
+        parseFloat(cvdData?.buyerSellerAggression?.buyerAggression?.averageSize || '1000'),
+        0, // placeholder for trade count
+        cvdData?.smartMoneySignals?.accumulation?.detected ? 0.8 : 0.5,
+        cvdData?.smartMoneySignals?.distribution?.detected ? 0.2 : 0.5
       );
 
       // Confluence features (5 features)
@@ -542,15 +587,19 @@ export class EnhancedAISignalEngine {
       features.push(
         Math.abs(fundingData.current.fundingRate) * 10000, // Scale funding rate
         fundingData.current.fundingRate > 0 ? 0.8 : 0.2, // Funding direction
-        fundingData.prediction.direction === 'increasing' ? 0.8 : 0.2,
-        fundingData.prediction.confidence / 100,
+        fundingData.signal_analysis.overall_sentiment === 'bullish' || 
+        fundingData.signal_analysis.overall_sentiment === 'strong_bullish' ? 0.8 : 0.2,
+        fundingData.signal_analysis.confidence_score / 100,
         fundingData.correlation_metrics.funding_oi_correlation,
-        fundingData.correlation_metrics.funding_price_correlation,
+        fundingData.correlation_metrics.premium_price_correlation,
         fundingData.alerts.funding_squeeze_alert.active ? 0.8 : 0.2,
-        fundingData.alerts.funding_extreme_alert.active ? 0.8 : 0.2,
-        fundingData.market_sentiment.sentiment === 'bullish' ? 0.8 : 
-        fundingData.market_sentiment.sentiment === 'bearish' ? 0.2 : 0.5,
-        fundingData.risk_metrics.funding_risk_score / 100
+        fundingData.alerts.manipulation_alert.active ? 0.8 : 0.2,
+        fundingData.signal_analysis.overall_sentiment === 'bullish' || 
+        fundingData.signal_analysis.overall_sentiment === 'strong_bullish' ? 0.8 : 
+        fundingData.signal_analysis.overall_sentiment === 'bearish' || 
+        fundingData.signal_analysis.overall_sentiment === 'strong_bearish' ? 0.2 : 0.5,
+        fundingData.market_structure.liquidation_pressure === 'low' ? 0.2 : 
+        fundingData.market_structure.liquidation_pressure === 'moderate' ? 0.5 : 0.8
       );
 
       // Ensure exactly 50 features
@@ -1076,7 +1125,7 @@ export class EnhancedAISignalEngine {
           pattern.confidence = Math.max(0.1, Math.min(0.95, originalConfidence * adaptationFactor));
           
           // Update learning weight based on win rate
-          if (perf.total_signals >= 5) { // Minimum signals for adjustment
+          if (perf.total_signals && perf.total_signals >= 5) { // Minimum signals for adjustment
             if (winRate > 0.7) {
               pattern.learning_weight = Math.min(1.5, pattern.learning_weight * 1.05);
             } else if (winRate < 0.4) {
@@ -1145,6 +1194,120 @@ export class EnhancedAISignalEngine {
     
     return baseResult;
   }
+  
+  // Memory cleanup and resource management methods
+  public destroy(): void {
+    console.log('🧹 Enhanced AI: Starting cleanup...');
+    this.isDestroyed = true;
+    
+    // Clear all intervals
+    this.intervals.forEach(interval => clearInterval(interval));
+    this.intervals = [];
+    
+    // Dispose neural network model
+    if (this.neuralModel) {
+      this.neuralModel.dispose();
+      this.neuralModel = null;
+    }
+    
+    // Clear memory caches with TensorFlow cleanup
+    this.performMemoryCleanup();
+    
+    // Reset singleton instance
+    EnhancedAISignalEngine.instance = null;
+    
+    console.log('✅ Enhanced AI: Cleanup completed');
+  }
+  
+  private performMemoryCleanup(): void {
+    try {
+      // Limit learning history to prevent unbounded growth
+      if (this.learningHistory.length > this.MAX_LEARNING_HISTORY) {
+        this.learningHistory = this.learningHistory.slice(-this.MAX_LEARNING_HISTORY);
+      }
+      
+      // Clean up pattern memory if too large
+      if (this.patternMemory.size > this.PATTERN_MEMORY_SIZE) {
+        const entries = Array.from(this.patternMemory.entries());
+        entries.sort((a, b) => a[1].length - b[1].length); // Sort by array size
+        const toKeep = entries.slice(-this.PATTERN_MEMORY_SIZE);
+        this.patternMemory.clear();
+        toKeep.forEach(([key, value]) => this.patternMemory.set(key, value));
+      }
+      
+      // Force TensorFlow garbage collection if available
+      if (typeof global !== 'undefined' && global.gc) {
+        global.gc();
+      }
+      
+      console.log(`🧠 Memory cleanup: Patterns=${this.patterns.size}, Memory=${this.patternMemory.size}, History=${this.learningHistory.length}`);
+    } catch (error) {
+      console.error('❌ Memory cleanup error:', error);
+    }
+  }
+  
+  // Public getter methods for manager access
+  public getIsInitialized(): boolean {
+    return this.isInitialized;
+  }
+  
+  public getIsDestroyed(): boolean {
+    return this.isDestroyed;
+  }
+  
+  public getIntervals(): NodeJS.Timeout[] {
+    return this.intervals;
+  }
+  
+  public getPatterns(): Map<string, EnhancedMarketPattern> {
+    return this.patterns;
+  }
+  
+  public getPatternMemory(): Map<string, number[]> {
+    return this.patternMemory;
+  }
+  
+  public getLearningHistory(): any[] {
+    return this.learningHistory;
+  }
+  
+  public getNeuralModel(): tf.LayersModel | null {
+    return this.neuralModel;
+  }
 }
 
-export const enhancedAISignalEngine = new EnhancedAISignalEngine();
+// Memory cleanup and lifecycle management methods
+export class EnhancedAISignalEngineManager {
+  // Cleanup method for proper resource deallocation
+  public static destroy(): void {
+    const instance = EnhancedAISignalEngine.getInstance();
+    instance.destroy();
+  }
+  
+  public static getStatus() {
+    const instance = EnhancedAISignalEngine.getInstance();
+    return {
+      isInitialized: instance.getIsInitialized(),
+      isDestroyed: instance.getIsDestroyed(),
+      activeIntervals: instance.getIntervals().length,
+      memoryUsage: {
+        patterns: instance.getPatterns().size,
+        patternMemory: instance.getPatternMemory().size,
+        learningHistory: instance.getLearningHistory().length,
+        neuralModelLoaded: instance.getNeuralModel() !== null
+      }
+    };
+  }
+}
+
+// Export factory function instead of immediate instance
+export function getEnhancedAISignalEngine(deps?: EnhancedAIDependencies): EnhancedAISignalEngine {
+  return EnhancedAISignalEngine.getInstance(deps);
+}
+
+// Export the singleton instance getter for backward compatibility
+export const enhancedAISignalEngine = {
+  getInstance: (deps?: EnhancedAIDependencies) => EnhancedAISignalEngine.getInstance(deps),
+  getStatus: () => EnhancedAISignalEngineManager.getStatus(),
+  destroy: () => EnhancedAISignalEngineManager.destroy()
+};
