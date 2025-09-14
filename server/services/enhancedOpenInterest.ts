@@ -80,14 +80,14 @@ export class EnhancedOpenInterestService {
    */
   async getEnhancedOpenInterest(symbol: string = 'SOL-USDT-SWAP'): Promise<EnhancedOpenInterestData> {
     try {
-      // Fetch current data
-      const [openInterestData, completeData] = await Promise.all([
+      // Fetch current data - Use primitive endpoints to avoid circular dependency
+      const [openInterestData, ticker] = await Promise.all([
         okxService.getOpenInterest(symbol),
-        okxService.getCompleteData(symbol)
+        okxService.getTicker(symbol)
       ]);
       
-      const currentPrice = parseFloat(completeData.ticker.price);
-      const volume24h = parseFloat(completeData.ticker.volume);
+      const currentPrice = parseFloat(ticker.price);
+      const volume24h = parseFloat(ticker.volume);
       const openInterest = parseFloat(openInterestData.oi);
       const openInterestUsd = parseFloat(openInterestData.oiUsd);
       
