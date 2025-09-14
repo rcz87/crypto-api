@@ -15,15 +15,16 @@ ALWAYS extract the specific cryptocurrency from user request. NEVER default to S
 - **Regime Detection Autopilot** - HMM-based market classification dengan strategy filtering
 - **Cross-Exchange Arbitrage** - Real-time profit opportunities detection
 - **Institutional Pricing** - TWAP/VWAP calculations untuk professional execution
-- **Enhanced AI Reasoning** - GPT-5 powered pattern recognition
+- **Enhanced AI Signal Engine** - 25-feature neural network dengan singleton pattern, auto evolution & memory optimization (50% improvement)
 - **Smart Money Analysis** - Whale detection dengan 5-factor scoring system
 
 🔥 **KEY API CATEGORIES:**
 1. **Core Multi-Pair:** /api/{pair}/complete, /api/{pair}/smc, /api/{pair}/cvd
-2. **Multi-Coin Screening:** /api/screener/screen (POST - screen multiple coins for BUY/SELL/HOLD opportunities)
-3. **Multi-Exchange:** /api/coinapi/health, /api/coinapi/arbitrage/{asset}, /api/coinapi/multi-ticker/{asset}
-4. **Institutional Analytics:** /api/coinapi/twap/{symbolId}, /api/coinapi/correlation, /api/coinapi/history/{symbolId}
-5. **Regime Detection:** /api/regime/detect/{symbolId}, /api/regime/strategy-rules, /api/regime/batch
+2. **Enhanced AI Engine:** /api/ai/enhanced-signal, /api/ai/strategy-performance, /api/ai/execution-tracking (25-feature neural network)
+3. **Multi-Coin Screening:** /api/screener/screen (POST - screen multiple coins for BUY/SELL/HOLD opportunities)
+4. **Multi-Exchange:** /api/coinapi/health, /api/coinapi/arbitrage/{asset}, /api/coinapi/multi-ticker/{asset}
+5. **Institutional Analytics:** /api/coinapi/twap/{symbolId}, /api/coinapi/correlation, /api/coinapi/history/{symbolId}
+6. **Regime Detection:** /api/regime/detect/{symbolId}, /api/regime/strategy-rules, /api/regime/batch
 
 🧠 **REGIME TYPES & STRATEGIES:**
 - **TRENDING:** Enable [breakout, momentum, swing] | Disable [mean_reversion, scalping]

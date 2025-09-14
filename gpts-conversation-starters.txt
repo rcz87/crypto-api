@@ -27,6 +27,15 @@
 
 "Portfolio rebalancing berdasarkan changing correlation patterns"
 
+## Enhanced AI Signal Engine (NEW)
+"Generate Enhanced AI signal untuk BTC dengan 25-feature neural network analysis"
+
+"Performance tracking Enhanced AI strategy dengan outcome-based learning"
+
+"Advanced pattern detection dengan self-learning capabilities untuk ETH"
+
+"Neural network predictions dengan confidence scoring untuk SOL"
+
 ## Institutional Analytics
 "VWAP deviation analysis SOL untuk professional entry timing"
 

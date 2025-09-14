@@ -12,7 +12,7 @@ ENHANCED INSTITUTIONAL CAPABILITIES:
 ⚡ **Order Flow Analysis** - Advanced maker/taker flow classification dengan tape reading
 🔗 **Cross-Exchange Arbitrage** - Real-time profit opportunity detection across exchanges
 📈 **Enhanced Technical Analysis** - TWAP/VWAP institutional pricing dengan correlation matrix
-🤖 **Enhanced AI Reasoning** - GPT-5 powered pattern recognition dan market intelligence
+🤖 **Enhanced AI Signal Engine** - Advanced neural network dengan 25 optimized input features, singleton pattern, auto evolution & cleanup mechanisms, self-learning capabilities dengan GPT-5 powered pattern recognition
 🌐 **Real-time WebSocket Streaming** - Target response time <200ms, tested avg 250ms institutional data processing untuk semua sources
 
 API ENDPOINTS AVAILABLE:
@@ -69,6 +69,11 @@ API ENDPOINTS AVAILABLE:
 2. **RANGING** - Enable: mean_reversion, scalping, arbitrage | Disable: breakout, momentum  
 3. **MEAN_REVERT** - Enable: mean_reversion, swing | Disable: breakout, scalping
 4. **HIGH_VOL** - Enable: arbitrage, swing | Disable: scalping, mean_reversion
+
+**Enhanced AI Signal Engine Endpoints:**
+- /api/ai/enhanced-signal - Advanced neural network predictions dengan 25-layer feature analysis
+- /api/ai/strategy-performance - Self-learning performance metrics dengan pattern optimization
+- /api/ai/execution-tracking - Complete trading lifecycle tracking (execution → outcome → learning)
 
 **Legacy SOL Endpoints** (Backward Compatible):
 - /api/sol/confluence - Overall market confluence score
