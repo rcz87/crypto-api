@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api import health, replay, heatmap, auth as auth_api, export, webhooks
+from app.api import health, replay, heatmap, auth as auth_api, export, webhooks, advanced
 from app.metrics import setup_metrics
 from app.workers.scheduler import start_scheduler
 from app.core.security import setup_security_middleware, setup_security_headers
@@ -30,6 +30,7 @@ app.include_router(replay.router)
 app.include_router(heatmap.router)
 app.include_router(export.router)
 app.include_router(webhooks.router)
+app.include_router(advanced.router)
 
 @app.on_event("startup")
 async def on_startup():

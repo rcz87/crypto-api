@@ -44,3 +44,77 @@ class AlertMessage(BaseModel):
     message: str
     severity: str = "info"
     timestamp: datetime = datetime.now()
+
+# === NEW SCHEMAS FOR COINGLASS V4 FEATURES ===
+
+class WhaleAlert(BaseModel):
+    exchange: str
+    symbol: str
+    side: str  # "long" or "short"
+    position_size: float
+    notional_value: float
+    timestamp: datetime
+    meta: Optional[Dict[str, Any]] = None
+
+class WhalePosition(BaseModel):
+    exchange: str
+    symbol: str
+    side: str
+    position_size: float
+    notional_value: float
+    unrealized_pnl: Optional[float] = None
+    timestamp: datetime
+
+class ETFData(BaseModel):
+    ticker: str
+    name: str
+    aum: Optional[float] = None  # Assets Under Management
+    nav: Optional[float] = None  # Net Asset Value
+    price: Optional[float] = None
+    flows_1d: Optional[float] = None
+    flows_7d: Optional[float] = None
+    flows_30d: Optional[float] = None
+    timestamp: datetime
+
+class ETFFlowHistory(BaseModel):
+    date: datetime
+    ticker: str
+    net_flow: float  # Daily net inflow/outflow in USD
+    closing_price: float
+    shares_outstanding: Optional[float] = None
+
+class MarketSentiment(BaseModel):
+    symbol: str
+    price: float
+    change_24h: float
+    change_percentage_24h: float
+    volume_24h: float
+    market_cap: Optional[float] = None
+    dominance: Optional[float] = None
+    timestamp: datetime
+
+class LiquidationHeatmapData(BaseModel):
+    symbol: str
+    price_level: float
+    liquidation_amount: float
+    side: str  # "long" or "short"
+    intensity: float  # Heat intensity score
+    exchange: Optional[str] = None
+    timestamp: datetime
+
+class SpotOrderbook(BaseModel):
+    symbol: str
+    exchange: str
+    bids: list[list[float]]  # [[price, quantity], ...]
+    asks: list[list[float]]  # [[price, quantity], ...]
+    timestamp: datetime
+
+class OptionsData(BaseModel):
+    symbol: str
+    strike_price: float
+    expiry_date: datetime
+    option_type: str  # "call" or "put"
+    open_interest: float
+    volume_24h: float
+    implied_volatility: Optional[float] = None
+    timestamp: datetime
