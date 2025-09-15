@@ -184,11 +184,11 @@ OPERATION_CONFIG = {
         "path_params": ["symbol"]
     },
     "liquidation_heatmap": {
-        "endpoint": "/advanced/liquidation/heatmap/{symbol}",
-        "method": "GET",
-        "defaults": {"symbol": "BTC", "timeframe": "1h"},
-        "query_params": ["timeframe"],
-        "path_params": ["symbol"]
+        "endpoint": "/api/futures/liquidation/heatmap/model1",
+        "method": "GET", 
+        "defaults": {"exchange": "Binance", "symbol": "BTCUSDT", "range": "3d"},
+        "query_params": ["exchange", "symbol", "range"],
+        "path_params": []
     },
     "spot_orderbook": {
         "endpoint": "/advanced/spot/orderbook/{symbol}",
