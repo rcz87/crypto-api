@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "SOL Crypto Trading Data Gateway",
-    "description": "Advanced institutional-grade SOL-USDT-SWAP perpetual futures trading data gateway with 8-layer SharpSignalEngine analysis, live trading signals, and premium orderbook capabilities.\n\nFeatures:\n- Real-time BUY/SELL/HOLD trading signals with risk management\n- Multi-timeframe synchronized analysis (15M, 1H, 4H, 1D)\n- Advanced derivatives intelligence (CVD, SMC, Order Flow, Fibonacci)\n- Premium VIP8+ institutional analytics and liquidity heatmaps\n- Target response time <200ms, tested avg 250ms and enterprise-grade reliability\n\nPerfect for AI-powered trading analysis and institutional derivatives trading.\n",
-    "version": "2.0.0",
+    "title": "CryptoSat Intelligence - Multi-Asset Trading Data Gateway with CoinGlass Premium Intelligence",
+    "description": "Advanced institutional-grade trading data gateway with 8-layer SharpSignalEngine analysis, live trading signals, and premium CoinGlass institutional intelligence.\n\nCORE FEATURES:\n- Real-time BUY/SELL/HOLD trading signals with risk management\n- Multi-timeframe synchronized analysis (15M, 1H, 4H, 1D)\n- Advanced derivatives intelligence (CVD, SMC, Order Flow, Fibonacci)\n- Premium VIP8+ institutional analytics and liquidity heatmaps\n\nCOINGLASS PREMIUM INTELLIGENCE:\n- Real-time whale alerts and positioning data (>$1M trades)\n- Bitcoin ETF flow tracking with historical analysis\n- Advanced market sentiment scoring and supported assets\n- Technical volatility indicators (ATR) and live ticker data\n- Liquidation heatmaps and spot orderbook depth analysis\n- Options open interest tracking across major exchanges\n\nPERFORMANCE:\n- Target response time <200ms, tested avg 250ms\n- Enterprise-grade reliability with circuit breakers\n- Smart caching for optimal performance\n\nPerfect for AI-powered trading analysis, institutional derivatives trading, and comprehensive market intelligence.\n",
+    "version": "3.0.0",
     "contact": {
       "name": "SOL Trading Gateway",
       "url": "https://guardiansofthegreentoken.com"
@@ -1580,6 +1580,1172 @@
         }
       }
     },
+    "/py/advanced/whale/alerts": {
+      "get": {
+        "operationId": "getCoinGlassWhaleAlerts",
+        "summary": "Get real-time whale alerts from CoinGlass",
+        "description": "Real-time alerts for large whale trades (>$1M) across major exchanges including position sizes and notional values.\n",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "description": "Trading symbol to filter alerts (e.g., BTC, ETH)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "BTC"
+            }
+          },
+          {
+            "name": "exchange",
+            "in": "query",
+            "description": "Exchange to filter alerts (e.g., binance, okx, hyperliquid)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "hyperliquid",
+              "enum": ["binance", "okx", "hyperliquid", "bybit", "deribit"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Real-time whale alerts data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WhaleAlert"
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "example": 15
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CoinGlass service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/py/advanced/whale/positions": {
+      "get": {
+        "operationId": "getCoinGlassWhalePositions",
+        "summary": "Get whale positioning data by exchange",
+        "description": "Current whale positions (>$1M notional value) with unrealized P&L and position sizing across exchanges.\n",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "description": "Trading symbol to filter positions (e.g., BTC, ETH)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "BTC"
+            }
+          },
+          {
+            "name": "exchange",
+            "in": "query",
+            "description": "Exchange to filter positions",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "hyperliquid",
+              "enum": ["binance", "okx", "hyperliquid", "bybit", "deribit"]
+            }
+          },
+          {
+            "name": "side",
+            "in": "query",
+            "description": "Position side to filter",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["long", "short"],
+              "example": "long"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whale positions data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WhalePosition"
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "example": 8
+                    },
+                    "total_notional": {
+                      "type": "string",
+                      "example": "45678901.23",
+                      "description": "Total notional value of all positions in USD"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CoinGlass service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/py/advanced/etf/flows": {
+      "get": {
+        "operationId": "getCoinGlassETFFlows",
+        "summary": "Get Bitcoin ETF flow data with historical analysis",
+        "description": "Historical Bitcoin ETF flow data showing institutional inflows/outflows with customizable time periods.\n",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "description": "Number of days of historical data to retrieve",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 365,
+              "default": 30,
+              "example": 30
+            }
+          },
+          {
+            "name": "asset",
+            "in": "query",
+            "description": "Asset to filter ETF flows (currently supports BTC)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "BTC",
+              "example": "BTC"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bitcoin ETF flow data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ETFFlowHistory"
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "total_inflow": {
+                          "type": "string",
+                          "example": "2847392847.50"
+                        },
+                        "total_outflow": {
+                          "type": "string",
+                          "example": "-294739284.75"
+                        },
+                        "net_flow": {
+                          "type": "string",
+                          "example": "2552653562.75"
+                        },
+                        "period_days": {
+                          "type": "integer",
+                          "example": 30
+                        }
+                      }
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CoinGlass service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/py/advanced/etf/bitcoin": {
+      "get": {
+        "operationId": "getCoinGlassBitcoinETFs",
+        "summary": "Get Bitcoin ETF specific data and listings",
+        "description": "Comprehensive Bitcoin ETF data including AUM, NAV, pricing, and flow metrics for all major Bitcoin ETFs.\n",
+        "responses": {
+          "200": {
+            "description": "Bitcoin ETF data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ETFData"
+                      }
+                    },
+                    "total_aum": {
+                      "type": "string",
+                      "example": "67849203847.23",
+                      "description": "Total Assets Under Management across all Bitcoin ETFs"
+                    },
+                    "total_etfs": {
+                      "type": "integer",
+                      "example": 11
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CoinGlass service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/py/advanced/market/sentiment": {
+      "get": {
+        "operationId": "getCoinGlassMarketSentiment",
+        "summary": "Get advanced market sentiment scoring",
+        "description": "Advanced market sentiment analysis including fear & greed index, futures performance metrics, and institutional sentiment indicators.\n",
+        "responses": {
+          "200": {
+            "description": "Market sentiment data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MarketSentiment"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CoinGlass service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/py/advanced/market/coins": {
+      "get": {
+        "operationId": "getCoinGlassSupportedCoins",
+        "summary": "Get list of supported cryptocurrencies",
+        "description": "Complete list of cryptocurrencies supported by CoinGlass with their symbol mappings and availability status.\n",
+        "responses": {
+          "200": {
+            "description": "Supported coins list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "symbol": {
+                            "type": "string",
+                            "example": "BTC"
+                          },
+                          "name": {
+                            "type": "string",
+                            "example": "Bitcoin"
+                          },
+                          "supported_features": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "example": ["funding_rate", "open_interest", "liquidation", "whale_alerts"]
+                          },
+                          "exchanges": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "example": ["binance", "okx", "bybit"]
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "example": 150
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CoinGlass service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/py/advanced/technical/atr": {
+      "get": {
+        "operationId": "getCoinGlassATRData",
+        "summary": "Get ATR volatility data for symbols",
+        "description": "Average True Range (ATR) volatility indicators for specified trading symbols with multiple timeframes.\n",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "description": "Trading symbol for ATR calculation",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "BTC"
+            }
+          },
+          {
+            "name": "timeframe",
+            "in": "query",
+            "description": "Timeframe for ATR calculation",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["5m", "15m", "30m", "1H", "4H", "1D"],
+              "default": "1H",
+              "example": "1H"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "description": "ATR calculation period",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 14,
+              "example": 14
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ATR volatility data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "symbol": {
+                          "type": "string",
+                          "example": "BTC"
+                        },
+                        "timeframe": {
+                          "type": "string",
+                          "example": "1H"
+                        },
+                        "period": {
+                          "type": "integer",
+                          "example": 14
+                        },
+                        "atr": {
+                          "type": "string",
+                          "example": "1247.83"
+                        },
+                        "atr_percentage": {
+                          "type": "string",
+                          "example": "2.14"
+                        },
+                        "volatility_level": {
+                          "type": "string",
+                          "enum": ["low", "medium", "high"],
+                          "example": "medium"
+                        },
+                        "price": {
+                          "type": "string",
+                          "example": "58392.45"
+                        }
+                      }
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid symbol or parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CoinGlass service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/py/advanced/ticker/{symbol}": {
+      "get": {
+        "operationId": "getCoinGlassTickerData",
+        "summary": "Get real-time ticker data for specific symbol",
+        "description": "Real-time ticker data including price, volume, changes, and market statistics for specified trading symbol.\n",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "description": "Trading symbol (e.g., BTC, ETH, SOL)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "BTC"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Real-time ticker data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "symbol": {
+                          "type": "string",
+                          "example": "BTC"
+                        },
+                        "price": {
+                          "type": "string",
+                          "example": "58392.45"
+                        },
+                        "change24h": {
+                          "type": "string",
+                          "example": "1247.83"
+                        },
+                        "changePercent24h": {
+                          "type": "string",
+                          "example": "2.18"
+                        },
+                        "volume24h": {
+                          "type": "string",
+                          "example": "1456789012.34"
+                        },
+                        "high24h": {
+                          "type": "string",
+                          "example": "59150.00"
+                        },
+                        "low24h": {
+                          "type": "string",
+                          "example": "56890.25"
+                        },
+                        "marketCap": {
+                          "type": "string",
+                          "example": "1145678901234.56"
+                        },
+                        "openInterest": {
+                          "type": "string",
+                          "example": "34567890123.45"
+                        }
+                      }
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid symbol",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CoinGlass service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/py/advanced/liquidation/heatmap/{symbol}": {
+      "get": {
+        "operationId": "getCoinGlassLiquidationHeatmap",
+        "summary": "Get liquidation cluster heatmaps for specific symbol",
+        "description": "Liquidation cluster analysis showing potential liquidation levels, volumes, and risk areas for specified trading symbol.\n",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "description": "Trading symbol for liquidation analysis",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "BTC"
+            }
+          },
+          {
+            "name": "range",
+            "in": "query",
+            "description": "Price range percentage for heatmap analysis",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 10,
+              "example": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liquidation heatmap data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "symbol": {
+                          "type": "string",
+                          "example": "BTC"
+                        },
+                        "current_price": {
+                          "type": "string",
+                          "example": "58392.45"
+                        },
+                        "liquidation_levels": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "price": {
+                                "type": "string",
+                                "example": "57000.00"
+                              },
+                              "liq_volume": {
+                                "type": "string",
+                                "example": "145678901.23"
+                              },
+                              "side": {
+                                "type": "string",
+                                "enum": ["long", "short"],
+                                "example": "long"
+                              },
+                              "risk_level": {
+                                "type": "string",
+                                "enum": ["low", "medium", "high"],
+                                "example": "high"
+                              }
+                            }
+                          }
+                        },
+                        "total_long_liq": {
+                          "type": "string",
+                          "example": "567890123.45"
+                        },
+                        "total_short_liq": {
+                          "type": "string",
+                          "example": "234567890.12"
+                        },
+                        "price_range": {
+                          "type": "object",
+                          "properties": {
+                            "min": {
+                              "type": "string",
+                              "example": "52553.21"
+                            },
+                            "max": {
+                              "type": "string",
+                              "example": "64231.70"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid symbol or parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CoinGlass service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/py/advanced/spot/orderbook/{symbol}": {
+      "get": {
+        "operationId": "getCoinGlassSpotOrderbook",
+        "summary": "Get spot orderbook data for specific symbol",
+        "description": "Deep spot market orderbook data with bid/ask levels, market depth analysis, and liquidity distribution.\n",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "description": "Trading symbol for orderbook data",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "BTC"
+            }
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "description": "Orderbook depth level",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [5, 10, 20, 50, 100],
+              "default": 20,
+              "example": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spot orderbook data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "symbol": {
+                          "type": "string",
+                          "example": "BTC"
+                        },
+                        "bids": {
+                          "type": "array",
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
+                          },
+                          "example": [["58390.00", "1.2345"], ["58385.50", "0.8765"]]
+                        },
+                        "asks": {
+                          "type": "array",
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
+                          },
+                          "example": [["58395.00", "2.1234"], ["58400.25", "1.5432"]]
+                        },
+                        "spread": {
+                          "type": "string",
+                          "example": "5.00"
+                        },
+                        "spread_percentage": {
+                          "type": "string",
+                          "example": "0.0086"
+                        },
+                        "market_depth": {
+                          "type": "object",
+                          "properties": {
+                            "bid_depth_1pct": {
+                              "type": "string",
+                              "example": "45.67"
+                            },
+                            "ask_depth_1pct": {
+                              "type": "string",
+                              "example": "38.92"
+                            },
+                            "total_bid_volume": {
+                              "type": "string",
+                              "example": "156.789"
+                            },
+                            "total_ask_volume": {
+                              "type": "string",
+                              "example": "134.567"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid symbol or parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CoinGlass service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/py/advanced/options/oi/{symbol}": {
+      "get": {
+        "operationId": "getCoinGlassOptionsOpenInterest",
+        "summary": "Get options open interest for specific symbol",
+        "description": "Options open interest analysis including call/put ratios, strike price distribution, and expiration analysis.\n",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "description": "Trading symbol for options OI analysis",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "BTC"
+            }
+          },
+          {
+            "name": "expiry",
+            "in": "query",
+            "description": "Options expiry filter (e.g., 2025-01-31)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2025-01-31"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Options open interest data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "symbol": {
+                          "type": "string",
+                          "example": "BTC"
+                        },
+                        "total_oi": {
+                          "type": "string",
+                          "example": "567890.123"
+                        },
+                        "call_oi": {
+                          "type": "string",
+                          "example": "345678.901"
+                        },
+                        "put_oi": {
+                          "type": "string",
+                          "example": "222211.222"
+                        },
+                        "put_call_ratio": {
+                          "type": "string",
+                          "example": "0.643"
+                        },
+                        "max_pain": {
+                          "type": "string",
+                          "example": "58000.00",
+                          "description": "Maximum pain strike price"
+                        },
+                        "strike_distribution": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "strike": {
+                                "type": "string",
+                                "example": "60000.00"
+                              },
+                              "call_oi": {
+                                "type": "string",
+                                "example": "12345.67"
+                              },
+                              "put_oi": {
+                                "type": "string",
+                                "example": "9876.54"
+                              },
+                              "total_oi": {
+                                "type": "string",
+                                "example": "22222.21"
+                              }
+                            }
+                          }
+                        },
+                        "expiry_analysis": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "expiry": {
+                                "type": "string",
+                                "format": "date"
+                              },
+                              "total_oi": {
+                                "type": "string"
+                              },
+                              "put_call_ratio": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid symbol or parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CoinGlass service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/metrics": {
       "get": {
         "operationId": "getSystemMetrics",
@@ -1707,6 +2873,272 @@
             "format": "date-time"
           }
         }
+      },
+      "WhaleAlert": {
+        "type": "object",
+        "properties": {
+          "exchange": {
+            "type": "string",
+            "example": "hyperliquid"
+          },
+          "symbol": {
+            "type": "string",
+            "example": "BTC"
+          },
+          "side": {
+            "type": "string",
+            "enum": ["long", "short"],
+            "example": "long"
+          },
+          "position_size": {
+            "type": "number",
+            "example": 1247.5834
+          },
+          "notional_value": {
+            "type": "number",
+            "example": 72841293.75
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          }
+        },
+        "required": ["exchange", "symbol", "side", "position_size", "notional_value", "timestamp"]
+      },
+      "WhalePosition": {
+        "type": "object",
+        "properties": {
+          "exchange": {
+            "type": "string",
+            "example": "hyperliquid"
+          },
+          "symbol": {
+            "type": "string",
+            "example": "BTC"
+          },
+          "side": {
+            "type": "string",
+            "enum": ["long", "short"],
+            "example": "long"
+          },
+          "position_size": {
+            "type": "number",
+            "example": 1247.5834
+          },
+          "notional_value": {
+            "type": "number",
+            "example": 72841293.75
+          },
+          "unrealized_pnl": {
+            "type": "number",
+            "nullable": true,
+            "example": 284739.52
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["exchange", "symbol", "side", "position_size", "notional_value", "timestamp"]
+      },
+      "ETFData": {
+        "type": "object",
+        "properties": {
+          "ticker": {
+            "type": "string",
+            "example": "IBIT"
+          },
+          "name": {
+            "type": "string",
+            "example": "iShares Bitcoin Trust"
+          },
+          "aum": {
+            "type": "number",
+            "nullable": true,
+            "example": 15847392847.50
+          },
+          "nav": {
+            "type": "number",
+            "nullable": true,
+            "example": 58.42
+          },
+          "price": {
+            "type": "number",
+            "nullable": true,
+            "example": 58.45
+          },
+          "flows_1d": {
+            "type": "number",
+            "nullable": true,
+            "example": 147392847.75
+          },
+          "flows_7d": {
+            "type": "number",
+            "nullable": true,
+            "example": 847392847.50
+          },
+          "flows_30d": {
+            "type": "number",
+            "nullable": true,
+            "example": 2847392847.25
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["ticker", "name", "timestamp"]
+      },
+      "ETFFlowHistory": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ticker": {
+            "type": "string",
+            "example": "IBIT"
+          },
+          "net_flow": {
+            "type": "number",
+            "example": 147392847.75
+          },
+          "closing_price": {
+            "type": "number",
+            "example": 58.45
+          },
+          "shares_outstanding": {
+            "type": "number",
+            "nullable": true,
+            "example": 271847392.5
+          }
+        },
+        "required": ["date", "ticker", "net_flow", "closing_price"]
+      },
+      "MarketSentiment": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "example": "BTC"
+          },
+          "overall_sentiment": {
+            "type": "string",
+            "enum": ["bullish", "bearish", "neutral"],
+            "example": "bullish"
+          },
+          "sentiment_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "example": 67.5
+          },
+          "fear_greed_index": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "example": 72
+          },
+          "institutional_sentiment": {
+            "type": "string",
+            "enum": ["bullish", "bearish", "neutral"],
+            "example": "bullish"
+          },
+          "retail_sentiment": {
+            "type": "string",
+            "enum": ["bullish", "bearish", "neutral"],
+            "example": "neutral"
+          },
+          "funding_rate_sentiment": {
+            "type": "object",
+            "properties": {
+              "current": {
+                "type": "number",
+                "example": 0.0001
+              },
+              "trend": {
+                "type": "string",
+                "enum": ["increasing", "decreasing", "stable"],
+                "example": "stable"
+              },
+              "implication": {
+                "type": "string",
+                "enum": ["bullish", "bearish", "neutral"],
+                "example": "neutral"
+              }
+            }
+          },
+          "open_interest_sentiment": {
+            "type": "object",
+            "properties": {
+              "trend": {
+                "type": "string",
+                "enum": ["increasing", "decreasing", "stable"],
+                "example": "increasing"
+              },
+              "implication": {
+                "type": "string",
+                "enum": ["bullish", "bearish", "neutral"],
+                "example": "bullish"
+              }
+            }
+          },
+          "social_sentiment": {
+            "type": "object",
+            "properties": {
+              "twitter_sentiment": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "example": 68
+              },
+              "reddit_sentiment": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "example": 71
+              },
+              "overall": {
+                "type": "string",
+                "enum": ["bullish", "bearish", "neutral"],
+                "example": "bullish"
+              }
+            }
+          },
+          "news_sentiment": {
+            "type": "object",
+            "properties": {
+              "positive_count": {
+                "type": "integer",
+                "example": 23
+              },
+              "negative_count": {
+                "type": "integer",
+                "example": 8
+              },
+              "neutral_count": {
+                "type": "integer",
+                "example": 15
+              },
+              "overall": {
+                "type": "string",
+                "enum": ["bullish", "bearish", "neutral"],
+                "example": "bullish"
+              }
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["symbol", "overall_sentiment", "sentiment_score", "timestamp"]
       }
     },
     "securitySchemes": {}

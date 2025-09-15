@@ -1,0 +1,231 @@
+Mantap. Kita bikin **Sniper SOL = event-driven only**: cuma kirim notifikasi kalau **jarak ke magnet likuidasi dekat** + **orderbook mendukung** + (opsional) **SMC confirm**. Ini patch siap tempel.
+
+# ⚡ TL;DR
+
+* Kirim **Sniper SOL** hanya jika:
+  `distance_to_magnet ≤ 0.35%` **AND** `orderbook.wallX ≥ 6` **AND** (opsional) `SMC confirm (BOS/CHoCH/sweep)`
+* Ada **cooldown 15 menit** per simbol & **delta score** minimal agar gak spam.
+* Semua threshold bisa diubah via **ENV**.
+
+---
+
+# 1) ENV (threshold fleksibel)
+
+Tambahkan ke env (Replit/VPS):
+
+```
+SNIPER_MAGNET_MAX_BPS=35         # 35 bps = 0.35%
+SNIPER_OB_WALL_MIN_X=6           # minimal kekuatan wall vs median
+SNIPER_SCORE_MIN=70              # min confidence sniper
+SNIPER_DELTA_MIN=6               # min kenaikan score dibanding last alert
+SNIPER_COOLDOWN_MIN=15           # cooldown per symbol
+SNIPER_REQUIRE_SMC=true          # butuh konfirmasi SMC 5m
+```
+
+---
+
+# 2) Gating Logic (services/sniperGate.js)
+
+```js
+// services/sniperGate.js
+export function distanceBps(price, target) {
+  return Math.abs(price - target) / price * 10_000; // basis points
+}
+
+// heatmap: { clusters: [{ price: number, liq_usd: number, side: 'above'|'below' }] }
+// orderbook: { wallX: number, imbalanceOK: boolean, bestBid: number, bestAsk: number }
+// smc: { bullConfirm?: boolean, bearConfirm?: boolean }  // dari engine SMC 5m
+export function shouldSendSniper({
+  side,                // 'long' | 'short' (ikut bias institusional)
+  price,               // last price SOL
+  score,               // confidence 0..100 (sniper/alt score mu)
+  last,                // { ts, score } dari state sebelumnya
+  heatmap,             // response heatmap parsed
+  orderbook,           // ringkasan OB
+  smc,                 // konfirmasi SMC (opsional)
+  now = Date.now(),
+  env = process.env
+}) {
+  const MAGNET_MAX = Number(env.SNIPER_MAGNET_MAX_BPS ?? 35);
+  const WALL_MIN_X = Number(env.SNIPER_OB_WALL_MIN_X ?? 6);
+  const SCORE_MIN  = Number(env.SNIPER_SCORE_MIN ?? 70);
+  const DELTA_MIN  = Number(env.SNIPER_DELTA_MIN ?? 6);
+  const COOLDOWN   = Number(env.SNIPER_COOLDOWN_MIN ?? 15) * 60_000;
+  const REQ_SMC    = String(env.SNIPER_REQUIRE_SMC ?? 'true') === 'true';
+
+  // 1) pilih magnet di sisi yang relevan
+  const relevant = heatmap?.clusters?.filter(c => side === 'long' ? c.price <= price : c.price >= price) || [];
+  if (!relevant.length) return { ok:false, why:"no_relevant_magnet" };
+
+  // ambil magnet terdekat
+  const nearest = relevant.reduce((a,b)=>{
+    const da = Math.abs(price - a.price), db = Math.abs(price - b.price);
+    return db < da ? b : a;
+  });
+
+  const dBps = distanceBps(price, nearest.price);
+  if (dBps > MAGNET_MAX) return { ok:false, why:"magnet_too_far", dBps, magnet: nearest.price };
+
+  // 2) orderbook filter
+  const wallOK = (orderbook?.wallX ?? 0) >= WALL_MIN_X;
+  const imbOK  = !!orderbook?.imbalanceOK;
+  if (!(wallOK && imbOK)) return { ok:false, why:"orderbook_weak", wallX: orderbook?.wallX, imbalanceOK: imbOK };
+
+  // 3) score & delta
+  if (score < SCORE_MIN) return { ok:false, why:"score_low", score };
+  if (last) {
+    const inCooldown = now - last.ts < COOLDOWN;
+    const improved   = score - (last.score ?? 0) >= DELTA_MIN;
+    const crossed    = (last.score ?? 0) < SCORE_MIN && score >= SCORE_MIN;
+    if (inCooldown && !(improved || crossed)) return { ok:false, why:"cooldown" };
+  }
+
+  // 4) SMC confirm (opsional)
+  if (REQ_SMC) {
+    const confirm = side === 'long' ? !!smc?.bullConfirm : !!smc?.bearConfirm;
+    if (!confirm) return { ok:false, why:"smc_not_confirmed" };
+  }
+
+  // 5) susun planning cepat (entry/SL/TP)
+  const entry = side === 'long'
+    ? Math.min(price, nearest.price) // bidik pullback ke magnet/support
+    : Math.max(price, nearest.price);
+
+  const sl    = side === 'long' ? entry * (1 - 0.0035) : entry * (1 + 0.0035);  // default 35 bps
+  const tp1   = side === 'long' ? price * (1 + 0.003)  : price * (1 - 0.003);
+  const tp2   = side === 'long' ? price * (1 + 0.007)  : price * (1 - 0.007);
+
+  return {
+    ok: true,
+    dBps,
+    magnet: nearest.price,
+    plan: { side, entry: round(entry,4), sl: round(sl,4), tps: [round(tp1,4), round(tp2,4)] }
+  };
+}
+
+function round(n,d=2){ const p=10**d; return Math.round(n*p)/p; }
+```
+
+---
+
+# 3) Scheduler Sniper (event-driven, no spam)
+
+```js
+// schedulers/sniper.js
+import cron from "node-cron";
+import { shouldSendSniper } from "../services/sniperGate.js";
+import { getLast, setLast } from "../services/alertState.js";
+import { sendSniperMsg } from "../observability/telegram-actions.js";
+import { getSniperContext } from "../orchestrator/sniperContext.js";
+// ↑ kamu sediakan fungsi ini untuk ambil:
+// { side, price, score, heatmap:{clusters[]}, orderbook:{wallX,imbalanceOK}, smc:{bullConfirm/bearConfirm} }
+
+const COINS = ["SOL"]; // bisa tambah ETH/BTC pakai logic sama
+
+cron.schedule("*/1 * * * *", async () => { // jalan tiap menit, tapi kirim hanya jika lolos gating
+  for (const sym of COINS) {
+    try {
+      const ctx  = await getSniperContext(sym); // datamu sendiri
+      const last = await getLast(`sniper:${sym}`);
+      const gate = shouldSendSniper({ ...ctx, last });
+
+      if (gate.ok) {
+        await sendSniperMsg(formatSniper(sym, ctx, gate));
+        await setLast(`sniper:${sym}`, { ts: Date.now(), score: ctx.score });
+      }
+      // else: cukup log; no-send
+    } catch (e) {
+      // log error normal; CB/retry ada di adapter layer
+    }
+  }
+});
+
+function formatSniper(symbol, ctx, gate){
+  const { side } = ctx;
+  const { entry, sl, tps } = gate.plan;
+  const dir = side === "long" ? "🟢 LONG" : "🔴 SHORT";
+  return {
+    text:
+`🎯 Sniper — ${symbol} (5m) ${dir}
+Magnet: ${gate.magnet.toFixed(4)}  |  Dist: ${gate.dBps.toFixed(1)} bps
+OB: wallX=${ctx.orderbook.wallX}  |  imbalance=${ctx.orderbook.imbalanceOK ? "OK":"No"}
+SMC: ${ctx.smc?.bullConfirm||ctx.smc?.bearConfirm ? "Confirm" : "—"}
+Score: ${ctx.score}%
+
+Plan:
+Entry: ${entry}
+SL: ${sl}
+TP1/TP2: ${tps[0]} / ${tps[1]}
+
+ref: snp_${symbol}_${Date.now()}`,
+    buttons: [
+      [{ text:"🎯 Set Entry", callback_data:`setentry:${symbol}:${entry}:${sl}:${tps.join(",")}` }],
+      [{ text:"👍", callback_data:`rate:+:snp_${symbol}` }, { text:"👎", callback_data:`rate:-:snp_${symbol}` }, { text:"⏸ 15m", callback_data:`snooze:15:snp_${symbol}` }]
+    ]
+  };
+}
+```
+
+> `sendSniperMsg()` tinggal memanggil Bot API `sendMessage` + `inline_keyboard` (kamu sudah punya helper Telegram).
+
+---
+
+# 4) Orchestrator Sniper Context (contoh)
+
+```js
+// orchestrator/sniperContext.js
+import { coinglass, coinapi } from "../adapters/index.js";
+
+export async function getSniperContext(symbol="SOL"){
+  // 1) arah dari institutional bias yang sudah kamu punya
+  const bias = await getCurrentBias("BTC", symbol); // "LONG" | "SHORT"
+  const side = bias === "LONG" ? "long" : "short";
+
+  // 2) harga terakhir (OKX/primary)
+  const price = await getLastOkxPrice(symbol); // implementasi kamu
+
+  // 3) heatmap (ambil cluster terdekat)
+  const heat = await coinglass.liquidationHeatmap(symbol, "1h"); // normalisasi ke {clusters:[{price, liq_usd, side}]}
+
+  // 4) orderbook spot (CoinAPI/Binance) → ringkas
+  const obRaw = await coinapi.orderbookSpot(symbol, "BINANCE");
+  const orderbook = summarizeOrderbook(obRaw); // {wallX, imbalanceOK, bestBid, bestAsk}
+
+  // 5) SMC 5m (opsional) — pakai engine SMC kamu
+  const smc = await getSmc5mConfirm(symbol, side); // {bullConfirm:true/false, bearConfirm:true/false}
+
+  // 6) score sniper (boleh sama dgn confidence aggregator atau khusus sniper)
+  const score = await getSniperScore(symbol); // 0..100
+
+  return { side, price, score, heatmap:heat, orderbook, smc };
+}
+```
+
+> `summarizeOrderbook()` = hitung kekuatan wall vs median & arah imbalance.
+> `getSmc5mConfirm()` = CHoCH/BOS/sweep confirm → boolean.
+
+---
+
+# 5) Acceptance Test (cepat)
+
+* [ ] `distance_to_magnet = 0.28%`, `wallX=7`, `score=74`, `SMC ok` → **KIRIM**.
+* [ ] `distance=0.51%` → **TIDAK kirim** (jauh).
+* [ ] `wallX=4` → **TIDAK kirim** (wall lemah).
+* [ ] `score=67` → **TIDAK kirim** (rendah).
+* [ ] Dalam **15 menit** setelah kirim, `score +3` → **TIDAK kirim**; `score +8` → **KIRIM** (delta terpenuhi).
+
+---
+
+# 6) Checklist Deploy
+
+* [ ] Tambah `services/sniperGate.js`
+* [ ] Tambah/ubah `schedulers/sniper.js` agar event-driven
+* [ ] Pastikan `orchestrator/sniperContext.js` mengembalikan flags yang dibutuhkan
+* [ ] Set ENV sesuai risk appetite
+* [ ] Uji Acceptance Test di staging, lalu live
+
+---
+
+# 🎯 Bottom line
+
+Sekarang **Sniper SOL** cuma ping ketika **benar-benar ada peluang**: magnet dekat, wall mendukung, (opsional) SMC confirm. Bukan loop. Bukan spam. **Just signal, no noise.**
