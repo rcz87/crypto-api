@@ -136,13 +136,8 @@ export class EnhancedFundingRateService {
       try {
         openInterest = await okxService.getOpenInterest(symbol);
       } catch (error) {
-        console.warn('OI fetch failed, using fallback for funding analysis:', error.message);
-        // Provide realistic fallback OI based on SOL market (around $3.5B USD)
-        openInterest = {
-          instId: symbol,
-          oi: '3500000',
-          oiUsd: '3500000000'
-        };
+        console.error('🚨 CRITICAL: Open Interest fetch failed for funding analysis - ABORTING to prevent false signals:', error.message);
+        throw new Error(`Open Interest fetch failed for ${symbol} - preventing false signal contamination`);
       }
       
       // Store historical data

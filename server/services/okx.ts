@@ -604,7 +604,10 @@ export class OKXService {
       ]);
 
       // Extract results with ENHANCED fallbacks - ARCHITECT ANTI-NULL FIX
-      const ticker = results[0].status === 'fulfilled' ? results[0].value : this.generateFallbackTicker(symbol);
+      const ticker = results[0].status === 'fulfilled' ? results[0].value : null;
+      if (!ticker) {
+        throw new Error(`🚨 CRITICAL: Ticker data failed for ${symbol} - NO FALLBACK DATA to prevent false signals`);
+      }
       const candles5m = results[1].status === 'fulfilled' ? results[1].value : [];
       const candles15m = results[2].status === 'fulfilled' ? results[2].value : [];
       const candles30m = results[3].status === 'fulfilled' ? results[3].value : [];
@@ -711,8 +714,8 @@ export class OKXService {
         const cvdService = new CVDService();
         cvdAnalysis = await cvdService.analyzeCVD(candles1H, recentTrades, '1H');
       } catch (error) {
-        console.warn(`CVD analysis failed for ${symbol}, using fallback:`, error);
-        cvdAnalysis = this.generateFallbackCVDAnalysis(symbol, recentTrades);
+        console.error(`🚨 CRITICAL: CVD analysis failed for ${symbol} - ABORTING to prevent false signals:`, error);
+        throw new Error(`CVD analysis failed for ${symbol} - preventing false signal contamination`);
       }
 
       // Generate confluence analysis with fallback
@@ -732,8 +735,8 @@ export class OKXService {
           '1H'
         );
       } catch (error) {
-        console.warn(`Confluence analysis failed for ${symbol}, using fallback:`, error);
-        confluenceAnalysis = this.generateFallbackConfluenceAnalysis(symbol, ticker?.price || '0');
+        console.error(`🚨 CRITICAL: Confluence analysis failed for ${symbol} - ABORTING to prevent false signals:`, error);
+        throw new Error(`Confluence analysis failed for ${symbol} - preventing false signal contamination`);
       }
 
       return {
@@ -798,127 +801,14 @@ export class OKXService {
     }
   }
 
-  // Generate fallback CVD analysis when service fails
+  // NO FALLBACK DATA - Throw error when CVD analysis fails  
   private generateFallbackCVDAnalysis(symbol: string, recentTrades: any[]): any {
-    const totalVolume = recentTrades.reduce((sum, trade) => 
-      sum + parseFloat(trade.size || '0'), 0
-    );
-    const buyVolume = recentTrades
-      .filter(trade => trade.side === 'buy')
-      .reduce((sum, trade) => sum + parseFloat(trade.size || '0'), 0);
-    const sellVolume = totalVolume - buyVolume;
-    
-    return {
-      timeframe: '1H',
-      currentCVD: (buyVolume - sellVolume).toFixed(2),
-      previousCVD: '0',
-      deltaChange: (buyVolume - sellVolume).toFixed(2),
-      percentageChange: '0',
-      cvdHistory: [],
-      confidence: {
-        overall: 40,
-        dataQuality: 30,
-        signalClarity: 20,
-        timeframeSynergy: 15
-      },
-      buyerSellerAggression: {
-        buyerAggression: {
-          percentage: Math.round((buyVolume / totalVolume) * 100),
-          strength: buyVolume > sellVolume ? 'moderate' : 'weak',
-          volume: buyVolume.toFixed(2),
-          averageSize: (buyVolume / Math.max(recentTrades.filter(t => t.side === 'buy').length, 1)).toFixed(2)
-        },
-        sellerAggression: {
-          percentage: Math.round((sellVolume / totalVolume) * 100),
-          strength: sellVolume > buyVolume ? 'moderate' : 'weak',
-          volume: sellVolume.toFixed(2),
-          averageSize: (sellVolume / Math.max(recentTrades.filter(t => t.side === 'sell').length, 1)).toFixed(2)
-        },
-        dominantSide: buyVolume > sellVolume ? 'buyers' : sellVolume > buyVolume ? 'sellers' : 'balanced',
-        aggressionRatio: sellVolume > 0 ? (buyVolume / sellVolume) : 1,
-        averageTradeSize: totalVolume / Math.max(recentTrades.length, 1),
-        largeTradeCount: recentTrades.filter(t => parseFloat(t.size || '0') > totalVolume / recentTrades.length * 3).length,
-        retailTradeCount: recentTrades.length,
-        timeDecay: 0.8
-      },
-      activeDivergences: [],
-      recentDivergences: [],
-      absorptionPatterns: [],
-      flowAnalysis: {
-        phase: buyVolume > sellVolume ? 'accumulation' : 'distribution',
-        strength: Math.abs(buyVolume - sellVolume) / totalVolume > 0.1 ? 'moderate' : 'weak',
-        sustainability: 'weak',
-        zones: []
-      },
-      smartMoneySignals: {
-        accumulation: { active: false, strength: 'weak', zones: [] },
-        distribution: { active: false, strength: 'weak', zones: [] },
-        absorption: { active: false, strength: 'weak', price: '0' },
-        testingPhase: { active: false, type: 'none', strength: 'weak' }
-      },
-      realTimeMetrics: {
-        currentBuyPressure: Math.round((buyVolume / totalVolume) * 100),
-        currentSellPressure: Math.round((sellVolume / totalVolume) * 100),
-        momentum: buyVolume > sellVolume ? 'bullish' : sellVolume > buyVolume ? 'bearish' : 'neutral',
-        velocity: 0,
-        acceleration: 0
-      },
-      multiTimeframeAlignment: {
-        '1H': {
-          cvd: (buyVolume - sellVolume).toFixed(2),
-          trend: buyVolume > sellVolume ? 'bullish' : sellVolume > buyVolume ? 'bearish' : 'neutral',
-          strength: 'weak'
-        }
-      },
-      alerts: [],
-      pressureHistoryData: {
-        history: [],
-        analytics: {
-          pressureChange24h: {
-            buyPressureChange: 0,
-            sellPressureChange: 0,
-            trendDirection: 'neutral'
-          },
-          manipulationEvents: [],
-          absorptionLevels: []
-        }
-      },
-      lastUpdate: new Date().toISOString(),
-      dataAge: 0
-    };
+    throw new Error(`🚨 CRITICAL: CVD analysis failed for ${symbol} - NO FALLBACK DATA to prevent false signals`);
   }
 
-  // Generate fallback confluence analysis when service fails
+  // NO FALLBACK DATA - Throw error when confluence analysis fails
   private generateFallbackConfluenceAnalysis(symbol: string, currentPrice: string): any {
-    const price = parseFloat(currentPrice || '0');
-    return {
-      overall: 55,
-      trend: 'neutral' as const,
-      strength: 'weak' as const,
-      confidence: 40,
-      components: {
-        smc: 50,
-        cvd: 50,
-        volumeProfile: 50,
-        funding: 55,
-        openInterest: 50,
-        technicalIndicators: 50,
-        fibonacci: 50,
-        orderFlow: 50
-      },
-      signals: [
-        {
-          type: 'neutral',
-          source: 'Fallback Analysis',
-          weight: 20,
-          confidence: 40
-        }
-      ],
-      recommendation: 'HOLD - Insufficient data for strong directional bias',
-      riskLevel: 'medium' as const,
-      timeframe: '1H',
-      lastUpdate: new Date().toISOString()
-    };
+    throw new Error(`🚨 CRITICAL: Confluence analysis failed for ${symbol} - NO FALLBACK DATA to prevent false signals`);
   }
 
   private setupPingPong(): void {
