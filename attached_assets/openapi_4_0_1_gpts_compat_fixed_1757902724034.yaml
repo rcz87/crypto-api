@@ -1,0 +1,334 @@
+openapi: 3.0.3
+info:
+  title: CryptoSat Intelligence - Multi-Pair Trading Data Gateway API (GPTs Compat)
+  description: |
+    🛰️ CryptoSat Intelligence — GPTs-compatible OpenAPI with Production Stability.
+    
+    **🚀 PHASE 2: ENHANCED AI READY (Sept 10, 2025):**
+    - ✅ **Self-Learning AI**: Auto-pattern confidence updates based on trading performance
+    - ✅ **Performance Tracking**: Complete trading lifecycle tracking (execution → outcome → learning)
+    - ✅ **Neural Networks**: 50 input features with 5-layer architecture
+    - ✅ **Enhanced Analytics**: 21+ endpoint categories with institutional-grade analysis
+    - ✅ **Dynamic Patterns**: 10 advanced patterns with 95% confidence detection
+    
+    **🧠 Phase 2 Enhanced AI Features:**
+    - **ExecutionRecorder**: Self-learning system with pattern performance analytics
+    - **Enhanced Signal Engine**: Neural network predictions with GPT-5 reasoning
+    - **Performance APIs**: Win rate tracking, P&L analytics, confidence validation
+    - **Adaptive Learning**: Pattern weights auto-adjust based on real trading results
+    
+    **🔧 GPTs Compatibility Features:**
+    - Parameter **INLINE** (tanpa $ref) agar terbaca oleh GPT Actions
+    - Single **ApiKey** security scheme (GPTs requirement)
+    - Complete error handling dengan Problem Details & RateLimit headers
+    - Real-time data dengan comprehensive validation
+  version: '5.0.0-gpts'
+  contact:
+    email: admin@guardiansofthegreentoken.com
+    url: https://guardiansofthegreentoken.com
+
+servers:
+  - url: https://guardiansofthegreentoken.com
+    description: Production server with SSL
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Multi-Pair Analysis
+  - name: AI Signal Engine
+  - name: Enhanced AI Engine (Phase 2)
+  - name: Performance Tracking (Phase 2)
+  - name: Smart Money Concepts
+  - name: Volume Delta Analysis
+  - name: Technical Indicators
+  - name: Premium Analytics
+  - name: Enhanced SOL Endpoints
+  - name: System Monitoring
+  - name: Legacy SOL Endpoints
+  - name: CoinAPI Multi-Exchange
+  - name: CoinAPI Analytics
+  - name: Regime Detection Autopilot
+
+paths:
+  /api/pairs/supported:
+    get:
+      operationId: getSupportedTradingPairs
+      summary: Get all supported trading pairs
+      tags: [Multi-Pair Analysis]
+      responses:
+        '200':
+          description: List of supported trading pairs
+          headers:
+            RateLimit-Limit:
+              description: Max requests in window
+              schema:
+                type: integer
+                minimum: 0
+            RateLimit-Remaining:
+              description: Remaining in window
+              schema:
+                type: integer
+                minimum: 0
+            RateLimit-Reset:
+              description: Seconds to reset
+              schema:
+                type: integer
+                minimum: 0
+            RateLimit-Policy:
+              description: RateLimit policy string
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      pairs:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - BTC
+                          - ETH
+                          - SOL
+                          - ADA
+                          - AVAX
+                          - DOGE
+                          - UNI
+                          - MATIC
+                          - LTC
+                          - BCH
+                          - RENDER
+                          - BNB
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-09-06T14:30:00Z"
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /api/{pair}/complete:
+    get:
+      operationId: getCompleteAnalysis
+      summary: Get comprehensive trading data for any supported pair
+      tags: [Multi-Pair Analysis]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Trading pair symbol - supports all 65+ pairs (BTC, ETH, SOL, ADA, etc.)
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9]{2,10}$'
+            enum:
+              - BTC
+              - ETH
+              - SOL
+              - ADA
+              - DOT
+              - MATIC
+              - LTC
+              - BCH
+              - ETC
+              - LINK
+              - UNI
+              - AAVE
+              - ATOM
+              - XRP
+              - DOGE
+              - SHIB
+              - AVAX
+              - FTM
+              - NEAR
+              - ALGO
+              - MANA
+              - SAND
+              - AXS
+              - ENJ
+              - CRV
+              - COMP
+              - MKR
+              - YFI
+              - SUSHI
+              - 1INCH
+              - BAT
+              - ZRX
+              - KNC
+              - LRC
+              - REN
+              - STORJ
+              - GRT
+              - FIL
+              - AR
+              - THETA
+              - ICP
+              - EGLD
+              - HBAR
+              - VET
+              - CHZ
+              - ENS
+              - IMX
+              - GMT
+              - APE
+              - GALA
+              - LOOKS
+              - MAGIC
+              - OP
+              - ARB
+              - BLUR
+              - SUI
+              - PEPE
+              - FLOKI
+              - BONK
+              - WIF
+              - BOME
+              - POPCAT
+              - MEW
+              - RENDER
+              - BNB
+          example: BTC
+      responses:
+        '200':
+          description: Complete trading data for the specified pair
+          headers:
+            RateLimit-Limit:
+              schema:
+                type: integer
+            RateLimit-Remaining:
+              schema:
+                type: integer
+            RateLimit-Reset:
+              schema:
+                type: integer
+            RateLimit-Policy:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompleteAnalysisResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /api/{pair}/smc:
+    get:
+      operationId: getSMCAnalysis
+      summary: Get Smart Money Concepts (SMC) analysis for a trading pair
+      tags: [Smart Money Concepts]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+          example: SOL
+      responses:
+        '200':
+          description: Smart Money Concepts analysis result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SMCAnalysisResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '500':
+          $ref: '#/components/responses/ProblemResponse'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  responses:
+    ProblemResponse:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+  schemas:
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+
+    CompleteAnalysisResponse:
+      type: object
+      properties:
+        pair:
+          type: string
+        timeframe:
+          type: string
+        score:
+          type: number
+        signals:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [entry, exit, hold, risk_management]
+              direction:
+                type: string
+                enum: [long, short, neutral]
+              strength:
+                type: integer
+                minimum: 0
+                maximum: 100
+              confidence:
+                type: integer
+                minimum: 0
+                maximum: 100
+
+    SMCAnalysisResponse:
+      type: object
+      properties:
+        pair:
+          type: string
+        patterns:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              confidence:
+                type: number
+              description:
+                type: string
