@@ -1,0 +1,174 @@
+Bisa “bentrok”? **Bisa**—kalau nggak ditata, tiga provider (CoinGlass, CoinAPI, OKX) bisa saling “gasruk” di 7 area: **rate limit, simbol, semantik data, timestamp, retry storm, prioritas sumber, dan spam scheduler**. Tenang, semua ada obatnya. 👇
+
+# TL;DR
+
+* Tetapkan **source of truth** per jenis data (OKX=price/OB/exec, CoinGlass=whale/ETF/heatmap/sentiment, CoinAPI=spot multi-exchange & histori).
+* Pakai **symbol map** lintas provider (OKX “SOL-USDT-SWAP”, CoinAPI “SOL/USDT”, CoinGlass “SOL”).
+* Pasang **cache TTL**, **rate budget**, **retry + jitter**, **circuit breaker per provider**, dan **cooldown** di scheduler/alerts.
+* Buat **priority routing + failover** → no drama.
+
+---
+
+# Potensi Bentrok (gejala → penyebab → fix)
+
+| Gejala                            | Penyebab Umum                        | Fix Singkat                                                                      |
+| --------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
+| 429 / kuota habis                 | Hit paralel ke 3 provider bareng     | **Rate budget** per sumber + **concurrency limit** + cache TTL                   |
+| Data “nggak sinkron” (harga beda) | Simbol beda & latensi beda           | **Symbol map** + **priority routing** + **anomaly filter** (deviasi>0.5% → flag) |
+| Sinyal dobel / spam               | Scheduler loop + nggak ada cooldown  | **shouldAlert()** + **cooldown** + **delta score** + dedup                       |
+| Time series melompat              | Zona waktu/timestamp beda            | **Normalisasi ke epoch ms (UTC)** + validasi `staleness < 60s`                   |
+| Retry storm pas outage            | Retry tanpa jitter/circuit           | **Exponential backoff + jitter** + **circuit breaker** 60s                       |
+| Campur spot vs futures            | Semantik beda (taker spot ≠ funding) | **Schema normalize** + label `market_type`                                       |
+| Deadlock proxy                    | Aggregator manggil dirinya sendiri   | **Allowlist path**; dilarang hit `/gpts/advanced` dari dalam route yang sama     |
+
+---
+
+# Aturan Emas (anti-bentrok)
+
+1. **Source of Truth Matrix**
+
+   * **Price/Orderbook/Trade exec** → **OKX** (WS/REST).
+   * **Whale / ETF / Liquidation heatmap / Sentiment / Options OI** → **CoinGlass**.
+   * **Spot lintas bursa & histori/backtest** → **CoinAPI**.
+2. **Priority & Failover**: OKX → (fallback read-only) CoinAPI; analitik institusional selalu CoinGlass.
+3. **Symbol Map** wajib (contoh di bawah).
+4. **TTL & Staleness**: heatmap 10s, sentiment 15s, ETF 30s; tolak data jika `age>60s`.
+5. **Rate Budget**: tetapkan target per menit per provider (contoh di ENV).
+6. **Retry + Jitter + CB**: 3x retry, 250→500→1000ms + jitter; 5 error beruntun → CB open 60s.
+7. **Scheduler event-driven**: kirim notif **hanya saat trigger** (score≥80, confluence ok, delta≥8).
+
+---
+
+# Contoh Konfigurasi (ENV)
+
+```
+# Rate budget / menit
+RATE_OKX_PER_MIN=240
+RATE_CG_PER_MIN=120
+RATE_COINAPI_PER_MIN=90
+
+# Cache TTL (detik)
+TTL_HEATMAP=10
+TTL_SENTIMENT=15
+TTL_ETF=30
+TTL_ORDERBOOK=5
+
+# Alert gating
+ALERT_SCORE_MIN=80
+ALERT_DELTA_MIN=8
+ALERT_COOLDOWN_MIN=30
+```
+
+---
+
+# Symbol Map (normalize biar nggak nyasar)
+
+```js
+// config/symbolMap.js
+export const SYM = {
+  BTC:{ okx:{instId:"BTC-USDT-SWAP"}, coinapi:{exchange:"BINANCE", pair:"BTC/USDT"}, coinglass:{symbol:"BTC"} },
+  SOL:{ okx:{instId:"SOL-USDT-SWAP"}, coinapi:{exchange:"BINANCE", pair:"SOL/USDT"}, coinglass:{symbol:"SOL"} },
+  ETH:{ okx:{instId:"ETH-USDT-SWAP"}, coinapi:{exchange:"BINANCE", pair:"ETH/USDT"}, coinglass:{symbol:"ETH"} },
+};
+export const getSym = s => SYM[s.toUpperCase()];
+```
+
+---
+
+# Priority Router (core pattern)
+
+```js
+// services/priceRouter.js
+export async function bestSpotPrice(symbol){
+  const okx = await okx.last(symbol);                 // primary
+  const agg = await coinapi.vwap(symbol, ["BINANCE","COINBASE","KRAKEN"]); // cross-check
+  const dev = Math.abs(okx.price-agg.price)/agg.price;
+  const anomaly = dev > 0.005; // 0.5%
+  return { price: okx.price, cross: agg.price, anomaly };
+}
+```
+
+---
+
+# Concurrency & Rate Budget (hindari tabrakan kuota)
+
+```js
+// limiter sederhana
+let inFlight = 0, MAX=10; const q=[];
+export async function withLimit(fn){
+  if(inFlight>=MAX) await new Promise(r=>q.push(r));
+  inFlight++;
+  try { return await fn(); }
+  finally { inFlight--; const r=q.shift(); r&&r(); }
+}
+```
+
+---
+
+# Retry + Jitter + Circuit Breaker
+
+```js
+// services/httpWrap.js
+let failCount = { okx:0, cg:0, coinapi:0 }, cbOpenUntil = {};
+
+export async function fetchWithPolicy(src, url, opt={}){
+  const now = Date.now();
+  if (cbOpenUntil[src] > now) throw new Error(`${src} CB_OPEN`);
+
+  for (let i=0;i<3;i++){
+    const jitter = Math.random()*120;
+    const backoff = [250,500,1000][i] + jitter;
+    try {
+      const ctl = new AbortController(); const t=setTimeout(()=>ctl.abort(), 8000);
+      const r = await fetch(url, {...opt, signal: ctl.signal}); clearTimeout(t);
+      if (!r.ok) throw new Error(`HTTP_${r.status}`);
+      failCount[src]=0; return r;
+    } catch(e){
+      if (i===2){ failCount[src]++; if (failCount[src]>=5){ cbOpenUntil[src]=now+60_000; } throw e; }
+      await new Promise(r=>setTimeout(r, backoff));
+    }
+  }
+}
+```
+
+---
+
+# Anomaly Guard (data skew)
+
+```js
+// Jika deviasi > 0.8%: kurangi size / tunda entry
+export function anomalyGuard({dev}){
+  if (dev > 0.008) return { proceed:false, reason:"price_deviation" };
+  if (dev > 0.005) return { proceed:true,  sizeFactor:0.5 };
+  return { proceed:true, sizeFactor:1.0 };
+}
+```
+
+---
+
+# Runbook Cepat (kalau “bentrok” beneran)
+
+* **429 banyak** → turunkan frekuensi, naikkan TTL, pasang concurrency limit.
+* **Harga beda jauh** → cek symbol map + latensi; aktifkan anomaly guard (size 50% / skip).
+* **Timeout berantai** → lihat CB status; sementara pakai fallback CoinAPI untuk baca (tanpa eksekusi).
+* **Spam notif** → periksa `shouldAlert()` + cooldown + delta score.
+* **Data stale** → buang jika `timestamp_now - data_ts > 60s`.
+
+---
+
+# Checklist Anti-Bentrok (yang penting dikerjain)
+
+* [ ] **Symbol map** per coin terpasang.
+* [ ] **Source of truth** per metrik jelas.
+* [ ] **TTL + staleness check** aktif.
+* [ ] **Rate budget + limiter + cache** jalan.
+* [ ] **Retry+jitter + circuit breaker** per provider.
+* [ ] **Scheduler event-driven** (bukan loop spam).
+* [ ] **Anomaly guard** sebelum eksekusi/alert.
+
+---
+
+## TL;DR (last)
+
+Bisa bentrok **kalau** semua ditembak barengan tanpa aturan. **Solusinya**: tetapkan peran masing-masing, normalisasi simbol, batasi rate & concurrency, pakai cache TTL, retry+jitter, circuit breaker, prioritas sumber + failover, dan kirim alert **hanya saat trigger valid**.
+Hasilnya: **semua API rukun, sinyal makin bersih.**
