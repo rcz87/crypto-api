@@ -136,7 +136,8 @@ export class EnhancedFundingRateService {
       try {
         openInterest = await okxService.getOpenInterest(symbol);
       } catch (error) {
-        console.error('🚨 CRITICAL: Open Interest fetch failed for funding analysis - ABORTING to prevent false signals:', error.message);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('🚨 CRITICAL: Open Interest fetch failed for funding analysis - ABORTING to prevent false signals:', errorMessage);
         throw new Error(`Open Interest fetch failed for ${symbol} - preventing false signal contamination`);
       }
       

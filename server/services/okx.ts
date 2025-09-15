@@ -236,10 +236,6 @@ export class OKXService {
     }
   }
 
-  async getCompleteSOLData(): Promise<SolCompleteData> {
-    return this.getCompleteData('SOL-USDT-SWAP');
-  }
-
   async testConnection(): Promise<boolean> {
     try {
       const response = await this.client.get('/api/v5/market/ticker?instId=BTC-USDT');
@@ -724,14 +720,14 @@ export class OKXService {
         const { ConfluenceService } = await import('./confluence.js');
         const confluenceService = new ConfluenceService();
         confluenceAnalysis = await confluenceService.calculateConfluenceScore(
-          null, // SMC
+          undefined, // SMC - no data available
           cvdAnalysis,
-          null, // Volume profile
+          undefined, // Volume profile - no data available
           fundingRate,
           openInterest,
-          null, // Technical indicators
-          null, // Fibonacci
-          null, // Order flow
+          undefined, // Technical indicators - no data available  
+          undefined, // Fibonacci - no data available
+          undefined, // Order flow - no data available
           '1H'
         );
       } catch (error) {
