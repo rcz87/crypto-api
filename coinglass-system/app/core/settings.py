@@ -5,10 +5,10 @@ import secrets
 class Settings(BaseSettings):
     # API Configuration
     CG_API_KEY: str
-    DB_URL: str
-    REDIS_URL: str
-    TELEGRAM_BOT_TOKEN: str
-    TELEGRAM_CHAT_ID: str
+    DB_URL: str = "sqlite:///./coinglass.db"  # Default to SQLite for development
+    REDIS_URL: str = "redis://localhost:6379"  # Default Redis URL
+    TELEGRAM_BOT_TOKEN: str = ""  # Optional
+    TELEGRAM_CHAT_ID: str = ""  # Optional
     
     # Trading Configuration
     SYMBOLS: List[str] = ["BTC", "ETH", "SOL"]
@@ -48,6 +48,6 @@ class Settings(BaseSettings):
     MAX_ALERTS_PER_HOUR: int = 20
     BACKUP_RETENTION_DAYS: int = 30
 
-    model_config = {"env_file": ".env", "case_sensitive": False}
+    model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
 
 settings = Settings()
