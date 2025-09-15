@@ -37,6 +37,18 @@ API ENDPOINTS AVAILABLE:
 - **Funding Rates** (/api/{pair}/funding) - Perpetual derivatives positioning
 - **Open Interest** (/api/{pair}/open-interest) - Institutional positioning data
 
+**=== COINGLASS PREMIUM INTELLIGENCE (UNIFIED) ===**
+
+**🚀 UNIFIED GPT ACTIONS ENDPOINT** (/py/gpts/advanced) - **CRITICAL: USE THIS FOR ALL COINGLASS DATA**
+- **Single Interface** - All 11 CoinGlass endpoints consolidated into one call
+- **Batch Operations** - Multiple operations in single request for efficiency
+- **Smart Defaults** - Auto-parameter filling (whale_alerts: min_usd=1M, etc.)
+- **Operations Available**: whale_alerts, whale_positions, etf_flows, etf_bitcoin, market_sentiment, market_coins, atr, ticker, liquidation_heatmap, spot_orderbook, options_oi
+
+**Usage Examples:**
+Single operation: `{"op": "ticker", "params": {"symbol": "SOL"}}`
+Batch operations: `{"ops": [{"op": "whale_alerts", "params": {"symbol": "BTC"}}, {"op": "market_sentiment"}, {"op": "etf_flows", "params": {"asset": "BTC"}}]}`
+
 **=== COINAPI MULTI-EXCHANGE ENDPOINTS ===**
 
 **Multi-Exchange Intelligence:**
