@@ -57,3 +57,30 @@ def spot_orderbook(symbol: str, exchange: str = "binance"):
 @app.get("/advanced/options/oi/{symbol}")
 def options_oi(symbol: str = "BTC"):
     return {"symbol": symbol, "open_interest": 0, "status": "stub-ok"}
+
+@app.get("/advanced/technical/atr")
+def technical_atr(symbol: str = "BTC", timeframe: str = "1h"):
+    # Placeholder ATR calculation - replace with real implementation
+    atr_percent = 0.8 if symbol == "SOL" else 1.2 if symbol == "BTC" else 1.0
+    return {
+        "symbol": symbol, 
+        "timeframe": timeframe,
+        "atr_percent": atr_percent,
+        "status": "stub-ok"
+    }
+
+@app.get("/advanced/ticker/{symbol}")
+def ticker_data(symbol: str):
+    # Placeholder price data - replace with real market data
+    prices = {
+        "SOL": 200.0,
+        "BTC": 65000.0,
+        "ETH": 3500.0
+    }
+    price = prices.get(symbol.upper(), 100.0)
+    return {
+        "symbol": symbol,
+        "price": price,
+        "last": price,
+        "status": "stub-ok"
+    }

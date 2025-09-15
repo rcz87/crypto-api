@@ -1,0 +1,190 @@
+Siap, “maksudnya” gini, bro 👇
+Yang aku tawarin itu **paket patch kecil** biar sistem kamu dari “udah keren” jadi “udah ngasih uang” — tanpa langsung nembak real order. Isinya 5 hal:
+
+# TL;DR
+
+* **Auto-sizing by confidence** → size posisi otomatis dari skor sinyal.
+* **Ghost order OKX** → “Set Entry” bikin order simulasi (paper) + catat PnL.
+* **Feedback → learning** → tombol 👍/👎 ngaruh ke bobot sinyal/threshold.
+* **Multi-coin rollout** → tambah ETH/BTC/AVAX dengan throttle aman.
+* **Alert hygiene** → dedup, snooze, rate budget biar Telegram nggak banjir.
+
+---
+
+# 1) Auto-Sizing by Confidence
+
+> Ukuran posisi diset otomatis berdasar **confidence**, **volatilitas (ATR%)**, dan **ETF flow boost**.
+
+**Formula singkat**
+
+```
+mult(conf) = { <60:0.5, 60–70:1.0, 70–80:1.3, >80:1.6 }
+vol_adj    = clamp(ATR% / 0.8%, 0.8 .. 1.25)
+flow_adj   = 1.1 kalau ETF BTC net inflow > $50M else 1.0
+size = equity * base_risk% * mult(conf) * vol_adj * flow_adj
+```
+
+**Kode (Node, siap tempel)**
+
+```js
+// services/autoSize.js
+export function sizeByConfidence({equity, baseRiskPct, confidence, atrPct, etfNetInflowUsd=0}) {
+  const mult = confidence < 60 ? 0.5 : confidence <= 70 ? 1.0 : confidence <= 80 ? 1.3 : 1.6;
+  const volAdj = Math.max(0.8, Math.min(1.25, (atrPct || 0.8) / 0.8));
+  const flowAdj = etfNetInflowUsd > 50_000_000 ? 1.1 : 1.0;
+  const riskFraction = baseRiskPct / 100;
+  return Math.max(0, equity * riskFraction * mult * volAdj * flowAdj);
+}
+```
+
+---
+
+# 2) Ghost Order OKX (paper trading)
+
+> Tombol **“Set Entry”** bikin **conditional order simulasi** (bukan eksekusi real). Semua disimpan, dihitung PnL-nya, dan bisa di-“go live” kapanpun.
+
+**Data yang disimpan**
+
+* `ref_id, symbol, side, entry_zone, sl, tps[], size, created_at, status`
+* Saat harga lewat level → tandai `filled_at`; hitung PnL vs TP/SL.
+
+**Kode handler tombol**
+
+```js
+// routes/tgWebhook.js (callback_data: "setentry:SOL:221.35:220.95:222.0,222.7:ref123")
+import { saveGhostOrder } from "../services/okxGhost.js";
+import { sizeByConfidence } from "../services/autoSize.js";
+
+async function onSetEntry(action) {
+  const [, symbol, entry, sl, tpList, ref] = action.split(":");
+  const tps = tpList.split(",").map(Number);
+  const equity = Number(process.env.EQUITY_USD || 10000);
+  const baseRiskPct = Number(process.env.BASE_RISK_PCT || 1.0);
+
+  // ambil context sinyal (confidence, atr%, etf flow) dari cache/DB
+  const ctx = await getSignalContext(ref); // {confidence, atrPct, etfNetInflowUsd}
+  const sizeUsd = sizeByConfidence({...ctx, equity, baseRiskPct});
+
+  await saveGhostOrder({
+    ref_id: ref, symbol, side: "long", entry_zone: [Number(entry)],
+    sl: Number(sl), tps, size_usd: sizeUsd, mode: "ghost"
+  });
+
+  return `✅ Ghost order dibuat: ${symbol} LONG\nSize: $${sizeUsd.toFixed(0)}\nEntry: ${entry}\nSL: ${sl}\nTPs: ${tps.join(", ")}`;
+}
+```
+
+**Pencatat sederhana**
+
+```js
+// services/okxGhost.js
+const store = new Map(); // ganti ke Redis/DB di produksi
+export async function saveGhostOrder(o){ store.set(o.ref_id, {...o, status:"created", created_at:Date.now()}); }
+export async function listGhost(){ return Array.from(store.values()); }
+```
+
+> Nanti kalau mau **go live**, ganti `mode:"ghost"` jadi `"live"` dan panggil adapter OKX beneran.
+
+---
+
+# 3) Feedback → Learning
+
+> Tombol **👍/👎** masuk DB → dipakai untuk adjust **bobot sinyal** atau **naikkan threshold**.
+
+**Handler rating**
+
+```js
+// routes/tgWebhook.js (callback_data: "rate:+:ref123")
+import { recordFeedback } from "../services/feedback.js";
+
+async function onRate(action, user){
+  const [, sign, ref] = action.split(":");
+  await recordFeedback({ref_id: ref, user, rating: sign === "+" ? 1 : -1, ts: Date.now()});
+  return "🙏 Terima kasih! Feedback terekam.";
+}
+```
+
+**Efek ke model/threshold (harian)**
+
+* Jika 7-hari rolling **net rating < 0** untuk pola X → **turunkan bobot pola X** atau **naikkan min confidence**.
+* Weekly report kirim ke Telegram via `sendWeeklyReport()`.
+
+---
+
+# 4) Multi-Coin Rollout (aman)
+
+> Tambah scheduler ETH, BTC, AVAX, tapi **dibatasi**: max 1 alert/5 menit/coin + dedup + snooze.
+
+**Scheduler ringkas**
+
+```js
+// schedulers/institutional.js
+import cron from "node-cron";
+import { runInstitutionalBiasAlert } from "../services/alphaRules.js";
+const COINS = ["SOL","ETH","BTC","AVAX"];
+
+cron.schedule("*/5 * * * *", async () => {
+  for (const c of COINS){
+    if (await isSnoozed("institutional", c)) continue;
+    await runInstitutionalBiasAlert({base:"BTC", alt:c}); // throttle di dalam
+  }
+});
+```
+
+---
+
+# 5) Alert Hygiene (anti spam)
+
+> **Dedup**, **snooze**, **rate budget** per kategori.
+
+**Dedup 10 menit**
+
+```js
+// services/hygiene.js
+const cache = new Map();
+export async function dedup(ref, ttlMs=10*60*1000){
+  const now = Date.now();
+  const hit = cache.get(ref);
+  if (hit && hit > now) return false;
+  cache.set(ref, now + ttlMs);
+  return true;
+}
+```
+
+**Snooze kategori**
+
+```js
+export async function setSnooze(cat, minutes){ cache.set(`snz:${cat}`, Date.now()+minutes*60*1000); }
+export async function isSnoozed(cat){ const t = cache.get(`snz:${cat}`)||0; return t > Date.now(); }
+```
+
+---
+
+# Skenario (contoh real)
+
+1. Kamu terima **INSTITUTIONAL LONG — BTC (conf 87)** → klik **🎯 Sniper SOL**.
+2. Di pesan sniper, klik **🎯 Set Entry** → sistem bikin **ghost order** SOL (size auto).
+3. Harga jalan → engine tandai TP/SL → kirim **result** ke Telegram.
+4. Kamu klik **👍** → rating masuk → minggu depan **bobot sinyal makin presisi**.
+
+---
+
+# Checklist Patch (siap eksekusi)
+
+* [ ] Tambah `services/autoSize.js`
+* [ ] Tambah handler tombol `setentry`, `rate`, `snooze` di webhook Telegram
+* [ ] Tambah `services/okxGhost.js` (sementara Map; nanti pindah Redis/DB)
+* [ ] Extend scheduler multi-coin + hygiene (dedup/snooze)
+* [ ] Tambah laporan mingguan (pakai `sendWeeklyReport()` yang sudah ada)
+
+---
+
+# TL;DR (lagi, super singkat)
+
+* **Auto-size**: ukuran posisi otomatis dari confidence & ATR.
+* **Ghost order**: “Set Entry” bikin order simulasi + catat PnL.
+* **👍/👎 learning**: feedbackmu ngubah bobot/threshold.
+* **Tambah coin**: ETH/BTC/AVAX dengan throttle.
+* **Rapih**: dedup + snooze + rate budget.
+
+Kalau kamu drop 1–2 file kunci (mis. `server/observability/telegram.ts` + `services/alphaRules.js`), aku sesuaikan patch-nya biar **tinggal paste**.

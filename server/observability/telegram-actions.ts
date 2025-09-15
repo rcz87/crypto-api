@@ -3,8 +3,9 @@
  * Implements 1-click execution, feedback loops, and anti-spam
  */
 
-import fetch from "node-fetch";
+// Using global fetch (Node 18+)
 import { sendTelegram } from "./telegram";
+import { sizeByConfidence, formatSizingForDisplay } from "../services/autoSize.js";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -45,14 +46,32 @@ export async function sendInstitutionalBias(
   const { symbol, bias, whale, etfFlow, sentiment, confidence, altSymbol = 'SOL' } = data;
   const emoji = bias === 'LONG' ? '🟢' : bias === 'SHORT' ? '🔴' : '🟡';
   
+  // Calculate position size
+  let sizeInfo = '';
+  try {
+    const sizing = await sizeByConfidence({
+      confidence,
+      symbol,
+      market: {
+        etfFlowUSD: etfFlow
+      }
+    });
+    
+    if (!sizing.error) {
+      sizeInfo = `\n💰 **POSITION SIZE**\n${formatSizingForDisplay(sizing, { compact: true })}`;
+    }
+  } catch (error) {
+    console.warn('⚠️ Position sizing calculation failed:', error);
+  }
+  
   const text = `${emoji} INSTITUTIONAL ${bias} — ${symbol}
 Whale: ${whale ? 'BUY ≥ $1M ✅' : 'No large activity ❌'}
 ETF Flow: ${etfFlow >= 0 ? `+$${Math.round(etfFlow/1000000)}M ✅` : `${Math.round(etfFlow/1000000)}M ❌`}
 Sentiment: ${sentiment}/100 ${sentiment >= 60 ? '✅' : sentiment <= 40 ? '❌' : '⚠️'}
-Confidence: ${confidence}%
+Confidence: ${confidence}%${sizeInfo}
 
 Next:
-• Cek ${altSymbol} sniper 5m (entry presisi)
+• Cek ${altSymbol} sniper 5m \(entry presisi\)
 • Validasi heatmap & orderbook
 
 ref: ${ref}`;
@@ -122,13 +141,29 @@ export async function sendSOLSniperAlert(
   const { symbol, bias, entry, stopLoss, takeProfit, invalidation, confidence } = data;
   const slPercent = ((stopLoss - entry[0]) / entry[0] * 100).toFixed(2);
   
+  // Calculate position size for sniper alert
+  let sizeInfo = '';
+  try {
+    const sizing = await sizeByConfidence({
+      confidence,
+      symbol,
+      timeframe: '5m'
+    });
+    
+    if (!sizing.error) {
+      sizeInfo = `\n💰 Size: $${sizing.sizing.dollarAmount.toLocaleString()} (${sizing.sizing.percentage}%) | ${sizing.sizing.coinAmount} ${symbol}`;
+    }
+  } catch (error) {
+    console.warn('⚠️ Sniper position sizing calculation failed:', error);
+  }
+  
   const text = `🎯 ${symbol} Sniper (5m)
 Bias: ${bias} (institusional)
 Entry: ${entry[0]}–${entry[1]}
 SL: ${stopLoss} (${slPercent}%)
 TP1/TP2: ${takeProfit[0]} / ${takeProfit[1]}
 Invalidasi: close < ${invalidation} (5m)
-Confidence: ${confidence}%
+Confidence: ${confidence}%${sizeInfo}
 
 ref: ${ref}`;
 
@@ -181,7 +216,7 @@ async function sendTelegramWithKeyboard(text: string, inlineKeyboard: any) {
     body: JSON.stringify({
       chat_id: CHAT_ID,
       text,
-      parse_mode: "Markdown",
+      parse_mode: "MarkdownV2",
       reply_markup: inlineKeyboard,
       disable_web_page_preview: true,
     }),
@@ -266,7 +301,7 @@ Use /resume to restart.`;
 /panic - Emergency stop`;
     }
 
-    await sendTelegram(text, { parseMode: 'Markdown' });
+    await sendTelegram(text, { parseMode: 'MarkdownV2' });
     return true;
 
   } catch (error) {
