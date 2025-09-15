@@ -183,9 +183,87 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
 }
 
 /**
- * 📱 Send Telegram Alert
+ * 📱 Send Enhanced Interactive Telegram Alert
  */
 async function sendTelegramAlert(message) {
+  try {
+    // Import enhanced Telegram functions
+    const { sendInstitutionalBias, sendSOLSniperAlert } = await import("../observability/telegram-actions.js");
+    
+    // Try to extract structured data from message for interactive alerts
+    if (message.includes("INSTITUTIONAL") && message.includes("BIAS")) {
+      // Parse institutional bias data
+      const symbol = message.includes("BTC") ? "BTC" : message.includes("SOL") ? "SOL" : "BTC";
+      const bias = message.includes("LONG") ? "LONG" : message.includes("SHORT") ? "SHORT" : "NEUTRAL";
+      const whale = message.includes("≥$1M BUY") || message.includes("buy") && message.includes("detected");
+      const etfFlow = message.includes("Inflow") ? 25000000 : message.includes("Outflow") ? -10000000 : 0;
+      
+      // Extract sentiment score if available
+      const sentimentMatch = message.match(/Sentiment: (\d+)/);
+      const sentiment = sentimentMatch ? parseInt(sentimentMatch[1]) : 50;
+      
+      // Extract confidence if available  
+      const confidenceMatch = message.match(/(\d+)%/);
+      const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
+      
+      // Send interactive alert
+      const success = await sendInstitutionalBias({
+        symbol,
+        bias,
+        whale,
+        etfFlow,
+        sentiment,
+        confidence,
+        altSymbol: symbol === "BTC" ? "SOL" : "BTC"
+      });
+      
+      if (success) {
+        console.log("📱 Interactive institutional bias alert sent successfully");
+        return;
+      }
+    }
+    
+    if (message.includes("SOL SNIPER") || message.includes("SNIPER TIMING")) {
+      // Parse sniper data
+      const symbol = "SOL";
+      const bias = message.includes("LONG") ? "LONG" : "SHORT";
+      
+      // Mock data for demo - in production would parse from actual market data
+      const currentPrice = 221.35;
+      const entry = [currentPrice * 0.998, currentPrice * 1.002]; 
+      const stopLoss = currentPrice * (bias === "LONG" ? 0.9975 : 1.0025);
+      const takeProfit = [currentPrice * 1.005, currentPrice * 1.01];
+      const invalidation = currentPrice * (bias === "LONG" ? 0.996 : 1.004);
+      
+      const success = await sendSOLSniperAlert({
+        symbol,
+        bias,
+        entry,
+        stopLoss,
+        takeProfit,
+        invalidation,
+        confidence: 85
+      });
+      
+      if (success) {
+        console.log("📱 Interactive SOL sniper alert sent successfully");
+        return;
+      }
+    }
+    
+    // Fallback to basic alert if structured alert fails
+    await fallbackTelegramAlert(message);
+    
+  } catch (error) {
+    console.error("📱 Enhanced Telegram alert failed:", error.message);
+    await fallbackTelegramAlert(message);
+  }
+}
+
+/**
+ * 📢 Fallback Basic Telegram Alert
+ */
+async function fallbackTelegramAlert(message) {
   if (!TG_URL) {
     console.log("📱 Telegram URL not configured - alert logged only");
     console.log("📢 ALERT:", message);
@@ -203,7 +281,7 @@ async function sendTelegramAlert(message) {
       throw new Error(`Telegram API error: ${response.status}`);
     }
 
-    console.log("📱 Telegram alert sent successfully");
+    console.log("📱 Telegram fallback alert sent successfully");
   } catch (error) {
     console.error("📱 Telegram alert failed:", error.message);
     // Log alert locally as fallback

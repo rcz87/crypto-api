@@ -1,0 +1,200 @@
+Nice! Telegram-mu udah “battle-ready”. Biar makin berguna pas alert datang, kita bikin **alur eksekusi 1–klik**, **feedback loop**, dan **anti-spam**. Ini paket lengkap & siap colok.
+
+# TL;DR
+
+* Tambah **inline buttons** (Heatmap, Orderbook, Sniper, Snooze, 👍/👎).
+* Simpan **feedback** (rating, alasan) → naikin akurasi signal.
+* **Dedup + throttle** biar chat nggak banjir.
+* Sediakan **quick-commands** untuk aksi kilat.
+
+---
+
+# 1) Format Pesan Telegram (siap kirim)
+
+Gunakan **Markdown** + JSON terstruktur di bawah (juga enak buat parsing di bot).
+
+**Institutional Bias**
+
+```
+🟢 INSTITUTIONAL LONG — BTC
+Whale: BUY ≥ $1M ✅
+ETF Flow: +$25M ✅
+Sentiment: 75/100 ✅
+Confidence: 82%
+
+Next:
+• Cek SOL sniper 5m (entry presisi)
+• Validasi heatmap & orderbook
+
+ref: ib_20250915_0703
+```
+
+**Buttons**: `[Heatmap SOL] [Orderbook SOL] [Sniper SOL]`
+Baris 2: `[👍 Bagus] [👎 Buruk] [⏸ Snooze 30m]`
+
+**SOL Sniper Timing**
+
+```
+🎯 SOL Sniper (5m)
+Bias: LONG (institusional)
+Entry: 221.30–221.45
+SL: 220.95 (−0.35%)
+TP1/TP2: 222.0 / 222.7
+Invalidasi: close < 220.9 (5m)
+
+ref: snp_20250915_0706
+```
+
+**Buttons**: `[Set Entry] [Set Alert Lines] [Cancel]` + feedback row.
+
+---
+
+# 2) Inline Keyboard (Node — pakai Bot API langsung)
+
+Pakai layananmu `sendTelegram()` untuk kirim **inline\_keyboard**.
+
+```js
+// server/observability/telegram-actions.ts
+import fetch from "node-fetch";
+
+export async function sendInstitutionalBias(msg, {symbol="BTC", alt="SOL", ref}) {
+  const text = msg; // isi pesan markdown di atas
+  const kb = {
+    inline_keyboard: [
+      [
+        { text: `🔥 Heatmap ${alt}`, callback_data: `heatmap:${alt}:${ref}` },
+        { text: `📘 Orderbook ${alt}`, callback_data: `orderbook:${alt}:${ref}` },
+        { text: `🎯 Sniper ${alt}`, callback_data: `sniper:${alt}:${ref}` },
+      ],
+      [
+        { text: "👍 Bagus", callback_data: `rate:+:${ref}` },
+        { text: "👎 Buruk", callback_data: `rate:-:${ref}` },
+        { text: "⏸ Snooze 30m", callback_data: `snooze:30:${ref}` },
+      ],
+    ],
+  };
+
+  return fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: process.env.TELEGRAM_CHAT_ID,
+      text,
+      parse_mode: "Markdown",
+      reply_markup: kb,
+      disable_web_page_preview: true,
+    }),
+  });
+}
+```
+
+**Handler callback (parse aksi user):**
+
+```js
+// server/observability/telegram-webhook.ts
+import express from "express";
+export const tgRouter = express.Router();
+
+tgRouter.post("/telegram/webhook", async (req, res) => {
+  const update = req.body;
+  if (!update.callback_query) return res.sendStatus(200);
+
+  const { id, data, message } = update.callback_query;
+  const [action, arg1, ref] = data.split(":"); // e.g. "heatmap:SOL:ib_..."
+  try {
+    if (action === "heatmap") { /* panggil /py/advanced/liquidation/heatmap/arg1 */ }
+    if (action === "orderbook") { /* panggil /py/advanced/spot/orderbook/arg1 */ }
+    if (action === "sniper") { /* panggil aggregator sniper → kirim plan */ }
+    if (action === "rate") { /* simpan rating ke DB: arg1 in ['+','-'] for ref */ }
+    if (action === "snooze") { /* set mute=30m di DB untuk kategori 'institutional' */ }
+
+    // jawab callback biar tombol show "Done"
+    await ackCallback(id, "✅ OK");
+  } catch (e) {
+    await ackCallback(id, "⚠️ Error");
+  }
+  res.sendStatus(200);
+});
+
+async function ackCallback(callbackQueryId, text) {
+  await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callback_query_id: callbackQueryId, text }),
+  });
+}
+```
+
+> Kalau webhook belum dipakai, sementara bisa pakai **long polling** (Telegraf/GramJS), tapi webhook lebih stabil untuk produksi.
+
+---
+
+# 3) Dedup + Throttle (anti banjir)
+
+**Idempotency key** dari `ref` (mis. `ib_20250915_0703`). Simpan ke Redis/DB:
+
+* Jika ada alert **dengan ref sama** dalam 10 menit → **skip**.
+* Gunakan **rate control** per kategori:
+
+  * Institutional Bias: max 1/5 menit
+  * Sniper: max 1/3 menit
+* Implement **Snooze** per kategori per chat: contoh `snooze.institutional` berakhir dalam 30 menit.
+
+```js
+// pseudo
+if (await redis.get(`sent:${ref}`)) return; 
+await redis.setEx(`sent:${ref}`, 600, "1"); // 10 menit
+```
+
+---
+
+# 4) Feedback Loop (naikkan akurasi)
+
+Simpan:
+
+* `ref`, `bias`, `confidence`, `user_rating` (±1), `latency_to_click`, `pair`.
+* Hubungkan ke hasil trade (kalau tersedia) → recalibrate **AI Scoring** & threshold.
+
+**Quick pipeline:**
+
+* 👍 → tambah bobot pattern/fitur yang aktif saat itu (whale/ETF/sentiment).
+* 👎 → turunkan bobot, atau naikkan ambang confidence.
+* Tampilkan **Weekly Report** (fungsi `sendWeeklyReport()`) → win rate by setup.
+
+---
+
+# 5) Quick-Commands (biar eksekusi kilat)
+
+| Command        | Aksi                                               |
+| -------------- | -------------------------------------------------- |
+| `/alpha`       | Kirim rekap bias + confidence terbaru              |
+| `/sniper SOL`  | Kirim plan 5m terbaru untuk SOL                    |
+| `/heat SOL 1h` | Kirim ringkasan cluster likuidasi                  |
+| `/ob SOL`      | Kirim ringkasan wall & imbalance                   |
+| `/risk 1.0`    | Set risk per trade 1%                              |
+| `/panic`       | Matikan scheduler & batalkan semua alert sementara |
+
+Semua command cukup **proxy** ke endpoint aggregator/service Python, lalu render ke Telegram (pakai `sendTelegram()`).
+
+---
+
+# 6) Anti-Error & Observability
+
+* Jika **/py** down → `sendSystemAlert("Python service unavailable (CB open)")`.
+* **Edit message** saat data update (mis. heatmap berubah) dengan `editMessageText` + `message_id` untuk menghindari spam.
+* Simpan `message_id` per ref → bisa **update** ketimbang kirim baru.
+
+---
+
+# 7) Checklist Implementasi (siap eksekusi)
+
+* [ ] Tambah `sendInstitutionalBias()` (inline keyboard).
+* [ ] Tambah route `/telegram/webhook` + setWebhook di BotFather.
+* [ ] Implement **dedup** (Redis/DB) + **snooze flag**.
+* [ ] Simpan **feedback** (👍/👎) ke DB.
+* [ ] Tambah quick-commands minimal: `/alpha`, `/sniper <symbol>`.
+* [ ] Uji end-to-end (bias → tombol → heatmap/ob/sniper balasan).
+
+---
+
+Kalau kamu drop satu file `server.js`/`telegram.ts` kamu di sini, gue bisa **tempelin potongan kode** di lokasi yang pas (tanpa ubah struktur besar). Mau sekalian gue bikinin **/signal/institutional** → **auto-render Telegram** (HTML/Markdown) dengan **inline buttons** di satu fungsi util?

@@ -77,6 +77,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Mount the modules screener router first (has GET /api/screener endpoint frontend needs)
   app.use('/api/screener', screenerRouter);
+
+  // 📱 Telegram Interactive Webhook Routes
+  try {
+    const { telegramRouter } = await import("./observability/telegram-webhook");
+    app.use('/api', telegramRouter);
+    console.log('📱 Telegram webhook routes registered successfully');
+  } catch (error) {
+    console.warn('⚠️ Telegram webhook routes not available:', (error as Error).message);
+  }
   
   // Mount the screening-module router at different path to avoid conflicts
   try {
@@ -1588,6 +1597,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("❌ Signal aggregator error:", error.message);
       res.status(500).json({
         error: "Signal aggregation service unavailable",
+        message: error.message
+      });
+    }
+  });
+
+  // 📱 Telegram Interactive Test Endpoints
+  app.post('/api/telegram/test/institutional', async (req: Request, res: Response) => {
+    try {
+      const { sendInstitutionalBias } = await import("./observability/telegram-actions");
+      
+      const testData = {
+        symbol: req.body.symbol || 'BTC',
+        bias: req.body.bias || 'LONG',
+        whale: req.body.whale ?? true,
+        etfFlow: req.body.etfFlow ?? 25000000,
+        sentiment: req.body.sentiment ?? 75,
+        confidence: req.body.confidence ?? 82,
+        altSymbol: req.body.altSymbol || 'SOL'
+      };
+      
+      const success = await sendInstitutionalBias(testData);
+      
+      res.json({
+        success,
+        message: success 
+          ? "🎉 Interactive institutional bias alert sent with buttons!" 
+          : "❌ Failed to send alert",
+        testData,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error: any) {
+      console.error("❌ Telegram institutional test error:", error.message);
+      res.status(500).json({
+        error: "Test failed",
+        message: error.message
+      });
+    }
+  });
+
+  app.post('/api/telegram/test/sniper', async (req: Request, res: Response) => {
+    try {
+      const { sendSOLSniperAlert } = await import("./observability/telegram-actions");
+      
+      const testData = {
+        symbol: req.body.symbol || 'SOL',
+        bias: req.body.bias || 'LONG',
+        entry: req.body.entry || [221.30, 221.45],
+        stopLoss: req.body.stopLoss ?? 220.95,
+        takeProfit: req.body.takeProfit || [222.0, 222.7], 
+        invalidation: req.body.invalidation ?? 220.9,
+        confidence: req.body.confidence ?? 85
+      };
+      
+      const success = await sendSOLSniperAlert(testData);
+      
+      res.json({
+        success,
+        message: success 
+          ? "🎯 Interactive SOL sniper alert sent with buttons!"
+          : "❌ Failed to send alert",
+        testData,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error: any) {
+      console.error("❌ Telegram sniper test error:", error.message);
+      res.status(500).json({
+        error: "Test failed",
         message: error.message
       });
     }
