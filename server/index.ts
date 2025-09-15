@@ -38,15 +38,32 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-// CoinGlass Python service proxy
+// CoinGlass Python service proxy - MOVE TO TOP!
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { spawn } from "child_process";
 import fetch from "node-fetch";
 
 const PY_BASE = process.env.PY_BASE || "http://127.0.0.1:8000";
+
+// 🚀 PROXY MIDDLEWARE FIRST - BEFORE ALL OTHER MIDDLEWARE!
+app.use("/py", createProxyMiddleware({
+  target: PY_BASE,
+  changeOrigin: true,
+  pathRewrite: { "^/py": "" },    // /py/health -> /health
+  proxyTimeout: 20000,
+  onError: (err, req, res) => {
+    log(`[PY PROXY ERROR] ${err.message}`);
+    if (!res.headersSent) {
+      res.status(502).json({ error: "CoinGlass service unavailable", details: err.message });
+    }
+  },
+  logLevel: 'debug'
+}));
+
+log(`🚀 CoinGlass Python proxy configured: /py/* → ${PY_BASE}`);
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 // Start Python service as managed child process
 const startPythonService = () => {
@@ -106,26 +123,12 @@ const startPythonService = () => {
     return false;
   };
 
-  // Setup proxy after service is ready
+  // Just log the health check status - proxy already active above!
   waitForReady().then((ready) => {
     if (ready) {
-      app.use("/py", createProxyMiddleware({
-        target: PY_BASE,
-        changeOrigin: true,
-        pathRewrite: { "^/py": "" },
-        proxyTimeout: 20000,
-        onError: (err, req, res) => {
-          log(`Proxy error: ${err.message}`);
-          res.status(503).json({ error: "CoinGlass service unavailable" });
-        }
-      }));
-      log(`🚀 CoinGlass Python proxy active: /py/* → ${PY_BASE}`);
+      log(`✅ CoinGlass Python service confirmed healthy at ${PY_BASE}`);
     } else {
-      // Fallback stub handler
-      app.use("/py", (req, res) => {
-        res.status(503).json({ error: "CoinGlass service not available" });
-      });
-      log("⚠️ CoinGlass proxy using fallback stub handler");
+      log(`⚠️ CoinGlass Python service not responding - proxy will return 502 errors`);
     }
   });
 

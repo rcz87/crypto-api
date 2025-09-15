@@ -1,0 +1,168 @@
+Gas, ini **fix eksekusi** biar gak balik HTML React lagi. Intinya: **request `/py/*` sekarang ketabrak “SPA fallback”** (React/Vite/Next static handler) sebelum sampai ke proxy Python. Plus kemungkinan **service Python belum benar-benar listen**. Kita bereskan **dua sisi**: urutan middleware proxy di Node **dan** start service Python.
+
+# TL;DR
+
+* Pindahkan **proxy `/py/*` ke atas** sebelum static/SPA fallback.
+* **Kecualikan `/py/*`** dari history-fallback (React Router).
+* Pastikan **FastAPI hidup & listen** (cek `curl localhost:8000/health`).
+* Uji kembali: `/py/health` harus JSON, **bukan** HTML.
+
+---
+
+# 🔍 Root Cause Matrix
+
+| Gejala                               | Penyebab Umum                                                  | Perbaikan Singkat                                                                    |
+| ------------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `/py/*` balikin HTML React           | Proxy dieksekusi **setelah** static handler / history fallback | **Naikkan urutan** `app.use('/py', proxy(...))` ke atas; exclude `/py` dari fallback |
+| 404/HTML padahal proxy sudah di atas | FastAPI **belum running / salah PORT**                         | Start FastAPI, pakai `PORT` dari env; test `curl localhost:$PORT/health`             |
+| 502/timeout dari proxy               | Target salah / service belum siap                              | Set `target: http://localhost:8000`, tambahkan timeout, log error proxy              |
+| `/py/metrics` HTML                   | Kena fallback lagi / FastAPI gak expose `/metrics`             | Expose metrics di FastAPI startup; pastikan path tidak di-rewrite salah              |
+
+---
+
+# ✅ Step-by-step Fix
+
+## 1) Pastikan FastAPI benar-benar jalan
+
+Jalankan di shell layanan Python (Replit/VPS):
+
+```bash
+export PORT=${PORT:-8000}
+uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 75
+```
+
+Smoke test:
+
+```bash
+curl -sS http://localhost:$PORT/health
+# Harus JSON: {"status":"ok", ...}
+curl -sS http://localhost:$PORT/metrics | head
+```
+
+Kalau gagal, cek lagi `requirements.txt` + import `prometheus_fastapi_instrumentator` + `pydantic-settings`.
+
+## 2) Susunan middleware Express (Node) — **proxy duluan**
+
+Tempatkan **sebelum** `express.static`, `history()` (connect-history-api-fallback), dan catch-all router.
+
+```js
+import express from "express";
+import { createProxyMiddleware } from "http-proxy-middleware";
+// import history from "connect-history-api-fallback"; // kalau dipakai
+
+const app = express();
+const PY_BASE = process.env.PY_BASE || "http://localhost:8000";
+
+// 1) PROXY DI PALING ATAS
+app.use("/py", createProxyMiddleware({
+  target: PY_BASE,
+  changeOrigin: true,
+  pathRewrite: { "^/py": "" },    // /py/health -> /health
+  proxyTimeout: 20000,
+  onError(err, req, res) {
+    console.error("[PY PROXY ERROR]", err?.message);
+    if (!res.headersSent) {
+      res.status(502).json({ error: "Python service unavailable" });
+    }
+  },
+}));
+
+// 2) OPSIONAL: kalau pakai history fallback untuk React SPA,
+//    PASTIKAN /py TIDAK diubah jadi index.html
+// app.use(history({
+//   verbose: false,
+//   rewrites: [
+//     { from: /^\/py\/?.*$/, to: (ctx) => ctx.parsedUrl.path } // lewati /py
+//   ]
+// }));
+
+// 3) Static files / React build
+// app.use(express.static("build"));
+
+// 4) Catch-all untuk React (TERAKHIR, dan JANGAN kena /py)
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/py")) return next(); // penting!
+  // res.sendFile(path.join(process.cwd(), "build", "index.html"));
+  return next(); // atau kirim index.html sesuai setupmu
+});
+
+// 5) Start server
+app.listen(process.env.PORT || 5000, () => {
+  console.log("Node gateway listening");
+});
+```
+
+### Kalau pakai **Vite dev server** atau middleware lain:
+
+* Pastikan **history fallback** punya **rewrites** yang **melewatkan `/py`**.
+* Urutan: **proxy `/py` → middleware lain → static → catch-all**.
+
+## 3) Verifikasi Content-Type
+
+HTML React biasanya `text/html`. Kita ingin **JSON**:
+
+```bash
+curl -i http://localhost:5000/py/health | sed -n '1,10p'
+# Harus ada: Content-Type: application/json
+```
+
+## 4) CORS (kalau dipanggil dari frontend)
+
+Kalau frontend fetch ke `/py/...` via browser:
+
+* CORS aman karena same-origin (dipoxy lewat Node).
+* Kalau frontend memanggil domain beda, tambahkan CORS di FastAPI:
+
+  ```python
+  from fastapi.middleware.cors import CORSMiddleware
+  app.add_middleware(
+      CORSMiddleware,
+      allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+  )
+  ```
+
+## 5) Concurrency (kalau mau 1 perintah nyalakan Node + Python)
+
+Di `package.json`:
+
+```json
+{
+  "scripts": {
+    "start": "concurrently -k -n PY,NODE -c blue,green \
+      \"bash -lc 'export PORT=${PORT:-8000}; uvicorn app.main:app --host 0.0.0.0 --port $PORT'\" \
+      \"node server.js\""
+  },
+  "devDependencies": { "concurrently": "^9.0.0" }
+}
+```
+
+> Replit biasanya hanya **mengekspose 1 port** (Node). Python tetap bisa jalan di belakang layar → di-proxy.
+
+---
+
+# 🧪 Smoke Tests (harus lulus)
+
+Checklist cepat:
+
+* [ ] `curl -sS http://localhost:8000/health` → JSON OK
+* [ ] `curl -sS http://localhost:5000/py/health` → **JSON**, bukan HTML
+* [ ] `curl -sS "http://localhost:5000/py/advanced/whale/alerts?symbol=BTC"` → JSON stub OK
+* [ ] `curl -i http://localhost:5000/py/metrics | head` → keluaran Prometheus, **bukan** HTML
+
+---
+
+# 📌 Bonus: Kenapa HTML sebelumnya?
+
+Karena **React SPA** memakai “history API fallback” yang mengembalikan `index.html` untuk **semua route tak dikenal**. Saat proxy belum dipasang di atas (atau `/py` tak dikecualikan), request `/py/...` dianggap “tak dikenal” → di-redirect ke **index.html**. Kita netralisir dengan **urutan middleware** dan **rewrites**.
+
+---
+
+# 🗒️ To-Do Mini (siap eksekusi)
+
+* [ ] Start FastAPI & tes `localhost:8000/health`
+* [ ] Naikkan urutan proxy `/py` **ke paling atas**
+* [ ] Exclude `/py` dari **history fallback** & **catch-all**
+* [ ] Ulangi smoke tests (Content-Type harus JSON)
+* [ ] Commit perubahan & redeploy
+
+Kalau mau, drop potongan **`server.js`** kamu di sini—gue bedah baris-per-baris, pastikan gak ada middleware yang diam-diam “nyomot” `/py/*`. Biar pausnya lewat, React-nya jangan ikut-ikutan nyundul. 🐋➡️🟢
