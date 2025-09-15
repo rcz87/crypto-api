@@ -22,6 +22,52 @@ info:
     - Single **ApiKey** security scheme (GPTs requirement)
     - Complete error handling dengan Problem Details & RateLimit headers
     - Real-time data dengan comprehensive validation
+    
+    **🚦 Rate Limiting & Pagination:**
+    - **Standardized Headers**: Consistent RateLimit-* headers across all endpoints
+    - **Cursor-based Pagination**: Efficient navigation with next/prev links in Link header
+    - **Comprehensive Examples**: Real-world scenarios with retry logic guidance
+    - **Developer-friendly Documentation**: Clear descriptions and usage patterns
+    
+    **📚 Developer Usage Examples:**
+    
+    **Rate Limiting Headers:**
+    ```
+    RateLimit-Limit: 100          # Max requests per window
+    RateLimit-Remaining: 42       # Requests left in current window  
+    RateLimit-Reset: 1725955260   # Unix timestamp when window resets
+    RateLimit-Policy: 100;w=60    # 100 requests per 60-second window
+    Retry-After: 18               # Seconds to wait (only in 429 responses)
+    ```
+    
+    **Pagination Example:**
+    ```bash
+    # First request
+    curl -H "X-API-Key: your-key" \
+         "https://guardiansofthegreentoken.com/api/btc/funding?limit=50"
+    
+    # Response includes Link header:
+    # Link: </api/btc/funding?cursor=eyJwYWdlIjoyfQ&limit=50>; rel="next"
+    
+    # Next page request
+    curl -H "X-API-Key: your-key" \
+         "https://guardiansofthegreentoken.com/api/btc/funding?cursor=eyJwYWdlIjoyfQ&limit=50"
+    ```
+    
+    **Error Handling with Exponential Backoff:**
+    ```javascript
+    async function apiCall(url, options, maxRetries = 3) {
+      for (let i = 0; i <= maxRetries; i++) {
+        const response = await fetch(url, options);
+        
+        if (response.status !== 429) return response;
+        
+        const retryAfter = response.headers.get('Retry-After') || Math.pow(2, i);
+        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+      }
+      throw new Error('Max retries exceeded');
+    }
+    ```
   version: '5.1.0-gpts-jsonschema2020'
   contact:
     email: admin@guardiansofthegreentoken.com
@@ -60,10 +106,10 @@ paths:
         '200':
           description: List of supported trading pairs
           headers:
-            RateLimit-Limit: { description: 'Max requests in window', schema: { type: integer, minimum: 0 } }
-            RateLimit-Remaining: { description: 'Remaining in window', schema: { type: integer, minimum: 0 } }
-            RateLimit-Reset: { description: 'Seconds to reset', schema: { type: integer, minimum: 0 } }
-            RateLimit-Policy: { description: 'RateLimit policy string', schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -78,8 +124,7 @@ paths:
                         items: { type: string }
                         example: ["BTC","ETH","SOL","ADA","AVAX","DOGE","UNI","MATIC","LTC","BCH","RENDER","BNB"]
                   timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
-        '401':
-          $ref: '#/components/responses/ProblemResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -104,16 +149,16 @@ paths:
         '200':
           description: Complete trading data for the specified pair
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CompleteAnalysisResponse'
-        '400': { $ref: '#/components/responses/ProblemResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -135,16 +180,16 @@ paths:
         '200':
           description: Smart Money Concepts analysis
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SMCAnalysisResponse'
-        '400': { $ref: '#/components/responses/ProblemResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -166,16 +211,16 @@ paths:
         '200':
           description: CVD analysis with divergence patterns
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CVDAnalysisResponse'
-        '400': { $ref: '#/components/responses/ProblemResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -197,16 +242,16 @@ paths:
         '200':
           description: Technical indicators analysis
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TechnicalAnalysisResponse'
-        '400': { $ref: '#/components/responses/ProblemResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -214,7 +259,37 @@ paths:
     get:
       operationId: getFundingRates
       summary: Get funding rates for any pair
-      description: Current and historical funding rates for perpetual contracts
+      description: |
+        Current and historical funding rates for perpetual contracts.
+        Supports pagination with cursor-based navigation for efficient data retrieval.
+        
+        **🚀 Integration Examples:**
+        ```bash
+        # Basic funding rate request
+        curl -X GET "https://guardiansofthegreentoken.com/api/btc/funding" \
+             -H "X-API-Key: your-api-key"
+        
+        # Paginated request with cursor
+        curl -X GET "https://guardiansofthegreentoken.com/api/btc/funding?cursor=eyJwYWdlIjoyfQ&limit=50" \
+             -H "X-API-Key: your-api-key"
+        
+        # Historical data with time range
+        curl -X GET "https://guardiansofthegreentoken.com/api/sol/funding?start=2025-09-14T00:00:00Z&end=2025-09-15T00:00:00Z&limit=100" \
+             -H "X-API-Key: your-api-key"
+        
+        # JavaScript integration example
+        const response = await fetch('/api/btc/funding?limit=50', {
+          headers: { 'X-API-Key': 'your-api-key' }
+        });
+        const data = await response.json();
+        console.log('Next cursor:', data.data.nextCursor);
+        ```
+        
+        **📋 Pagination Navigation:**
+        - Use `cursor` parameter from `next_cursor` response field
+        - Navigate using Link header rel="next" and rel="prev"
+        - Empty cursor indicates end of dataset
+        - Maximum limit: 1000 records per request
       tags: [Multi-Pair Analysis]
       parameters:
         - name: pair
@@ -247,16 +322,19 @@ paths:
         '200':
           description: Funding rates data (current or historical)
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+            Link: { $ref: '#/components/headers/Link' }
+            X-Total-Count: { $ref: '#/components/headers/X-Total-Count' }
+            X-Page-Info: { $ref: '#/components/headers/X-Page-Info' }
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FundingRateResponse'
-        '400': { $ref: '#/components/responses/ProblemResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -297,16 +375,19 @@ paths:
         '200':
           description: Open interest data (current or historical)
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+            Link: { $ref: '#/components/headers/Link' }
+            X-Total-Count: { $ref: '#/components/headers/X-Total-Count' }
+            X-Page-Info: { $ref: '#/components/headers/X-Page-Info' }
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OpenInterestResponse'
-        '400': { $ref: '#/components/responses/ProblemResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -322,10 +403,10 @@ paths:
         '200':
           description: AI-generated trading signal with confidence metrics
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -349,6 +430,7 @@ paths:
                           risk_level: { type: string, enum: ["low", "medium", "high"], example: "medium" }
                           recommendation: { type: string, example: "Wait for clearer directional signals" }
                   timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -373,10 +455,10 @@ paths:
         '200':
           description: Enhanced AI signal with advanced patterns and neural predictions
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -458,6 +540,7 @@ paths:
                     pattern_confluence: 70.6
                     pattern_count: 10
                   timestamp: "2025-09-10T01:46:21.438Z"
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -473,10 +556,10 @@ paths:
         '200':
           description: Enhanced AI performance and neural network metrics
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -518,6 +601,7 @@ paths:
                           enhanced_reasoning: { type: boolean, example: true }
                           status: { type: string, example: "active" }
                   timestamp: { type: string, format: date-time, example: "2025-09-10T01:46:21.438Z" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -529,6 +613,23 @@ paths:
         Record execution details when an AI signal is executed in real trading.
         This enables the self-learning system to track performance and update
         pattern confidence based on actual results.
+        
+        **📋 Integration Guide:**
+        ```bash
+        # Example: Record manual execution
+        curl -X POST "https://guardiansofthegreentoken.com/api/ai/tracking/execution" \
+             -H "X-API-Key: your-api-key" \
+             -H "Content-Type: application/json" \
+             -d '{
+               "signal_id": "enhanced_ai_1757468621438",
+               "entry_price": 215.50,
+               "position_size": 100,
+               "stop_loss": 210.25,
+               "take_profit_1": 225.30,
+               "risk_amount": 525.00,
+               "execution_type": "manual"
+             }'
+        ```
       tags: [Performance Tracking (Phase 2)]
       requestBody:
         required: true
@@ -546,9 +647,57 @@ paths:
                 take_profit_2: { type: number, example: 235.50 }
                 risk_amount: { type: number, example: 525.00 }
                 execution_type: { type: string, enum: ["manual", "auto", "paper"], example: "manual" }
+            examples:
+              manual_execution:
+                summary: Manual trade execution with stop loss and take profits
+                description: Standard manual execution with risk management levels
+                value:
+                  signal_id: "enhanced_ai_1757468621438"
+                  entry_price: 215.50
+                  position_size: 100
+                  stop_loss: 210.25
+                  take_profit_1: 225.30
+                  take_profit_2: 235.50
+                  risk_amount: 525.00
+                  execution_type: "manual"
+              automated_execution:
+                summary: Automated execution via trading bot
+                description: Automated execution with higher position size
+                value:
+                  signal_id: "enhanced_ai_1757468621438"
+                  entry_price: 218.75
+                  position_size: 500
+                  stop_loss: 212.00
+                  take_profit_1: 230.00
+                  take_profit_2: 240.50
+                  risk_amount: 3375.00
+                  execution_type: "auto"
+              paper_trading:
+                summary: Paper trading execution for testing
+                description: Paper trading execution without real money
+                value:
+                  signal_id: "enhanced_ai_1757468621438"
+                  entry_price: 219.20
+                  position_size: 1000
+                  stop_loss: 210.00
+                  take_profit_1: 235.00
+                  risk_amount: 9200.00
+                  execution_type: "paper"
+              minimal_execution:
+                summary: Minimal execution with required fields only
+                description: Basic execution with only mandatory fields
+                value:
+                  signal_id: "enhanced_ai_1757468621438"
+                  entry_price: 216.80
+                  position_size: 50
       responses:
         '200':
           description: Execution recorded successfully
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -561,9 +710,140 @@ paths:
                       execution_id: { type: string, pattern: "^exec_[0-9]+$", example: "exec_1757469123456" }
                       signal_id: { type: string, example: "enhanced_ai_1757468621438" }
                       status: { type: string, example: "recorded" }
-                  message: { type: string, example: "Trade execution recorded successfully" }
+                      execution_details:
+                        type: object
+                        properties:
+                          entry_price: { type: number, example: 215.50 }
+                          position_size: { type: number, example: 100 }
+                          risk_amount: { type: number, example: 525.00 }
+                          risk_reward_ratio: { type: number, example: 2.84 }
+                          expected_profit: { type: number, example: 980.00 }
+                      tracking_enabled: { type: boolean, example: true }
+                      next_steps: 
+                        type: array
+                        items: { type: string }
+                        example: ["Monitor position", "Record outcome when trade closes", "Pattern learning will update automatically"]
+                  message: { type: string, example: "Trade execution recorded successfully. Performance tracking enabled." }
                   timestamp: { type: string, format: date-time, example: "2025-09-10T01:46:21.438Z" }
-        '400': { $ref: '#/components/responses/ProblemResponse' }
+              examples:
+                success_manual:
+                  summary: Successful manual execution recording
+                  description: Manual execution recorded with full tracking details
+                  value:
+                    success: true
+                    data:
+                      execution_id: "exec_1757469123456"
+                      signal_id: "enhanced_ai_1757468621438"
+                      status: "recorded"
+                      execution_details:
+                        entry_price: 215.50
+                        position_size: 100
+                        risk_amount: 525.00
+                        risk_reward_ratio: 2.84
+                        expected_profit: 980.00
+                      tracking_enabled: true
+                      next_steps: ["Monitor position", "Record outcome when trade closes", "Pattern learning will update automatically"]
+                    message: "Trade execution recorded successfully. Performance tracking enabled."
+                    timestamp: "2025-09-10T01:46:21.438Z"
+                success_automated:
+                  summary: Successful automated execution recording
+                  description: Automated execution with larger position size
+                  value:
+                    success: true
+                    data:
+                      execution_id: "exec_1757469987654"
+                      signal_id: "enhanced_ai_1757468621438"
+                      status: "recorded"
+                      execution_details:
+                        entry_price: 218.75
+                        position_size: 500
+                        risk_amount: 3375.00
+                        risk_reward_ratio: 3.12
+                        expected_profit: 5625.00
+                      tracking_enabled: true
+                      next_steps: ["Automated monitoring active", "Stop-loss at 212.00", "Take-profit levels: 230.00, 240.50"]
+                    message: "Automated execution recorded successfully. Bot monitoring enabled."
+                    timestamp: "2025-09-10T01:47:15.221Z"
+        '400':
+          description: Bad Request - Invalid execution data
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                missing_required_field:
+                  summary: Missing required field (signal_id)
+                  description: Request body is missing the required signal_id field
+                  value:
+                    type: "https://guardiansofthegreentoken.com/problems/validation-error"
+                    title: "Missing Required Field"
+                    status: 400
+                    detail: "Required field 'signal_id' is missing from request body."
+                    instance: "/api/ai/tracking/execution"
+                    code: "MISSING_REQUIRED_FIELD"
+                    request_id: "req_1757469123456"
+                    invalid_params:
+                      - name: "signal_id"
+                        reason: "This field is required for tracking trade execution"
+                invalid_signal_id:
+                  summary: Invalid signal ID format
+                  description: Signal ID must match the expected pattern
+                  value:
+                    type: "https://guardiansofthegreentoken.com/problems/validation-error"
+                    title: "Invalid Signal ID Format"
+                    status: 400
+                    detail: "Signal ID 'invalid_signal' does not match expected format '^enhanced_ai_[0-9]+$'."
+                    instance: "/api/ai/tracking/execution"
+                    code: "INVALID_SIGNAL_ID"
+                    request_id: "req_1757469123457"
+                    invalid_params:
+                      - name: "signal_id"
+                        reason: "Must be a valid AI signal ID (e.g., 'enhanced_ai_1757468621438')"
+                invalid_price_range:
+                  summary: Invalid price values
+                  description: Entry price and stop loss values are unrealistic
+                  value:
+                    type: "https://guardiansofthegreentoken.com/problems/validation-error"
+                    title: "Invalid Price Values"
+                    status: 400
+                    detail: "Entry price (1000000) is outside acceptable range for current market conditions."
+                    instance: "/api/ai/tracking/execution"
+                    code: "INVALID_PRICE_RANGE"
+                    request_id: "req_1757469123458"
+                    invalid_params:
+                      - name: "entry_price"
+                        reason: "Price must be within reasonable market range ($50 - $500 for SOL)"
+                      - name: "stop_loss"
+                        reason: "Stop loss must be below entry price for long positions"
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': 
+          description: Signal not found
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                signal_not_found:
+                  summary: AI signal not found
+                  description: The specified signal ID does not exist or has expired
+                  value:
+                    type: "https://guardiansofthegreentoken.com/problems/resource-not-found"
+                    title: "AI Signal Not Found"
+                    status: 404
+                    detail: "Signal ID 'enhanced_ai_1757468621999' not found or has expired."
+                    instance: "/api/ai/tracking/execution"
+                    code: "SIGNAL_NOT_FOUND"
+                    request_id: "req_1757469123459"
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -575,6 +855,29 @@ paths:
         Record the final outcome of an AI signal trade. This triggers the
         self-learning system to update pattern performance and adjust
         confidence levels based on actual trading results.
+        
+        **🧠 Learning System Impact:**
+        - Updates pattern confidence based on success/failure
+        - Adjusts neural network weights for future predictions
+        - Tracks performance metrics for strategy optimization
+        - Enables adaptive learning for market condition changes
+        
+        **📋 Integration Guide:**
+        ```bash
+        # Example: Record profitable trade outcome
+        curl -X POST "https://guardiansofthegreentoken.com/api/ai/tracking/outcome" \
+             -H "X-API-Key: your-api-key" \
+             -H "Content-Type: application/json" \
+             -d '{
+               "signal_id": "enhanced_ai_1757468621438",
+               "exit_price": 227.30,
+               "exit_reason": "take_profit",
+               "exit_time": "2025-09-10T02:15:30.000Z"
+             }'
+        ```
+        
+        **⚡ Real-time Learning:**
+        The system immediately updates pattern performance after each outcome is recorded.
       tags: [Performance Tracking (Phase 2)]
       requestBody:
         required: true
@@ -588,9 +891,73 @@ paths:
                 exit_price: { type: number, example: 227.30 }
                 exit_reason: { type: string, enum: ["stop_loss", "take_profit", "manual", "time_exit"], example: "take_profit" }
                 exit_time: { type: string, format: date-time, example: "2025-09-10T02:15:30.000Z" }
+                partial_close: { type: boolean, example: false }
+                remaining_position: { type: number, example: 0 }
+                notes: { type: string, example: "Reached take profit target after strong breakout" }
+            examples:
+              profitable_take_profit:
+                summary: Profitable take profit exit
+                description: Successful trade that hit the first take profit level
+                value:
+                  signal_id: "enhanced_ai_1757468621438"
+                  exit_price: 227.30
+                  exit_reason: "take_profit"
+                  exit_time: "2025-09-10T02:15:30.000Z"
+                  partial_close: false
+                  remaining_position: 0
+                  notes: "Reached take profit target after strong breakout"
+              stop_loss_triggered:
+                summary: Stop loss triggered
+                description: Trade that hit stop loss due to market reversal
+                value:
+                  signal_id: "enhanced_ai_1757468621438"
+                  exit_price: 210.25
+                  exit_reason: "stop_loss"
+                  exit_time: "2025-09-10T01:58:45.000Z"
+                  partial_close: false
+                  remaining_position: 0
+                  notes: "Market reversed after false breakout, stop loss protected capital"
+              manual_exit:
+                summary: Manual exit by trader
+                description: Trader manually closed position due to market conditions
+                value:
+                  signal_id: "enhanced_ai_1757468621438"
+                  exit_price: 220.75
+                  exit_reason: "manual"
+                  exit_time: "2025-09-10T02:45:12.000Z"
+                  partial_close: false
+                  remaining_position: 0
+                  notes: "Closed early due to unexpected news impact on market"
+              partial_exit:
+                summary: Partial position close
+                description: Trader took partial profits and left position running
+                value:
+                  signal_id: "enhanced_ai_1757468621438"
+                  exit_price: 225.30
+                  exit_reason: "take_profit"
+                  exit_time: "2025-09-10T02:10:15.000Z"
+                  partial_close: true
+                  remaining_position: 50
+                  notes: "Partial close at first TP level, remaining 50 units running to second target"
+              time_based_exit:
+                summary: Time-based exit strategy
+                description: Position closed after predetermined time period
+                value:
+                  signal_id: "enhanced_ai_1757468621438"
+                  exit_price: 218.90
+                  exit_reason: "time_exit"
+                  exit_time: "2025-09-10T09:46:21.000Z"
+                  partial_close: false
+                  remaining_position: 0
+                  notes: "8-hour time limit reached, market showed no clear direction"
       responses:
         '200':
           description: Outcome recorded and pattern performance updated
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -606,10 +973,199 @@ paths:
                       was_successful: { type: boolean, example: true }
                       duration_minutes: { type: number, example: 29 }
                       patterns_updated: { type: number, example: 10 }
+                      learning_impact:
+                        type: object
+                        properties:
+                          confidence_adjustments: { type: array, items: { type: object }, example: [{"pattern": "predictive_institutional_flow", "old_confidence": 0.95, "new_confidence": 0.96}] }
+                          neural_weight_updates: { type: boolean, example: true }
+                          performance_tier: { type: string, enum: ["excellent", "good", "average", "poor"], example: "excellent" }
+                      trade_analysis:
+                        type: object
+                        properties:
+                          entry_price: { type: number, example: 215.50 }
+                          exit_price: { type: number, example: 227.30 }
+                          max_favorable_excursion: { type: number, example: 229.80 }
+                          max_adverse_excursion: { type: number, example: 214.20 }
+                          risk_reward_realized: { type: number, example: 2.24 }
                   message: { type: string, example: "Outcome recorded and pattern performance updated" }
                   timestamp: { type: string, format: date-time, example: "2025-09-10T02:15:30.000Z" }
-        '400': { $ref: '#/components/responses/ProblemResponse' }
-        '404': { $ref: '#/components/responses/ProblemResponse' }
+              examples:
+                successful_take_profit:
+                  summary: Successful take profit outcome
+                  description: Profitable trade that enhanced pattern confidence
+                  value:
+                    success: true
+                    data:
+                      signal_id: "enhanced_ai_1757468621438"
+                      pnl: 1180
+                      pnl_percentage: 5.47
+                      was_successful: true
+                      duration_minutes: 29
+                      patterns_updated: 10
+                      learning_impact:
+                        confidence_adjustments:
+                          - pattern: "predictive_institutional_flow"
+                            old_confidence: 0.95
+                            new_confidence: 0.96
+                          - pattern: "volume_breakout_confirmation"
+                            old_confidence: 0.82
+                            new_confidence: 0.84
+                        neural_weight_updates: true
+                        performance_tier: "excellent"
+                      trade_analysis:
+                        entry_price: 215.50
+                        exit_price: 227.30
+                        max_favorable_excursion: 229.80
+                        max_adverse_excursion: 214.20
+                        risk_reward_realized: 2.24
+                    message: "Profitable outcome recorded. Pattern confidence increased across 10 patterns."
+                    timestamp: "2025-09-10T02:15:30.000Z"
+                stop_loss_outcome:
+                  summary: Stop loss outcome with learning update
+                  description: Loss that triggered pattern confidence adjustments
+                  value:
+                    success: true
+                    data:
+                      signal_id: "enhanced_ai_1757468621438"
+                      pnl: -525
+                      pnl_percentage: -2.44
+                      was_successful: false
+                      duration_minutes: 17
+                      patterns_updated: 8
+                      learning_impact:
+                        confidence_adjustments:
+                          - pattern: "false_breakout_detection"
+                            old_confidence: 0.78
+                            new_confidence: 0.75
+                          - pattern: "support_resistance_levels"
+                            old_confidence: 0.89
+                            new_confidence: 0.87
+                        neural_weight_updates: true
+                        performance_tier: "poor"
+                      trade_analysis:
+                        entry_price: 215.50
+                        exit_price: 210.25
+                        max_favorable_excursion: 216.80
+                        max_adverse_excursion: 210.00
+                        risk_reward_realized: -1.0
+                    message: "Stop loss outcome recorded. Pattern confidence adjusted based on market conditions."
+                    timestamp: "2025-09-10T01:58:45.000Z"
+                partial_close_outcome:
+                  summary: Partial close with ongoing position
+                  description: Partial profit taking with position still active
+                  value:
+                    success: true
+                    data:
+                      signal_id: "enhanced_ai_1757468621438"
+                      pnl: 495
+                      pnl_percentage: 4.59
+                      was_successful: true
+                      duration_minutes: 23
+                      patterns_updated: 6
+                      learning_impact:
+                        confidence_adjustments:
+                          - pattern: "momentum_continuation"
+                            old_confidence: 0.85
+                            new_confidence: 0.87
+                        neural_weight_updates: true
+                        performance_tier: "good"
+                      trade_analysis:
+                        entry_price: 215.50
+                        exit_price: 225.30
+                        max_favorable_excursion: 226.50
+                        max_adverse_excursion: 214.75
+                        risk_reward_realized: 1.87
+                    message: "Partial outcome recorded. Remaining position continues tracking for full learning cycle."
+                    timestamp: "2025-09-10T02:10:15.000Z"
+        '400':
+          description: Bad Request - Invalid outcome data
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                missing_exit_reason:
+                  summary: Missing exit reason
+                  description: Required field exit_reason is missing
+                  value:
+                    type: "https://guardiansofthegreentoken.com/problems/validation-error"
+                    title: "Missing Required Field"
+                    status: 400
+                    detail: "Required field 'exit_reason' is missing from request body."
+                    instance: "/api/ai/tracking/outcome"
+                    code: "MISSING_REQUIRED_FIELD"
+                    request_id: "req_1757469876543"
+                    invalid_params:
+                      - name: "exit_reason"
+                        reason: "Must be one of: stop_loss, take_profit, manual, time_exit"
+                invalid_exit_reason:
+                  summary: Invalid exit reason value
+                  description: Exit reason must be from allowed enum values
+                  value:
+                    type: "https://guardiansofthegreentoken.com/problems/validation-error"
+                    title: "Invalid Exit Reason"
+                    status: 400
+                    detail: "Exit reason 'invalid_reason' is not allowed. Must be one of: stop_loss, take_profit, manual, time_exit."
+                    instance: "/api/ai/tracking/outcome"
+                    code: "INVALID_EXIT_REASON"
+                    request_id: "req_1757469876544"
+                    invalid_params:
+                      - name: "exit_reason"
+                        reason: "Must be one of: stop_loss, take_profit, manual, time_exit"
+                invalid_partial_close:
+                  summary: Invalid partial close configuration
+                  description: Partial close requires remaining position data
+                  value:
+                    type: "https://guardiansofthegreentoken.com/problems/validation-error"
+                    title: "Invalid Partial Close Data"
+                    status: 400
+                    detail: "When partial_close is true, remaining_position must be greater than 0."
+                    instance: "/api/ai/tracking/outcome"
+                    code: "INVALID_PARTIAL_CLOSE"
+                    request_id: "req_1757469876545"
+                    invalid_params:
+                      - name: "remaining_position"
+                        reason: "Must be greater than 0 when partial_close is true"
+        '404':
+          description: Signal execution not found
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                execution_not_found:
+                  summary: Signal execution not found
+                  description: No execution record found for the signal ID
+                  value:
+                    type: "https://guardiansofthegreentoken.com/problems/resource-not-found"
+                    title: "Signal Execution Not Found"
+                    status: 404
+                    detail: "No execution record found for signal ID 'enhanced_ai_1757468621999'. Cannot record outcome without execution record."
+                    instance: "/api/ai/tracking/outcome"
+                    code: "EXECUTION_NOT_FOUND"
+                    request_id: "req_1757469876546"
+                already_recorded:
+                  summary: Outcome already recorded
+                  description: Outcome has already been recorded for this signal
+                  value:
+                    type: "https://guardiansofthegreentoken.com/problems/resource-conflict"
+                    title: "Outcome Already Recorded"
+                    status: 409
+                    detail: "Outcome for signal ID 'enhanced_ai_1757468621438' has already been recorded on 2025-09-10T01:45:30.000Z."
+                    instance: "/api/ai/tracking/outcome"
+                    code: "OUTCOME_ALREADY_RECORDED"
+                    request_id: "req_1757469876547"
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -625,10 +1181,10 @@ paths:
         '200':
           description: AI system performance analytics
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -669,6 +1225,7 @@ paths:
                           patterns_demoted: { type: number, example: 2 }
                           learning_velocity: { type: number, example: 0.15 }
                   timestamp: { type: string, format: date-time, example: "2025-09-10T02:15:30.000Z" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -684,10 +1241,10 @@ paths:
         '200':
           description: VIP8 institutional analytics data
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -710,6 +1267,7 @@ paths:
                           institutionalFlowScore: { type: number, example: 78 }
                           whaleActivityIndex: { type: number, example: 85 }
                   timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -723,10 +1281,10 @@ paths:
         '200':
           description: Live trading signals with entry/exit strategy
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -749,6 +1307,7 @@ paths:
                           riskReward: { type: number, example: 2 }
                           timeframe: { type: string, example: "1H" }
                   timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -762,10 +1321,10 @@ paths:
         '200':
           description: Multi-indicator confluence analysis
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -788,6 +1347,7 @@ paths:
                           funding: { type: number, example: 60 }
                           technicalIndicators: { type: number, example: 75 }
                   timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -801,10 +1361,10 @@ paths:
         '200':
           description: Enhanced open interest analysis
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -830,6 +1390,7 @@ paths:
                           institutionalInterest: { type: string, enum: ["high", "medium", "low"], example: "high" }
                           riskLevel: { type: string, enum: ["low", "medium", "high"], example: "medium" }
                   timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -843,10 +1404,10 @@ paths:
         '200':
           description: Enhanced funding rate analysis
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -871,6 +1432,7 @@ paths:
                           historicalContext: { type: string, example: "Within normal range" }
                           prediction: { type: string, example: "Stable funding rates expected" }
                   timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -884,10 +1446,10 @@ paths:
         '200':
           description: Volume profile analysis with key levels
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -920,6 +1482,7 @@ paths:
                           pocStrength: { type: string, enum: ["weak", "moderate", "strong"], example: "strong" }
                           institutionalLevels: { type: array, items: { type: string }, example: ["203.43", "208.91"] }
                   timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -933,10 +1496,10 @@ paths:
         '200':
           description: Fibonacci analysis with key levels and trend phases
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -978,6 +1541,7 @@ paths:
                             price: { type: number, example: 208.43 }
                             significance: { type: string, enum: ["low", "medium", "high"], example: "high" }
                   timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -991,10 +1555,10 @@ paths:
         '200':
           description: Real-time order flow analysis
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -1020,6 +1584,7 @@ paths:
                           retailSentiment: { type: string, enum: ["bullish", "bearish", "neutral"], example: "neutral" }
                           volumeProfile: { type: string, enum: ["aggressive", "passive", "balanced"], example: "balanced" }
                   timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -1033,10 +1598,10 @@ paths:
         '200':
           description: Liquidation cluster analysis and risk assessment
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -1063,6 +1628,7 @@ paths:
                           liquidityDepth: { type: string, enum: ["shallow", "moderate", "deep"], example: "moderate" }
                           volatilityExpectation: { type: string, enum: ["low", "medium", "high"], example: "medium" }
                   timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -1075,14 +1641,15 @@ paths:
         '200':
           description: Complete SOL trading data
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CompleteAnalysisResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -1095,14 +1662,15 @@ paths:
         '200':
           description: SOL Smart Money Concepts analysis
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SMCAnalysisResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -1115,14 +1683,15 @@ paths:
         '200':
           description: SOL CVD analysis
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CVDAnalysisResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -1135,14 +1704,15 @@ paths:
         '200':
           description: SOL funding rates
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FundingRateResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -1155,14 +1725,15 @@ paths:
         '200':
           description: SOL open interest data
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OpenInterestResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
@@ -1175,10 +1746,10 @@ paths:
         '200':
           description: System health status
           headers:
-            RateLimit-Limit: { schema: { type: integer } }
-            RateLimit-Remaining: { schema: { type: integer } }
-            RateLimit-Reset: { schema: { type: integer } }
-            RateLimit-Policy: { schema: { type: string } }
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
           content:
             application/json:
               schema:
@@ -1210,19 +1781,142 @@ paths:
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
 components:
+  headers:
+    # ===== RATE LIMITING HEADERS =====
+    RateLimit-Limit:
+      description: |
+        Maximum number of requests allowed in the current window.
+        Format: Integer representing the request limit (e.g., 100 for 100 requests per minute).
+        
+        **Rate Limiting Tiers:**
+        - Basic: 60 requests/minute
+        - Premium: 100 requests/minute  
+        - Enterprise: 500 requests/minute
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 10000
+        example: 100
+        
+    RateLimit-Remaining:
+      description: |
+        Number of requests remaining in the current window.
+        Decreases with each request until reset. When this reaches 0, 
+        subsequent requests will return 429 status code.
+      schema:
+        type: integer
+        minimum: 0
+        example: 42
+        
+    RateLimit-Reset:
+      description: |
+        Unix timestamp when the rate limit window resets.
+        After this time, RateLimit-Remaining will be restored to RateLimit-Limit.
+        Use this to calculate when you can make requests again.
+      schema:
+        type: integer
+        minimum: 0
+        example: 1725955200
+        
+    RateLimit-Policy:
+      description: |
+        Rate limiting policy in compact format.
+        Format: "<limit>;<duration>" where duration can be:
+        - s = seconds, m = minutes, h = hours, d = days
+        - Example: "100;w=60" = 100 requests per 60-second window
+      schema:
+        type: string
+        pattern: "^[0-9]+;[wsmhd]=[0-9]+$"
+        example: "100;w=60"
+        
+    Retry-After:
+      description: |
+        Seconds to wait before making another request (only in 429 responses).
+        Use this value to implement exponential backoff in your retry logic.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 3600
+        example: 60
+        
+    # ===== PAGINATION HEADERS =====
+    Link:
+      description: |
+        RFC 5988 compliant pagination links for navigating result sets.
+        Contains comma-separated link relations with URLs for next, prev, first, last pages.
+        
+        **Link Relations:**
+        - `next`: URL for the next page (if available)
+        - `prev`: URL for the previous page (if available)
+        - `first`: URL for the first page
+        - `last`: URL for the last page (if applicable)
+        
+        **Example:**
+        ```
+        Link: </api/btc/funding?cursor=eyJwYWdlfQ&limit=100>; rel="next",
+              </api/btc/funding?limit=100>; rel="first"
+        ```
+      schema:
+        type: string
+        example: '</api/btc/funding?cursor=eyJwYWdlfQ&limit=100>; rel="next", </api/btc/funding?limit=100>; rel="first"'
+        
+    X-Total-Count:
+      description: |
+        Total number of items available across all pages (optional).
+        Only provided for endpoints where total count can be efficiently calculated.
+        Use for progress indicators and pagination UI.
+      schema:
+        type: integer
+        minimum: 0
+        example: 1547
+        
+    X-Page-Info:
+      description: |
+        Additional pagination metadata in JSON format.
+        Contains information about current page position and availability of more data.
+      schema:
+        type: string
+        example: '{"has_next": true, "has_prev": false, "page_size": 100}'
+
   parameters:
+    # ===== PAGINATION PARAMETERS =====
     CursorParam:
       name: cursor
       in: query
-      description: Opaque cursor for pagination (next page token)
+      description: |
+        Opaque cursor for pagination navigation (next page token).
+        
+        **Usage:**
+        - Obtain from `next_cursor` in response or `Link` header
+        - Base64 encoded token containing page state
+        - Required for accessing pages beyond the first
+        
+        **Example Workflow:**
+        1. First request: `/api/btc/funding?limit=100`
+        2. Response includes: `"next_cursor": "eyJwYWdlIjoyfQ"`
+        3. Next request: `/api/btc/funding?cursor=eyJwYWdlIjoyfQ&limit=100`
       required: false
       schema:
         type: string
+        pattern: '^[A-Za-z0-9+/]+=*$'
         example: "eyJwYWdlIjoyfQ=="
+        
     LimitParam:
       name: limit
       in: query
-      description: Maximum number of items to return (default 100)
+      description: |
+        Maximum number of items to return per page.
+        
+        **Limits:**
+        - Minimum: 1 item
+        - Maximum: 1000 items 
+        - Default: 100 items
+        - Recommended: 50-200 items for optimal performance
+        
+        **Performance Notes:**
+        - Larger limits may result in slower response times
+        - Use smaller limits for real-time applications
+        - Larger limits reduce API call overhead for batch processing
       required: false
       schema:
         type: integer
@@ -1230,28 +1924,60 @@ components:
         maximum: 1000
         default: 100
         example: 100
+        
     StartParam:
       name: start
       in: query
-      description: Start timestamp for data range
+      description: |
+        Start timestamp for data range (inclusive).
+        
+        **Format:** RFC3339 (ISO 8601) timestamp
+        **Timezone:** UTC (Z suffix required)
+        **Resolution:** Millisecond precision supported
+        
+        **Examples:**
+        - Basic: `2025-09-15T00:00:00Z`
+        - With milliseconds: `2025-09-15T00:00:00.123Z`
+        - Relative: Last 24h = current_time - 24h
       required: false
       schema:
         type: string
         format: date-time
-        example: "2025-09-10T00:00:00Z"
+        example: "2025-09-15T00:00:00Z"
+        
     EndParam:
       name: end
       in: query
-      description: End timestamp for data range
+      description: |
+        End timestamp for data range (exclusive).
+        
+        **Format:** RFC3339 (ISO 8601) timestamp
+        **Timezone:** UTC (Z suffix required)
+        **Resolution:** Millisecond precision supported
+        
+        **Constraints:**
+        - Must be after `start` timestamp
+        - Maximum range: 30 days from start
+        - If omitted, defaults to current time
       required: false
       schema:
         type: string
         format: date-time
-        example: "2025-09-10T23:59:59Z"
+        example: "2025-09-15T23:59:59Z"
+        
     SymbolParam:
       name: symbol
       in: query
-      description: Trading pair symbol (default SOL-USDT-SWAP)
+      description: |
+        Trading pair symbol for analysis.
+        
+        **Format:** Exchange-specific format (e.g., SOL-USDT-SWAP)
+        **Default:** SOL-USDT-SWAP
+        
+        **Supported Symbols:**
+        - SOL-USDT-SWAP: Solana perpetual
+        - BTC-USDT-SWAP: Bitcoin perpetual
+        - ETH-USDT-SWAP: Ethereum perpetual
       required: false
       schema:
         type: string
@@ -1267,57 +1993,318 @@ components:
       description: API key for authenticated access.
 
   responses:
-    ProblemResponse:
-      description: Standardized error payload (Problem Details)
-      content:
-        application/problem+json:
-          schema:
-            type: object
-            required: [type, title]
-            properties:
-              type: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/problems/server-error" }
-              title: { type: string, example: "Internal Server Error" }
-              status: { type: integer, example: 500 }
-              detail: { type: string, example: "An unexpected error occurred while processing your request." }
-              instance: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/api/ai/enhanced-signal" }
-              code: { type: string, pattern: "^[A-Z_]+$", example: "INTERNAL_ERROR" }
-            example:
-              type: "https://guardiansofthegreentoken.com/problems/server-error"
-              title: "Internal Server Error"
-              status: 500
-              detail: "An unexpected error occurred while processing your request."
-              instance: "https://guardiansofthegreentoken.com/api/ai/enhanced-signal"
-              code: "INTERNAL_ERROR"
-    TooManyRequests:
-      description: Rate limit exceeded
+    # ===== RFC 7807 COMPLIANT ERROR RESPONSES =====
+    
+    BadRequest:
+      description: Bad Request - Invalid input parameters or malformed request
       headers:
-        RateLimit-Limit: { schema: { type: integer, example: 100 } }
-        RateLimit-Remaining: { schema: { type: integer, example: 0 } }
-        RateLimit-Reset: { schema: { type: integer, example: 1725955200 } }
-        RateLimit-Policy: { schema: { type: string, example: "100;w=60" } }
+        RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+        RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+        RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+        RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
       content:
         application/problem+json:
           schema:
-            type: object
-            required: [type, title]
-            properties:
-              type: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/problems/rate-limit" }
-              title: { type: string, example: "Too Many Requests" }
-              status: { type: integer, example: 429 }
-              detail: { type: string, example: "Rate limit exceeded. Try again after the reset window." }
-              instance: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/api/ai/enhanced-signal" }
-              code: { type: string, example: "RLIMIT_EXCEEDED" }
-            example:
-              type: "https://guardiansofthegreentoken.com/problems/rate-limit"
-              title: "Too Many Requests"
-              status: 429
-              detail: "Rate limit exceeded. Try again after the reset window."
-              instance: "https://guardiansofthegreentoken.com/api/ai/enhanced-signal"
-              code: "RLIMIT_EXCEEDED"
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            invalid_parameter:
+              summary: Invalid parameter format
+              value:
+                type: "https://guardiansofthegreentoken.com/problems/validation-error"
+                title: "Invalid Parameter Format"
+                status: 400
+                detail: "The 'pair' parameter must match pattern '^[A-Z0-9]{2,10}$'. Received: 'invalid_pair'."
+                instance: "/api/invalid_pair/complete"
+                code: "INVALID_PARAMETER"
+                invalid_params:
+                  - name: "pair"
+                    reason: "Must be a valid trading pair symbol (2-10 uppercase alphanumeric characters)"
+            missing_required_field:
+              summary: Missing required field
+              value:
+                type: "https://guardiansofthegreentoken.com/problems/validation-error"
+                title: "Missing Required Field"
+                status: 400
+                detail: "Required field 'signal_id' is missing from request body."
+                instance: "/api/ai/tracking/execution"
+                code: "MISSING_REQUIRED_FIELD"
+                invalid_params:
+                  - name: "signal_id"
+                    reason: "This field is required for tracking AI signal execution"
+    
+    Unauthorized:
+      description: Unauthorized - Invalid or missing API key
+      headers:
+        WWW-Authenticate: { description: 'Authentication challenge', schema: { type: string, example: 'ApiKey realm="CryptoSat API"' } }
+        RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+        RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+        RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+        RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            missing_api_key:
+              summary: Missing API key
+              value:
+                type: "https://guardiansofthegreentoken.com/problems/authentication-required"
+                title: "Authentication Required"
+                status: 401
+                detail: "API key is required to access this resource. Include 'X-API-Key' header with your request."
+                instance: "/api/ai/enhanced-signal"
+                code: "MISSING_API_KEY"
+            invalid_api_key:
+              summary: Invalid API key
+              value:
+                type: "https://guardiansofthegreentoken.com/problems/authentication-failed"
+                title: "Authentication Failed"
+                status: 401
+                detail: "The provided API key is invalid or has been revoked."
+                instance: "/api/ai/enhanced-signal"
+                code: "INVALID_API_KEY"
+    
+    NotFound:
+      description: Not Found - The requested resource does not exist
+      headers:
+        RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+        RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+        RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+        RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            unsupported_pair:
+              summary: Unsupported trading pair
+              value:
+                type: "https://guardiansofthegreentoken.com/problems/resource-not-found"
+                title: "Trading Pair Not Supported"
+                status: 404
+                detail: "The trading pair 'UNKNOWN' is not supported. See /api/pairs/supported for available pairs."
+                instance: "/api/UNKNOWN/complete"
+                code: "UNSUPPORTED_PAIR"
+            endpoint_not_found:
+              summary: Endpoint not found
+              value:
+                type: "https://guardiansofthegreentoken.com/problems/resource-not-found"
+                title: "Endpoint Not Found"
+                status: 404
+                detail: "The requested endpoint does not exist."
+                instance: "/api/nonexistent"
+                code: "ENDPOINT_NOT_FOUND"
+    
+    ProblemResponse:
+      description: Generic error response using RFC 7807 Problem Details
+      headers:
+        RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+        RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+        RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+        RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            server_error:
+              summary: Internal server error
+              value:
+                type: "https://guardiansofthegreentoken.com/problems/server-error"
+                title: "Internal Server Error"
+                status: 500
+                detail: "An unexpected error occurred while processing your request. Our team has been notified."
+                instance: "/api/ai/enhanced-signal"
+                code: "INTERNAL_ERROR"
+                request_id: "req_1757901234567"
+            service_unavailable:
+              summary: Service temporarily unavailable
+              value:
+                type: "https://guardiansofthegreentoken.com/problems/service-unavailable"
+                title: "Service Temporarily Unavailable"
+                status: 503
+                detail: "The AI signal engine is temporarily unavailable due to maintenance. Please try again in a few minutes."
+                instance: "/api/ai/enhanced-signal"
+                code: "SERVICE_UNAVAILABLE"
+                retry_after: 300
+    TooManyRequests:
+      description: Rate limit exceeded - RFC 7807 compliant
+      headers:
+        RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+        RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+        RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+        RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+        Retry-After: { $ref: '#/components/headers/Retry-After' }
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            rate_limit_exceeded:
+              summary: Standard rate limit exceeded
+              description: |-
+                Standard rate limiting scenario with complete retry guidance.
+                
+                **Retry Strategy:**
+                1. Respect the `Retry-After` header value
+                2. Implement exponential backoff with jitter
+                3. Monitor `RateLimit-Remaining` header to prevent hitting limits
+                4. Consider upgrading to higher tier for increased limits
+                
+                **Example Retry Logic:**
+                ```javascript
+                const delay = parseInt(headers['Retry-After']) || 60;
+                const jitter = Math.random() * 1000; // Add randomness
+                setTimeout(retry, (delay * 1000) + jitter);
+                ```
+              value:
+                type: "https://guardiansofthegreentoken.com/problems/rate-limit-exceeded"
+                title: "Rate Limit Exceeded"
+                status: 429
+                detail: "You have exceeded the rate limit of 100 requests per minute. Please wait 42 seconds before making another request. Consider implementing request batching or upgrading your plan for higher limits."
+                instance: "/api/ai/enhanced-signal"
+                code: "RATE_LIMIT_EXCEEDED"
+                rate_limit:
+                  limit: 100
+                  remaining: 0
+                  reset_time: "2025-09-15T02:30:00Z"
+                  retry_after: 42
+                  policy: "100;w=60"
+                  tier: "premium"
+                help:
+                  upgrade_url: "https://guardiansofthegreentoken.com/pricing"
+                  documentation: "https://docs.guardiansofthegreentoken.com/rate-limiting"
+                  best_practices: [
+                    "Implement exponential backoff with jitter",
+                    "Monitor RateLimit-Remaining header",
+                    "Batch requests when possible",
+                    "Cache responses to reduce API calls"
+                  ]
+            quota_exceeded:
+              summary: Daily quota exceeded
+              description: |-
+                Daily quota exceeded scenario with clear reset guidance.
+                
+                **Understanding Quotas:**
+                - Daily quotas reset at midnight UTC
+                - Separate from rate limits (requests per minute)
+                - Track usage via X-Quota-Used and X-Quota-Remaining headers
+                
+                **Recovery Actions:**
+                1. Wait for quota reset (shown in reset_time)
+                2. Upgrade plan for higher daily limits
+                3. Optimize requests by batching operations
+                4. Implement request caching strategies
+              value:
+                type: "https://guardiansofthegreentoken.com/problems/quota-exceeded"
+                title: "Daily Quota Exceeded"
+                status: 429
+                detail: "You have exceeded your daily quota of 1000 AI signal requests. Quota resets at midnight UTC. Consider upgrading your plan or implementing request optimization strategies."
+                instance: "/api/ai/enhanced-signal"
+                code: "QUOTA_EXCEEDED"
+                quota:
+                  limit: 1000
+                  used: 1000
+                  reset_time: "2025-09-16T00:00:00Z"
+                  tier: "premium"
+                  upgrade_available: true
+                help:
+                  upgrade_url: "https://guardiansofthegreentoken.com/pricing"
+                  optimization_guide: "https://docs.guardiansofthegreentoken.com/quota-optimization"
+                  strategies: [
+                    "Implement response caching for repeated queries",
+                    "Batch multiple operations in single requests",
+                    "Use webhooks instead of polling for real-time data",
+                    "Filter requests to only essential data points"
+                  ]
 
   schemas:
+    # ===== PAGINATION SCHEMAS =====
+    PaginationMeta:
+      type: object
+      description: Pagination metadata for paginated responses
+      properties:
+        has_next:
+          type: boolean
+          description: Whether more pages are available after current page
+          example: true
+        has_prev:
+          type: boolean  
+          description: Whether previous pages exist before current page
+          example: false
+        page_size:
+          type: integer
+          description: Number of items in current page
+          minimum: 1
+          maximum: 1000
+          example: 100
+        total_count:
+          type: integer
+          description: Total number of items across all pages (if available)
+          minimum: 0
+          example: 1547
+        next_cursor:
+          type: string
+          description: Cursor token for the next page (if has_next is true)
+          pattern: '^[A-Za-z0-9+/]+=*$'
+          example: "eyJwYWdlIjozLCJ0aW1lc3RhbXAiOjE3MjU5NTUyMDB9"
+        prev_cursor:
+          type: string
+          description: Cursor token for the previous page (if has_prev is true)
+          pattern: '^[A-Za-z0-9+/]+=*$'
+          example: "eyJwYWdlIjoxLCJ0aW1lc3RhbXAiOjE3MjU5NTUyMDB9"
+      required: ["has_next", "has_prev", "page_size"]
+      example:
+        has_next: true
+        has_prev: false
+        page_size: 100
+        total_count: 1547
+        next_cursor: "eyJwYWdlIjozLCJ0aW1lc3RhbXAiOjE3MjU5NTUyMDB9"
+
+    RateLimitInfo:
+      type: object
+      description: Rate limiting information included in error responses
+      properties:
+        limit:
+          type: integer
+          description: Maximum requests allowed in current window
+          minimum: 1
+          example: 100
+        remaining:
+          type: integer
+          description: Requests remaining in current window
+          minimum: 0
+          example: 0
+        reset_time:
+          type: string
+          format: date-time
+          description: When the rate limit window resets (ISO 8601)
+          example: "2025-09-15T02:30:00Z"
+        retry_after:
+          type: integer
+          description: Seconds to wait before retrying
+          minimum: 1
+          maximum: 3600
+          example: 42
+        policy:
+          type: string
+          description: Rate limiting policy description
+          pattern: "^[0-9]+;[wsmhd]=[0-9]+$"
+          example: "100;w=60"
+      required: ["limit", "remaining", "reset_time"]
+      example:
+        limit: 100
+        remaining: 0
+        reset_time: "2025-09-15T02:30:00Z"
+        retry_after: 42
+        policy: "100;w=60"
+
+    # ===== CORE RESPONSE SCHEMAS =====
     CompleteAnalysisResponse:
       type: object
+      description: |
+        Comprehensive trading data analysis for any supported pair.
+        Includes ticker data, technical indicators, market sentiment, and AI insights.
       properties:
         success: { type: boolean, example: true }
         data:
@@ -1325,50 +2312,406 @@ components:
           properties:
             ticker:
               type: object
+              description: Current market data and price information
               properties:
-                symbol: { type: string, example: "BTC-USDT-SWAP" }
-                price: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "110883.6" }
-                change24h: { type: string, example: "-1.67%" }
-                high24h: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "113250.0" }
-                low24h: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "109750.0" }
-                volume: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "45287639.82" }
-        timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
+                symbol: { type: string, example: "SOL-USDT-SWAP" }
+                price: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "215.85" }
+                change24h: { type: string, example: "+2.34%" }
+                high24h: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "218.90" }
+                low24h: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "210.20" }
+                volume: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "892374.56" }
+                volume_usd: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "192847293.12" }
+                bid: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "215.84" }
+                ask: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "215.86" }
+                spread: { type: number, example: 0.02 }
+            technical_indicators:
+              type: object
+              description: Technical analysis indicators and signals
+              properties:
+                rsi:
+                  type: object
+                  properties:
+                    value: { type: number, example: 67.8 }
+                    signal: { type: string, enum: ["oversold", "neutral", "overbought"], example: "neutral" }
+                    period: { type: integer, example: 14 }
+                macd:
+                  type: object
+                  properties:
+                    line: { type: number, example: 1.25 }
+                    signal: { type: number, example: 0.98 }
+                    histogram: { type: number, example: 0.27 }
+                    trend: { type: string, enum: ["bullish", "bearish", "neutral"], example: "bullish" }
+                bollinger_bands:
+                  type: object
+                  properties:
+                    upper: { type: number, example: 220.15 }
+                    middle: { type: number, example: 215.85 }
+                    lower: { type: number, example: 211.55 }
+                    position: { type: string, enum: ["above_upper", "upper_half", "lower_half", "below_lower"], example: "upper_half" }
+                moving_averages:
+                  type: object
+                  properties:
+                    sma_20: { type: number, example: 214.20 }
+                    sma_50: { type: number, example: 212.45 }
+                    ema_20: { type: number, example: 214.85 }
+                    ema_50: { type: number, example: 213.10 }
+                    crossover_signal: { type: string, enum: ["golden_cross", "death_cross", "none"], example: "golden_cross" }
+            market_sentiment:
+              type: object
+              description: Overall market sentiment and momentum indicators
+              properties:
+                overall_sentiment: { type: string, enum: ["very_bearish", "bearish", "neutral", "bullish", "very_bullish"], example: "bullish" }
+                sentiment_score: { type: number, minimum: 0, maximum: 100, example: 72 }
+                momentum: { type: string, enum: ["strong_down", "weak_down", "neutral", "weak_up", "strong_up"], example: "weak_up" }
+                volatility: { type: string, enum: ["very_low", "low", "medium", "high", "very_high"], example: "medium" }
+            funding_rate:
+              type: object
+              description: Current funding rate data for perpetual contracts
+              properties:
+                current_rate: { type: string, example: "0.0000428" }
+                annual_rate: { type: string, example: "15.67%" }
+                next_funding_time: { type: string, format: date-time, example: "2025-09-15T08:00:00Z" }
+                predicted_rate: { type: string, example: "0.0000435" }
+            open_interest:
+              type: object
+              description: Open interest and derivatives market data
+              properties:
+                total_oi: { type: string, example: "3475341.43" }
+                oi_usd: { type: string, example: "750234892.12" }
+                change_24h: { type: string, example: "+1.2%" }
+                oi_to_volume_ratio: { type: number, example: 3.89 }
+            ai_insights:
+              type: object
+              description: AI-powered market analysis and predictions
+              properties:
+                trend_prediction: { type: string, enum: ["strong_bearish", "bearish", "neutral", "bullish", "strong_bullish"], example: "bullish" }
+                confidence_level: { type: number, minimum: 0, maximum: 100, example: 74 }
+                key_levels:
+                  type: object
+                  properties:
+                    resistance: { type: array, items: { type: number }, example: [218.50, 222.00, 225.75] }
+                    support: { type: array, items: { type: number }, example: [210.20, 207.85, 205.00] }
+                recommendation: { type: string, example: "Monitor for breakout above 218.50 with strong volume confirmation" }
+            risk_metrics:
+              type: object
+              description: Risk assessment and volatility metrics
+              properties:
+                volatility_24h: { type: number, example: 4.12 }
+                beta: { type: number, example: 1.23 }
+                max_drawdown_7d: { type: number, example: -6.8 }
+                sharpe_ratio: { type: number, example: 1.45 }
+                risk_score: { type: number, minimum: 0, maximum: 100, example: 38 }
+        metadata:
+          type: object
+          description: Request metadata and data freshness indicators
+          properties:
+            data_sources: { type: array, items: { type: string }, example: ["OKX", "CoinAPI", "Internal Analysis"] }
+            last_updated: { type: string, format: date-time, example: "2025-09-15T02:48:30.123Z" }
+            cache_status: { type: string, enum: ["fresh", "cached", "stale"], example: "fresh" }
+            processing_time_ms: { type: number, example: 456 }
+        timestamp: { type: string, format: date-time, example: "2025-09-15T02:48:35.789Z" }
+      example:
+        success: true
+        data:
+          ticker:
+            symbol: "SOL-USDT-SWAP"
+            price: "215.85"
+            change24h: "+2.34%"
+            high24h: "218.90"
+            low24h: "210.20"
+            volume: "892374.56"
+            volume_usd: "192847293.12"
+            bid: "215.84"
+            ask: "215.86"
+            spread: 0.02
+          technical_indicators:
+            rsi:
+              value: 67.8
+              signal: "neutral"
+              period: 14
+            macd:
+              line: 1.25
+              signal: 0.98
+              histogram: 0.27
+              trend: "bullish"
+            bollinger_bands:
+              upper: 220.15
+              middle: 215.85
+              lower: 211.55
+              position: "upper_half"
+            moving_averages:
+              sma_20: 214.20
+              sma_50: 212.45
+              ema_20: 214.85
+              ema_50: 213.10
+              crossover_signal: "golden_cross"
+          market_sentiment:
+            overall_sentiment: "bullish"
+            sentiment_score: 72
+            momentum: "weak_up"
+            volatility: "medium"
+          funding_rate:
+            current_rate: "0.0000428"
+            annual_rate: "15.67%"
+            next_funding_time: "2025-09-15T08:00:00Z"
+            predicted_rate: "0.0000435"
+          open_interest:
+            total_oi: "3475341.43"
+            oi_usd: "750234892.12"
+            change_24h: "+1.2%"
+            oi_to_volume_ratio: 3.89
+          ai_insights:
+            trend_prediction: "bullish"
+            confidence_level: 74
+            key_levels:
+              resistance: [218.50, 222.00, 225.75]
+              support: [210.20, 207.85, 205.00]
+            recommendation: "Monitor for breakout above 218.50 with strong volume confirmation"
+          risk_metrics:
+            volatility_24h: 4.12
+            beta: 1.23
+            max_drawdown_7d: -6.8
+            sharpe_ratio: 1.45
+            risk_score: 38
+        metadata:
+          data_sources: ["OKX", "CoinAPI", "Internal Analysis"]
+          last_updated: "2025-09-15T02:48:30.123Z"
+          cache_status: "fresh"
+          processing_time_ms: 456
+        timestamp: "2025-09-15T02:48:35.789Z"
 
     SMCAnalysisResponse:
       type: object
+      description: |
+        Smart Money Concepts (SMC) analysis providing institutional-grade market structure analysis.
+        Includes break of structure, order blocks, fair value gaps, and liquidity zones.
       properties:
         success: { type: boolean, example: true }
         data:
           type: object
           properties:
             timeframe: { type: string, example: "1H" }
-            trend: { type: string, enum: ["bullish","bearish","ranging"], example: "bearish" }
-            lastBOS:
+            trend: { type: string, enum: ["bullish","bearish","ranging"], example: "bullish" }
+            market_structure:
               type: object
+              description: Current market structure and key structural levels
               properties:
-                type: { type: string, enum: ["bullish","bearish"], example: "bearish" }
-                price: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "111250.0" }
-                timestamp: { type: string, format: date-time, example: "2025-09-06T13:30:00Z" }
-            confidence: { type: number, minimum: 0, maximum: 100, example: 75 }
-        timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
+                structure_type: { type: string, enum: ["uptrend", "downtrend", "ranging", "transition"], example: "uptrend" }
+                current_phase: { type: string, enum: ["impulse", "correction", "consolidation"], example: "impulse" }
+                structure_strength: { type: string, enum: ["weak", "moderate", "strong"], example: "strong" }
+            break_of_structure:
+              type: object
+              description: Most recent break of structure (BOS) analysis
+              properties:
+                type: { type: string, enum: ["bullish","bearish"], example: "bullish" }
+                price: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "214.25" }
+                timestamp: { type: string, format: date-time, example: "2025-09-15T01:15:00Z" }
+                significance: { type: string, enum: ["minor", "major", "critical"], example: "major" }
+                confirmation: { type: boolean, example: true }
+            order_blocks:
+              type: object
+              description: Institutional order block zones
+              properties:
+                bullish_blocks:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      price_high: { type: number, example: 216.80 }
+                      price_low: { type: number, example: 215.20 }
+                      strength: { type: string, enum: ["weak", "moderate", "strong"], example: "strong" }
+                      tested: { type: boolean, example: false }
+                  example: [{"price_high": 216.80, "price_low": 215.20, "strength": "strong", "tested": false}]
+                bearish_blocks:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      price_high: { type: number, example: 220.50 }
+                      price_low: { type: number, example: 219.10 }
+                      strength: { type: string, enum: ["weak", "moderate", "strong"], example: "moderate" }
+                      tested: { type: boolean, example: true }
+                  example: [{"price_high": 220.50, "price_low": 219.10, "strength": "moderate", "tested": true}]
+            fair_value_gaps:
+              type: object
+              description: Fair Value Gap (FVG) analysis for potential retracement areas
+              properties:
+                active_gaps:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      gap_high: { type: number, example: 217.90 }
+                      gap_low: { type: number, example: 216.50 }
+                      gap_type: { type: string, enum: ["bullish", "bearish"], example: "bullish" }
+                      filled_percentage: { type: number, minimum: 0, maximum: 100, example: 25 }
+                  example: [{"gap_high": 217.90, "gap_low": 216.50, "gap_type": "bullish", "filled_percentage": 25}]
+            liquidity_analysis:
+              type: object
+              description: Liquidity pool and sweep analysis
+              properties:
+                buy_side_liquidity: { type: array, items: { type: number }, example: [218.90, 222.00, 225.50] }
+                sell_side_liquidity: { type: array, items: { type: number }, example: [210.20, 207.85, 205.00] }
+                recent_sweeps:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      price: { type: number, example: 210.20 }
+                      sweep_type: { type: string, enum: ["buy_side", "sell_side"], example: "sell_side" }
+                      timestamp: { type: string, format: date-time, example: "2025-09-15T00:45:00Z" }
+                  example: [{"price": 210.20, "sweep_type": "sell_side", "timestamp": "2025-09-15T00:45:00Z"}]
+            confidence: { type: number, minimum: 0, maximum: 100, example: 86 }
+            trading_bias: { type: string, enum: ["bullish", "bearish", "neutral"], example: "bullish" }
+        timestamp: { type: string, format: date-time, example: "2025-09-15T02:49:00Z" }
+      example:
+        success: true
+        data:
+          timeframe: "1H"
+          trend: "bullish"
+          market_structure:
+            structure_type: "uptrend"
+            current_phase: "impulse"
+            structure_strength: "strong"
+          break_of_structure:
+            type: "bullish"
+            price: "214.25"
+            timestamp: "2025-09-15T01:15:00Z"
+            significance: "major"
+            confirmation: true
+          order_blocks:
+            bullish_blocks:
+              - price_high: 216.80
+                price_low: 215.20
+                strength: "strong"
+                tested: false
+            bearish_blocks:
+              - price_high: 220.50
+                price_low: 219.10
+                strength: "moderate"
+                tested: true
+          fair_value_gaps:
+            active_gaps:
+              - gap_high: 217.90
+                gap_low: 216.50
+                gap_type: "bullish"
+                filled_percentage: 25
+          liquidity_analysis:
+            buy_side_liquidity: [218.90, 222.00, 225.50]
+            sell_side_liquidity: [210.20, 207.85, 205.00]
+            recent_sweeps:
+              - price: 210.20
+                sweep_type: "sell_side"
+                timestamp: "2025-09-15T00:45:00Z"
+          confidence: 86
+          trading_bias: "bullish"
+        timestamp: "2025-09-15T02:49:00Z"
 
     CVDAnalysisResponse:
       type: object
+      description: |
+        Cumulative Volume Delta (CVD) analysis providing insights into buying vs selling pressure.
+        Tracks institutional order flow and detects divergences between price and volume.
       properties:
         success: { type: boolean, example: true }
         data:
           type: object
           properties:
             timeframe: { type: string, example: "1H" }
-            currentCVD: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "639494.09" }
-            previousCVD: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "707529.59" }
-            deltaChange: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "-68035.50" }
-            percentageChange: { type: number, example: -9.61 }
+            current_analysis:
+              type: object
+              description: Current CVD metrics and real-time data
+              properties:
+                currentCVD: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "892347.15" }
+                previousCVD: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "875692.80" }
+                deltaChange: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "+16654.35" }
+                percentageChange: { type: number, example: 1.90 }
+                trend: { type: string, enum: ["accumulation", "distribution", "neutral"], example: "accumulation" }
+            volume_profile:
+              type: object
+              description: Volume distribution and order flow characteristics
+              properties:
+                buy_volume: { type: string, example: "548291.75" }
+                sell_volume: { type: string, example: "344082.81" }
+                buy_sell_ratio: { type: number, example: 1.59 }
+                aggressive_buyers: { type: string, example: "312847.20" }
+                aggressive_sellers: { type: string, example: "198735.45" }
+                passive_volume: { type: string, example: "380791.91" }
+            divergence_analysis:
+              type: object
+              description: Price-CVD divergence detection and strength assessment
+              properties:
+                divergence_present: { type: boolean, example: false }
+                divergence_type: { type: string, enum: ["bullish", "bearish", "none"], example: "none" }
+                divergence_strength: { type: string, enum: ["weak", "moderate", "strong", "none"], example: "none" }
+                price_trend: { type: string, enum: ["up", "down", "sideways"], example: "up" }
+                cvd_trend: { type: string, enum: ["up", "down", "sideways"], example: "up" }
+                correlation_score: { type: number, minimum: -1, maximum: 1, example: 0.78 }
+            institutional_flow:
+              type: object
+              description: Institutional money flow indicators
+              properties:
+                flow_direction: { type: string, enum: ["inflow", "outflow", "neutral"], example: "inflow" }
+                flow_strength: { type: string, enum: ["weak", "moderate", "strong"], example: "moderate" }
+                large_order_ratio: { type: number, example: 0.34 }
+                whale_activity: { type: string, enum: ["high", "medium", "low"], example: "medium" }
+            market_impact:
+              type: object
+              description: CVD impact on price action and market structure
+              properties:
+                price_support_level: { type: number, example: 214.80 }
+                price_resistance_level: { type: number, example: 218.20 }
+                breakout_probability: { type: number, minimum: 0, maximum: 100, example: 67 }
+                continuation_signal: { type: string, enum: ["strong", "moderate", "weak", "none"], example: "moderate" }
             confidence:
               type: object
+              description: Confidence levels for CVD analysis components
               properties:
-                overall: { type: number, minimum: 0, maximum: 100, example: 82 }
-        timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
+                overall: { type: number, minimum: 0, maximum: 100, example: 84 }
+                trend_confidence: { type: number, minimum: 0, maximum: 100, example: 89 }
+                divergence_confidence: { type: number, minimum: 0, maximum: 100, example: 76 }
+                flow_confidence: { type: number, minimum: 0, maximum: 100, example: 82 }
+        timestamp: { type: string, format: date-time, example: "2025-09-15T02:49:00Z" }
+      example:
+        success: true
+        data:
+          timeframe: "1H"
+          current_analysis:
+            currentCVD: "892347.15"
+            previousCVD: "875692.80"
+            deltaChange: "+16654.35"
+            percentageChange: 1.90
+            trend: "accumulation"
+          volume_profile:
+            buy_volume: "548291.75"
+            sell_volume: "344082.81"
+            buy_sell_ratio: 1.59
+            aggressive_buyers: "312847.20"
+            aggressive_sellers: "198735.45"
+            passive_volume: "380791.91"
+          divergence_analysis:
+            divergence_present: false
+            divergence_type: "none"
+            divergence_strength: "none"
+            price_trend: "up"
+            cvd_trend: "up"
+            correlation_score: 0.78
+          institutional_flow:
+            flow_direction: "inflow"
+            flow_strength: "moderate"
+            large_order_ratio: 0.34
+            whale_activity: "medium"
+          market_impact:
+            price_support_level: 214.80
+            price_resistance_level: 218.20
+            breakout_probability: 67
+            continuation_signal: "moderate"
+          confidence:
+            overall: 84
+            trend_confidence: 89
+            divergence_confidence: 76
+            flow_confidence: 82
+        timestamp: "2025-09-15T02:49:00Z"
 
     TechnicalAnalysisResponse:
       type: object
@@ -1420,16 +2763,141 @@ components:
             nextCursor: { type: ["string", "null"], example: "eyJwYWdlIjozfQ==" }
         timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
 
-    Problem:
+    # ===== RFC 7807 PROBLEM DETAILS SCHEMAS =====
+    
+    ProblemDetails:
       type: object
+      description: |
+        RFC 7807 Problem Details for HTTP APIs.
+        A machine-readable format for specifying errors in HTTP API responses.
       required: [type, title]
       properties:
-        type: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/problems/rate-limit" }
-        title: { type: string, example: "Too Many Requests" }
-        status: { type: integer, example: 429 }
-        detail: { type: string, example: "Rate limit exceeded. Try again after the reset window." }
-        instance: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/api/btc/complete" }
-        code: { type: string, example: "RLIMIT_EXCEEDED" }
+        type:
+          type: string
+          format: uri
+          description: |
+            A URI reference that identifies the problem type. When dereferenced,
+            it SHOULD provide human-readable documentation for the problem type.
+          example: "https://guardiansofthegreentoken.com/problems/validation-error"
+        title:
+          type: string
+          description: |
+            A short, human-readable summary of the problem type. It SHOULD NOT change
+            from occurrence to occurrence of the problem.
+          example: "Invalid Parameter Format"
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+          description: |
+            The HTTP status code for this occurrence of the problem.
+          example: 400
+        detail:
+          type: string
+          description: |
+            A human-readable explanation specific to this occurrence of the problem.
+          example: "The 'pair' parameter must match pattern '^[A-Z0-9]{2,10}$'. Received: 'invalid_pair'."
+        instance:
+          type: string
+          format: uri
+          description: |
+            A URI reference that identifies the specific occurrence of the problem.
+            It may or may not yield further information if dereferenced.
+          example: "/api/invalid_pair/complete"
+        # Extension members (application-specific)
+        code:
+          type: string
+          pattern: "^[A-Z_]+$"
+          description: |
+            Application-specific error code for programmatic error handling.
+          example: "INVALID_PARAMETER"
+        request_id:
+          type: string
+          description: |
+            Unique identifier for this request, useful for debugging and support.
+          example: "req_1757901234567"
+        invalid_params:
+          type: array
+          description: |
+            Details about invalid parameters for validation errors.
+          items:
+            type: object
+            required: [name, reason]
+            properties:
+              name:
+                type: string
+                description: "Name of the invalid parameter"
+                example: "pair"
+              reason:
+                type: string
+                description: "Reason why the parameter is invalid"
+                example: "Must be a valid trading pair symbol (2-10 uppercase alphanumeric characters)"
+        rate_limit:
+          type: object
+          description: |
+            Rate limiting information for 429 errors.
+          properties:
+            limit:
+              type: integer
+              description: "Maximum number of requests allowed"
+              example: 100
+            remaining:
+              type: integer
+              description: "Number of requests remaining in current window"
+              example: 0
+            reset_time:
+              type: string
+              format: date-time
+              description: "Time when the rate limit resets"
+              example: "2025-09-15T02:30:00Z"
+            retry_after:
+              type: integer
+              description: "Seconds to wait before retrying"
+              example: 42
+        quota:
+          type: object
+          description: |
+            Quota information for quota exceeded errors.
+          properties:
+            limit:
+              type: integer
+              description: "Maximum quota allowed"
+              example: 1000
+            used:
+              type: integer
+              description: "Amount of quota used"
+              example: 1000
+            reset_time:
+              type: string
+              format: date-time
+              description: "Time when the quota resets"
+              example: "2025-09-16T00:00:00Z"
+        retry_after:
+          type: integer
+          description: |
+            Seconds to wait before retrying (for 503 Service Unavailable errors).
+          example: 300
+      additionalProperties: false
+      example:
+        type: "https://guardiansofthegreentoken.com/problems/validation-error"
+        title: "Invalid Parameter Format"
+        status: 400
+        detail: "The 'pair' parameter must match pattern '^[A-Z0-9]{2,10}$'. Received: 'invalid_pair'."
+        instance: "/api/invalid_pair/complete"
+        code: "INVALID_PARAMETER"
+        request_id: "req_1757901234567"
+        invalid_params:
+          - name: "pair"
+            reason: "Must be a valid trading pair symbol (2-10 uppercase alphanumeric characters)"
+    
+    # Legacy schema for backward compatibility (deprecated)
+    Problem:
+      deprecated: true
+      description: |
+        Deprecated: Use ProblemDetails instead.
+        Legacy problem details schema for backward compatibility.
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
 
   # ===== COINAPI MULTI-EXCHANGE ENDPOINTS =====
 
