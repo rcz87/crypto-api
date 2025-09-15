@@ -1,0 +1,53 @@
+You are my release auditor. Do NOT refactor the app. Only add a smoke test script and run it.
+
+GOAL
+- Verify production readiness of my trading intelligence stack and make a concise, human-readable report.
+- Confirm there is ZERO mock/fallback data and that all responses are real and fresh.
+- Say the results out loud in the console (and send to Telegram if TELEGRAM_BOT_TOKEN is present).
+
+CONSTRAINTS
+- Read-only for app code. Only create files under scripts/ and package.json scripts.
+- No long-running watchers. One-shot test, then exit with code 0 on success else 1.
+
+WHAT TO DO
+1) Create scripts/smoke.mjs with Node18+ that:
+   - Uses global fetch and AbortController.
+   - BASE = process.env.SMOKE_BASE || "http://localhost:5000"
+   - Endpoints to check (gateway, not direct port 8000):
+     A) GET  /py/health                 -> expect 200 JSON {status:"ok"}
+     B) GET  /api/scheduler/status      -> expect 200 JSON + has "uptime" or "running"
+     C) POST /py/gpts/advanced          -> single op: {"op":"ticker","params":{"symbol":"SOL"}}
+     D) POST /py/gpts/advanced          -> batch  : {"ops":[
+            {"op":"market_sentiment"},
+            {"op":"etf_flows","params":{"asset":"BTC"}},
+            {"op":"liquidation_heatmap","params":{"symbol":"SOL","timeframe":"1h"}},
+            {"op":"spot_orderbook","params":{"symbol":"SOL","exchange":"binance"}}
+        ]}
+     E) GET  /api/signal/institutional/BTC -> expect JSON with bias/confidence or status "insufficient_data" (but MUST NOT contain any mock/fallback flags)
+   - Latency target: p95 ≤ 400ms, avg ≤ 300ms (warn if above).
+   - Freshness: any timestamp/age fields must be < 60s (warn if stale).
+   - Anti-fallback: scan JSON strings for "fallback": true or keys indicating mock data. If found -> FAIL.
+   - Rate limit check: fire 22 quick POSTs to /py/gpts/advanced (same body) and confirm that at least one returns 429 when budget is 20/min (log PASS/NA depending on config, do not fail if not enforced).
+   - Print a markdown-style summary table + final verdict:
+       • HEALTH ✅/❌
+       • UNIFIED ENDPOINT (single) ✅/❌
+       • UNIFIED ENDPOINT (batch) ✅/❌
+       • AGGREGATOR ✅/⚠️/❌
+       • LATENCY avg/p95
+       • FRESHNESS ✅/⚠️/❌
+       • ANTI-FALLBACK ✅/❌
+       • RATE LIMIT ✅/NA
+   - If TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID exist, POST the summary to Telegram.
+
+2) Add npm script:
+   - In package.json -> "scripts": { "smoke": "node scripts/smoke.mjs" }
+
+3) Run `npm run smoke` and show me the full console output.
+
+ACCEPTANCE CRITERIA
+- All core checks succeed (HEALTH, unified single+batch).
+- Anti-fallback passes (no "fallback": true and no mock markers).
+- Aggregator returns real data or "insufficient_data" without fabricated fields.
+- Report printed; exit code 0 on pass, 1 on fail.
+
+If anything fails: show exact failing endpoint, status, and 200-chars body snippet.
