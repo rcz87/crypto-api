@@ -125,7 +125,7 @@ class AlertHistory(Base):
     delivered_at = Column(DateTime)
     status = Column(String, default="pending")  # pending, delivered, failed
     retry_count = Column(Integer, default=0)
-    metadata = Column(JSON)
+    meta_data = Column('metadata', JSON)
 
 class SignalBacktest(Base):
     __tablename__ = "signal_backtest"

@@ -5,7 +5,7 @@ import re
 
 class APIKeyRequest(BaseModel):
     user_id: str = Field(..., min_length=3, max_length=50)
-    tier: str = Field(default="standard", regex="^(standard|premium|enterprise)$")
+    tier: str = Field(default="standard", pattern="^(standard|premium|enterprise)$")
     description: Optional[str] = Field(None, max_length=200)
 
 class SymbolValidator(BaseModel):
@@ -57,7 +57,7 @@ class SignalRequest(BaseModel):
 
 class LiquidationFilter(BaseModel):
     symbol: Optional[str] = None
-    side: Optional[str] = Field(None, regex="^(long|short)$")
+    side: Optional[str] = Field(None, pattern="^(long|short)$")
     min_amount: Optional[float] = Field(None, ge=0)
     max_amount: Optional[float] = None
     exchange: Optional[str] = None
@@ -71,8 +71,8 @@ class LiquidationFilter(BaseModel):
         return v
 
 class DataExportRequest(BaseModel):
-    data_type: str = Field(..., regex="^(liquidations|funding_rate|oi_data|heatmap)$")
-    format: str = Field(default="json", regex="^(json|csv|parquet)$")
+    data_type: str = Field(..., pattern="^(liquidations|funding_rate|oi_data|heatmap)$")
+    format: str = Field(default="json", pattern="^(json|csv|parquet)$")
     symbols: List[str] = Field(..., min_items=1, max_items=20)
     time_range: TimeRangeValidator
     filters: Optional[Dict[str, Any]] = None
@@ -82,7 +82,7 @@ class DataExportRequest(BaseModel):
         return [symbol.upper() for symbol in v]
 
 class WebhookConfig(BaseModel):
-    url: str = Field(..., regex=r'^https?://.+')
+    url: str = Field(..., pattern=r'^https?://.+')
     events: List[str] = Field(..., min_items=1)
     secret: Optional[str] = Field(None, min_length=16)
     active: bool = Field(default=True)
