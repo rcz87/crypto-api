@@ -375,29 +375,7 @@ paths:
     get:
       operationId: getSupportedTradingPairs
       summary: Get all supported trading pairs (Public Access)
-      description: |
-        **🔓 Public Endpoint - No Authentication Required**
-        
-        Returns a comprehensive list of all 65+ supported cryptocurrency trading pairs
-        available for analysis. This informational endpoint is publicly accessible
-        to help developers understand available data sources and plan integrations.
-        
-        **📈 Supported Assets:**
-        - Major cryptocurrencies: BTC, ETH, SOL, ADA, AVAX, DOGE
-        - DeFi tokens: UNI, AAVE, CRV, COMP, MKR, YFI, SUSHI
-        - Layer 2/Alt chains: MATIC, OP, ARB, FTM, NEAR, ALGO
-        - Meme coins: SHIB, PEPE, FLOKI, BONK, WIF, BOME
-        - And 40+ more supported pairs
-        
-        **⚡ Example Usage:**
-        ```bash
-        # No API key required for supported pairs list
-        curl "https://guardiansofthegreentoken.com/api/pairs/supported"
-        
-        # Use returned pairs for subsequent API calls
-        curl -H "X-API-Key: your-key" \
-             "https://guardiansofthegreentoken.com/api/btc/complete"
-        ```
+      description: "🔓 Public endpoint returning 65+ supported cryptocurrency trading pairs. Includes major cryptos (BTC, ETH, SOL), DeFi tokens (UNI, AAVE), Layer 2 (MATIC, ARB), and meme coins (SHIB, PEPE). No authentication required."
       tags: [Market Data - Multi-Pair]
       security: []
       responses:
@@ -557,45 +535,7 @@ paths:
     get:
       operationId: getFundingRates
       summary: Get funding rates for any pair (Read-Only Access)
-      description: |
-        **🔒 Protected Endpoint - Read-Only Scope Required**
-        
-        Current and historical funding rates for perpetual contracts.
-        Supports pagination with cursor-based navigation for efficient data retrieval.
-        
-        **🎯 Required Access:** Read-only scope or higher
-        **📋 Rate Limits:** 100 requests/minute (Basic), 500 requests/minute (Premium)
-        **📊 Data Features:** Historical data, pagination, multi-exchange aggregation
-        
-        **⚡ Authentication Example:**
-        ```bash
-        curl -H "X-API-Key: your-api-key" \
-             "https://guardiansofthegreentoken.com/api/btc/funding?limit=50"
-        ```
-        
-        **🚀 Integration Examples:**
-        ```bash
-        # Basic funding rate request
-        curl -X GET "https://guardiansofthegreentoken.com/api/btc/funding" \
-             -H "X-API-Key: your-api-key"
-        
-        # Paginated request with cursor
-        curl -X GET "https://guardiansofthegreentoken.com/api/btc/funding?cursor=eyJwYWdlIjoyfQ&limit=50" \
-             -H "X-API-Key: your-api-key"
-        
-        # Historical data with time range
-        curl -X GET "https://guardiansofthegreentoken.com/api/sol/funding?start=2025-09-14T00:00:00Z&end=2025-09-15T00:00:00Z&limit=100" \
-             -H "X-API-Key: your-api-key"
-        
-        # JavaScript integration example
-        const response = await fetch('/api/btc/funding?limit=50', {
-          headers: { 'X-API-Key': 'your-api-key' }
-        });
-        const data = await response.json();
-        console.log('Next cursor:', data.data.nextCursor);
-        ```
-        
-        **📋 Pagination Navigation:**
+      description: "🔒 Protected endpoint for perpetual contract funding rates. Supports pagination and historical data. Requires read-only scope or higher. Rate limits: 100 req/min (Basic), 500 req/min (Premium)."
         - Use `cursor` parameter from `next_cursor` response field
         - Navigate using Link header rel="next" and rel="prev"
         - Empty cursor indicates end of dataset
@@ -707,20 +647,7 @@ paths:
     get:
       operationId: getAISignal
       summary: Get AI-powered trading signal with GPT-5 analysis
-      description: |
-        **🔒 Protected Endpoint - Trading Scope Required**
-        
-        Advanced AI trading signal powered by GPT-5 with neural network pattern recognition.
-        Provides confidence scoring, risk analysis, and strategic recommendations.
-        
-        **🎯 Required Access:** Trading scope or higher
-        **📋 Rate Limits:** 500 requests/minute (Premium), 100 requests/minute (Basic)
-        
-        **⚡ Authentication Example:**
-        ```bash
-        curl -H "X-API-Key: your-trading-api-key" \
-             "https://guardiansofthegreentoken.com/api/ai/signal"
-        ```
+      description: "🔒 AI trading signal with GPT-5 neural network pattern recognition. Provides confidence scoring, risk analysis, and strategic recommendations. Requires trading scope. 500 req/min (Premium), 100 req/min (Basic)."
       tags: [AI Signals - Standard]
       security:
         - ApiKeyAuth: ["trading"]
@@ -763,21 +690,7 @@ paths:
     get:
       operationId: getEnhancedAISignal
       summary: Get Enhanced AI signal with 10 advanced patterns (Phase 2)
-      description: |
-        **🔒 Protected Endpoint - Trading Scope Required**
-        
-        Enhanced AI signal engine with 10 advanced patterns, neural network predictions,
-        and self-learning capabilities. Features pattern confidence auto-updates
-        based on trading performance and institutional-grade analytics.
-        
-        **🎯 Required Access:** Trading scope or higher
-        **📋 Rate Limits:** 500 requests/minute (Premium), 100 requests/minute (Basic)
-        
-        **⚡ Authentication Example:**
-        ```bash
-        curl -H "X-API-Key: your-trading-api-key" \
-             "https://guardiansofthegreentoken.com/api/ai/enhanced-signal?symbol=SOL"
-        ```
+      description: "🔒 Enhanced AI signal with 10 advanced patterns, neural networks, and self-learning. Auto-updates confidence based on trading performance. Trading scope required. 500 req/min (Premium), 100 req/min (Basic)."
       tags: [AI Signals - Enhanced]
       security:
         - ApiKeyAuth: ["trading"]
@@ -947,27 +860,7 @@ paths:
     post:
       operationId: recordAITradeExecution
       summary: Record AI signal execution for performance tracking (Phase 2)
-      description: |
-        Record execution details when an AI signal is executed in real trading.
-        This enables the self-learning system to track performance and update
-        pattern confidence based on actual results.
-        
-        **📋 Integration Guide:**
-        ```bash
-        # Example: Record manual execution
-        curl -X POST "https://guardiansofthegreentoken.com/api/ai/tracking/execution" \
-             -H "X-API-Key: your-api-key" \
-             -H "Content-Type: application/json" \
-             -d '{
-               "signal_id": "enhanced_ai_1757468621438",
-               "entry_price": 215.50,
-               "position_size": 100,
-               "stop_loss": 210.25,
-               "take_profit_1": 225.30,
-               "risk_amount": 525.00,
-               "execution_type": "manual"
-             }'
-        ```
+      description: "Record AI signal execution details for performance tracking. Enables self-learning system to update pattern confidence. Requires signal_id, entry_price, position_size. Trading scope required."
       tags: [AI Performance]
       requestBody:
         required: true
@@ -1189,33 +1082,7 @@ paths:
     post:
       operationId: recordAITradeOutcome
       summary: Record AI signal trading outcome for learning (Phase 2)
-      description: |
-        Record the final outcome of an AI signal trade. This triggers the
-        self-learning system to update pattern performance and adjust
-        confidence levels based on actual trading results.
-        
-        **🧠 Learning System Impact:**
-        - Updates pattern confidence based on success/failure
-        - Adjusts neural network weights for future predictions
-        - Tracks performance metrics for strategy optimization
-        - Enables adaptive learning for market condition changes
-        
-        **📋 Integration Guide:**
-        ```bash
-        # Example: Record profitable trade outcome
-        curl -X POST "https://guardiansofthegreentoken.com/api/ai/tracking/outcome" \
-             -H "X-API-Key: your-api-key" \
-             -H "Content-Type: application/json" \
-             -d '{
-               "signal_id": "enhanced_ai_1757468621438",
-               "exit_price": 227.30,
-               "exit_reason": "take_profit",
-               "exit_time": "2025-09-10T02:15:30.000Z"
-             }'
-        ```
-        
-        **⚡ Real-time Learning:**
-        The system immediately updates pattern performance after each outcome is recorded.
+      description: "Record AI signal trade outcome to trigger self-learning. Updates pattern confidence and neural network weights based on results. Requires signal_id, exit_price, exit_reason. Trading scope required."
       tags: [AI Performance]
       requestBody:
         required: true
@@ -1571,21 +1438,7 @@ paths:
     get:
       operationId: getPremiumInstitutionalAnalytics
       summary: Get VIP8 institutional-grade analytics
-      description: |
-        **🔐 Premium Endpoint - Premium Scope Required**
-        
-        Premium institutional analytics with VIP8 tier features including
-        ultra premium analysis, negative maker fees simulation, and advanced metrics.
-        
-        **🎯 Required Access:** Premium scope (Enterprise tier)
-        **📋 Rate Limits:** 2000 requests/minute (Enterprise only)
-        **👑 VIP8 Features:** Priority processing, institutional data, negative maker fees
-        
-        **⚡ Authentication Example:**
-        ```bash
-        curl -H "X-API-Key: your-premium-api-key" \
-             "https://guardiansofthegreentoken.com/api/premium/institutional-analytics"
-        ```
+      description: "🔐 VIP8 institutional analytics with ultra premium analysis, negative maker fees simulation, and advanced metrics. Premium scope required. 2000 req/min (Enterprise only). Priority processing."
       tags: [Premium Analytics]
       security:
         - ApiKeyAuth: ["premium"]
@@ -2093,35 +1946,7 @@ paths:
     get:
       operationId: getHealthStatus
       summary: Get system health status (Public Access)
-      description: |
-        **🔓 Public Endpoint - No Authentication Required**
-        
-        System health check endpoint that provides real-time status information
-        about API services, database connectivity, and overall system health.
-        This endpoint is publicly accessible for monitoring and debugging purposes.
-        
-        **📊 Use Cases:**
-        - API status monitoring and uptime checks
-        - Integration health validation
-        - System diagnostics and troubleshooting
-        - Load balancer health checks
-        
-        **⚡ Example Usage:**
-        ```bash
-        # No API key required for health checks
-        curl "https://guardiansofthegreentoken.com/health"
-        
-        # Response includes system status and service connectivity
-        {
-          "success": true,
-          "data": {
-            "status": "operational",
-            "services": {
-              "okx": "connected",
-              "api": "operational"
-            }
-          }
-        }
+      description: "🔓 Public system health check endpoint. Real-time API services, database connectivity, and system health status. Used for monitoring, uptime checks, and load balancer health validation. No authentication required."
         ```
       tags: [System Monitoring]
       security: []
