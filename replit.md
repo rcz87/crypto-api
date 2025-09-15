@@ -45,6 +45,7 @@ System preference: Real-time data accuracy with professional trading standards
 - **Premium Analytics**: Enhanced metrics including liquidity prediction, institutional signals, and market maker flow detection.
 - **AI Trading System**: Neural network-based AI Signal Engine, genetic algorithm-based Strategy Optimization, comprehensive Backtesting Framework, Reinforcement Learning, Market Intelligence, and Performance Analytics.
 - **Enhanced Indicators**: CCI, Parabolic SAR, Ichimoku Cloud, OBV, and Williams %R integrated for comprehensive signal generation and trend analysis.
+- **GPT Actions Integration**: Unified endpoint (`/py/gpts/advanced`) consolidates all 11 CoinGlass premium endpoints into a single interface, supporting both single and batch operations with smart parameter defaults for seamless AI integration.
 
 # External Dependencies
 
