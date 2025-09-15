@@ -53,7 +53,7 @@ System preference: Real-time data accuracy with professional trading standards
 - **Multi-Exchange Data**: CoinAPI integration with 300+ exchanges for institutional-grade coverage.
 - **Database**: Neon Database for PostgreSQL hosting.
 - **AI Integration**: OpenAI GPT-5 API for enhanced reasoning and analysis.
-- **Hosting**: Replit with custom domain.
+- **Hosting**: Replit with custom domain (guardiansofthegreentoken.com).
 - **Fonts**: Google Fonts (Inter, DM Sans, Fira Code, Geist Mono).
 - **Icons**: Lucide React.
 - **Charting**: TradingView embedded widget.
