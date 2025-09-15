@@ -1,6 +1,7 @@
 """
 Unified GPT Actions endpoint for CoinGlass Premium Intelligence.
 Consolidates all 11 /advanced/* endpoints into a single interface.
+Enhanced with unified symbol mapping to prevent API conflicts.
 """
 
 import httpx
@@ -10,6 +11,71 @@ from typing import Optional, List, Union, Dict, Any
 from enum import Enum
 
 router = APIRouter()
+
+# Unified Symbol Mapping for CoinGlass - mirrors shared/symbolMapping.ts
+COINGLASS_SYMBOL_MAPPING = {
+    # Major cryptocurrencies
+    'BTC': 'BTC', 'ETH': 'ETH', 'SOL': 'SOL',
+    
+    # Layer 1 protocols
+    'ADA': 'ADA', 'AVAX': 'AVAX', 'DOT': 'DOT', 'ATOM': 'ATOM', 'NEAR': 'NEAR',
+    'ALGO': 'ALGO', 'FTM': 'FTM', 'LUNA': 'LUNA', 'ONE': 'ONE',
+    
+    # Layer 2 & Scaling solutions
+    'MATIC': 'MATIC', 'ARB': 'ARB', 'OP': 'OP', 'LRC': 'LRC',
+    
+    # DeFi tokens
+    'UNI': 'UNI', 'SUSHI': 'SUSHI', 'AAVE': 'AAVE', 'COMP': 'COMP',
+    'MKR': 'MKR', 'SNX': 'SNX', 'CRV': 'CRV', '1INCH': '1INCH', 'YFI': 'YFI',
+    
+    # Meme coins
+    'DOGE': 'DOGE', 'SHIB': 'SHIB', 'PEPE': 'PEPE', 'FLOKI': 'FLOKI',
+    
+    # Exchange tokens
+    'BNB': 'BNB', 'CRO': 'CRO', 'FTT': 'FTT', 'LEO': 'LEO',
+    
+    # Privacy coins
+    'XMR': 'XMR', 'ZEC': 'ZEC', 'DASH': 'DASH',
+    
+    # Enterprise & utility tokens
+    'LINK': 'LINK', 'VET': 'VET', 'XLM': 'XLM', 'TRX': 'TRX',
+    'THETA': 'THETA', 'HBAR': 'HBAR', 'ICP': 'ICP', 'EOS': 'EOS',
+    
+    # Gaming & NFT tokens
+    'AXS': 'AXS', 'SAND': 'SAND', 'MANA': 'MANA', 'ENJ': 'ENJ', 'CHZ': 'CHZ',
+    
+    # AI & Infrastructure tokens
+    'FET': 'FET', 'OCEAN': 'OCEAN', 'AGIX': 'AGIX', 'AR': 'AR', 'FIL': 'FIL',
+    
+    # Other major altcoins
+    'LTC': 'LTC', 'BCH': 'BCH', 'XRP': 'XRP', 'ETC': 'ETC', 'BSV': 'BSV',
+    'FLOW': 'FLOW', 'APT': 'APT', 'SUI': 'SUI', 'DYDX': 'DYDX', 'GMX': 'GMX',
+    
+    # Stablecoins
+    'USDT': 'USDT', 'USDC': 'USDC', 'DAI': 'DAI', 'BUSD': 'BUSD'
+}
+
+def convert_user_symbol_to_coinglass(user_symbol: str) -> str:
+    """
+    Convert user-friendly symbol to CoinGlass format.
+    Args:
+        user_symbol: User-friendly symbol (e.g., 'SOL', 'BTC')
+    Returns:
+        CoinGlass-compatible symbol or original if not found
+    """
+    normalized = user_symbol.upper()
+    mapped = COINGLASS_SYMBOL_MAPPING.get(normalized)
+    
+    if mapped:
+        print(f"[SymbolMapping] {user_symbol} → {mapped} (CoinGlass)")
+        return mapped
+    else:
+        print(f"[SymbolMapping] WARNING: Unknown symbol {user_symbol}, using as-is")
+        return user_symbol
+
+def validate_symbol_support(symbol: str) -> bool:
+    """Check if a symbol is supported by the unified mapping."""
+    return symbol.upper() in COINGLASS_SYMBOL_MAPPING
 
 class OperationType(str, Enum):
     """Supported operations mapping to /advanced/* endpoints"""
@@ -152,6 +218,17 @@ async def execute_operation(operation: SingleOperationRequest, base_url: str) ->
     
     # Apply smart defaults and merge with provided params
     final_params = {**config["defaults"], **operation.params}
+    
+    # Apply unified symbol mapping for symbol-related parameters
+    symbol_params = ['symbol', 'asset']  # Parameters that need symbol conversion
+    for param in symbol_params:
+        if param in final_params:
+            original_symbol = final_params[param]
+            mapped_symbol = convert_user_symbol_to_coinglass(original_symbol)
+            final_params[param] = mapped_symbol
+            
+            # Log symbol mapping for monitoring
+            print(f"[CoinGlass] Symbol mapping: {original_symbol} → {mapped_symbol} for {op_name}")
     
     # Build endpoint URL with path parameters
     endpoint = config["endpoint"]

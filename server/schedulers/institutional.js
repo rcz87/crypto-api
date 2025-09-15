@@ -1,10 +1,12 @@
 /**
  * 🕒 Institutional Alert Scheduler
  * Runs institutional bias and sniper timing checks on regular intervals
+ * Enhanced with unified rate budget coordination to prevent API conflicts
  */
 
 import cron from "node-cron";
 import { runInstitutionalBiasAlert, runSOLSniperAlert } from "../services/alphaRules.js";
+import { checkQuota, consumeQuota, getAllBudgetStatus } from "../services/rateBudget.ts";
 
 // Track scheduler status with separate locks per job
 let institutionalRunning = false;
@@ -32,7 +34,22 @@ export function startInstitutionalScheduler() {
     lastInstitutionalRun = new Date();
     
     try {
+      // Check rate budget before making CoinGlass API calls
+      const quotaCheck = checkQuota('coinglass', 'scheduler');
+      if (!quotaCheck.available) {
+        console.warn(`⚠️ [SCHEDULER] Rate limit exceeded for CoinGlass. Reset in ${Math.ceil(quotaCheck.status.resetIn / 1000)}s`);
+        return;
+      }
+
       console.log("🔍 [SCHEDULER] Running institutional bias check...");
+      
+      // Consume quota before making API calls
+      const consumeResult = consumeQuota('coinglass', 'scheduler', 3); // Institutional check uses ~3 API calls
+      if (!consumeResult.success) {
+        console.warn(`⚠️ [SCHEDULER] Unable to consume rate quota: ${consumeResult.violation?.provider}`);
+        return;
+      }
+
       const result = await runInstitutionalBiasAlert();
       
       alertStats.institutional.total++;
@@ -41,6 +58,7 @@ export function startInstitutionalScheduler() {
       }
       
       console.log(`📊 Institutional Alert Stats: ${alertStats.institutional.triggered}/${alertStats.institutional.total} triggered`);
+      console.log(`🔋 Rate budget remaining: ${consumeResult.status.remaining}/${consumeResult.status.allocated}`);
       
     } catch (error) {
       console.error("❌ [SCHEDULER] Institutional bias check failed:", error.message);

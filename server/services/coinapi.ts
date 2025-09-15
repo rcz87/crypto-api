@@ -3,6 +3,8 @@ import { TickerData } from '@shared/schema';
 import { cache, TTL_CONFIG } from '../utils/cache';
 import { metricsCollector } from '../utils/metrics';
 import { OKXService } from './okx';
+import { getSymbolFor, logSymbolMapping } from '@shared/symbolMapping';
+import { consumeQuota, checkQuota } from '../services/rateBudget';
 
 // Health monitoring interfaces
 export interface HealthStatus {

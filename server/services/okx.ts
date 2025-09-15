@@ -5,6 +5,8 @@ import { TickerData, CandleData, OrderBookData, RecentTradeData, SolCompleteData
 import { SMCService } from './smc';
 import { cache, TTL_CONFIG } from '../utils/cache';
 import { metricsCollector } from '../utils/metrics';
+import { getSymbolFor, logSymbolMapping } from '@shared/symbolMapping';
+import { consumeQuota, checkQuota } from '../services/rateBudget';
 
 interface CacheEntry<T> {
   data: T;
@@ -77,12 +79,29 @@ export class OKXService {
   }
 
   async getTicker(symbol: string = 'SOL-USDT-SWAP'): Promise<TickerData> {
-    const cacheKey = this.getCacheKey('ticker', { symbol });
+    // Check rate budget before making request
+    const quotaCheck = checkQuota('okx', 'realtime');
+    if (!quotaCheck.available) {
+      throw new Error(`[OKX] Rate limit exceeded for realtime data. Reset in ${Math.ceil(quotaCheck.status.resetIn / 1000)}s`);
+    }
+
+    // Convert symbol using unified mapping if user-friendly symbol provided
+    const userSymbol = symbol.replace('-USDT-SWAP', '').toUpperCase();
+    const mappedSymbol = getSymbolFor(userSymbol, 'okx') || symbol;
+    logSymbolMapping(userSymbol, 'okx', !!mappedSymbol);
+
+    const cacheKey = this.getCacheKey('ticker', { symbol: mappedSymbol });
     
     return cache.getSingleFlight(cacheKey, async () => {
       try {
+        // Consume quota before API call
+        const consumeResult = consumeQuota('okx', 'realtime');
+        if (!consumeResult.success) {
+          throw new Error(`[OKX] Unable to consume rate quota: ${consumeResult.violation?.provider}`);
+        }
+
         metricsCollector.updateOkxRestStatus('up');
-        const response = await this.client.get(`/api/v5/market/ticker?instId=${symbol}`);
+        const response = await this.client.get(`/api/v5/market/ticker?instId=${mappedSymbol}`);
         
         if (response.data.code !== '0') {
           throw new Error(`OKX API Error: ${response.data.msg}`);
@@ -100,6 +119,7 @@ export class OKXService {
           tradingVolume24h: (parseFloat(tickerData.last) * parseFloat(tickerData.vol24h)).toFixed(0), // This is trading volume, not market cap
         };
 
+        console.log(`[OKX] Ticker fetched successfully - Rate budget remaining: ${consumeResult.status.remaining}`);
         return result;
       } catch (error) {
         console.error('Error fetching ticker:', error);
@@ -138,12 +158,29 @@ export class OKXService {
   }
 
   async getOrderBook(symbol: string = 'SOL-USDT-SWAP', depth: number = 50): Promise<OrderBookData> {
-    const cacheKey = this.getCacheKey('orderBook', { symbol, depth });
+    // Check rate budget before making request
+    const quotaCheck = checkQuota('okx', 'orderbook');
+    if (!quotaCheck.available) {
+      throw new Error(`[OKX] Rate limit exceeded for orderbook data. Reset in ${Math.ceil(quotaCheck.status.resetIn / 1000)}s`);
+    }
+
+    // Convert symbol using unified mapping if user-friendly symbol provided
+    const userSymbol = symbol.replace('-USDT-SWAP', '').toUpperCase();
+    const mappedSymbol = getSymbolFor(userSymbol, 'okx') || symbol;
+    logSymbolMapping(userSymbol, 'okx', !!mappedSymbol);
+
+    const cacheKey = this.getCacheKey('orderBook', { symbol: mappedSymbol, depth });
     
     return cache.getSingleFlight(cacheKey, async () => {
       try {
+        // Consume quota before API call
+        const consumeResult = consumeQuota('okx', 'orderbook');
+        if (!consumeResult.success) {
+          throw new Error(`[OKX] Unable to consume rate quota for orderbook: ${consumeResult.violation?.provider}`);
+        }
+
         metricsCollector.updateOkxRestStatus('up');
-        const response = await this.client.get(`/api/v5/market/books?instId=${symbol}&sz=${depth}`);
+        const response = await this.client.get(`/api/v5/market/books?instId=${mappedSymbol}&sz=${depth}`);
         
         if (response.data.code !== '0') {
           throw new Error(`OKX API Error: ${response.data.msg}`);
@@ -169,6 +206,7 @@ export class OKXService {
           spread,
         };
 
+        console.log(`[OKX] OrderBook fetched successfully - Rate budget remaining: ${consumeResult.status.remaining}`);
         return result;
       } catch (error) {
         console.error('Error fetching order book:', error);
