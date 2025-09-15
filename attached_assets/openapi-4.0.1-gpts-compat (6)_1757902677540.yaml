@@ -1,0 +1,1757 @@
+openapi: 3.0.3
+info:
+  title: CryptoSat Intelligence - Multi-Pair Trading Data Gateway API (GPTs Compat)
+  description: |
+    🛰️ CryptoSat Intelligence — GPTs-compatible OpenAPI with Production Stability.
+    
+    **🚀 PHASE 2: ENHANCED AI READY (Sept 10, 2025):**
+    - ✅ **Self-Learning AI**: Auto-pattern confidence updates based on trading performance
+    - ✅ **Performance Tracking**: Complete trading lifecycle tracking (execution → outcome → learning)
+    - ✅ **Neural Networks**: 50 input features with 5-layer architecture
+    - ✅ **Enhanced Analytics**: 21+ endpoint categories with institutional-grade analysis
+    - ✅ **Dynamic Patterns**: 10 advanced patterns with 95% confidence detection
+    
+    **🧠 Phase 2 Enhanced AI Features:**
+    - **ExecutionRecorder**: Self-learning system with pattern performance analytics
+    - **Enhanced Signal Engine**: Neural network predictions with GPT-5 reasoning
+    - **Performance APIs**: Win rate tracking, P&L analytics, confidence validation
+    - **Adaptive Learning**: Pattern weights auto-adjust based on real trading results
+    
+    **🔧 GPTs Compatibility Features:**
+    - Parameter **INLINE** (tanpa $ref) agar terbaca oleh GPT Actions
+    - Single **ApiKey** security scheme (GPTs requirement)
+    - Complete error handling dengan Problem Details & RateLimit headers
+    - Real-time data dengan comprehensive validation
+  version: '5.0.0-gpts'
+  contact:
+    email: admin@guardiansofthegreentoken.com
+    url: https://guardiansofthegreentoken.com
+
+servers:
+  - url: https://guardiansofthegreentoken.com
+    description: Production server with SSL
+
+tags:
+  - name: Multi-Pair Analysis
+  - name: AI Signal Engine
+  - name: Enhanced AI Engine (Phase 2)
+  - name: Performance Tracking (Phase 2)
+  - name: Smart Money Concepts
+  - name: Volume Delta Analysis
+  - name: Technical Indicators
+  - name: Premium Analytics
+  - name: Enhanced SOL Endpoints
+  - name: System Monitoring
+  - name: Legacy SOL Endpoints
+  - name: CoinAPI Multi-Exchange
+  - name: CoinAPI Analytics
+  - name: Regime Detection Autopilot
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /api/pairs/supported:
+    get:
+      operationId: getSupportedTradingPairs
+      summary: Get all supported trading pairs
+      tags: [Multi-Pair Analysis]
+      responses:
+        '200':
+          description: List of supported trading pairs
+          headers:
+            RateLimit-Limit: { description: 'Max requests in window', schema: { type: integer, minimum: 0 } }
+            RateLimit-Remaining: { description: 'Remaining in window', schema: { type: integer, minimum: 0 } }
+            RateLimit-Reset: { description: 'Seconds to reset', schema: { type: integer, minimum: 0 } }
+            RateLimit-Policy: { description: 'RateLimit policy string', schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      pairs:
+                        type: array
+                        items: { type: string }
+                        example: ["BTC","ETH","SOL","ADA","AVAX","DOGE","UNI","MATIC","LTC","BCH","RENDER","BNB"]
+                  timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /api/{pair}/complete:
+    get:
+      operationId: getCompleteAnalysis
+      summary: Get comprehensive trading data for any supported pair
+      tags: [Multi-Pair Analysis]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Trading pair symbol - supports all 65+ pairs (BTC, ETH, SOL, ADA, etc.)
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9]{2,10}$'
+            enum: [BTC, ETH, SOL, ADA, DOT, MATIC, LTC, BCH, ETC, LINK, UNI, AAVE, ATOM, XRP, DOGE, SHIB, AVAX, FTM, NEAR, ALGO, MANA, SAND, AXS, ENJ, CRV, COMP, MKR, YFI, SUSHI, 1INCH, BAT, ZRX, KNC, LRC, REN, STORJ, GRT, FIL, AR, THETA, ICP, EGLD, HBAR, VET, CHZ, ENS, IMX, GMT, APE, GALA, LOOKS, MAGIC, OP, ARB, BLUR, SUI, PEPE, FLOKI, BONK, WIF, BOME, POPCAT, MEW, RENDER, BNB]
+          example: BTC
+      responses:
+        '200':
+          description: Complete trading data for the specified pair
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompleteAnalysisResponse'
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/{pair}/smc:
+    get:
+      operationId: getSmartMoneyConcepts
+      summary: Get Smart Money Concepts analysis for any pair
+      tags: [Smart Money Concepts]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          schema:
+            type: string
+            pattern: '^[A-Z0-9]{2,10}$'
+          example: BTC
+      responses:
+        '200':
+          description: Smart Money Concepts analysis
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SMCAnalysisResponse'
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/{pair}/cvd:
+    get:
+      operationId: getCVDAnalysis
+      summary: Get Cumulative Volume Delta analysis for any pair
+      tags: [Volume Delta Analysis]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          schema:
+            type: string
+            pattern: '^[A-Z0-9]{2,10}$'
+          example: ETH
+      responses:
+        '200':
+          description: CVD analysis with divergence patterns
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CVDAnalysisResponse'
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/{pair}/technical:
+    get:
+      operationId: getTechnicalIndicators
+      summary: Get technical indicators analysis for any pair
+      tags: [Technical Indicators]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          schema:
+            type: string
+            pattern: '^[A-Z0-9]{2,10}$'
+          example: SOL
+      responses:
+        '200':
+          description: Technical indicators analysis
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TechnicalAnalysisResponse'
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/{pair}/funding:
+    get:
+      operationId: getFundingRates
+      summary: Get funding rates for any pair
+      description: Current and historical funding rates for perpetual contracts
+      tags: [Multi-Pair Analysis]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          schema: { type: string, pattern: '^[A-Z0-9]{2,10}$' }
+          example: BTC
+        - name: start
+          in: query
+          description: RFC3339 start time (inclusive)
+          required: false
+          schema: { type: string, format: date-time }
+        - name: end
+          in: query
+          description: RFC3339 end time (exclusive)
+          required: false
+          schema: { type: string, format: date-time }
+        - name: limit
+          in: query
+          description: Page size (default 100, max 1000)
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 100 }
+        - name: cursor
+          in: query
+          description: Opaque cursor for pagination
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Funding rates data (current or historical)
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FundingRateResponse'
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/{pair}/open-interest:
+    get:
+      operationId: getOpenInterest
+      summary: Get open interest data for any pair
+      description: Current open interest data and historical changes
+      tags: [Multi-Pair Analysis]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Trading pair symbol (e.g., BTC, ETH, SOL)
+          schema: { type: string, pattern: '^[A-Z0-9]{2,10}$' }
+          example: ETH
+        - name: start
+          in: query
+          description: RFC3339 start time (inclusive)
+          required: false
+          schema: { type: string, format: date-time }
+        - name: end
+          in: query
+          description: RFC3339 end time (exclusive)
+          required: false
+          schema: { type: string, format: date-time }
+        - name: limit
+          in: query
+          description: Page size (default 100, max 1000)
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 100 }
+        - name: cursor
+          in: query
+          description: Opaque cursor for pagination
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Open interest data (current or historical)
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenInterestResponse'
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/ai/signal:
+    get:
+      operationId: getAISignal
+      summary: Get AI-powered trading signal with GPT-5 analysis
+      description: |
+        Advanced AI trading signal powered by GPT-5 with neural network pattern recognition.
+        Provides confidence scoring, risk analysis, and strategic recommendations.
+      tags: [AI Signal Engine]
+      responses:
+        '200':
+          description: AI-generated trading signal with confidence metrics
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      signal_id: { type: string, example: "ai_neutral_1757326331517" }
+                      timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+                      signal_type: { type: string, enum: ["buy", "sell", "hold"], example: "hold" }
+                      direction: { type: string, enum: ["bullish", "bearish", "neutral"], example: "neutral" }
+                      strength: { type: number, minimum: 0, maximum: 100, example: 0 }
+                      confidence: { type: number, minimum: 0, maximum: 100, example: 50 }
+                      source_patterns: { type: array, items: { type: string }, example: [] }
+                      reasoning: { type: string, example: "Market conditions show mixed signals with low conviction" }
+                      risk_analysis:
+                        type: object
+                        properties:
+                          risk_level: { type: string, enum: ["low", "medium", "high"], example: "medium" }
+                          recommendation: { type: string, example: "Wait for clearer directional signals" }
+                  timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/ai/enhanced-signal:
+    get:
+      operationId: getEnhancedAISignal
+      summary: Get Enhanced AI signal with 10 advanced patterns (Phase 2)
+      description: |
+        Enhanced AI signal engine with 10 advanced patterns, neural network predictions,
+        and self-learning capabilities. Features pattern confidence auto-updates
+        based on trading performance and institutional-grade analytics.
+      tags: [Enhanced AI Engine (Phase 2)]
+      parameters:
+        - name: symbol
+          in: query
+          description: Trading pair symbol (default SOL-USDT-SWAP)
+          required: false
+          schema:
+            type: string
+            example: "SOL-USDT-SWAP"
+      responses:
+        '200':
+          description: Enhanced AI signal with advanced patterns and neural predictions
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      signal_id: { type: string, example: "enhanced_ai_1757468621438" }
+                      symbol: { type: string, example: "SOL-USDT-SWAP" }
+                      timestamp: { type: string, format: date-time, example: "2025-09-10T01:46:21.438Z" }
+                      direction: { type: string, enum: ["long", "short", "neutral"], example: "neutral" }
+                      strength: { type: number, minimum: 0, maximum: 100, example: 62 }
+                      confidence: { type: number, minimum: 0, maximum: 100, example: 59 }
+                      detected_patterns:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: string, example: "predictive_institutional_flow" }
+                            name: { type: string, example: "Predictive Institutional Flow" }
+                            confidence: { type: number, example: 0.95 }
+                            historical_accuracy: { type: number, example: 0.78 }
+                            risk_reward_ratio: { type: number, example: 2.5 }
+                        example: [{"id": "predictive_institutional_flow", "name": "Predictive Institutional Flow", "confidence": 0.95}]
+                      neural_prediction:
+                        type: object
+                        properties:
+                          neural_confidence: { type: number, example: 0.48 }
+                          neural_features: { type: array, items: { type: number }, example: [0.12, 0.45, 0.78] }
+                          feature_importance: { type: array, items: { type: number }, example: [0.85, 0.72, 0.91] }
+                      reasoning:
+                        type: object
+                        properties:
+                          primary_factors: { type: array, items: { type: string }, example: ["Neural confidence: 48%", "Pattern confluence: 70.6%"] }
+                          supporting_evidence: { type: array, items: { type: string }, example: ["10 patterns detected", "High institutional confidence"] }
+                          risk_factors: { type: array, items: { type: string }, example: ["Mixed market signals", "Moderate volatility"] }
+                          market_context: { type: string, example: "SOL trading in consolidation range with institutional interest" }
+                      execution_details:
+                        type: object
+                        properties:
+                          recommended_size: { type: number, example: 0.02 }
+                          stop_loss: { type: number, example: 0.025 }
+                          take_profit: { type: array, items: { type: number }, example: [0.05, 0.08] }
+                          optimal_entry_window: { type: string, example: "2-4 hours" }
+                      pattern_confluence: { type: number, example: 70.6 }
+                      pattern_count: { type: number, example: 10 }
+                  timestamp: { type: string, format: date-time, example: "2025-09-10T01:46:21.438Z" }
+                example:
+                  success: true
+                  data:
+                    signal_id: "enhanced_ai_1757468621438"
+                    symbol: "SOL-USDT-SWAP"
+                    timestamp: "2025-09-10T01:46:21.438Z"
+                    direction: "neutral"
+                    strength: 62
+                    confidence: 59
+                    detected_patterns:
+                      - id: "predictive_institutional_flow"
+                        name: "Predictive Institutional Flow"
+                        confidence: 0.95
+                        historical_accuracy: 0.78
+                        risk_reward_ratio: 2.5
+                    neural_prediction:
+                      neural_confidence: 0.48
+                      neural_features: [0.12, 0.45, 0.78]
+                      feature_importance: [0.85, 0.72, 0.91]
+                    reasoning:
+                      primary_factors: ["Neural confidence: 48%", "Pattern confluence: 70.6%"]
+                      supporting_evidence: ["10 patterns detected", "High institutional confidence"]
+                      risk_factors: ["Mixed market signals", "Moderate volatility"]
+                      market_context: "SOL trading in consolidation range with institutional interest"
+                    execution_details:
+                      recommended_size: 0.02
+                      stop_loss: 0.025
+                      take_profit: [0.05, 0.08]
+                      optimal_entry_window: "2-4 hours"
+                    pattern_confluence: 70.6
+                    pattern_count: 10
+                  timestamp: "2025-09-10T01:46:21.438Z"
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/ai/enhanced-performance:
+    get:
+      operationId: getEnhancedAIPerformance
+      summary: Get Enhanced AI neural network performance metrics (Phase 2)
+      description: |
+        Enhanced AI performance analytics including neural network metrics,
+        pattern performance, and learning capabilities overview.
+      tags: [Enhanced AI Engine (Phase 2)]
+      responses:
+        '200':
+          description: Enhanced AI performance and neural network metrics
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      neural_network:
+                        type: object
+                        properties:
+                          input_features: { type: number, example: 50 }
+                          hidden_layers: { type: number, example: 5 }
+                          architecture: { type: string, example: "Dense layers with dropout regularization" }
+                          prediction_accuracy: { type: number, example: 0.74 }
+                      enhanced_patterns:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            pattern_id: { type: string, example: "predictive_institutional_flow" }
+                            name: { type: string, example: "Predictive Institutional Flow" }
+                            confidence: { type: number, example: 0.95 }
+                            historical_accuracy: { type: number, example: 0.78 }
+                            signals_generated: { type: number, example: 142 }
+                        example: [{"pattern_id": "predictive_institutional_flow", "name": "Predictive Institutional Flow", "confidence": 0.95}]
+                      learning_capabilities:
+                        type: object
+                        properties:
+                          auto_pattern_updates: { type: boolean, example: true }
+                          performance_tracking: { type: boolean, example: true }
+                          confidence_adjustments: { type: boolean, example: true }
+                          neural_adaptation: { type: boolean, example: true }
+                      openai_integration:
+                        type: object
+                        properties:
+                          gpt_model: { type: string, example: "GPT-5" }
+                          enhanced_reasoning: { type: boolean, example: true }
+                          status: { type: string, example: "active" }
+                  timestamp: { type: string, format: date-time, example: "2025-09-10T01:46:21.438Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/ai/tracking/execution:
+    post:
+      operationId: recordAITradeExecution
+      summary: Record AI signal execution for performance tracking (Phase 2)
+      description: |
+        Record execution details when an AI signal is executed in real trading.
+        This enables the self-learning system to track performance and update
+        pattern confidence based on actual results.
+      tags: [Performance Tracking (Phase 2)]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signal_id, entry_price, position_size]
+              properties:
+                signal_id: { type: string, example: "enhanced_ai_1757468621438" }
+                entry_price: { type: number, example: 215.50 }
+                position_size: { type: number, example: 100 }
+                stop_loss: { type: number, example: 210.25 }
+                take_profit_1: { type: number, example: 225.30 }
+                take_profit_2: { type: number, example: 235.50 }
+                risk_amount: { type: number, example: 525.00 }
+                execution_type: { type: string, enum: ["manual", "auto", "paper"], example: "manual" }
+      responses:
+        '200':
+          description: Execution recorded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      execution_id: { type: string, example: "exec_1757469123456" }
+                      signal_id: { type: string, example: "enhanced_ai_1757468621438" }
+                      status: { type: string, example: "recorded" }
+                  message: { type: string, example: "Trade execution recorded successfully" }
+                  timestamp: { type: string, format: date-time, example: "2025-09-10T01:46:21.438Z" }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/ai/tracking/outcome:
+    post:
+      operationId: recordAITradeOutcome
+      summary: Record AI signal trading outcome for learning (Phase 2)
+      description: |
+        Record the final outcome of an AI signal trade. This triggers the
+        self-learning system to update pattern performance and adjust
+        confidence levels based on actual trading results.
+      tags: [Performance Tracking (Phase 2)]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signal_id, exit_price, exit_reason]
+              properties:
+                signal_id: { type: string, example: "enhanced_ai_1757468621438" }
+                exit_price: { type: number, example: 227.30 }
+                exit_reason: { type: string, enum: ["stop_loss", "take_profit", "manual", "time_exit"], example: "take_profit" }
+                exit_time: { type: string, format: date-time, example: "2025-09-10T02:15:30.000Z" }
+      responses:
+        '200':
+          description: Outcome recorded and pattern performance updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      signal_id: { type: string, example: "enhanced_ai_1757468621438" }
+                      pnl: { type: number, example: 1180 }
+                      pnl_percentage: { type: number, example: 5.47 }
+                      was_successful: { type: boolean, example: true }
+                      duration_minutes: { type: number, example: 29 }
+                      patterns_updated: { type: number, example: 10 }
+                  message: { type: string, example: "Outcome recorded and pattern performance updated" }
+                  timestamp: { type: string, format: date-time, example: "2025-09-10T02:15:30.000Z" }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '404': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/ai/tracking/overall-performance:
+    get:
+      operationId: getAIOverallPerformance
+      summary: Get AI system overall performance analytics (Phase 2)
+      description: |
+        Get comprehensive performance analytics for the AI signal system
+        including win rates, P&L metrics, and pattern performance overview.
+      tags: [Performance Tracking (Phase 2)]
+      responses:
+        '200':
+          description: AI system performance analytics
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      overall_stats:
+                        type: object
+                        properties:
+                          total_signals: { type: number, example: 145 }
+                          executed_signals: { type: number, example: 98 }
+                          completed_trades: { type: number, example: 87 }
+                          win_rate: { type: number, example: 0.712 }
+                          total_pnl: { type: number, example: 15420.50 }
+                          avg_pnl_per_trade: { type: number, example: 177.25 }
+                          best_trade: { type: number, example: 2850.00 }
+                          worst_trade: { type: number, example: -1250.00 }
+                      pattern_performance:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            pattern_name: { type: string, example: "Predictive Institutional Flow" }
+                            win_rate: { type: number, example: 0.78 }
+                            total_signals: { type: number, example: 23 }
+                            avg_confidence: { type: number, example: 0.89 }
+                            total_pnl: { type: number, example: 4250.50 }
+                            adaptation_factor: { type: number, example: 1.15 }
+                        example: [{"pattern_name": "Predictive Institutional Flow", "win_rate": 0.78, "total_signals": 23}]
+                      learning_metrics:
+                        type: object
+                        properties:
+                          confidence_adjustments: { type: number, example: 34 }
+                          patterns_improved: { type: number, example: 8 }
+                          patterns_demoted: { type: number, example: 2 }
+                          learning_velocity: { type: number, example: 0.15 }
+                  timestamp: { type: string, format: date-time, example: "2025-09-10T02:15:30.000Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/premium/institutional-analytics:
+    get:
+      operationId: getPremiumInstitutionalAnalytics
+      summary: Get VIP8 institutional-grade analytics
+      description: |
+        Premium institutional analytics with VIP8 tier features including
+        ultra premium analysis, negative maker fees simulation, and advanced metrics.
+      tags: [Premium Analytics]
+      responses:
+        '200':
+          description: VIP8 institutional analytics data
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      analyticsLevel: { type: string, example: "vip8" }
+                      features: 
+                        type: array
+                        items: { type: string }
+                        example: ["ultra_premium", "negative_maker_fees", "priority_processing", "advanced_metrics"]
+                      analytics:
+                        type: object
+                        properties:
+                          totalBidVolume: { type: number, example: 185000 }
+                          totalAskVolume: { type: number, example: 142000 }
+                          institutionalFlowScore: { type: number, example: 78 }
+                          whaleActivityIndex: { type: number, example: 85 }
+                  timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/sol/trading-signals:
+    get:
+      operationId: getSOLTradingSignals
+      summary: Get SOL live trading signals with entry/exit points
+      description: Professional trading signals with precise entry points, stop losses, and take profit levels
+      tags: [Enhanced SOL Endpoints]
+      responses:
+        '200':
+          description: Live trading signals with entry/exit strategy
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      primary:
+                        type: object
+                        properties:
+                          signal: { type: string, enum: ["BUY", "SELL", "HOLD"], example: "BUY" }
+                          strength: { type: string, enum: ["WEAK", "MODERATE", "STRONG"], example: "MODERATE" }
+                          confidence: { type: number, minimum: 0, maximum: 100, example: 60 }
+                          entryPrice: { type: number, example: 202.88 }
+                          stopLoss: { type: number, example: 199.84 }
+                          takeProfit1: { type: number, example: 208.97 }
+                          takeProfit2: { type: number, example: 213.84 }
+                          riskReward: { type: number, example: 2 }
+                          timeframe: { type: string, example: "1H" }
+                  timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/sol/confluence:
+    get:
+      operationId: getSOLConfluenceScoring
+      summary: Get SOL multi-indicator confluence analysis
+      description: Advanced confluence scoring combining multiple technical indicators for comprehensive analysis
+      tags: [Enhanced SOL Endpoints]
+      responses:
+        '200':
+          description: Multi-indicator confluence analysis
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      overall: { type: number, minimum: 0, maximum: 100, example: 44 }
+                      trend: { type: string, enum: ["bullish", "bearish", "neutral"], example: "bullish" }
+                      strength: { type: string, enum: ["weak", "moderate", "strong"], example: "moderate" }
+                      confidence: { type: number, minimum: 0, maximum: 100, example: 64 }
+                      components:
+                        type: object
+                        properties:
+                          smc: { type: number, example: 40 }
+                          cvd: { type: number, example: 15 }
+                          volumeProfile: { type: number, example: 50 }
+                          funding: { type: number, example: 60 }
+                          technicalIndicators: { type: number, example: 75 }
+                  timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/sol/oi/enhanced:
+    get:
+      operationId: getSOLEnhancedOpenInterest
+      summary: Get SOL enhanced open interest analysis
+      description: Advanced open interest analysis with institutional positioning and trend detection
+      tags: [Enhanced SOL Endpoints]
+      responses:
+        '200':
+          description: Enhanced open interest analysis
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      current:
+                        type: object
+                        properties:
+                          instId: { type: string, example: "SOL-USDT-SWAP" }
+                          instType: { type: string, example: "SWAP" }
+                          openInterest: { type: number, example: 3474142.44 }
+                          openInterestUsd: { type: number, example: 736518197.28 }
+                          price: { type: number, example: 211.95 }
+                          change24h: { type: string, example: "2.34%" }
+                      analysis:
+                        type: object
+                        properties:
+                          trend: { type: string, enum: ["increasing", "decreasing", "stable"], example: "increasing" }
+                          institutionalInterest: { type: string, enum: ["high", "medium", "low"], example: "high" }
+                          riskLevel: { type: string, enum: ["low", "medium", "high"], example: "medium" }
+                  timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/sol/funding/enhanced:
+    get:
+      operationId: getSOLEnhancedFunding
+      summary: Get SOL enhanced funding rate analysis
+      description: Enhanced funding rate analysis with premium calculations and predictions
+      tags: [Enhanced SOL Endpoints]
+      responses:
+        '200':
+          description: Enhanced funding rate analysis
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      current:
+                        type: object
+                        properties:
+                          instId: { type: string, example: "SOL-USDT-SWAP" }
+                          fundingRate: { type: number, example: 0.0001 }
+                          premium: { type: number, example: -0.000235660083895 }
+                          nextFundingTime: { type: string, format: date-time, example: "2025-09-09T00:00:00.000Z" }
+                          fundingTime: { type: string, format: date-time, example: "2025-09-08T16:00:00.000Z" }
+                      analysis:
+                        type: object
+                        properties:
+                          sentiment: { type: string, enum: ["bullish", "bearish", "neutral"], example: "neutral" }
+                          historicalContext: { type: string, example: "Within normal range" }
+                          prediction: { type: string, example: "Stable funding rates expected" }
+                  timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/sol/volume-profile:
+    get:
+      operationId: getSOLVolumeProfile
+      summary: Get SOL volume profile analysis
+      description: Volume profile analysis with POC, HVN/LVN levels, and institutional significance
+      tags: [Enhanced SOL Endpoints]
+      responses:
+        '200':
+          description: Volume profile analysis with key levels
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      poc: { type: string, example: "203.43" }
+                      hvnLevels:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            price: { type: string, example: "203.43" }
+                            volume: { type: string, example: "60731.91" }
+                            percentage: { type: string, example: "0.20" }
+                      lvnLevels:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            price: { type: string, example: "195.20" }
+                            volume: { type: string, example: "1250.45" }
+                            percentage: { type: string, example: "0.004" }
+                      significance:
+                        type: object
+                        properties:
+                          pocStrength: { type: string, enum: ["weak", "moderate", "strong"], example: "strong" }
+                          institutionalLevels: { type: array, items: { type: string }, example: ["203.43", "208.91"] }
+                  timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/sol/fibonacci:
+    get:
+      operationId: getSOLFibonacci
+      summary: Get SOL Fibonacci retracement analysis
+      description: Multi-level Fibonacci retracement and extension analysis with trend phase detection
+      tags: [Enhanced SOL Endpoints]
+      responses:
+        '200':
+          description: Fibonacci analysis with key levels and trend phases
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      timeframe: { type: string, example: "1H" }
+                      trend:
+                        type: object
+                        properties:
+                          direction: { type: string, enum: ["bullish", "bearish", "neutral"], example: "bearish" }
+                          strength: { type: string, enum: ["weak", "moderate", "strong"], example: "strong" }
+                          phase: { type: string, enum: ["impulse", "correction", "consolidation"], example: "impulse" }
+                      swingPoints:
+                        type: object
+                        properties:
+                          current:
+                            type: object
+                            properties:
+                              high:
+                                type: object
+                                properties:
+                                  price: { type: number, example: 217.25 }
+                                  timestamp: { type: string, format: date-time, example: "2025-09-08T09:00:00Z" }
+                              low:
+                                type: object
+                                properties:
+                                  price: { type: number, example: 203.15 }
+                                  timestamp: { type: string, format: date-time, example: "2025-09-08T11:30:00Z" }
+                      fibonacciLevels:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            level: { type: string, example: "0.618" }
+                            price: { type: number, example: 208.43 }
+                            significance: { type: string, enum: ["low", "medium", "high"], example: "high" }
+                  timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/sol/order-flow:
+    get:
+      operationId: getSOLOrderFlow
+      summary: Get SOL real-time order flow analysis
+      description: Professional tape reading analysis with institutional flow classification
+      tags: [Enhanced SOL Endpoints]
+      responses:
+        '200':
+          description: Real-time order flow analysis
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      timeframe: { type: string, example: "1H" }
+                      currentImbalance:
+                        type: object
+                        properties:
+                          timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:42.506Z" }
+                          bidSize: { type: number, nullable: true, example: null }
+                          askSize: { type: number, nullable: true, example: null }
+                          imbalanceRatio: { type: number, example: 0 }
+                          direction: { type: string, enum: ["buy", "sell", "neutral"], example: "neutral" }
+                      flowAnalysis:
+                        type: object
+                        properties:
+                          institutionalFlow: { type: string, enum: ["accumulation", "distribution", "neutral"], example: "neutral" }
+                          retailSentiment: { type: string, enum: ["bullish", "bearish", "neutral"], example: "neutral" }
+                          volumeProfile: { type: string, enum: ["aggressive", "passive", "balanced"], example: "balanced" }
+                  timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/sol/liquidation-heatmap:
+    get:
+      operationId: getSOLLiquidationHeatmap
+      summary: Get SOL liquidation cluster analysis
+      description: Liquidation heatmap with risk zones and cascade potential analysis
+      tags: [Enhanced SOL Endpoints]
+      responses:
+        '200':
+          description: Liquidation cluster analysis and risk assessment
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      currentPrice: { type: number, example: 211.89 }
+                      overallRiskScore: { type: number, minimum: 0, maximum: 100, example: 18 }
+                      immediateRisk:
+                        type: object
+                        properties:
+                          upside: { type: array, items: { type: object }, example: [] }
+                          downside: { type: array, items: { type: object }, example: [] }
+                          netRisk: { type: number, example: 0 }
+                          criticalLevels: { type: array, items: { type: string }, example: [] }
+                          significantLevels: { type: array, items: { type: string }, example: [] }
+                      riskAssessment:
+                        type: object
+                        properties:
+                          cascadeRisk: { type: string, enum: ["low", "medium", "high"], example: "low" }
+                          liquidityDepth: { type: string, enum: ["shallow", "moderate", "deep"], example: "moderate" }
+                          volatilityExpectation: { type: string, enum: ["low", "medium", "high"], example: "medium" }
+                  timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/sol/complete:
+    get:
+      operationId: getSOLCompleteData
+      summary: Get comprehensive SOL trading data (Legacy)
+      tags: [Legacy SOL Endpoints]
+      responses:
+        '200':
+          description: Complete SOL trading data
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompleteAnalysisResponse'
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/sol/smc:
+    get:
+      operationId: getSOLSmartMoneyConcepts
+      summary: Get SOL Smart Money Concepts (Legacy)
+      tags: [Legacy SOL Endpoints]
+      responses:
+        '200':
+          description: SOL Smart Money Concepts analysis
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SMCAnalysisResponse'
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/sol/cvd:
+    get:
+      operationId: getSOLCVDAnalysis
+      summary: Get SOL CVD analysis (Legacy)
+      tags: [Legacy SOL Endpoints]
+      responses:
+        '200':
+          description: SOL CVD analysis
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CVDAnalysisResponse'
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/sol/funding:
+    get:
+      operationId: getSOLFundingRates
+      summary: Get SOL funding rates (Legacy)
+      tags: [Legacy SOL Endpoints]
+      responses:
+        '200':
+          description: SOL funding rates
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FundingRateResponse'
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /api/sol/open-interest:
+    get:
+      operationId: getSOLOpenInterest
+      summary: Get SOL open interest (Legacy)
+      tags: [Legacy SOL Endpoints]
+      responses:
+        '200':
+          description: SOL open interest data
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenInterestResponse'
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /health:
+    get:
+      operationId: getHealthStatus
+      summary: Get system health status
+      tags: [System Monitoring]
+      responses:
+        '200':
+          description: System health status
+          headers:
+            RateLimit-Limit: { schema: { type: integer } }
+            RateLimit-Remaining: { schema: { type: integer } }
+            RateLimit-Reset: { schema: { type: integer } }
+            RateLimit-Policy: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: ["operational", "degraded", "down"]
+                        example: "operational"
+                      timestamp:
+                        type: string
+                        format: date-time
+                        example: "2025-09-06T14:30:00Z"
+                      services:
+                        type: object
+                        properties:
+                          okx:
+                            type: string
+                            enum: ["connected", "disconnected", "error"]
+                            example: "connected"
+                          api:
+                            type: string
+                            enum: ["operational", "degraded", "down"]
+                            example: "operational"
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+components:
+  parameters:
+    CursorParam:
+      name: cursor
+      in: query
+      description: Opaque cursor for pagination (next page token)
+      required: false
+      schema:
+        type: string
+        example: "eyJwYWdlIjoyfQ=="
+    LimitParam:
+      name: limit
+      in: query
+      description: Maximum number of items to return (default 100)
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+        example: 100
+    StartParam:
+      name: start
+      in: query
+      description: Start timestamp for data range
+      required: false
+      schema:
+        type: string
+        format: date-time
+        example: "2025-09-10T00:00:00Z"
+    EndParam:
+      name: end
+      in: query
+      description: End timestamp for data range
+      required: false
+      schema:
+        type: string
+        format: date-time
+        example: "2025-09-10T23:59:59Z"
+    SymbolParam:
+      name: symbol
+      in: query
+      description: Trading pair symbol (default SOL-USDT-SWAP)
+      required: false
+      schema:
+        type: string
+        enum: ["SOL-USDT-SWAP", "BTC-USDT-SWAP", "ETH-USDT-SWAP"]
+        default: "SOL-USDT-SWAP"
+        example: "SOL-USDT-SWAP"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authenticated access.
+
+  responses:
+    ProblemResponse:
+      description: Standardized error payload (Problem Details)
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            required: [type, title]
+            properties:
+              type: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/problems/server-error" }
+              title: { type: string, example: "Internal Server Error" }
+              status: { type: integer, example: 500 }
+              detail: { type: string, example: "An unexpected error occurred while processing your request." }
+              instance: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/api/ai/enhanced-signal" }
+              code: { type: string, example: "INTERNAL_ERROR" }
+            example:
+              type: "https://guardiansofthegreentoken.com/problems/server-error"
+              title: "Internal Server Error"
+              status: 500
+              detail: "An unexpected error occurred while processing your request."
+              instance: "https://guardiansofthegreentoken.com/api/ai/enhanced-signal"
+              code: "INTERNAL_ERROR"
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        RateLimit-Limit: { schema: { type: integer, example: 100 } }
+        RateLimit-Remaining: { schema: { type: integer, example: 0 } }
+        RateLimit-Reset: { schema: { type: integer, example: 1725955200 } }
+        RateLimit-Policy: { schema: { type: string, example: "100;w=60" } }
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            required: [type, title]
+            properties:
+              type: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/problems/rate-limit" }
+              title: { type: string, example: "Too Many Requests" }
+              status: { type: integer, example: 429 }
+              detail: { type: string, example: "Rate limit exceeded. Try again after the reset window." }
+              instance: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/api/ai/enhanced-signal" }
+              code: { type: string, example: "RLIMIT_EXCEEDED" }
+            example:
+              type: "https://guardiansofthegreentoken.com/problems/rate-limit"
+              title: "Too Many Requests"
+              status: 429
+              detail: "Rate limit exceeded. Try again after the reset window."
+              instance: "https://guardiansofthegreentoken.com/api/ai/enhanced-signal"
+              code: "RLIMIT_EXCEEDED"
+
+  schemas:
+    CompleteAnalysisResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            ticker:
+              type: object
+              properties:
+                symbol: { type: string, example: "BTC-USDT-SWAP" }
+                price: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "110883.6" }
+                change24h: { type: string, example: "-1.67%" }
+                high24h: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "113250.0" }
+                low24h: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "109750.0" }
+                volume: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "45287639.82" }
+        timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
+
+    SMCAnalysisResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            timeframe: { type: string, example: "1H" }
+            trend: { type: string, enum: ["bullish","bearish","ranging"], example: "bearish" }
+            lastBOS:
+              type: object
+              properties:
+                type: { type: string, enum: ["bullish","bearish"], example: "bearish" }
+                price: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "111250.0" }
+                timestamp: { type: string, format: date-time, example: "2025-09-06T13:30:00Z" }
+            confidence: { type: number, minimum: 0, maximum: 100, example: 75 }
+        timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
+
+    CVDAnalysisResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            timeframe: { type: string, example: "1H" }
+            currentCVD: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "639494.09" }
+            previousCVD: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "707529.59" }
+            deltaChange: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "-68035.50" }
+            percentageChange: { type: number, example: -9.61 }
+            confidence:
+              type: object
+              properties:
+                overall: { type: number, minimum: 0, maximum: 100, example: 82 }
+        timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
+
+    TechnicalAnalysisResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            timeframe: { type: string, example: "1H" }
+            rsi:
+              type: object
+              properties:
+                current: { type: number, example: 43.56 }
+                period: { type: number, example: 14 }
+                signal: { type: string, enum: ["oversold","neutral","overbought"], example: "neutral" }
+            ema:
+              type: object
+              properties:
+                ema20: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "111250.5" }
+                ema50: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "112100.2" }
+                crossover: { type: string, enum: ["bullish","bearish","none"], example: "bearish" }
+        timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
+
+    FundingRateResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            instId: { type: string, example: "BTC-USDT-SWAP" }
+            fundingRate: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "0.0000888594997051" }
+            nextFundingRate: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "0.0001234567890123" }
+            nextFundingTime: { type: string, format: date-time, example: "2025-09-06T16:00:00Z" }
+            nextCursor: { type: string, nullable: true, example: "eyJwYWdlIjoyfQ==" }
+        timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
+
+    OpenInterestResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            instId: { type: string, example: "BTC-USDT-SWAP" }
+            oi: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "234567.89" }
+            oiUsd: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "25987653210.45" }
+            change24h: { type: string, example: "2.34%" }
+            nextCursor: { type: string, nullable: true, example: "eyJwYWdlIjozfQ==" }
+        timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
+
+    Problem:
+      type: object
+      required: [type, title]
+      properties:
+        type: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/problems/rate-limit" }
+        title: { type: string, example: "Too Many Requests" }
+        status: { type: integer, example: 429 }
+        detail: { type: string, example: "Rate limit exceeded. Try again after the reset window." }
+        instance: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/api/btc/complete" }
+        code: { type: string, example: "RLIMIT_EXCEEDED" }
+
+  # ===== COINAPI MULTI-EXCHANGE ENDPOINTS =====
+
+  /api/coinapi/health:
+    get:
+      operationId: getCoinAPIHealth
+      summary: Check CoinAPI service health and latency
+      tags: [CoinAPI Multi-Exchange]
+      responses:
+        '200':
+          description: CoinAPI health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      status: { type: string, enum: ["up", "down"], example: "up" }
+                      latency_ms: { type: number, example: 245 }
+                  timestamp: { type: string, format: date-time }
+
+  /api/coinapi/rate/{base}/{quote}:
+    get:
+      operationId: getCoinAPIExchangeRate
+      summary: Get real-time exchange rate between two assets
+      tags: [CoinAPI Multi-Exchange]
+      parameters:
+        - name: base
+          in: path
+          required: true
+          schema: { type: string, example: "BTC" }
+          description: Base asset symbol
+        - name: quote
+          in: path
+          required: true
+          schema: { type: string, example: "USD" }
+          description: Quote asset symbol
+      responses:
+        '200':
+          description: Exchange rate data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      time: { type: string, format: date-time }
+                      asset_id_base: { type: string, example: "BTC" }
+                      asset_id_quote: { type: string, example: "USD" }
+                      rate: { type: number, example: 113091.12 }
+                  metadata:
+                    type: object
+                    properties:
+                      source: { type: string, example: "CoinAPI" }
+                      response_time_ms: { type: number, example: 191 }
+                  timestamp: { type: string, format: date-time }
+
+  /api/coinapi/multi-ticker/{asset}:
+    get:
+      operationId: getCoinAPIMultiTicker
+      summary: Get prices across multiple exchanges for an asset
+      tags: [CoinAPI Multi-Exchange]
+      parameters:
+        - name: asset
+          in: path
+          required: true
+          schema: { type: string, example: "SOL" }
+          description: Asset symbol to get multi-exchange prices
+      responses:
+        '200':
+          description: Multi-exchange ticker data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      asset: { type: string, example: "SOL" }
+                      exchanges: { type: number, example: 4 }
+                      tickers:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            symbol: { type: string, example: "BINANCE_SPOT_SOL_USDT" }
+                            price: { type: string, example: "223.02" }
+                  metadata:
+                    type: object
+                    properties:
+                      source: { type: string, example: "CoinAPI" }
+                      response_time_ms: { type: number, example: 328 }
+                  timestamp: { type: string, format: date-time }
+
+  /api/coinapi/arbitrage/{asset}:
+    get:
+      operationId: getCoinAPIArbitrage
+      summary: Detect arbitrage opportunities across exchanges
+      tags: [CoinAPI Multi-Exchange]
+      parameters:
+        - name: asset
+          in: path
+          required: true
+          schema: { type: string, example: "SOL" }
+          description: Asset symbol to check for arbitrage
+      responses:
+        '200':
+          description: Arbitrage opportunities with profit calculations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      asset: { type: string, example: "SOL" }
+                      opportunities:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            buy_exchange: { type: string, example: "KRAKEN" }
+                            sell_exchange: { type: string, example: "COINBASE" }
+                            profit_percentage: { type: number, example: 0.054 }
+                  metadata:
+                    type: object
+                    properties:
+                      source: { type: string, example: "CoinAPI" }
+                      response_time_ms: { type: number, example: 412 }
+                  timestamp: { type: string, format: date-time }
+
+  # ===== COINAPI ANALYTICS ENDPOINTS =====
+
+  /api/coinapi/twap/{symbolId}:
+    get:
+      operationId: getCoinAPITWAP
+      summary: Calculate Time Weighted Average Price (TWAP) for institutional pricing
+      tags: [CoinAPI Analytics]
+      parameters:
+        - name: symbolId
+          in: path
+          required: true
+          schema: { type: string, example: "BINANCE_SPOT_SOL_USDT" }
+          description: Exchange-specific symbol identifier
+        - name: hours
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 168, default: 24 }
+          description: Time period in hours for TWAP calculation
+      responses:
+        '200':
+          description: TWAP calculation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      symbol_id: { type: string, example: "BINANCE_SPOT_SOL_USDT" }
+                      twap: { type: number, example: 217.86 }
+                      period_hours: { type: number, example: 24 }
+                      data_points: { type: number, example: 24 }
+                  metadata:
+                    type: object
+                    properties:
+                      source: { type: string, example: "CoinAPI" }
+                      response_time_ms: { type: number, example: 216 }
+                  timestamp: { type: string, format: date-time }
+
+  /api/coinapi/correlation:
+    get:
+      operationId: getCoinAPICorrelation
+      summary: Calculate correlation matrix for portfolio management and risk analysis
+      tags: [CoinAPI Analytics]
+      parameters:
+        - name: assets
+          in: query
+          required: true
+          schema: { type: string, example: "BTC,ETH,SOL" }
+          description: Comma-separated list of asset symbols for correlation analysis
+        - name: days
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 365, default: 30 }
+          description: Number of days for correlation calculation
+      responses:
+        '200':
+          description: Correlation matrix with statistical relationships
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      correlation_matrix:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          additionalProperties: { type: number, minimum: -1, maximum: 1 }
+                        example:
+                          BTC:
+                            BTC: 1
+                            ETH: 0.901
+                            SOL: 0.946
+                      period_days: { type: number, example: 7 }
+                      assets: { type: array, items: { type: string }, example: ["BTC", "ETH", "SOL"] }
+                  metadata:
+                    type: object
+                    properties:
+                      source: { type: string, example: "CoinAPI" }
+                      response_time_ms: { type: number, example: 489 }
+                  timestamp: { type: string, format: date-time }
+
+  # ===== REGIME DETECTION AUTOPILOT =====
+
+  /api/regime/detect/{symbolId}:
+    get:
+      operationId: detectMarketRegime
+      summary: Detect market regime using advanced HMM and technical analysis
+      description: |
+        🧠 **Regime Detection Autopilot** — Sophisticated market regime classification using Hidden Markov Models (HMM) with:
+        - **ATR/RSI/Kurtosis** statistical analysis for regime features
+        - **4 Regime Types**: Trending, Ranging, Mean-Revert, High-Vol
+        - **Strategy Filtering**: Auto enable/disable strategies based on market conditions
+        - **AIC Model Selection** for optimal classification accuracy
+        - **Real-time Adaptation** for changing market conditions
+      tags: [Regime Detection Autopilot]
+      parameters:
+        - name: symbolId
+          in: path
+          required: true
+          schema: { type: string, example: "BINANCE_SPOT_SOL_USDT" }
+          description: Exchange-specific symbol identifier for regime analysis
+        - name: lookback_hours
+          in: query
+          required: false
+          schema: { type: integer, minimum: 12, maximum: 168, default: 48 }
+          description: Hours of historical data for regime calculation
+      responses:
+        '200':
+          description: Market regime detection with strategy recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      symbol: { type: string, example: "BINANCE_SPOT_SOL_USDT" }
+                      current_regime: { type: string, enum: ["trending", "ranging", "mean_revert", "high_vol"], example: "ranging" }
+                      regime_probability: { type: number, minimum: 0, maximum: 1, example: 1.0 }
+                      allowed_strategies: 
+                        type: array
+                        items: { type: string, enum: ["breakout", "momentum", "mean_reversion", "scalping", "swing", "arbitrage"] }
+                        example: ["mean_reversion", "scalping", "arbitrage"]
+                      disabled_strategies:
+                        type: array
+                        items: { type: string, enum: ["breakout", "momentum", "mean_reversion", "scalping", "swing", "arbitrage"] }
+                        example: ["breakout", "momentum"]
+                      model_confidence: { type: number, minimum: 0, maximum: 1, example: 1.0 }
+                  metadata:
+                    type: object
+                    properties:
+                      source: { type: string, example: "RegimeDetection" }
+                      response_time_ms: { type: number, example: 348 }
+                  timestamp: { type: string, format: date-time }
+
+  /api/regime/strategy-rules:
+    get:
+      operationId: getRegimeStrategyRules
+      summary: Get regime-based strategy filtering rules and descriptions
+      tags: [Regime Detection Autopilot]
+      responses:
+        '200':
+          description: Complete strategy rules for each market regime
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      regime_rules:
+                        type: object
+                        properties:
+                          trending:
+                            type: object
+                            properties:
+                              allowed: { type: array, items: { type: string }, example: ["breakout", "momentum", "swing"] }
+                              disabled: { type: array, items: { type: string }, example: ["mean_reversion", "scalping"] }
+                          ranging:
+                            type: object
+                            properties:
+                              allowed: { type: array, items: { type: string }, example: ["mean_reversion", "scalping", "arbitrage"] }
+                              disabled: { type: array, items: { type: string }, example: ["breakout", "momentum"] }
+                      available_strategies: 
+                        type: array
+                        items: { type: string }
+                        example: ["breakout", "momentum", "mean_reversion", "scalping", "swing", "arbitrage"]
+                  metadata:
+                    type: object
+                    properties:
+                      source: { type: string, example: "RegimeDetection" }
+                      response_time_ms: { type: number, example: 12 }
+                  timestamp: { type: string, format: date-time }
