@@ -167,10 +167,17 @@ Confidence: ${confidence}%${sizeInfo}
 
 ref: ${ref}`;
 
+  // Format enhanced callback data for ghost order creation
+  // Format: setentry:SYMBOL:ENTRY:SL:TPS:CONFIDENCE:SIDE:REF
+  const entryPrice = Array.isArray(entry) ? entry[0] : entry;
+  const tpString = Array.isArray(takeProfit) ? takeProfit.join(',') : takeProfit.toString();
+  const side = bias.toUpperCase(); // LONG or SHORT
+  const enhancedCallbackData = `setentry:${symbol}:${entryPrice}:${stopLoss}:${tpString}:${confidence}:${side}:${ref}`;
+
   const inlineKeyboard = {
     inline_keyboard: [
       [
-        { text: "🎯 Set Entry", callback_data: `entry:${symbol}:${ref}` },
+        { text: "👻 Create Ghost Order", callback_data: enhancedCallbackData },
         { text: "⚠️ Set Alert Lines", callback_data: `alerts:${symbol}:${ref}` },
         { text: "❌ Cancel", callback_data: `cancel:${symbol}:${ref}` },
       ],

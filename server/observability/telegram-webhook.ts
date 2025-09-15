@@ -6,6 +6,7 @@
 import express from "express";
 import fetch from "node-fetch";
 import { storeFeedback, setSnooze, sendQuickCommandResponse } from "./telegram-actions";
+import { saveGhostOrder } from "../services/okxGhost";
 
 export const telegramRouter = express.Router();
 
@@ -31,7 +32,8 @@ telegramRouter.post("/telegram/webhook", async (req, res) => {
     
     res.sendStatus(200);
   } catch (error) {
-    console.error('❌ Telegram webhook error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('❌ Telegram webhook error:', errorMessage);
     res.sendStatus(500);
   }
 });
@@ -41,42 +43,48 @@ telegramRouter.post("/telegram/webhook", async (req, res) => {
  */
 async function handleCallbackQuery(callbackQuery: any) {
   const { id, data, message } = callbackQuery;
-  const [action, arg1, ref] = data.split(":"); // e.g. "heatmap:SOL:ib_20250915_0730"
+  const parts = data.split(":"); // Split callback data
+  const [action, ...args] = parts;
   
   try {
     let response = '';
     
     switch (action) {
       case 'heatmap':
-        response = await handleHeatmapRequest(arg1, ref);
+        response = await handleHeatmapRequest(args[0], args[1]);
         break;
         
       case 'orderbook':
-        response = await handleOrderbookRequest(arg1, ref);
+        response = await handleOrderbookRequest(args[0], args[1]);
         break;
         
       case 'sniper':
-        response = await handleSniperRequest(arg1, ref);
+        response = await handleSniperRequest(args[0], args[1]);
         break;
         
       case 'rate':
-        response = await handleRating(arg1 as '+' | '-', ref, callbackQuery.from?.id);
+        response = await handleRating(args[0] as '+' | '-', args[1], callbackQuery.from?.id);
         break;
         
       case 'snooze':
-        response = await handleSnooze(parseInt(arg1), ref);
+        response = await handleSnooze(parseInt(args[0]), args[1]);
         break;
         
       case 'entry':
-        response = await handleSetEntry(arg1, ref);
+        response = await handleSetEntry(args[0], args[1]);
+        break;
+        
+      case 'setentry':
+        // Enhanced format: setentry:SOL:221.35:220.95:222.0,222.7:80:LONG:ref123
+        response = await handleSetEntryDetailed(args, callbackQuery.from?.id);
         break;
         
       case 'alerts':
-        response = await handleSetAlerts(arg1, ref);
+        response = await handleSetAlerts(args[0], args[1]);
         break;
         
       case 'cancel':
-        response = `❌ Setup ${arg1} dibatalkan untuk ${ref}`;
+        response = `❌ Setup ${args[0]} dibatalkan untuk ${args[1]}`;
         break;
         
       default:
@@ -92,7 +100,8 @@ async function handleCallbackQuery(callbackQuery: any) {
     }
     
   } catch (error) {
-    console.error(`❌ Callback handling error (${action}):`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`❌ Callback handling error (${action}):`, errorMessage);
     await ackCallback(id, "⚠️ Error processing request");
   }
 }
@@ -254,11 +263,100 @@ async function handleSnooze(minutes: number, ref: string): Promise<string> {
 }
 
 /**
- * 🎯 Handle Set Entry
+ * 🎯 Handle Set Entry (Legacy)
  */
 async function handleSetEntry(symbol: string, ref: string): Promise<string> {
   // In a real implementation, this would integrate with a trading platform
   return `🎯 Entry alert set for ${symbol}\n\n⚠️ Manual execution required\n📱 Check your trading platform\n\nRef: ${ref}`;
+}
+
+/**
+ * 👻 Handle Detailed Set Entry - Creates Ghost Order
+ * Format: setentry:SOL:221.35:220.95:222.0,222.7:80:LONG:ref123
+ */
+async function handleSetEntryDetailed(args: string[], userId?: number): Promise<string> {
+  try {
+    if (args.length < 6) {
+      return `❌ Invalid setentry format. Expected: setentry:SYMBOL:ENTRY:SL:TPS:CONFIDENCE:SIDE:REF`;
+    }
+
+    const [symbol, entryStr, slStr, tpsStr, confidenceStr, side, ref] = args;
+    
+    // Parse parameters
+    const entry = parseFloat(entryStr);
+    const sl = parseFloat(slStr);
+    const confidence = parseInt(confidenceStr);
+    const tps = tpsStr.split(',').map(tp => parseFloat(tp.trim())).filter(tp => !isNaN(tp));
+    
+    // Validate parameters
+    if (isNaN(entry) || isNaN(sl) || isNaN(confidence)) {
+      return `❌ Invalid numeric values in setentry data`;
+    }
+    
+    if (!['LONG', 'SHORT'].includes(side.toUpperCase())) {
+      return `❌ Invalid side: ${side}. Must be LONG or SHORT`;
+    }
+    
+    if (confidence < 0 || confidence > 100) {
+      return `❌ Invalid confidence: ${confidence}. Must be 0-100`;
+    }
+
+    console.log(`👻 Creating ghost order: ${symbol} ${side} Entry=${entry} SL=${sl} TPs=[${tps.join(',')}] Conf=${confidence}%`);
+    
+    // Create ghost order
+    const result = await saveGhostOrder({
+      ref_id: ref,
+      symbol: symbol.toUpperCase(),
+      side: side.toUpperCase(),
+      entry_zone: entry, // Single price for now
+      sl,
+      tps,
+      confidence,
+      mode: 'ghost',
+      metadata: {
+        created_by: userId?.toString() || 'telegram',
+        signal_source: 'telegram_button',
+        timeframe: '5m'
+      }
+    });
+
+    if (!result.success) {
+      return `❌ Failed to create ghost order: ${result.error}`;
+    }
+
+    const order = result.order;
+    const summary = result.summary;
+    
+    // Validate result data
+    if (!order || !summary) {
+      return `❌ Failed to create ghost order: Invalid result data`;
+    }
+    
+    // Format confirmation message
+    let message = `👻 **GHOST ORDER CREATED**\n\n`;
+    message += `🎯 **${summary.symbol}** ${summary.side}\n`;
+    message += `💰 Size: $${summary.size_usd.toLocaleString()} (${summary.size_coins} ${summary.symbol})\n`;
+    message += `📍 Entry: ${summary.entry_range}\n`;
+    message += `🛑 Stop Loss: ${order.sl} (${order.pricing.sl_distance_pct}%)\n`;
+    
+    if (order.tps.length > 0) {
+      message += `🎯 Take Profits: ${order.tps.join(', ')}\n`;
+      message += `📊 Risk:Reward: 1:${order.pricing.risk_reward}\n`;
+    }
+    
+    message += `🎯 Confidence: ${order.confidence}% (${summary.confidence_tier})\n`;
+    message += `📊 Mode: Paper Trading (Ghost)\n\n`;
+    message += `✅ Order is now monitoring price action\n`;
+    message += `📱 You'll be notified when levels are hit\n\n`;
+    message += `Ref: ${ref}`;
+
+    return message;
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('❌ Failed to handle detailed set entry:', error);
+    return `❌ Error creating ghost order: ${errorMessage}`;
+  }
 }
 
 /**
@@ -278,7 +376,8 @@ async function handleCommand(message: any) {
   try {
     await sendQuickCommandResponse(command, args);
   } catch (error) {
-    console.error(`❌ Command ${command} failed:`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`❌ Command ${command} failed:`, errorMessage);
   }
 }
 
@@ -298,7 +397,8 @@ async function ackCallback(callbackQueryId: string, text: string) {
       }),
     });
   } catch (error) {
-    console.error('❌ Failed to acknowledge callback:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('❌ Failed to acknowledge callback:', errorMessage);
   }
 }
 
@@ -319,6 +419,7 @@ async function sendFollowUpMessage(text: string) {
       }),
     });
   } catch (error) {
-    console.error('❌ Failed to send follow-up message:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('❌ Failed to send follow-up message:', errorMessage);
   }
 }

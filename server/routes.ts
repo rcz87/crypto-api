@@ -9,6 +9,7 @@ import { premiumOrderbookService } from "./services/premiumOrderbook";
 import { registerSeoRoutes } from "./routes/seo";
 import { registerSystemRoutes } from "./routes/system";
 import { registerTradingRoutes } from "./routes/trading";
+import { registerGhostRoutes } from "./routes/ghost";
 import { screenerRouter } from "./modules/screener/screener.routes.js";
 import { CVDService } from "./services/cvd";
 import { ConfluenceService } from "./services/confluence";
@@ -72,6 +73,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // SOL trading routes (complete, funding, technical analysis, etc.)
   registerTradingRoutes(app);
+  
+  // Ghost order management routes (paper trading system)
+  registerGhostRoutes(app);
 
   // Note: Enhanced rate limiting is now applied globally in server/index.ts
   
