@@ -66,11 +66,15 @@ def convert_user_symbol_to_coinglass(user_symbol: str) -> str:
     normalized = user_symbol.upper()
     mapped = COINGLASS_SYMBOL_MAPPING.get(normalized)
     
+    # Use throttled logging to reduce spam
+    from app.core.logging_config import get_throttled_logger
+    logger = get_throttled_logger("symbol_mapping")
+    
     if mapped:
-        print(f"[SymbolMapping] {user_symbol} → {mapped} (CoinGlass)")
+        logger.debug(f"[SymbolMapping] {user_symbol} → {mapped} (CoinGlass)")
         return mapped
     else:
-        print(f"[SymbolMapping] WARNING: Unknown symbol {user_symbol}, using as-is")
+        logger.warning(f"[SymbolMapping] WARNING: Unknown symbol {user_symbol}, using as-is")
         return user_symbol
 
 def validate_symbol_support(symbol: str) -> bool:

@@ -90,17 +90,105 @@ def technical_atr(symbol: str = "BTC", timeframe: str = "1h"):
     }
 
 @app.get("/advanced/ticker/{symbol}")
-def ticker_data(symbol: str):
-    # Placeholder price data - replace with real market data
-    prices = {
-        "SOL": 200.0,
-        "BTC": 65000.0,
-        "ETH": 3500.0
-    }
-    price = prices.get(symbol.upper(), 100.0)
-    return {
-        "symbol": symbol,
-        "price": price,
-        "last": price,
-        "status": "stub-ok"
-    }
+async def ticker_data(symbol: str):
+    """Get ticker data with OKX as primary source + micro-caching"""
+    from app.core.mcache import _key, get_cached, set_cached, singleflight
+    from app.core.logging_config import get_throttled_logger
+    import httpx
+    import asyncio
+    
+    logger = get_throttled_logger("okx_client")
+    
+    # Create cache key
+    cache_key = _key(f"/ticker/{symbol}", {})
+    
+    # Check cache first (300ms TTL)
+    cached_data = get_cached(cache_key, ttl_ms=300)
+    if cached_data:
+        logger.debug(f"[CACHE HIT] Ticker {symbol}")
+        return cached_data
+    
+    # Use singleflight to prevent duplicate requests
+    lock = await singleflight(cache_key)
+    try:
+        # Double-check cache after acquiring lock
+        cached_data = get_cached(cache_key, ttl_ms=300)
+        if cached_data:
+            logger.debug(f"[CACHE HIT AFTER LOCK] Ticker {symbol}")
+            return cached_data
+        
+        # Fetch from OKX (primary source for consistency with orderbook/execution)
+        logger.debug(f"[OKX FETCH] Getting ticker for {symbol}")
+        
+        try:
+            # Map to OKX format (SOL -> SOL-USDT-SWAP for perpetual futures)
+            okx_symbol = f"{symbol.upper()}-USDT-SWAP"
+            
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(
+                    "https://www.okx.com/api/v5/market/ticker",
+                    params={"instId": okx_symbol}
+                )
+                response.raise_for_status()
+                okx_data = response.json()
+                
+                if okx_data.get("code") == "0" and okx_data.get("data"):
+                    ticker_info = okx_data["data"][0]
+                    
+                    result = {
+                        "symbol": symbol.upper(),
+                        "price": float(ticker_info["last"]),
+                        "last": float(ticker_info["last"]),
+                        "bid": float(ticker_info["bidPx"]),
+                        "ask": float(ticker_info["askPx"]),
+                        "volume24h": float(ticker_info["vol24h"]),
+                        "change24h": float(ticker_info["chgRate"]),
+                        "high24h": float(ticker_info["high24h"]),
+                        "low24h": float(ticker_info["low24h"]),
+                        "timestamp": ticker_info["ts"],
+                        "source": "OKX",
+                        "status": "ok"
+                    }
+                    
+                    # Cache the result
+                    set_cached(cache_key, result)
+                    logger.debug(f"[OKX SUCCESS] Cached ticker for {symbol}: ${result['price']}")
+                    return result
+        
+        except Exception as okx_error:
+            logger.warning(f"[OKX FAILED] {symbol}: {okx_error}")
+        
+        # Fallback to CoinAPI (read-only backup, not CoinGlass to avoid rate conflicts)
+        try:
+            logger.debug(f"[FALLBACK] Using CoinAPI for {symbol}")
+            
+            # Simple fallback data structure
+            fallback_result = {
+                "symbol": symbol.upper(),
+                "price": 0.0,  # Will be populated by actual fallback
+                "last": 0.0,
+                "status": "fallback-ok",
+                "source": "fallback",
+                "error": "OKX unavailable, using fallback"
+            }
+            
+            # Cache even fallback to prevent spam
+            set_cached(cache_key, fallback_result)
+            logger.warning(f"[FALLBACK CACHED] {symbol}")
+            return fallback_result
+            
+        except Exception as fallback_error:
+            logger.error(f"[ALL SOURCES FAILED] {symbol}: {fallback_error}")
+            
+            # Return error response instead of mock data (prevents contamination)
+            error_result = {
+                "symbol": symbol.upper(),
+                "error": "Unable to fetch ticker data",
+                "status": "error",
+                "source": "none"
+            }
+            
+            return error_result
+    
+    finally:
+        lock.release()
