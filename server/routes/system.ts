@@ -4,6 +4,7 @@ import { okxService } from '../services/okx.js';
 import { storage } from '../storage.js';
 import { healthCheckSchema } from '../../shared/schema.js';
 import type { SystemLogs } from '../../shared/schema.js';
+import rateLimit from 'express-rate-limit';
 
 /**
  * Register all system and monitoring routes
@@ -262,6 +263,34 @@ export function registerSystemRoutes(app: Express): void {
         status: 'error',
         error: 'Event Logging health check failed',
         details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // 📊 Scheduler Status Endpoint
+  const schedulerStatusLimit = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 30, // 30 requests per minute per IP
+    message: { error: "Too many scheduler status requests" }
+  });
+
+  app.get('/api/scheduler/status', schedulerStatusLimit, async (req: Request, res: Response) => {
+    try {
+      const { getSchedulerStatus } = await import('../schedulers/institutional.js');
+      const status = getSchedulerStatus();
+      
+      res.json({
+        success: true,
+        data: status,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error("❌ Scheduler status error:", error.message);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get scheduler status",
+        details: error.message,
         timestamp: new Date().toISOString()
       });
     }

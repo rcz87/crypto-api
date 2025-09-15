@@ -1537,6 +1537,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 🎯 Institutional Signal Aggregator Endpoint with protection
+  const rateLimit = (await import('express-rate-limit')).default;
+  const signalRateLimit = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 20, // 20 requests per minute per IP
+    message: { error: "Too many signal requests - institutional analysis is computationally expensive" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Signal aggregator cache (30 second TTL)
+  const signalCache = new Map();
+  const signalCacheMiddleware = (req: any, res: any, next: any) => {
+    const symbol = req.params.symbol || 'BTC';
+    const key = `signal:${symbol.toUpperCase()}`;
+    const hit = signalCache.get(key);
+    const now = Date.now();
+    
+    if (hit && hit.exp > now) {
+      return res.json(hit.data);
+    }
+    
+    const originalJson = res.json.bind(res);
+    res.json = (body: any) => {
+      if (res.statusCode === 200) {
+        signalCache.set(key, { data: body, exp: now + 30000 }); // 30s cache
+      }
+      return originalJson(body);
+    };
+    
+    next();
+  };
+
+  app.get('/api/signal/institutional/:symbol?', signalRateLimit, signalCacheMiddleware, async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    try {
+      const { getInstitutionalSignal } = await import("./routes/signalAggregator");
+      await getInstitutionalSignal(req, res);
+      
+      // Observability: Track performance
+      const duration = Date.now() - startTime;
+      metricsCollector.recordHttpRequest(duration, false);
+      if (duration > 5000) {
+        console.warn(`⚠️ Slow signal aggregation: ${duration}ms for ${req.params.symbol || 'BTC'}`);
+      }
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      metricsCollector.recordHttpRequest(duration, true);
+      console.error("❌ Signal aggregator error:", error.message);
+      res.status(500).json({
+        error: "Signal aggregation service unavailable",
+        message: error.message
+      });
+    }
+  });
+
   // OpenAPI specification endpoint  
   app.get('/openapi.yaml', (req: Request, res: Response) => {
     try {

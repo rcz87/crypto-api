@@ -1,0 +1,168 @@
+Wuih—**semua hijau**. Dari log terlihat:
+
+* **Proxy /py**\* → `http://127.0.0.1:8000` sudah aktif.
+* FastAPI start OK, `/health` 200, semua endpoint test (whale, positions, ETF, sentiment, heatmap, orderbook, options OI, `/metrics`) **200 OK**.
+* Observability (metrics, tracing, Telegram alerter) **nyala**.
+
+# ✅ TL;DR
+
+Sistem CoinGlass Python **sudah running & ter-proxy dengan benar**. Sekarang tinggal:
+
+1. Uji dari **gateway Node (5000)**, bukan direct 8000.
+2. Nyalain **alert aturan** (whale + ETF + sentiment) → kirim Telegram.
+3. Tambah **guard rails**: rate-limit, cache, retry, dan circuit breaker.
+
+---
+
+# 1) Smoke Test via Gateway (PORT 5000)
+
+Jalankan ini (pastikan dapat **JSON**, bukan HTML):
+
+```bash
+curl -sS http://localhost:5000/py/health
+curl -sS "http://localhost:5000/py/advanced/whale/alerts?symbol=BTC"
+curl -sS "http://localhost:5000/py/advanced/etf/flows?asset=BTC"
+curl -sS "http://localhost:5000/py/metrics" | head
+```
+
+**Checklist lulus** kalau:
+
+* `/py/health` → `{ "status": "ok", ... }`
+* `/py/...` lainnya → objek JSON (bukan `<html ...`)
+
+---
+
+# 2) Alert Rule “Institusional Bias” (langsung siap pakai)
+
+Logika: **Whale Buy (≥\$1M) + ETF Inflow > 0 + Sentimen ≥ 60** → kirim alert LONG bias.
+
+```js
+// node/services/alphaRules.js
+import fetch from "node-fetch";
+
+const PY = process.env.PY_BASE || "http://localhost:5000/py";
+const TG = process.env.TELEGRAM_URL; // webhook kamu
+
+export async function runInstitutionalBiasAlert() {
+  const [whale, etf, senti] = await Promise.all([
+    fetch(`${PY}/advanced/whale/alerts?symbol=BTC`).then(r=>r.json()),
+    fetch(`${PY}/advanced/etf/flows?asset=BTC`).then(r=>r.json()),
+    fetch(`${PY}/advanced/market/sentiment`).then(r=>r.json()),
+  ]);
+
+  const whaleBuy = (whale?.events||[]).some(e => e.side==="buy" && e.usd_size>=1_000_000);
+  const etfInflow = (etf?.today?.net_inflow_usd||0) > 0;
+  const sentimentOK = (senti?.score||0) >= 60;
+
+  if (whaleBuy && etfInflow && sentimentOK) {
+    const msg = `🟢 LONG Bias (BTC)
+- Whale buy ≥ $1M: YES
+- ETF net inflow: ${Math.round(etf.today.net_inflow_usd).toLocaleString()} USD
+- Sentiment: ${senti.score}
+⏱️ Timing: lihat heatmap likuidasi & orderbook spot untuk entry presisi.`;
+    await fetch(TG, {method:"POST", headers:{'Content-Type':'application/json'}, body: JSON.stringify({text: msg})});
+  }
+}
+```
+
+Scheduler (5 menit sekali):
+
+```js
+// node/schedulers/institutional.js
+import cron from "node-cron";
+import { runInstitutionalBiasAlert } from "../services/alphaRules.js";
+
+cron.schedule("*/5 * * * *", async () => {
+  try { await runInstitutionalBiasAlert(); }
+  catch (e) { console.error("[InstitutionalBiasAlert]", e.message); }
+});
+```
+
+---
+
+# 3) Guard Rails (buat produksi tahan banting)
+
+**a) Rate limiting (Gateway Node)**
+
+```js
+import rateLimit from "express-rate-limit";
+app.use("/py", rateLimit({ windowMs: 60_000, max: 120 })); // 120 req/menit/ IP
+```
+
+**b) Cache tipis (hindari spam hit vendor)**
+
+* Cache 15–30 dtk untuk endpoint berat (ETF flows, sentiment, heatmap).
+
+```js
+// node/middleware/mcache.js
+const cache = new Map();
+export function mcache(ttlMs=15000){
+  return (req,res,next)=>{
+    const key = req.originalUrl;
+    const hit = cache.get(key);
+    const now = Date.now();
+    if(hit && hit.exp>now){ return res.json(hit.data); }
+    const json = res.json.bind(res);
+    res.json = (body)=>{ cache.set(key, {data: body, exp: now+ttlMs}); return json(body); };
+    next();
+  };
+}
+// pakai: app.use("/py/advanced/etf", mcache(30000));
+```
+
+**c) Retry + timeout (panggilan dari Node ke Python/Internet)**
+
+```js
+import fetch from "node-fetch";
+async function fetchRetry(url, opt={}, n=3){
+  for(let i=0;i<n;i++){
+    const ctl = new AbortController();
+    const t = setTimeout(()=>ctl.abort(), 8000);
+    try { const r = await fetch(url, {...opt, signal: ctl.signal}); clearTimeout(t); if(r.ok) return r; }
+    catch(e){ if(i===n-1) throw e; }
+  }
+}
+```
+
+**d) Circuit breaker sederhana**
+
+* Kalau 5x gagal beruntun → pause 1 menit, kirim Telegram warning.
+
+---
+
+# 4) Observability: KPI yang perlu dipantau
+
+| KPI                    | Target                     | Sumber                   |
+| ---------------------- | -------------------------- | ------------------------ |
+| Latensi `/py/*` p95    | < 400 ms                   | Prometheus `/py/metrics` |
+| Error rate 5xx         | < 1%                       | Prometheus + alerter     |
+| ETF flow fetch success | > 99%                      | Log + counter            |
+| Whale alert relevan    | Hit ratio > 60% (backtest) | DB performa              |
+| Telegram alert lag     | < 5 dtk                    | Log alerter              |
+
+---
+
+# 5) Endpoint Priorities (buat Signal Engine)
+
+Checklist prioritas buat SOL/BTC/ETH:
+
+* [x] `whale/alerts` (≥\$1M buy/sell)
+* [x] `etf/flows` (net inflow/outflow)
+* [x] `market/sentiment` (score 0–100)
+* [x] `liquidation/heatmap/{symbol}` (1h/4h cluster)
+* [x] `spot/orderbook/{symbol}` (wall & imbalance)
+* [x] `options/oi/{symbol}` (skew OI, optional)
+
+---
+
+# 6) Bonus: Trigger “Sniper timing (5m)”
+
+Kondisi auto-ping (untuk SOL):
+
+* Whale buy BTC **ATAU** SOL
+* ETF BTC inflow > 0
+* Heatmap SOL ada cluster likuidasi dekat harga < 0.5%
+* Orderbook SOL ada support wall > 5x median
+  → Kirim **entry map 5m** (level, invalidasi, TP1/TP2, alert lines).
+
+Kalau mau, gue drop-in **route aggregator** `/signal/institutional` yang menggabungkan ketiga data dan mengembalikan **satu rekomendasi** (JSON + alasan ringkas). Tinggal plug ke Telegram bot sebagai **/alpha**.

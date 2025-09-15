@@ -45,22 +45,142 @@ import fetch from "node-fetch";
 
 const PY_BASE = process.env.PY_BASE || "http://127.0.0.1:8000";
 
-// 🚀 PROXY MIDDLEWARE FIRST - BEFORE ALL OTHER MIDDLEWARE!
+// 🛡️ GUARD RAILS - Rate Limiting for Python API
+import rateLimit from "express-rate-limit";
+
+const pyRateLimit = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 120, // Limit each IP to 120 requests per minute
+  message: { error: "Too many requests to CoinGlass API, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/py", pyRateLimit);
+
+// 💾 Enhanced Memory Cache with eviction for CoinGlass endpoints
+const cache = new Map();
+const MAX_CACHE_SIZE = 1000; // Prevent unbounded growth
+
+// 🧹 Cache eviction and cleanup
+const evictOldEntries = () => {
+  const now = Date.now();
+  for (const [key, value] of cache.entries()) {
+    if (value.exp < now) {
+      cache.delete(key);
+    }
+  }
+  
+  // Size-based eviction if still too large
+  if (cache.size > MAX_CACHE_SIZE) {
+    const entries = Array.from(cache.entries());
+    entries.sort((a, b) => a[1].exp - b[1].exp); // Sort by expiration
+    
+    const toDelete = cache.size - MAX_CACHE_SIZE + 100; // Delete extra + buffer
+    for (let i = 0; i < toDelete && i < entries.length; i++) {
+      cache.delete(entries[i][0]);
+    }
+    log(`🧹 Cache eviction: removed ${toDelete} entries, size now: ${cache.size}`);
+  }
+};
+
+// 🕒 Periodic cache cleanup every 5 minutes
+setInterval(evictOldEntries, 5 * 60 * 1000);
+
+const cacheMiddleware = (ttlMs = 15000) => {
+  return (req: any, res: any, next: any) => {
+    const key = req.originalUrl;
+    const hit = cache.get(key);
+    const now = Date.now();
+    
+    // Return cached response if still valid
+    if (hit && hit.exp > now) {
+      return res.json(hit.data);
+    }
+    
+    // Intercept res.json to cache the response
+    const originalJson = res.json.bind(res);
+    res.json = (body: any) => {
+      if (res.statusCode === 200) {
+        cache.set(key, { data: body, exp: now + ttlMs });
+      }
+      return originalJson(body);
+    };
+    
+    next();
+  };
+};
+
+// Apply caching to expensive endpoints
+app.use("/py/advanced/etf", cacheMiddleware(30000)); // 30s cache
+app.use("/py/advanced/market/sentiment", cacheMiddleware(15000)); // 15s cache
+app.use("/py/advanced/liquidation/heatmap", cacheMiddleware(10000)); // 10s cache
+
+// 🚀 PROXY MIDDLEWARE WITH CIRCUIT BREAKER
+let circuitBreaker = { failures: 0, lastFailure: null, isOpen: false };
+
+// 🛡️ PRE-PROXY CIRCUIT BREAKER MIDDLEWARE - Check before proxy
+app.use("/py", (req, res, next) => {
+  if (circuitBreaker.isOpen) {
+    return res.status(503).json({
+      error: "Service temporarily unavailable - circuit breaker is open",
+      circuitBreaker: { failures: circuitBreaker.failures, isOpen: circuitBreaker.isOpen },
+      retryAfter: "60 seconds"
+    });
+  }
+  next();
+});
+
 app.use("/py", createProxyMiddleware({
   target: PY_BASE,
   changeOrigin: true,
   pathRewrite: { "^/py": "" },    // /py/health -> /health
   proxyTimeout: 20000,
   onError: (err, req, res) => {
-    log(`[PY PROXY ERROR] ${err.message}`);
+    // Circuit breaker logic
+    circuitBreaker.failures++;
+    circuitBreaker.lastFailure = Date.now();
+    
+    if (circuitBreaker.failures >= 5) {
+      circuitBreaker.isOpen = true;
+      log(`🔴 Circuit breaker OPEN - ${circuitBreaker.failures} consecutive failures`);
+    }
+    
+    log(`[PY PROXY ERROR] ${err.message} (failures: ${circuitBreaker.failures})`);
+    
     if (!res.headersSent) {
-      res.status(502).json({ error: "CoinGlass service unavailable", details: err.message });
+      const status = circuitBreaker.isOpen ? 503 : 502;
+      res.status(status).json({ 
+        error: circuitBreaker.isOpen ? "Service temporarily unavailable" : "CoinGlass service unavailable", 
+        details: err.message,
+        circuitBreaker: { failures: circuitBreaker.failures, isOpen: circuitBreaker.isOpen }
+      });
     }
   },
-  logLevel: 'debug'
+  onProxyRes: (proxyRes, req, res) => {
+    // Reset circuit breaker on successful response
+    if (proxyRes.statusCode && proxyRes.statusCode < 400) {
+      if (circuitBreaker.failures > 0) {
+        log(`✅ Circuit breaker RESET - service recovered`);
+      }
+      circuitBreaker.failures = 0;
+      circuitBreaker.isOpen = false;
+    }
+  }
 }));
 
-log(`🚀 CoinGlass Python proxy configured: /py/* → ${PY_BASE}`);
+// Auto-reset circuit breaker after 1 minute
+setInterval(() => {
+  if (circuitBreaker.isOpen && circuitBreaker.lastFailure) {
+    const timeSinceFailure = Date.now() - circuitBreaker.lastFailure;
+    if (timeSinceFailure > 60000) {
+      circuitBreaker.isOpen = false;
+      log(`🔄 Circuit breaker auto-reset after 60 seconds`);
+    }
+  }
+}, 30000);
+
+log(`🚀 CoinGlass Python proxy configured: /py/* → ${PY_BASE} (with guard rails)`);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -237,6 +357,16 @@ app.use((req, res, next) => {
     log("Observability system initialized successfully");
   } catch (error: any) {
     log(`Failed to initialize observability: ${error?.message || String(error)}`);
+  }
+
+  // 🚀 Initialize Institutional Alert System
+  try {
+    const { startInstitutionalScheduler, startSniperScheduler } = await import("./schedulers/institutional.js");
+    startInstitutionalScheduler();
+    startSniperScheduler();
+    log("✅ Institutional Alert System initialized - bias & sniper alerts active");
+  } catch (error: any) {
+    log(`❌ Failed to initialize institutional alerts: ${error?.message || String(error)}`);
   }
 
   const server = await registerRoutes(app);
