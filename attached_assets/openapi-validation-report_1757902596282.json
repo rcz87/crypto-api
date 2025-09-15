@@ -1,0 +1,41 @@
+{
+  "file": "openapi-4.0.1-gpts-compat (6).yaml",
+  "size_bytes": 80444,
+  "openapi_version": "3.0.3",
+  "info": {
+    "has_info": true,
+    "title": "CryptoSat Intelligence - Multi-Pair Trading Data Gateway API (GPTs Compat)",
+    "version": "5.0.0-gpts"
+  },
+  "servers_count": 1,
+  "paths_count": 28,
+  "endpoint_methods": [
+    "GET",
+    "POST"
+  ],
+  "components": {
+    "schemas": [
+      "CompleteAnalysisResponse",
+      "SMCAnalysisResponse",
+      "CVDAnalysisResponse",
+      "TechnicalAnalysisResponse",
+      "FundingRateResponse",
+      "OpenInterestResponse",
+      "Problem"
+    ],
+    "parameters": [
+      "CursorParam",
+      "LimitParam",
+      "StartParam",
+      "EndParam",
+      "SymbolParam"
+    ],
+    "responses": [
+      "ProblemResponse",
+      "TooManyRequests"
+    ],
+    "securitySchemes": [
+      "ApiKeyAuth"
+    ]
+  }
+}
