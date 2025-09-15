@@ -536,10 +536,6 @@ paths:
       operationId: getFundingRates
       summary: Get funding rates for any pair (Read-Only Access)
       description: "🔒 Protected endpoint for perpetual contract funding rates. Supports pagination and historical data. Requires read-only scope or higher. Rate limits: 100 req/min (Basic), 500 req/min (Premium)."
-        - Use `cursor` parameter from `next_cursor` response field
-        - Navigate using Link header rel="next" and rel="prev"
-        - Empty cursor indicates end of dataset
-        - Maximum limit: 1000 records per request
       tags: [Market Data - Derivatives]
       security:
         - ApiKeyAuth: ["read-only"]
@@ -1947,7 +1943,6 @@ paths:
       operationId: getHealthStatus
       summary: Get system health status (Public Access)
       description: "🔓 Public system health check endpoint. Real-time API services, database connectivity, and system health status. Used for monitoring, uptime checks, and load balancer health validation. No authentication required."
-        ```
       tags: [System Monitoring]
       security: []
       responses:
