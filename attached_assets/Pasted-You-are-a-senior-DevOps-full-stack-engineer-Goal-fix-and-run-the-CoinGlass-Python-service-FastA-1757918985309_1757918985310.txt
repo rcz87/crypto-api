@@ -1,0 +1,146 @@
+You are a senior DevOps + full-stack engineer. Goal: fix and run the CoinGlass Python service (FastAPI, port 8000) and integrate it behind the existing Node gateway (port 5000). The repo already contains a Node service (main app) and a Python service (CoinGlass features). The environment variable CG_API_KEY is already configured.
+
+## REQUIREMENTS
+- Python service: FastAPI w/ Pydantic v2, Prometheus metrics, health endpoint
+- Bind to env PORT (Replit requirement), fallback 8000
+- Node gateway proxies /py/* → Python service
+- Keep changes minimal, production-safe, and reproducible
+
+## TASKS (DO IN ORDER)
+
+1) Python deps & entrypoint
+- Create/overwrite `requirements.txt` with:
+  fastapi>=0.111
+  uvicorn[standard]>=0.30
+  httpx>=0.27
+  orjson>=3.10
+  loguru>=0.7
+  tenacity>=8.3
+  pydantic>=2.7
+  pydantic-settings>=2.2
+  prometheus-fastapi-instrumentator>=7.0
+  python-dotenv>=1.0
+  cachetools>=5.3
+
+- Ensure Python app structure at `app/main.py`. If file missing, create:
+  ```python
+  import os
+  from fastapi import FastAPI
+  from prometheus_fastapi_instrumentator import Instrumentator
+  from pydantic_settings import BaseSettings
+
+  class Settings(BaseSettings):
+      COINGLASS_API_KEY: str | None = None
+      PORT: int = int(os.getenv("PORT", "8000"))
+      class Config:
+          env_file = ".env"
+
+  settings = Settings()
+  app = FastAPI(title="CoinGlass Python Service")
+
+  @app.get("/health")
+  def health():
+      return {"status": "ok", "has_key": bool(settings.COINGLASS_API_KEY)}
+
+  @app.on_event("startup")
+  async def _startup():
+      Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+
+  # placeholder route to confirm server works
+  @app.get("/advanced/whale/alerts")
+  def whale_alerts(symbol: str = "BTC"):
+      # NOTE: replace with real implementation that calls CoinGlass v4 later
+      return {"symbol": symbol, "status": "stub-ok"}
+Add a start script for Python. If using Procfile, create/overwrite root Procfile:
+
+less
+Salin kode
+web: uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
+Install deps:
+
+Run: pip install -U pip && pip install -r requirements.txt
+
+Verify: python -V (>=3.10) and pip show fastapi pydantic prometheus-fastapi-instrumentator
+
+Start Python service
+
+Start locally in Replit shell:
+export PORT=${PORT:-8000}; uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 75
+
+Smoke test:
+curl -sS http://localhost:$PORT/health
+curl -sS http://localhost:$PORT/metrics | head
+curl -sS "http://localhost:$PORT/advanced/whale/alerts?symbol=BTC"
+
+Node gateway proxy to Python
+
+In Node app (Express), install dependency:
+npm i http-proxy-middleware
+
+Add proxy middleware (e.g., server.js or wherever Express is initialized):
+
+js
+Salin kode
+import express from "express";
+import { createProxyMiddleware } from "http-proxy-middleware";
+
+const app = express();
+const PY_BASE = process.env.PY_BASE || "http://localhost:8000";
+
+app.use("/py", createProxyMiddleware({
+  target: PY_BASE,
+  changeOrigin: true,
+  pathRewrite: { "^/py": "" },
+  proxyTimeout: 20000,
+}));
+
+// existing routes remain unchanged
+// app.listen(process.env.PORT || 5000);
+Ensure Node listens on process.env.PORT || 5000.
+
+End-to-end tests via Node gateway
+
+After both services run, test via Node:
+curl -sS http://localhost:5000/py/health
+curl -sS "http://localhost:5000/py/advanced/whale/alerts?symbol=BTC"
+
+Wire environment
+
+Ensure Replit has CG_API_KEY set in Secrets.
+
+(Optional) add .env with CG_API_KEY for local runs; do not commit secrets.
+
+Observability
+
+Confirm /py/metrics is exposed:
+curl -sS http://localhost:5000/py/metrics | head
+
+Add basic readiness check in Node (optional): periodically GET /py/health and log errors.
+
+Git hygiene
+
+Create commits with clear messages:
+
+chore(py): add requirements + health/metrics + uvicorn start
+
+feat(node): proxy /py/* to python service
+
+chore: add Procfile + smoke tests doc
+
+ACCEPTANCE CRITERIA
+GET /py/health through Node returns JSON {"status":"ok","has_key":true/false}
+
+GET /py/metrics returns Prometheus metrics
+
+GET /py/advanced/whale/alerts?symbol=BTC returns stub JSON 200 OK
+
+Node (5000) remains functional; Python (env PORT / default 8000) runs without import errors
+
+All dependencies installed; no pydantic v1/v2 mismatch; no ModuleNotFoundError
+
+NICE TO HAVE (if time permits)
+Add basic error handling/logging (loguru) in Python
+
+Add retry/timeout when calling external CoinGlass endpoints (tenacity + httpx)
+
+Write a simple README section: how to run both services + smoke tests

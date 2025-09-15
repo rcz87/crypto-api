@@ -41,6 +41,105 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// CoinGlass Python service proxy
+import { createProxyMiddleware } from "http-proxy-middleware";
+import { spawn } from "child_process";
+import fetch from "node-fetch";
+
+const PY_BASE = process.env.PY_BASE || "http://127.0.0.1:8000";
+
+// Start Python service as managed child process
+const startPythonService = () => {
+  log("Starting CoinGlass Python service...");
+  
+  const pythonProcess = spawn('python3', [
+    '-m', 'uvicorn', 'app.main:app', 
+    '--host', '127.0.0.1', 
+    '--port', '8000',
+    '--workers', '1',
+    '--timeout-keep-alive', '75'
+  ], {
+    cwd: 'coinglass-system',
+    env: { ...process.env, PORT: '8000', COINGLASS_API_KEY: process.env.CG_API_KEY },
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
+
+  pythonProcess.stdout?.on('data', (data) => {
+    log(`[Python] ${data.toString().trim()}`);
+  });
+
+  pythonProcess.stderr?.on('data', (data) => {
+    log(`[Python Error] ${data.toString().trim()}`);
+  });
+
+  pythonProcess.on('exit', (code) => {
+    log(`Python service exited with code ${code}`);
+  });
+
+  pythonProcess.on('error', (error) => {
+    log(`Failed to start Python service: ${error.message}`);
+  });
+
+  // Health check polling
+  const pollHealth = async () => {
+    try {
+      const response = await fetch(`${PY_BASE}/health`);
+      if (response.ok) {
+        log("✅ CoinGlass Python service is healthy");
+        return true;
+      }
+    } catch (error) {
+      // Service not ready yet
+    }
+    return false;
+  };
+
+  // Wait for service to be ready
+  const waitForReady = async () => {
+    for (let i = 0; i < 30; i++) {
+      if (await pollHealth()) {
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    log("❌ Python service failed to start within 30 seconds");
+    return false;
+  };
+
+  // Setup proxy after service is ready
+  waitForReady().then((ready) => {
+    if (ready) {
+      app.use("/py", createProxyMiddleware({
+        target: PY_BASE,
+        changeOrigin: true,
+        pathRewrite: { "^/py": "" },
+        proxyTimeout: 20000,
+        onError: (err, req, res) => {
+          log(`Proxy error: ${err.message}`);
+          res.status(503).json({ error: "CoinGlass service unavailable" });
+        }
+      }));
+      log(`🚀 CoinGlass Python proxy active: /py/* → ${PY_BASE}`);
+    } else {
+      // Fallback stub handler
+      app.use("/py", (req, res) => {
+        res.status(503).json({ error: "CoinGlass service not available" });
+      });
+      log("⚠️ CoinGlass proxy using fallback stub handler");
+    }
+  });
+
+  // Clean shutdown
+  process.on('SIGTERM', () => pythonProcess.kill());
+  process.on('SIGINT', () => pythonProcess.kill());
+  process.on('exit', () => pythonProcess.kill());
+  
+  return pythonProcess;
+};
+
+// Start Python service
+startPythonService();
+
 // Observability will be initialized after routes registration
 
 // Import metrics collector

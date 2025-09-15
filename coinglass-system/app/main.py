@@ -1,60 +1,59 @@
-from fastapi import FastAPI, HTTPException
-from app.api import health, replay, heatmap, auth as auth_api, export, webhooks, advanced
-from app.metrics import setup_metrics
-from app.workers.scheduler import start_scheduler
-from app.core.security import setup_security_middleware, setup_security_headers
-from app.core.logging import setup_logging, logger
-from app.core.settings import settings
+import os
+from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
+from pydantic_settings import BaseSettings
 
-# Setup logging
-setup_logging()
+class Settings(BaseSettings):
+    COINGLASS_API_KEY: str | None = None
+    PORT: int = int(os.getenv("PORT", "8000"))
+    class Config:
+        env_file = ".env"
 
-def validate_startup_requirements():
-    """Validate critical startup requirements"""
-    if not settings.CG_API_KEY:
-        logger.error("CG_API_KEY is required but not configured")
-        raise HTTPException(
-            status_code=500, 
-            detail="Server configuration error: CG_API_KEY is missing. Please configure the API key before starting the service."
-        )
-    
-    logger.info("Startup validation completed successfully")
-    logger.info(f"Configured for environment: {settings.ENV}")
-    logger.info(f"Monitoring symbols: {settings.SYMBOLS}")
-    logger.info(f"Target exchanges: {settings.EXCHANGES}")
+settings = Settings()
+app = FastAPI(title="CoinGlass Python Service")
 
-app = FastAPI(
-    title="Coinglass Full System",
-    description="Advanced cryptocurrency trading data gateway with institutional-grade analytics",
-    version="2.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
+# Setup Prometheus metrics BEFORE startup
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
-# Setup security middleware
-setup_security_middleware(app)
-setup_security_headers(app)
+@app.get("/health")
+def health():
+    return {"status": "ok", "has_key": bool(settings.COINGLASS_API_KEY)}
 
-# Setup metrics and monitoring
-setup_metrics(app)
+# placeholder route to confirm server works
+@app.get("/advanced/whale/alerts")
+def whale_alerts(symbol: str = "BTC"):
+    # NOTE: replace with real implementation that calls CoinGlass v4 later
+    return {"symbol": symbol, "status": "stub-ok"}
 
-# Include routers
-app.include_router(health.router)
-app.include_router(auth_api.router)
-app.include_router(replay.router)
-app.include_router(heatmap.router)
-app.include_router(export.router)
-app.include_router(webhooks.router)
-app.include_router(advanced.router)
+# Additional premium endpoints (stubs for now)
+@app.get("/advanced/whale/positions")
+def whale_positions(exchange: str = "binance"):
+    return {"exchange": exchange, "positions": [], "status": "stub-ok"}
 
-@app.on_event("startup")
-async def on_startup():
-    """Application startup tasks"""
-    validate_startup_requirements()
-    start_scheduler()
+@app.get("/advanced/etf/bitcoin")
+def bitcoin_etfs():
+    return {"etfs": [], "status": "stub-ok"}
 
-@app.on_event("shutdown")
-async def on_shutdown():
-    """Application shutdown tasks"""
-    from app.workers.scheduler import stop_scheduler
-    stop_scheduler()
+@app.get("/advanced/etf/flows")
+def etf_flows(days: int = 30):
+    return {"days": days, "flows": [], "status": "stub-ok"}
+
+@app.get("/advanced/market/sentiment")
+def market_sentiment():
+    return {"sentiment": "neutral", "metrics": {}, "status": "stub-ok"}
+
+@app.get("/advanced/market/coins")
+def supported_coins():
+    return {"coins": ["BTC", "ETH", "SOL"], "status": "stub-ok"}
+
+@app.get("/advanced/liquidation/heatmap/{symbol}")
+def liquidation_heatmap(symbol: str, timeframe: str = "1h"):
+    return {"symbol": symbol, "timeframe": timeframe, "heatmap": [], "status": "stub-ok"}
+
+@app.get("/advanced/spot/orderbook/{symbol}")
+def spot_orderbook(symbol: str, exchange: str = "binance"):
+    return {"symbol": symbol, "exchange": exchange, "orderbook": {"bids": [], "asks": []}, "status": "stub-ok"}
+
+@app.get("/advanced/options/oi/{symbol}")
+def options_oi(symbol: str = "BTC"):
+    return {"symbol": symbol, "open_interest": 0, "status": "stub-ok"}
