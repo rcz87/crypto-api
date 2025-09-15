@@ -8,7 +8,7 @@ from app.core.logging import logger
 from app.models.schemas import (
     WhaleAlert, WhalePosition, ETFData, ETFFlowHistory, 
     MarketSentiment, LiquidationHeatmapData, SpotOrderbook, 
-    OptionsData, AlertMessage
+    OptionsData, AlertMessage, SupportedCoin, SupportedCoinsResponse
 )
 
 router = APIRouter(prefix="/advanced", tags=["advanced"])
@@ -214,15 +214,51 @@ def get_market_sentiment():
         logger.error(f"Unexpected error in market sentiment: {e}")
         raise HTTPException(status_code=500, detail={"message": "Internal server error"})
 
-@router.get("/market/coins")
+@router.get("/market/coins", response_model=SupportedCoinsResponse)
 def get_supported_coins():
     """Get list of supported cryptocurrencies"""
     try:
         client = CoinglassClient()
         raw_data = client.supported_coins()
         
-        # Return raw data as it's typically a simple list
-        return raw_data
+        # Validate and transform response
+        supported_coins = []
+        if raw_data and 'data' in raw_data:
+            for record in raw_data['data']:
+                try:
+                    coin = SupportedCoin(
+                        symbol=record.get('symbol', ''),
+                        name=record.get('name', record.get('symbol', '')),
+                        is_active=record.get('is_active', True),
+                        supported_intervals=record.get('intervals', ['1h', '4h', '1d']),
+                        exchange_availability=record.get('exchanges', [])
+                    )
+                    supported_coins.append(coin)
+                except Exception as e:
+                    logger.warning(f"Skipped invalid coin record: {e}")
+                    continue
+        
+        # If raw_data is just a list of symbols (simpler format)
+        elif isinstance(raw_data, list):
+            for symbol in raw_data:
+                try:
+                    coin = SupportedCoin(
+                        symbol=symbol if isinstance(symbol, str) else symbol.get('symbol', ''),
+                        name=symbol if isinstance(symbol, str) else symbol.get('name', symbol.get('symbol', '')),
+                        is_active=True,
+                        supported_intervals=['1h', '4h', '1d'],
+                        exchange_availability=[]
+                    )
+                    supported_coins.append(coin)
+                except Exception as e:
+                    logger.warning(f"Skipped invalid coin symbol: {e}")
+                    continue
+        
+        return SupportedCoinsResponse(
+            data=supported_coins,
+            count=len(supported_coins),
+            timestamp=datetime.now()
+        )
         
     except RateLimitExceeded as e:
         raise HTTPException(status_code=429, detail={"message": "Rate limit exceeded"})

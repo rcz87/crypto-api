@@ -40,13 +40,13 @@ class CoinglassClient:
     # === WHALE POSITION ENDPOINTS ===
     def whale_alerts(self, exchange: str = "hyperliquid"):
         """Get whale alerts for large positions >$1M"""
-        url = f"{self.base_url}/api/hyperliquid/whale-alert"
+        url = f"{self.base_url}/api/{exchange}/whale-alert"
         response = self.http.get(url)
         return response.json()
 
     def whale_positions(self, exchange: str = "hyperliquid"):
         """Get current whale positions >$1M notional value"""
-        url = f"{self.base_url}/api/hyperliquid/whale-position"
+        url = f"{self.base_url}/api/{exchange}/whale-position"
         response = self.http.get(url)
         return response.json()
 

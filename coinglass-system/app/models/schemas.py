@@ -118,3 +118,15 @@ class OptionsData(BaseModel):
     volume_24h: float
     implied_volatility: Optional[float] = None
     timestamp: datetime
+
+class SupportedCoin(BaseModel):
+    symbol: str
+    name: str
+    is_active: bool = True
+    supported_intervals: Optional[list[str]] = None
+    exchange_availability: Optional[list[str]] = None
+
+class SupportedCoinsResponse(BaseModel):
+    data: list[SupportedCoin]
+    count: int
+    timestamp: datetime

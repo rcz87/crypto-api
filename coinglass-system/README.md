@@ -91,6 +91,19 @@ ENV=prod
 - `liquidations`: Liquidation events dengan metadata
 - `liquidation_heatmap`: Agregated heatmap data
 - `composite_heatmap`: Multi-factor heatmap scoring
+- `alert_history`: System alerts and notifications (including whale alerts)
+
+### Whale Data Handling
+**Important**: Whale data (large positions >$1M) is designed for real-time alerting, not historical persistence:
+
+- **Whale Alerts**: Fetched from CoinGlass whale endpoints and processed in real-time
+- **Alert Generation**: Significant positions (>$1M notional) trigger system alerts
+- **Storage Strategy**: Stored as alerts in `alert_history` table, not as separate whale entities
+- **Data Retention**: Alerts are retained based on alert retention policy, not as historical whale data
+- **API Access**: Live whale data available via `/advanced/whale/alerts` and `/advanced/whale/positions` endpoints
+- **Exchange Support**: Supports multiple exchanges via parameterized API calls (default: hyperliquid)
+
+This design optimizes for alerting efficiency while avoiding unnecessary historical data accumulation.
 
 ## Development
 
