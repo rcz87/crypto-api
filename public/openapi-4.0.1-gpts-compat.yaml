@@ -1,4 +1,4 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: CryptoSat Intelligence - Multi-Pair Trading Data Gateway API (GPTs Compat)
   description: |
@@ -22,7 +22,7 @@ info:
     - Single **ApiKey** security scheme (GPTs requirement)
     - Complete error handling dengan Problem Details & RateLimit headers
     - Real-time data dengan comprehensive validation
-  version: '5.0.0-gpts'
+  version: '5.1.0-gpts-jsonschema2020'
   contact:
     email: admin@guardiansofthegreentoken.com
     url: https://guardiansofthegreentoken.com
@@ -335,7 +335,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      signal_id: { type: string, example: "ai_neutral_1757326331517" }
+                      signal_id: { type: string, pattern: "^[a-z_]+_[0-9]+$", example: "ai_neutral_1757326331517" }
                       timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:11.517Z" }
                       signal_type: { type: string, enum: ["buy", "sell", "hold"], example: "hold" }
                       direction: { type: string, enum: ["bullish", "bearish", "neutral"], example: "neutral" }
@@ -558,7 +558,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      execution_id: { type: string, example: "exec_1757469123456" }
+                      execution_id: { type: string, pattern: "^exec_[0-9]+$", example: "exec_1757469123456" }
                       signal_id: { type: string, example: "enhanced_ai_1757468621438" }
                       status: { type: string, example: "recorded" }
                   message: { type: string, example: "Trade execution recorded successfully" }
@@ -1009,8 +1009,8 @@ paths:
                         type: object
                         properties:
                           timestamp: { type: string, format: date-time, example: "2025-09-08T10:12:42.506Z" }
-                          bidSize: { type: number, nullable: true, example: null }
-                          askSize: { type: number, nullable: true, example: null }
+                          bidSize: { type: ["number", "null"], example: null }
+                          askSize: { type: ["number", "null"], example: null }
                           imbalanceRatio: { type: number, example: 0 }
                           direction: { type: string, enum: ["buy", "sell", "neutral"], example: "neutral" }
                       flowAnalysis:
@@ -1280,7 +1280,7 @@ components:
               status: { type: integer, example: 500 }
               detail: { type: string, example: "An unexpected error occurred while processing your request." }
               instance: { type: string, format: uri, example: "https://guardiansofthegreentoken.com/api/ai/enhanced-signal" }
-              code: { type: string, example: "INTERNAL_ERROR" }
+              code: { type: string, pattern: "^[A-Z_]+$", example: "INTERNAL_ERROR" }
             example:
               type: "https://guardiansofthegreentoken.com/problems/server-error"
               title: "Internal Server Error"
@@ -1403,7 +1403,7 @@ components:
             fundingRate: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "0.0000888594997051" }
             nextFundingRate: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "0.0001234567890123" }
             nextFundingTime: { type: string, format: date-time, example: "2025-09-06T16:00:00Z" }
-            nextCursor: { type: string, nullable: true, example: "eyJwYWdlIjoyfQ==" }
+            nextCursor: { type: ["string", "null"], example: "eyJwYWdlIjoyfQ==" }
         timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
 
     OpenInterestResponse:
@@ -1417,7 +1417,7 @@ components:
             oi: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "234567.89" }
             oiUsd: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "25987653210.45" }
             change24h: { type: string, example: "2.34%" }
-            nextCursor: { type: string, nullable: true, example: "eyJwYWdlIjozfQ==" }
+            nextCursor: { type: ["string", "null"], example: "eyJwYWdlIjozfQ==" }
         timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
 
     Problem:
