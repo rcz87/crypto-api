@@ -1,0 +1,256 @@
+Gas, bisa banget. Kita bikin **1 endpoint “meta”** khusus GPTs yang nge-*wrap* semua fitur di atas. Jadi GPTs tinggal panggil **satu pintu** dengan parameter `op` (operation) + argumen, atau kirim `ops[]` untuk batch. Backend kamu cukup **dispatch** ke endpoint yang sudah ada.
+
+# TL;DR
+
+* Buat `POST /py/gpts/advanced`
+* Body: `{ op: "ticker" | "whale_alerts" | ..., params: {...} }` atau `{ ops: [{op, params}, ...] }`
+* Server **route** ke `/py/advanced/...` yang udah ada → balikin JSON seragam.
+* Bonus: dukung **batch** + **default params** biar GPTs makin gampang.
+
+---
+
+## Desain Endpoint (ringkas)
+
+| op                    | Mapped ke                                | Param wajib         | Param opsional (contoh default) |
+| --------------------- | ---------------------------------------- | ------------------- | ------------------------------- |
+| `whale_alerts`        | `/advanced/whale/alerts`                 | `symbol` (mis: BTC) | `min_usd=1000000`               |
+| `whale_positions`     | `/advanced/whale/positions`              | `exchange`          | `symbol`                        |
+| `etf_flows`           | `/advanced/etf/flows`                    | `asset` (BTC/ETH)   | `window="1d"`                   |
+| `etf_bitcoin`         | `/advanced/etf/bitcoin`                  | –                   | –                               |
+| `market_sentiment`    | `/advanced/market/sentiment`             | –                   | –                               |
+| `market_coins`        | `/advanced/market/coins`                 | –                   | `limit=200`                     |
+| `atr`                 | `/advanced/technical/atr`                | `symbol`            | `tf="1h"`, `len=14`             |
+| `ticker`              | `/advanced/ticker/{symbol}`              | `symbol`            | –                               |
+| `liquidation_heatmap` | `/advanced/liquidation/heatmap/{symbol}` | `symbol`            | `timeframe="1h"`                |
+| `spot_orderbook`      | `/advanced/spot/orderbook/{symbol}`      | `symbol`            | `exchange="binance"`            |
+| `options_oi`          | `/advanced/options/oi/{symbol}`          | `symbol`            | `window="1d"`                   |
+
+---
+
+## OpenAPI (siap tempel ke GPTs Actions)
+
+> Single path, dukung single & batch. (OpenAPI 3.1)
+
+```yaml
+openapi: 3.1.0
+info:
+  title: GPTS Unified Trading API
+  version: "1.0"
+paths:
+  /py/gpts/advanced:
+    post:
+      summary: Unified endpoint for institutional data & analytics
+      description: One endpoint to access whale, ETF, sentiment, ATR, ticker, heatmap, orderbook, options OI.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [op]
+                  properties:
+                    op:
+                      type: string
+                      enum: [whale_alerts, whale_positions, etf_flows, etf_bitcoin, market_sentiment, market_coins, atr, ticker, liquidation_heatmap, spot_orderbook, options_oi]
+                    params:
+                      type: object
+                      additionalProperties: true
+                - type: object
+                  required: [ops]
+                  properties:
+                    ops:
+                      type: array
+                      items:
+                        type: object
+                        required: [op]
+                        properties:
+                          op:
+                            type: string
+                            enum: [whale_alerts, whale_positions, etf_flows, etf_bitcoin, market_sentiment, market_coins, atr, ticker, liquidation_heatmap, spot_orderbook, options_oi]
+                          params:
+                            type: object
+                            additionalProperties: true
+      responses:
+        "200":
+          description: Unified response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      ok: { type: boolean }
+                      op: { type: string }
+                      args: { type: object }
+                      data: { type: object }
+                  - type: object
+                    properties:
+                      ok: { type: boolean }
+                      results:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            op: { type: string }
+                            args: { type: object }
+                            data: { type: object }
+        "4xx":
+          description: Validation error
+        "5xx":
+          description: Upstream error
+```
+
+---
+
+## FastAPI Router (drop-in, langsung jalan)
+
+> Gaya aman: **proxy internal** ke route yang sudah ada pakai `httpx` (nggak perlu ngoprek modul lama).
+
+```python
+# app/routers/gpts_unified.py (pydantic v2 + FastAPI)
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any, List
+import os, httpx
+
+router = APIRouter(prefix="/gpts", tags=["gpts-unified"])
+BASE = f"http://127.0.0.1:{int(os.getenv('PORT', '8000'))}"
+
+OPS_MAP = {
+    "whale_alerts":        {"method":"GET", "path": "/advanced/whale/alerts", "q": ["symbol","min_usd"]},
+    "whale_positions":     {"method":"GET", "path": "/advanced/whale/positions", "q": ["exchange","symbol"]},
+    "etf_flows":           {"method":"GET", "path": "/advanced/etf/flows", "q": ["asset","window"]},
+    "etf_bitcoin":         {"method":"GET", "path": "/advanced/etf/bitcoin", "q": []},
+    "market_sentiment":    {"method":"GET", "path": "/advanced/market/sentiment", "q": []},
+    "market_coins":        {"method":"GET", "path": "/advanced/market/coins", "q": ["limit"]},
+    "atr":                 {"method":"GET", "path": "/advanced/technical/atr", "q": ["symbol","tf","len"]},
+    "ticker":              {"method":"GET", "path": "/advanced/ticker/{symbol}", "p": ["symbol"]},
+    "liquidation_heatmap": {"method":"GET", "path": "/advanced/liquidation/heatmap/{symbol}", "p": ["symbol"], "q": ["timeframe"]},
+    "spot_orderbook":      {"method":"GET", "path": "/advanced/spot/orderbook/{symbol}", "p": ["symbol"], "q": ["exchange"]},
+    "options_oi":          {"method":"GET", "path": "/advanced/options/oi/{symbol}", "p": ["symbol"], "q": ["window"]},
+}
+
+class SingleOp(BaseModel):
+    op: str = Field(..., description="operation name")
+    params: Dict[str, Any] = Field(default_factory=dict)
+
+class UnifiedReq(BaseModel):
+    op: Optional[str] = None
+    params: Optional[Dict[str, Any]] = None
+    ops: Optional[List[SingleOp]] = None
+
+def _build_url(op: str, params: Dict[str, Any]) -> str:
+    spec = OPS_MAP.get(op)
+    if not spec:
+        raise HTTPException(400, f"Unsupported op: {op}")
+    path = spec["path"]
+    # path params
+    for p in spec.get("p", []):
+        if p not in params: raise HTTPException(400, f"Missing path param: {p} for op {op}")
+        path = path.replace("{"+p+"}", str(params[p]))
+    # query params
+    q = {}
+    for key in spec.get("q", []):
+        if key in params and params[key] is not None:
+            q[key] = params[key]
+    # defaults (optional)
+    if op == "whale_alerts":
+        q.setdefault("min_usd", 1_000_000)
+    if op == "market_coins":
+        q.setdefault("limit", 200)
+    if op == "liquidation_heatmap":
+        q.setdefault("timeframe", "1h")
+    if op == "spot_orderbook":
+        q.setdefault("exchange", "binance")
+    if op == "atr":
+        q.setdefault("tf", "1h"); q.setdefault("len", 14)
+    if op == "options_oi":
+        q.setdefault("window", "1d")
+    if op == "etf_flows":
+        q.setdefault("window", "1d")
+    # final url
+    if q:
+        from urllib.parse import urlencode
+        return f"{BASE}{path}?{urlencode(q)}"
+    return f"{BASE}{path}"
+
+async def _call_op(client: httpx.AsyncClient, op: str, params: Dict[str, Any]):
+    url = _build_url(op, params or {})
+    r = await client.request(OPS_MAP[op]["method"], url, timeout=10)
+    r.raise_for_status()
+    return {"op": op, "args": params, "data": r.json()}
+
+@router.post("/advanced")
+async def gpts_unified(req: UnifiedReq):
+    try:
+        async with httpx.AsyncClient() as client:
+            if req.ops:
+                out = []
+                for item in req.ops:
+                    out.append(await _call_op(client, item.op, item.params or {}))
+                return {"ok": True, "results": out}
+            if req.op:
+                res = await _call_op(client, req.op, req.params or {})
+                res.update({"ok": True})
+                return res
+            raise HTTPException(400, "Provide either {op, params} or {ops:[...]}")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(e.response.status_code, f"Upstream error: {e.response.text[:200]}")
+    except Exception as e:
+        raise HTTPException(500, f"Unified error: {str(e)[:200]}")
+```
+
+> Daftarkan router ini di `app/main.py`:
+
+```python
+from app.routers import gpts_unified
+app.include_router(gpts_unified.router)
+```
+
+---
+
+## Contoh Pemakaian
+
+**Single op (ticker):**
+
+```bash
+curl -X POST http://localhost:8000/gpts/advanced \
+  -H "content-type: application/json" \
+  -d '{"op":"ticker","params":{"symbol":"SOL"}}'
+```
+
+**Batch:**
+
+```bash
+curl -X POST http://localhost:8000/gpts/advanced \
+  -H "content-type: application/json" \
+  -d '{
+    "ops":[
+      {"op":"market_sentiment"},
+      {"op":"etf_flows","params":{"asset":"BTC"}},
+      {"op":"liquidation_heatmap","params":{"symbol":"SOL","timeframe":"1h"}},
+      {"op":"spot_orderbook","params":{"symbol":"SOL","exchange":"binance"}}
+    ]
+  }'
+```
+
+---
+
+## Kenapa cara ini cakep buat GPTs?
+
+* **Contract 1 pintu**: GPTs gak bingung banyak path.
+* **Self-documented**: enum `op` + `params` simple; bisa ditambah tanpa mengubah path.
+* **Batch-friendly**: 1 call → banyak data (hemat token & latensi).
+* **Backward-compatible**: layer bawah (advanced endpoints) tetap dipakai.
+
+---
+
+## To-Do (ceklist cepat)
+
+* [ ] Tambah file `gpts_unified.py`, daftar ke FastAPI.
+* [ ] (Opsional) Tambah **rate limit** + **mcache 10–30 dtk** khusus `/gpts/advanced`.
+* [ ] Update **OpenAPI GPTs** ke path ini.
+* [ ] Smoke test single & batch.
+
+Kalau mau, gue bikin **versi Node (gateway 5000)** juga (biar GPTs nembak `POST /api/gpts/advanced`), tinggal proxy ke Python—ping aja.
