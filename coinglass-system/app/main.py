@@ -1,7 +1,10 @@
 import os
 from fastapi import FastAPI
-from prometheus_fastapi_instrumentator import Instrumentator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+except ImportError:
+    Instrumentator = None
 
 # Import router (use try-except for graceful handling)
 try:
@@ -22,14 +25,22 @@ except ImportError as e:
 class Settings(BaseSettings):
     COINGLASS_API_KEY: str | None = None
     PORT: int = int(os.getenv("PORT", "8000"))
-    class Config:
-        env_file = ".env"
+    
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
 app = FastAPI(title="CoinGlass Python Service")
 
-# Setup Prometheus metrics BEFORE startup
-Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+# Setup Prometheus metrics BEFORE startup (with graceful fallback)
+if Instrumentator:
+    try:
+        instrumentor = Instrumentator()
+        instrumentor.instrument(app)
+        instrumentor.expose(app, endpoint="/metrics")
+    except Exception as e:
+        print(f"Warning: Could not initialize Prometheus metrics: {e}")
+else:
+    print("Warning: Prometheus instrumentator not available")
 
 # Include GPT Actions unified router if available
 if gpts_router is not None:

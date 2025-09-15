@@ -1,3 +1,6 @@
+// Set TensorFlow quiet mode to reduce log noise
+process.env.TF_CPP_MIN_LOG_LEVEL = '2';
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -74,7 +77,7 @@ const evictOldEntries = () => {
   // Size-based eviction if still too large
   if (cache.size > MAX_CACHE_SIZE) {
     const entries = Array.from(cache.entries());
-    entries.sort((a, b) => a[1].exp - b[1].exp); // Sort by expiration
+    entries.sort((a, b) => (a[1] as any).exp - (b[1] as any).exp); // Sort by expiration
     
     const toDelete = cache.size - MAX_CACHE_SIZE + 100; // Delete extra + buffer
     for (let i = 0; i < toDelete && i < entries.length; i++) {
@@ -115,6 +118,10 @@ const cacheMiddleware = (ttlMs = 15000) => {
 app.use("/py/advanced/etf", cacheMiddleware(30000)); // 30s cache
 app.use("/py/advanced/market/sentiment", cacheMiddleware(15000)); // 15s cache
 app.use("/py/advanced/liquidation/heatmap", cacheMiddleware(10000)); // 10s cache
+
+// Add micro-cache for SOL complete endpoint (624ms → faster)
+app.use("/api/sol/complete", cacheMiddleware(500)); // 500ms micro-cache
+app.use("/api/btc/complete", cacheMiddleware(500)); // 500ms micro-cache
 
 // 🚀 PROXY MIDDLEWARE WITH CIRCUIT BREAKER
 let circuitBreaker = { failures: 0, lastFailure: null, isOpen: false };

@@ -1,0 +1,62 @@
+Gaspol. Dari log terakhir, sistemmu **sudah on point** — gateway 5000 hidup, proxy Python /py sehat, **OKX jadi source of truth** buat price/orderbook, schedulers start, rate budget jalan, dan request penting 200 OK semua. 🎯
+
+# TL;DR
+
+* ✅ **Sehat:** /py/health, /api/scheduler/status, /gpts/advanced (single & batch) → 200.
+* ✅ **OKX primary:** ticker & orderbook via OKX + WS connect.
+* ⚠️ **Minor:** warning Browserslist, log SymbolMapping agak berisik, WS auto-close saat tak ada klien, endpoint “complete” 624 ms (masih oke, bisa dipoles).
+
+# Apa yang sudah benar (green flags)
+
+* **GPT Actions router loaded** → `/gpts/advanced` siap untuk 1-pintu.
+* **RateBudget** di-initialize (CG 100/min, OKX 500/min, CoinAPI 90/min).
+* **Symbol map → OKX SUCCESS** (beberapa kali) → mapping aman lintas provider.
+* **Enhanced funding & OI** untuk `SOL-USDT-SWAP` berhasil di-load.
+* **Observability** aktif (Prometheus, tracing, Telegram alerter).
+
+# Rapikan dikit biar makin licin (actionable)
+
+1. **Browserslist warning** (kosmetik tapi ganggu log)
+
+   ```bash
+   npx update-browserslist-db@latest
+   ```
+2. **Throttle log “SymbolMapping”** (biar gak spam)
+
+   * Turunkan ke `DEBUG` + throttle 5s (sudah kasih snippet di chat sebelumnya — tinggal tempel).
+3. **OKX WS idle close → keepalive opsional**
+
+   * Saat tak ada klien, WS auto-close 60s ✅.
+   * Kalau kamu butuh latensi minimal untuk aggregator, set keepalive hanya saat scheduler aktif (mis. tetap buka untuk coin yang sedang dianalisis).
+4. **Endpoint `GET /api/sol/complete` = 624 ms**
+
+   * Tambah **micro-cache 300–500 ms** + **singleflight** (gabung request identik) di layer Python/Node untuk cut spike.
+   * (Kamu sudah punya rate budget → micro-cache bakal bantu hemat kuota juga).
+5. **TF log noise** (optional)
+
+   * Jika mau sunyi: `TF_CPP_MIN_LOG_LEVEL=2` di env saat start.
+
+# Quick check (sekali ketik)
+
+```bash
+# 1) Health + scheduler
+curl -sS http://localhost:5000/py/health | jq
+curl -sS http://localhost:5000/api/scheduler/status | jq
+
+# 2) Unified (single + batch)
+curl -sS -X POST http://localhost:5000/py/gpts/advanced \
+  -H 'content-type: application/json' \
+  -d '{"op":"ticker","params":{"symbol":"SOL"}}' | jq
+
+curl -sS -X POST http://localhost:5000/py/gpts/advanced \
+  -H 'content-type: application/json' \
+  -d '{"ops":[{"op":"market_sentiment"},{"op":"etf_flows","params":{"asset":"BTC"}},{"op":"liquidation_heatmap","params":{"symbol":"SOL","timeframe":"1h"}},{"op":"spot_orderbook","params":{"symbol":"SOL","exchange":"binance"}}]}' | jq
+```
+
+# Bonus rekomendasi (opsional tapi cuan)
+
+* **Pre-warm cache** 10–15 detik setelah boot untuk coin yang aktif (BTC/SOL/ETH) agar first-hit <300 ms.
+* **Prometheus counter** untuk rate budget (consumed/remaining) per provider → gampang baca “siapa yang ngidam kuota”.
+* **Quiet mode** untuk log startup (level `INFO` → `WARN`), tinggal naikin lagi kalau debugging.
+
+Kalau mau, gue tuliskan **patch singkat** yang: throttle log mapping, tambah micro-cache + singleflight untuk `ticker/orderbook`, dan pre-warm cache di 10s pasca boot. Sinyal tetap tajam, log gak berisik, kuota aman.
