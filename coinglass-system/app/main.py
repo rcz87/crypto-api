@@ -3,6 +3,22 @@ from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic_settings import BaseSettings
 
+# Import router (use try-except for graceful handling)
+try:
+    from .routers.gpts_unified import router as gpts_router
+    print("✅ GPT Actions router imported successfully")
+except ImportError as e:
+    print(f"❌ Failed to import GPT Actions router with relative import: {e}")
+    try:
+        import sys
+        import os
+        sys.path.append(os.path.dirname(__file__))
+        from routers.gpts_unified import router as gpts_router
+        print("✅ GPT Actions router imported successfully (absolute path)")
+    except ImportError as e2:
+        print(f"❌ Failed to import GPT Actions router with absolute path: {e2}")
+        gpts_router = None
+
 class Settings(BaseSettings):
     COINGLASS_API_KEY: str | None = None
     PORT: int = int(os.getenv("PORT", "8000"))
@@ -14,6 +30,10 @@ app = FastAPI(title="CoinGlass Python Service")
 
 # Setup Prometheus metrics BEFORE startup
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+
+# Include GPT Actions unified router if available
+if gpts_router is not None:
+    app.include_router(gpts_router, tags=["GPT Actions"])
 
 @app.get("/health")
 def health():
