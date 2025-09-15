@@ -3,7 +3,10 @@ from app.core.settings import settings
 
 class CoinglassClient:
     def __init__(self):
-        self.http = Http({"Authorization": f"Bearer {settings.CG_API_KEY}"})
+        self.http = Http({
+            "CG-API-KEY": settings.CG_API_KEY,
+            "accept": "application/json"
+        })
         self.base_url = "https://open-api-v4.coinglass.com"
 
     def oi_ohlc(self, symbol: str, interval: str, aggregated: bool = False):
@@ -37,26 +40,26 @@ class CoinglassClient:
     # === WHALE POSITION ENDPOINTS ===
     def whale_alerts(self, exchange: str = "hyperliquid"):
         """Get whale alerts for large positions >$1M"""
-        url = f"{self.base_url}/hyperliquid/whale-alert"
+        url = f"{self.base_url}/api/hyperliquid/whale-alert"
         response = self.http.get(url)
         return response.json()
 
     def whale_positions(self, exchange: str = "hyperliquid"):
         """Get current whale positions >$1M notional value"""
-        url = f"{self.base_url}/hyperliquid/whale-position"
+        url = f"{self.base_url}/api/hyperliquid/whale-position"
         response = self.http.get(url)
         return response.json()
 
     # === ETF FLOW ENDPOINTS ===
     def bitcoin_etfs(self):
         """Get Bitcoin ETF list and status information"""
-        url = f"{self.base_url}/etfs/bitcoin-etfs"
+        url = f"{self.base_url}/api/etfs/bitcoin-etfs"
         response = self.http.get(url)
         return response.json()
 
     def etf_flows_history(self, days: int = 30):
         """Get historical Bitcoin ETF flow data"""
-        url = f"{self.base_url}/etfs/flows-history"
+        url = f"{self.base_url}/api/etfs/flows-history"
         params = {"days": days}
         response = self.http.get(url, params)
         return response.json()
@@ -64,20 +67,20 @@ class CoinglassClient:
     # === MACRO SENTIMENT ENDPOINTS ===
     def supported_coins(self):
         """Get list of supported cryptocurrencies"""
-        url = f"{self.base_url}/coins"
+        url = f"{self.base_url}/api/coins"
         response = self.http.get(url)
         return response.json()
 
     def market_sentiment(self):
         """Get futures performance metrics and market sentiment"""
-        url = f"{self.base_url}/coins/markets"
+        url = f"{self.base_url}/api/coins/markets"
         response = self.http.get(url)
         return response.json()
 
     # === ADVANCED LIQUIDATION ENDPOINTS ===
     def liquidation_heatmap(self, symbol: str, timeframe: str = "1h"):
         """Get liquidation heatmap data"""
-        url = f"{self.base_url}/futures/liquidation-heatmap"
+        url = f"{self.base_url}/api/futures/liquidation-heatmap"
         params = {"symbol": symbol, "timeframe": timeframe}
         response = self.http.get(url, params)
         return response.json()
@@ -85,7 +88,7 @@ class CoinglassClient:
     # === SPOT MARKET ENDPOINTS ===
     def spot_orderbook(self, symbol: str, exchange: str = "binance"):
         """Get spot market order book data"""
-        url = f"{self.base_url}/spot/orderbook"
+        url = f"{self.base_url}/api/spot/orderbook"
         params = {"symbol": symbol, "exchange": exchange}
         response = self.http.get(url, params)
         return response.json()
@@ -93,7 +96,7 @@ class CoinglassClient:
     # === OPTIONS ENDPOINTS ===
     def options_oi(self, symbol: str = "BTC"):
         """Get options open interest data"""
-        url = f"{self.base_url}/options/open-interest"
+        url = f"{self.base_url}/api/options/open-interest"
         params = {"symbol": symbol}
         response = self.http.get(url, params)
         return response.json()
