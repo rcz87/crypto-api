@@ -4,11 +4,17 @@ info:
   description: |
     🛰️ CryptoSat Intelligence — GPTs-compatible OpenAPI with Production Stability.
     
-    **🚀 PHASE 2: ENHANCED AI READY (Sept 10, 2025):**
+    **🚀 PHASE 2.1: COINGLASS PREMIUM INTELLIGENCE (Sept 15, 2025):**
+    - ✅ **CoinGlass Integration**: 11 premium institutional-grade analytics endpoints
+    - ✅ **Whale Analytics**: Real-time whale detection and positioning intelligence (>$1M notional)
+    - ✅ **Bitcoin ETF Intelligence**: Complete ETF flow tracking and institutional investment analysis
+    - ✅ **Market Sentiment Engine**: Advanced sentiment scoring with fear & greed index analysis
+    - ✅ **Technical Analysis Suite**: ATR volatility, liquidation heatmaps, orderbook depth analysis
+    - ✅ **Options Intelligence**: Comprehensive options open interest analysis with gamma squeeze detection
     - ✅ **Self-Learning AI**: Auto-pattern confidence updates based on trading performance
     - ✅ **Performance Tracking**: Complete trading lifecycle tracking (execution → outcome → learning)
     - ✅ **Neural Networks**: 50 input features with 5-layer architecture
-    - ✅ **Enhanced Analytics**: 21+ endpoint categories with institutional-grade analysis
+    - ✅ **Enhanced Analytics**: 32+ endpoint categories with institutional-grade analysis
     - ✅ **Dynamic Patterns**: 10 advanced patterns with 95% confidence detection
     
     **🧠 Phase 2 Enhanced AI Features:**
@@ -139,7 +145,7 @@ info:
       throw new Error('Max retries exceeded');
     }
     ```
-  version: '5.1.0-gpts-jsonschema2020'
+  version: '5.2.0-gpts-coinglass'
   contact:
     email: admin@guardiansofthegreentoken.com
     url: https://guardiansofthegreentoken.com
@@ -347,6 +353,97 @@ tags:
       **Specialization:** SOL ecosystem focus with multi-asset support
       **Precision:** Professional-grade analysis tools
       **Integration:** TradingView compatible signals
+
+  # ===== COINGLASS PREMIUM INTELLIGENCE =====
+  - name: CoinGlass - Whale Analytics
+    description: |
+      **🐋 CoinGlass Whale Detection & Positioning Intelligence**
+      
+      Real-time whale alerts and institutional positioning data for large trades (>$1M notional value).
+      Professional whale tracking with precise position sizing and unrealized P&L analysis.
+      
+      **Features:**
+      - Real-time whale alerts across major exchanges
+      - Institutional position sizing and tracking
+      - Unrealized P&L analysis for whale positions
+      - Exchange-specific whale activity filtering
+      - Position side filtering (long/short analysis)
+      
+      **Data Sources:** Binance, OKX, Hyperliquid, Bybit, Deribit
+      **Update Frequency:** Real-time whale detection
+      **Threshold:** >$1M notional value positions
+
+  - name: CoinGlass - ETF Intelligence  
+    description: |
+      **💰 Bitcoin ETF Flow Analysis & Institutional Intelligence**
+      
+      Comprehensive Bitcoin ETF flow tracking with historical analysis and institutional 
+      inflow/outflow data. Complete coverage of all major Bitcoin ETFs with AUM and NAV metrics.
+      
+      **ETF Features:**
+      - Historical Bitcoin ETF flow data with customizable periods
+      - Complete Bitcoin ETF listings with AUM, NAV, and pricing
+      - Institutional inflow/outflow analysis and trends
+      - Total market AUM tracking across all Bitcoin ETFs
+      - Net flow calculations and period summaries
+      
+      **Coverage:** All major Bitcoin ETFs (IBIT, FBTC, ARKB, etc.)
+      **Historical Data:** Up to 365 days
+      **Metrics:** AUM, NAV, pricing, flow metrics
+
+  - name: CoinGlass - Market Intelligence
+    description: |
+      **📊 Advanced Market Sentiment & Asset Intelligence**
+      
+      Professional market sentiment analysis with fear & greed index, futures performance,
+      and comprehensive cryptocurrency coverage with feature availability mapping.
+      
+      **Intelligence Features:**
+      - Advanced market sentiment scoring with institutional indicators
+      - Fear & greed index with futures performance metrics
+      - Complete list of supported cryptocurrencies (150+ assets)
+      - Feature availability mapping (funding rates, OI, liquidations)
+      - Exchange coverage mapping for each asset
+      
+      **Sentiment Metrics:** Fear & greed index, institutional sentiment
+      **Asset Coverage:** 150+ cryptocurrencies
+      **Exchange Coverage:** Multi-exchange aggregation
+
+  - name: CoinGlass - Technical Analysis
+    description: |
+      **📈 CoinGlass ATR Volatility & Real-Time Price Intelligence**
+      
+      Advanced Technical Range (ATR) volatility analysis with multiple timeframes and
+      real-time ticker data including comprehensive market statistics and indicators.
+      
+      **Technical Features:**
+      - ATR volatility calculations with customizable periods
+      - Multiple timeframe analysis (5m to 1D)
+      - Real-time ticker data with market statistics
+      - Volatility level classification (low/medium/high)
+      - Price change analysis and market cap tracking
+      
+      **Timeframes:** 5m, 15m, 30m, 1H, 4H, 1D
+      **Volatility Analysis:** ATR percentage and classification
+      **Real-time Data:** Price, volume, changes, market cap
+
+  - name: CoinGlass - Advanced Analytics
+    description: |
+      **🎯 Liquidation Clusters, Orderbook Depth & Options Intelligence**
+      
+      Professional-grade liquidation heatmaps, deep spot orderbook analysis, and comprehensive 
+      options open interest tracking with strike price distribution and expiration analysis.
+      
+      **Advanced Features:**
+      - Liquidation cluster heatmaps with risk level analysis
+      - Deep spot market orderbook with liquidity distribution
+      - Options open interest with call/put ratios
+      - Strike price distribution and expiration analysis
+      - Market depth analysis with spread calculations
+      
+      **Liquidation Analysis:** Risk levels, volumes, price ranges
+      **Orderbook Depth:** Configurable levels (5-100)
+      **Options Coverage:** Call/put ratios, strike distribution
 
   # ===== SYSTEM & INFRASTRUCTURE =====
   - name: System Monitoring
@@ -1981,6 +2078,918 @@ paths:
                             type: string
                             enum: ["operational", "degraded", "down"]
                             example: "operational"
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  # ===== COINGLASS WHALE ANALYTICS =====
+  /py/advanced/whale/alerts:
+    get:
+      operationId: getCoinGlassWhaleAlerts
+      summary: Get real-time whale alerts from CoinGlass (Premium Access)
+      description: "🐋 Real-time whale alerts for large trades (>$1M notional value) across major exchanges including position sizes, trading volumes, and institutional flow indicators. Premium CoinGlass intelligence with multi-exchange coverage."
+      tags: [CoinGlass - Whale Analytics]
+      parameters:
+        - name: symbol
+          in: query
+          description: Trading symbol to filter whale alerts (e.g., BTC, ETH, SOL)
+          required: false
+          schema:
+            type: string
+            example: "BTC"
+        - name: exchange
+          in: query
+          description: Exchange to filter whale alerts (binance, okx, hyperliquid, bybit, deribit)
+          required: false
+          schema:
+            type: string
+            enum: ["binance", "okx", "hyperliquid", "bybit", "deribit"]
+            example: "hyperliquid"
+      responses:
+        '200':
+          description: Real-time whale alerts data
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        symbol: { type: string, example: "BTC" }
+                        exchange: { type: string, example: "hyperliquid" }
+                        side: { type: string, enum: ["buy", "sell"], example: "buy" }
+                        size: { type: string, example: "15.4567", description: "Position size in base currency" }
+                        notional_usd: { type: string, example: "1247893.45", description: "Notional value in USD" }
+                        price: { type: string, example: "58392.45" }
+                        timestamp: { type: string, format: date-time }
+                        trade_id: { type: string, example: "WA-BTC-2025091500001" }
+                        is_liquidation: { type: boolean, example: false }
+                  total: { type: integer, example: 15, description: "Total number of whale alerts" }
+                  timestamp: { type: string, format: date-time }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503':
+          description: CoinGlass service temporarily unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "CoinGlass service unavailable" }
+                  timestamp: { type: string, format: date-time }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /py/advanced/whale/positions:
+    get:
+      operationId: getCoinGlassWhalePositions
+      summary: Get whale positioning data by exchange (Premium Access)
+      description: "🐋 Current whale positions (>$1M notional value) with unrealized P&L analysis, position sizing, and institutional flow tracking across major exchanges. Professional whale positioning intelligence."
+      tags: [CoinGlass - Whale Analytics]
+      parameters:
+        - name: symbol
+          in: query
+          description: Trading symbol to filter positions (e.g., BTC, ETH, SOL)
+          required: false
+          schema:
+            type: string
+            example: "BTC"
+        - name: exchange
+          in: query
+          description: Exchange to filter positions (binance, okx, hyperliquid, bybit, deribit)
+          required: false
+          schema:
+            type: string
+            enum: ["binance", "okx", "hyperliquid", "bybit", "deribit"]
+            example: "hyperliquid"
+        - name: side
+          in: query
+          description: Position side to filter (long or short positions)
+          required: false
+          schema:
+            type: string
+            enum: ["long", "short"]
+            example: "long"
+      responses:
+        '200':
+          description: Current whale positions data
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        symbol: { type: string, example: "BTC" }
+                        exchange: { type: string, example: "hyperliquid" }
+                        side: { type: string, enum: ["long", "short"], example: "long" }
+                        size: { type: string, example: "25.7834", description: "Position size in base currency" }
+                        notional_usd: { type: string, example: "1456789.23", description: "Position notional value in USD" }
+                        entry_price: { type: string, example: "56523.45" }
+                        current_price: { type: string, example: "58392.45" }
+                        unrealized_pnl_usd: { type: string, example: "48567.89", description: "Unrealized P&L in USD" }
+                        unrealized_pnl_pct: { type: string, example: "3.34", description: "Unrealized P&L percentage" }
+                        margin_ratio: { type: string, example: "0.15", description: "Position margin ratio" }
+                        liquidation_price: { type: string, example: "45234.67" }
+                        timestamp: { type: string, format: date-time }
+                        position_id: { type: string, example: "WP-BTC-HYP-2025091500001" }
+                  total: { type: integer, example: 8, description: "Total number of whale positions" }
+                  total_notional: { type: string, example: "45678901.23", description: "Total notional value of all positions in USD" }
+                  timestamp: { type: string, format: date-time }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503':
+          description: CoinGlass service temporarily unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "CoinGlass service unavailable" }
+                  timestamp: { type: string, format: date-time }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  # ===== COINGLASS ETF INTELLIGENCE =====
+  /py/advanced/etf/flows:
+    get:
+      operationId: getCoinGlassETFFlows
+      summary: Get Bitcoin ETF flow data with historical analysis (Premium Access)
+      description: "💰 Historical Bitcoin ETF flow tracking with institutional inflows/outflows analysis. Comprehensive ETF flow data with customizable time periods, net flow calculations, and institutional investment trend analysis."
+      tags: [CoinGlass - ETF Intelligence]
+      parameters:
+        - name: days
+          in: query
+          description: Number of days of historical ETF flow data to retrieve (1-365 days)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+            example: 30
+        - name: asset
+          in: query
+          description: Asset to filter ETF flows (currently supports BTC, more assets coming soon)
+          required: false
+          schema:
+            type: string
+            default: "BTC"
+            example: "BTC"
+      responses:
+        '200':
+          description: Bitcoin ETF flow data with historical analysis
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date: { type: string, format: date, example: "2025-09-15" }
+                        etf_ticker: { type: string, example: "IBIT", description: "ETF ticker symbol" }
+                        etf_name: { type: string, example: "iShares Bitcoin Trust", description: "Full ETF name" }
+                        inflow: { type: string, example: "156789012.34", description: "Daily inflow in USD" }
+                        outflow: { type: string, example: "-45678901.23", description: "Daily outflow in USD" }
+                        net_flow: { type: string, example: "111110111.11", description: "Net flow (inflow - outflow)" }
+                        aum: { type: string, example: "23456789012.45", description: "Assets Under Management" }
+                        nav_per_share: { type: string, example: "58.34", description: "Net Asset Value per share" }
+                        shares_outstanding: { type: string, example: "456789012", description: "Total shares outstanding" }
+                        premium_discount: { type: string, example: "0.02", description: "Premium/discount to NAV %" }
+                  summary:
+                    type: object
+                    properties:
+                      total_inflow: { type: string, example: "2847392847.50", description: "Total inflows for the period" }
+                      total_outflow: { type: string, example: "-294739284.75", description: "Total outflows for the period" }
+                      net_flow: { type: string, example: "2552653562.75", description: "Net flow for the period" }
+                      period_days: { type: integer, example: 30, description: "Analysis period in days" }
+                      avg_daily_flow: { type: string, example: "85088452.09", description: "Average daily net flow" }
+                  timestamp: { type: string, format: date-time }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503':
+          description: CoinGlass ETF service temporarily unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "CoinGlass ETF service unavailable" }
+                  timestamp: { type: string, format: date-time }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /py/advanced/etf/bitcoin:
+    get:
+      operationId: getCoinGlassBitcoinETFs
+      summary: Get Bitcoin ETF specific data and listings (Premium Access)
+      description: "💰 Comprehensive Bitcoin ETF data including AUM, NAV, pricing, and flow metrics for all major Bitcoin ETFs. Complete market overview with total market statistics and institutional investment tracking."
+      tags: [CoinGlass - ETF Intelligence]
+      responses:
+        '200':
+          description: Complete Bitcoin ETF market data
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ticker: { type: string, example: "IBIT", description: "ETF ticker symbol" }
+                        name: { type: string, example: "iShares Bitcoin Trust", description: "Full ETF name" }
+                        issuer: { type: string, example: "BlackRock", description: "ETF issuer" }
+                        launch_date: { type: string, format: date, example: "2024-01-11" }
+                        aum: { type: string, example: "23456789012.45", description: "Assets Under Management in USD" }
+                        nav_per_share: { type: string, example: "58.34", description: "Net Asset Value per share" }
+                        market_price: { type: string, example: "58.36", description: "Current market price" }
+                        shares_outstanding: { type: string, example: "456789012", description: "Total shares outstanding" }
+                        daily_volume: { type: string, example: "876543210.12", description: "Average daily trading volume" }
+                        expense_ratio: { type: string, example: "0.25", description: "Annual expense ratio %" }
+                        premium_discount: { type: string, example: "0.03", description: "Premium/discount to NAV %" }
+                        ytd_performance: { type: string, example: "45.67", description: "Year-to-date performance %" }
+                        net_inflows_ytd: { type: string, example: "8567890123.45", description: "YTD net inflows" }
+                        bitcoin_holdings: { type: string, example: "425678.9012", description: "Bitcoin holdings in BTC" }
+                  total_aum: { type: string, example: "67849203847.23", description: "Total AUM across all Bitcoin ETFs" }
+                  total_etfs: { type: integer, example: 11, description: "Total number of Bitcoin ETFs" }
+                  market_leaders:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rank: { type: integer, example: 1 }
+                        ticker: { type: string, example: "IBIT" }
+                        aum: { type: string, example: "23456789012.45" }
+                        market_share_pct: { type: string, example: "34.56" }
+                  timestamp: { type: string, format: date-time }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503':
+          description: CoinGlass ETF service temporarily unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "CoinGlass ETF service unavailable" }
+                  timestamp: { type: string, format: date-time }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  # ===== COINGLASS MARKET INTELLIGENCE =====
+  /py/advanced/market/sentiment:
+    get:
+      operationId: getCoinGlassMarketSentiment
+      summary: Get advanced market sentiment scoring (Premium Access)
+      description: "📊 Advanced market sentiment analysis including fear & greed index, futures performance metrics, institutional sentiment indicators, and comprehensive market mood assessment for professional trading decisions."
+      tags: [CoinGlass - Market Intelligence]
+      responses:
+        '200':
+          description: Comprehensive market sentiment data
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      fear_greed_index:
+                        type: object
+                        properties:
+                          value: { type: integer, example: 72, description: "Fear & Greed Index value (0-100)" }
+                          text: { type: string, example: "Greed", description: "Sentiment classification" }
+                          classification: { type: string, enum: ["Extreme Fear", "Fear", "Neutral", "Greed", "Extreme Greed"], example: "Greed" }
+                      institutional_sentiment:
+                        type: object
+                        properties:
+                          score: { type: integer, example: 65, description: "Institutional sentiment score (0-100)" }
+                          trend: { type: string, enum: ["bullish", "bearish", "neutral"], example: "bullish" }
+                          confidence: { type: string, example: "high", description: "Signal confidence level" }
+                      futures_performance:
+                        type: object
+                        properties:
+                          btc_futures_basis: { type: string, example: "0.25", description: "BTC futures basis %" }
+                          funding_rates_avg: { type: string, example: "0.0001", description: "Average funding rates" }
+                          open_interest_change_24h: { type: string, example: "5.67", description: "OI change 24h %" }
+                          long_short_ratio: { type: string, example: "1.35", description: "Long/Short ratio" }
+                      market_indicators:
+                        type: object
+                        properties:
+                          volatility_index: { type: string, example: "45.23", description: "Market volatility index" }
+                          momentum_score: { type: integer, example: 78, description: "Market momentum (0-100)" }
+                          trend_strength: { type: string, enum: ["weak", "moderate", "strong"], example: "strong" }
+                          support_resistance_levels:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                level: { type: string, example: "57500.00" }
+                                type: { type: string, enum: ["support", "resistance"] }
+                                strength: { type: string, enum: ["weak", "moderate", "strong"] }
+                      overall_sentiment:
+                        type: object
+                        properties:
+                          score: { type: integer, example: 68, description: "Overall sentiment score (0-100)" }
+                          recommendation: { type: string, enum: ["strong_sell", "sell", "hold", "buy", "strong_buy"], example: "buy" }
+                          risk_level: { type: string, enum: ["low", "medium", "high"], example: "medium" }
+                  timestamp: { type: string, format: date-time }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503':
+          description: CoinGlass market sentiment service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "CoinGlass sentiment service unavailable" }
+                  timestamp: { type: string, format: date-time }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /py/advanced/market/coins:
+    get:
+      operationId: getCoinGlassSupportedCoins
+      summary: Get list of supported cryptocurrencies (Premium Access)
+      description: "📊 Complete list of cryptocurrencies supported by CoinGlass (150+ assets) with feature availability mapping, exchange coverage, and comprehensive asset intelligence for institutional analysis."
+      tags: [CoinGlass - Market Intelligence]
+      responses:
+        '200':
+          description: Comprehensive supported cryptocurrencies data
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        symbol: { type: string, example: "BTC", description: "Cryptocurrency symbol" }
+                        name: { type: string, example: "Bitcoin", description: "Full cryptocurrency name" }
+                        market_cap_rank: { type: integer, example: 1, description: "Market cap ranking" }
+                        supported_features:
+                          type: array
+                          items: { type: string }
+                          example: ["funding_rate", "open_interest", "liquidation", "whale_alerts", "options"]
+                          description: "Available CoinGlass features for this asset"
+                        exchanges:
+                          type: array
+                          items: { type: string }
+                          example: ["binance", "okx", "bybit", "hyperliquid", "deribit"]
+                          description: "Exchanges supporting this asset"
+                        categories:
+                          type: array
+                          items: { type: string }
+                          example: ["cryptocurrency", "store-of-value", "digital-currency"]
+                          description: "Asset categories"
+                        market_data:
+                          type: object
+                          properties:
+                            current_price: { type: string, example: "58392.45" }
+                            market_cap: { type: string, example: "1145678901234.56" }
+                            total_volume_24h: { type: string, example: "23456789012.34" }
+                            price_change_24h_pct: { type: string, example: "2.34" }
+                        derivatives_support:
+                          type: object
+                          properties:
+                            futures: { type: boolean, example: true }
+                            perpetuals: { type: boolean, example: true }
+                            options: { type: boolean, example: true }
+                            lending: { type: boolean, example: true }
+                        data_coverage:
+                          type: object
+                          properties:
+                            historical_data_days: { type: integer, example: 2190, description: "Days of historical data" }
+                            real_time_data: { type: boolean, example: true }
+                            whale_tracking: { type: boolean, example: true }
+                            institutional_flow: { type: boolean, example: true }
+                  total: { type: integer, example: 150, description: "Total supported cryptocurrencies" }
+                  categories:
+                    type: object
+                    properties:
+                      major_coins: { type: integer, example: 10 }
+                      defi_tokens: { type: integer, example: 45 }
+                      layer2_tokens: { type: integer, example: 25 }
+                      meme_coins: { type: integer, example: 20 }
+                      other: { type: integer, example: 50 }
+                  exchanges_covered: 
+                    type: array
+                    items: { type: string }
+                    example: ["binance", "okx", "bybit", "hyperliquid", "deribit", "coinbase", "kraken"]
+                  timestamp: { type: string, format: date-time }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503':
+          description: CoinGlass supported coins service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "CoinGlass coins service unavailable" }
+                  timestamp: { type: string, format: date-time }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  # ===== COINGLASS TECHNICAL ANALYSIS =====
+  /py/advanced/technical/atr:
+    get:
+      operationId: getCoinGlassATRData
+      summary: Get ATR volatility data for symbols (Premium Access)
+      description: "📈 Average True Range (ATR) volatility analysis with multiple timeframes and customizable periods. Professional volatility classification and real-time market condition assessment for risk management."
+      tags: [CoinGlass - Technical Analysis]
+      parameters:
+        - name: symbol
+          in: query
+          description: Trading symbol for ATR calculation (e.g., BTC, ETH, SOL)
+          required: true
+          schema:
+            type: string
+            example: "BTC"
+        - name: timeframe
+          in: query
+          description: Timeframe for ATR volatility calculation
+          required: false
+          schema:
+            type: string
+            enum: ["5m", "15m", "30m", "1H", "4H", "1D"]
+            default: "1H"
+            example: "1H"
+        - name: period
+          in: query
+          description: ATR calculation period (1-200 periods)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 14
+            example: 14
+      responses:
+        '200':
+          description: ATR volatility data with market classification
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      symbol: { type: string, example: "BTC", description: "Trading symbol" }
+                      timeframe: { type: string, example: "1H", description: "Analysis timeframe" }
+                      period: { type: integer, example: 14, description: "ATR calculation period" }
+                      atr: { type: string, example: "1247.83", description: "Average True Range value" }
+                      atr_percentage: { type: string, example: "2.14", description: "ATR as percentage of price" }
+                      volatility_level: { type: string, enum: ["low", "medium", "high"], example: "medium", description: "Volatility classification" }
+                      price: { type: string, example: "58392.45", description: "Current asset price" }
+                      historical_context:
+                        type: object
+                        properties:
+                          atr_percentile_30d: { type: string, example: "67.8", description: "ATR percentile vs 30-day history" }
+                          volatility_trend: { type: string, enum: ["increasing", "decreasing", "stable"], example: "increasing" }
+                          risk_assessment: { type: string, enum: ["low_risk", "moderate_risk", "high_risk"], example: "moderate_risk" }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Invalid symbol or parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "Invalid symbol or parameters" }
+                  timestamp: { type: string, format: date-time }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503':
+          description: CoinGlass technical service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "CoinGlass technical service unavailable" }
+                  timestamp: { type: string, format: date-time }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /py/advanced/ticker/{symbol}:
+    get:
+      operationId: getCoinGlassTickerData
+      summary: Get real-time ticker data for specific symbol (Premium Access)
+      description: "📈 Real-time ticker data with comprehensive market statistics including price, volume, market cap, open interest, and trading metrics for professional market analysis."
+      tags: [CoinGlass - Technical Analysis]
+      parameters:
+        - name: symbol
+          in: path
+          description: Trading symbol for ticker data (e.g., BTC, ETH, SOL)
+          required: true
+          schema:
+            type: string
+            example: "BTC"
+      responses:
+        '200':
+          description: Real-time comprehensive ticker data
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      symbol: { type: string, example: "BTC", description: "Trading symbol" }
+                      price: { type: string, example: "58392.45", description: "Current price" }
+                      change24h: { type: string, example: "1247.83", description: "24h price change in USD" }
+                      changePercent24h: { type: string, example: "2.18", description: "24h price change percentage" }
+                      volume24h: { type: string, example: "1456789012.34", description: "24h trading volume" }
+                      high24h: { type: string, example: "59150.00", description: "24h high price" }
+                      low24h: { type: string, example: "56890.25", description: "24h low price" }
+                      marketCap: { type: string, example: "1145678901234.56", description: "Market capitalization" }
+                      openInterest: { type: string, example: "34567890123.45", description: "Total open interest" }
+                      fundingRate: { type: string, example: "0.0001", description: "Current funding rate" }
+                      nextFundingTime: { type: string, format: date-time, description: "Next funding time" }
+                      indicators:
+                        type: object
+                        properties:
+                          rsi_14: { type: string, example: "67.34", description: "14-period RSI" }
+                          sma_50: { type: string, example: "57234.56", description: "50-period SMA" }
+                          ema_20: { type: string, example: "58123.45", description: "20-period EMA" }
+                          bollinger_upper: { type: string, example: "60234.67", description: "Bollinger upper band" }
+                          bollinger_lower: { type: string, example: "56123.45", description: "Bollinger lower band" }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Invalid symbol
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "Invalid symbol" }
+                  timestamp: { type: string, format: date-time }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503':
+          description: CoinGlass ticker service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "CoinGlass ticker service unavailable" }
+                  timestamp: { type: string, format: date-time }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  # ===== COINGLASS ADVANCED ANALYTICS =====
+  /py/advanced/liquidation/heatmap/{symbol}:
+    get:
+      operationId: getCoinGlassLiquidationHeatmap
+      summary: Get liquidation cluster heatmaps for specific symbol (Premium Access)
+      description: "🎯 Liquidation cluster analysis with risk level assessment, potential liquidation volumes, and price range analysis. Professional liquidation heatmap for institutional risk management."
+      tags: [CoinGlass - Advanced Analytics]
+      parameters:
+        - name: symbol
+          in: path
+          description: Trading symbol for liquidation heatmap analysis (e.g., BTC, ETH, SOL)
+          required: true
+          schema:
+            type: string
+            example: "BTC"
+        - name: range
+          in: query
+          description: Price range percentage for heatmap analysis (1-20%)
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 20
+            default: 10
+            example: 10
+      responses:
+        '200':
+          description: Comprehensive liquidation heatmap data
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      symbol: { type: string, example: "BTC", description: "Trading symbol" }
+                      current_price: { type: string, example: "58392.45", description: "Current asset price" }
+                      liquidation_levels:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            price: { type: string, example: "57000.00", description: "Liquidation price level" }
+                            liq_volume: { type: string, example: "145678901.23", description: "Liquidation volume at this level" }
+                            side: { type: string, enum: ["long", "short"], example: "long", description: "Position side to be liquidated" }
+                            risk_level: { type: string, enum: ["low", "medium", "high"], example: "high", description: "Risk level classification" }
+                            distance_pct: { type: string, example: "-2.38", description: "Distance from current price %" }
+                      total_long_liq: { type: string, example: "567890123.45", description: "Total long liquidations volume" }
+                      total_short_liq: { type: string, example: "234567890.12", description: "Total short liquidations volume" }
+                      price_range:
+                        type: object
+                        properties:
+                          min: { type: string, example: "52553.21", description: "Minimum price in analysis range" }
+                          max: { type: string, example: "64231.70", description: "Maximum price in analysis range" }
+                      heatmap_summary:
+                        type: object
+                        properties:
+                          highest_risk_level: { type: string, example: "57000.00", description: "Price level with highest liquidation risk" }
+                          total_at_risk_volume: { type: string, example: "802457014.57", description: "Total volume at risk" }
+                          critical_levels_count: { type: integer, example: 5, description: "Number of critical liquidation levels" }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Invalid symbol or parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "Invalid symbol or parameters" }
+                  timestamp: { type: string, format: date-time }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503':
+          description: CoinGlass liquidation service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "CoinGlass liquidation service unavailable" }
+                  timestamp: { type: string, format: date-time }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /py/advanced/spot/orderbook/{symbol}:
+    get:
+      operationId: getCoinGlassSpotOrderbook
+      summary: Get spot orderbook data for specific symbol (Premium Access)
+      description: "🎯 Deep spot market orderbook with bid/ask levels, market depth analysis, liquidity distribution, and spread metrics for professional order flow analysis."
+      tags: [CoinGlass - Advanced Analytics]
+      parameters:
+        - name: symbol
+          in: path
+          description: Trading symbol for orderbook data (e.g., BTC, ETH, SOL)
+          required: true
+          schema:
+            type: string
+            example: "BTC"
+        - name: depth
+          in: query
+          description: Orderbook depth level (5, 10, 20, 50, or 100 levels)
+          required: false
+          schema:
+            type: integer
+            enum: [5, 10, 20, 50, 100]
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: Deep spot market orderbook analysis
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      symbol: { type: string, example: "BTC", description: "Trading symbol" }
+                      bids:
+                        type: array
+                        items:
+                          type: array
+                          items: { type: string }
+                          minItems: 2
+                          maxItems: 2
+                        example: [["58390.00", "1.2345"], ["58385.50", "0.8765"]]
+                        description: "Bid levels [price, quantity]"
+                      asks:
+                        type: array
+                        items:
+                          type: array
+                          items: { type: string }
+                          minItems: 2
+                          maxItems: 2
+                        example: [["58395.00", "2.1234"], ["58400.25", "1.5432"]]
+                        description: "Ask levels [price, quantity]"
+                      spread: { type: string, example: "5.00", description: "Bid-ask spread in price units" }
+                      spread_percentage: { type: string, example: "0.0086", description: "Bid-ask spread as percentage" }
+                      market_depth:
+                        type: object
+                        properties:
+                          bid_depth_1pct: { type: string, example: "45.67", description: "Bid depth within 1% of mid price" }
+                          ask_depth_1pct: { type: string, example: "38.92", description: "Ask depth within 1% of mid price" }
+                          total_bid_volume: { type: string, example: "156.789", description: "Total bid volume" }
+                          total_ask_volume: { type: string, example: "134.567", description: "Total ask volume" }
+                          liquidity_score: { type: string, example: "8.7", description: "Market liquidity score (0-10)" }
+                      orderbook_analysis:
+                        type: object
+                        properties:
+                          mid_price: { type: string, example: "58392.50", description: "Mid price calculation" }
+                          weighted_mid: { type: string, example: "58392.78", description: "Volume-weighted mid price" }
+                          imbalance_ratio: { type: string, example: "1.16", description: "Bid/ask volume imbalance ratio" }
+                          market_condition: { type: string, enum: ["liquid", "moderate", "thin"], example: "liquid" }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Invalid symbol or parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "Invalid symbol or parameters" }
+                  timestamp: { type: string, format: date-time }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503':
+          description: CoinGlass spot orderbook service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "CoinGlass orderbook service unavailable" }
+                  timestamp: { type: string, format: date-time }
+        '500': { $ref: '#/components/responses/ProblemResponse' }
+
+  /py/advanced/options/oi/{symbol}:
+    get:
+      operationId: getCoinGlassOptionsOpenInterest
+      summary: Get options open interest for specific symbol (Premium Access)
+      description: "🎯 Comprehensive options open interest analysis with call/put ratios, strike price distribution, expiration analysis, and institutional options flow intelligence."
+      tags: [CoinGlass - Advanced Analytics]
+      parameters:
+        - name: symbol
+          in: path
+          description: Trading symbol for options OI analysis (e.g., BTC, ETH, SOL)
+          required: true
+          schema:
+            type: string
+            example: "BTC"
+        - name: expiry
+          in: query
+          description: Options expiry filter (YYYY-MM-DD format, e.g., 2025-01-31)
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2025-01-31"
+      responses:
+        '200':
+          description: Comprehensive options open interest analysis
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      symbol: { type: string, example: "BTC", description: "Trading symbol" }
+                      current_price: { type: string, example: "58392.45", description: "Current underlying asset price" }
+                      total_call_oi: { type: string, example: "1567890.123", description: "Total call options open interest" }
+                      total_put_oi: { type: string, example: "987654.321", description: "Total put options open interest" }
+                      call_put_ratio: { type: string, example: "1.59", description: "Call/Put open interest ratio" }
+                      strike_distribution:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            strike: { type: string, example: "60000", description: "Strike price" }
+                            call_oi: { type: string, example: "25678.90", description: "Call OI at this strike" }
+                            put_oi: { type: string, example: "15432.10", description: "Put OI at this strike" }
+                            total_oi: { type: string, example: "41111.00", description: "Total OI at this strike" }
+                            moneyness: { type: string, example: "OTM", description: "ITM/ATM/OTM classification" }
+                            delta_call: { type: string, example: "0.35", description: "Call option delta" }
+                            delta_put: { type: string, example: "-0.65", description: "Put option delta" }
+                      expiration_analysis:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            expiry_date: { type: string, format: date, example: "2025-01-31" }
+                            days_to_expiry: { type: integer, example: 45 }
+                            call_oi: { type: string, example: "456789.012" }
+                            put_oi: { type: string, example: "234567.890" }
+                            total_oi: { type: string, example: "691356.902" }
+                            call_put_ratio: { type: string, example: "1.95" }
+                            max_pain: { type: string, example: "58000", description: "Max pain strike price" }
+                      key_levels:
+                        type: object
+                        properties:
+                          max_call_strike: { type: string, example: "65000", description: "Strike with highest call OI" }
+                          max_put_strike: { type: string, example: "55000", description: "Strike with highest put OI" }
+                          gamma_squeeze_level: { type: string, example: "62000", description: "Potential gamma squeeze level" }
+                          put_wall: { type: string, example: "52000", description: "Major put support level" }
+                      market_sentiment:
+                        type: object
+                        properties:
+                          bias: { type: string, enum: ["bullish", "bearish", "neutral"], example: "bullish" }
+                          confidence: { type: string, enum: ["low", "medium", "high"], example: "high" }
+                          institutional_flow: { type: string, enum: ["inflow", "outflow", "neutral"], example: "inflow" }
+                          volatility_expectation: { type: string, enum: ["low", "medium", "high"], example: "medium" }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Invalid symbol or parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "Invalid symbol or parameters" }
+                  timestamp: { type: string, format: date-time }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503':
+          description: CoinGlass options service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "CoinGlass options service unavailable" }
+                  timestamp: { type: string, format: date-time }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
 components:
