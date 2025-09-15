@@ -1,0 +1,190 @@
+Nicee—lognya udah “kinclong”, semua 200 OK. Tapi keliatan **satu gejala**: di `10:42:25` ada **spam panggilan `ticker SOL`** + **log SymbolMapping berulang** (“SOL → SOL (CoinGlass) for ticker”). Itu bukan bug fatal, tapi:
+
+* Bikin log **berisik** (noise).
+* Ngabisin **rate budget** vendor kalau dibiarkan.
+* Indikasi **micro-burst** dari `/gpts/advanced` (smoke/rate test kamu kemungkinan nembak berkali-kali).
+
+Di bawah ini ringkasan makna log + patch singkat biar rapi & hemat.
+
+---
+
+## TL;DR
+
+* Sistem sehat ✅; aggregator & scheduler 200 ✅.
+* Repetisi `ticker SOL` = **burst** dari `POST /gpts/advanced` → **mapping log** kebanyakan.
+* Solusi: **turunkan log level**, **micro-cache 250–500ms**, **request coalescing (singleflight)**, dan **pastikan `ticker` pakai sumber “source of truth” (OKX)**.
+
+---
+
+## Apa yang terjadi di log-mu (intinya)
+
+| Baris                                                                         | Arti                                                                            |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `GET /api/signal/institutional/BTC 200`                                       | Aggregator sehat, balikin bias BTC ✅                                            |
+| `GET /api/scheduler/status 200`                                               | Scheduler jalan ✅                                                               |
+| Banyak `POST /gpts/advanced 200`                                              | Tes unified endpoint (termasuk burst) ✅                                         |
+| Banyak `GET /advanced/ticker/SOL 200` + `SymbolMapping SOL → SOL (CoinGlass)` | Permintaan `ticker SOL` beruntun; mapping di-log **INFO** tiap call → **noisy** |
+
+> Catatan: Kita sebelumnya set **OKX = source of truth** untuk price/orderbook. Kalau sekarang `ticker` ditarik dari **CoinGlass**, saran: **alihkeun ke OKX** untuk konsistensi latensi & eksekusi.
+
+---
+
+## Quick Fix (langsung tempel, aman buat produksi)
+
+### 1) Turunkan & throttle log “SymbolMapping”
+
+**Python (FastAPI)**
+
+```python
+# app/core/logging.py
+import time, logging
+_log_seen = {}
+
+class ThrottleFilter(logging.Filter):
+    def __init__(self, ttl=5.0):
+        super().__init__()
+        self.ttl = ttl
+    def filter(self, record):
+        key = (record.name, getattr(record, "msg", ""))
+        now = time.time()
+        last = _log_seen.get(key, 0)
+        if now - last < self.ttl:
+            return False
+        _log_seen[key] = now
+        return True
+
+logger = logging.getLogger("symbol_mapping")
+logger.setLevel(logging.DEBUG)     # turunkan dari INFO
+logger.addFilter(ThrottleFilter(ttl=5.0))
+```
+
+```python
+# pakai begini saat mapping:
+logger.debug("[SymbolMapping] %s → %s (%s)", src_sym, mapped, provider)
+```
+
+### 2) Micro-cache untuk `ticker` (250–500 ms) + **singleflight**
+
+**Python**
+
+```python
+# app/core/mcache.py
+import time, asyncio
+_cache, _locks = {}, {}
+
+def _key(path, q): return f"{path}?{sorted(q.items())}"
+
+async def singleflight(key: str):
+    lock = _locks.setdefault(key, asyncio.Lock())
+    await lock.acquire()
+    return lock
+
+def get_cached(key, ttl_ms=300):
+    ent = _cache.get(key)
+    if not ent: return None
+    if time.time() - ent["ts"] > ttl_ms/1000: return None
+    return ent["data"]
+
+def set_cached(key, data): _cache[key] = {"ts": time.time(), "data": data}
+```
+
+```python
+# app/routers/advanced_ticker.py
+from app.core.mcache import _key, get_cached, set_cached, singleflight
+
+@router.get("/advanced/ticker/{symbol}")
+async def ticker(symbol: str):
+    path = f"/advanced/ticker/{symbol}"
+    q = {}  # isi kalau ada
+    key = _key(path, q)
+    if (hit := get_cached(key, ttl_ms=300)):  # 300 ms
+        return hit
+
+    lock = await singleflight(key)
+    try:
+        if (hit := get_cached(key, ttl_ms=300)):
+            return hit
+        # --- panggil provider di sini (lihat poin 3) ---
+        data = await okx_adapter.ticker(symbol)  # source of truth
+        set_cached(key, data)
+        return data
+    finally:
+        lock.release()
+```
+
+### 3) Pastikan `ticker` → **OKX sebagai primary**
+
+**Kenapa**: konsisten dengan eksekusi & orderbook, lebih cepat/real-time.
+**Fallback read-only**: CoinAPI (bukan CoinGlass) kalau OKX down.
+
+```python
+# app/adapters/ticker_service.py
+async def ticker(symbol: str):
+    try:
+        return await okx.ticker(symbol)           # primary
+    except Exception:
+        return await coinapi.ticker(symbol)       # read-only fallback
+```
+
+> Kalau sengaja mau tetap pakai CoinGlass untuk `ticker` (nggak disaranin), set micro-cache & singleflight di atas tetap wajib biar hemat rate.
+
+### 4) Gateway Node: **rate-limit** & **microcache** untuk `/py/gpts/advanced`
+
+**Node (Express)**
+
+```js
+import rateLimit from "express-rate-limit";
+const rl = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true, legacyHeaders: false });
+app.use("/py/gpts/advanced", rl);
+
+// microcache 500ms
+const burstCache = new Map();
+app.post("/py/gpts/advanced", (req, res, next) => {
+  const key = JSON.stringify(req.body || {});
+  const hit = burstCache.get(key);
+  const now = Date.now();
+  if (hit && now - hit.ts < 500) return res.json(hit.data);
+  const json = res.json.bind(res);
+  res.json = (body) => { burstCache.set(key, {ts: now, data: body}); return json(body); };
+  next();
+});
+```
+
+### 5) (Opsional) Coalescing di gateway (gabung request identik ≤50 ms)
+
+```js
+// singleflight sederhana
+const inflight = new Map();
+async function coalesce(key, fn){
+  if (inflight.has(key)) return inflight.get(key);
+  const p = fn().finally(()=> inflight.delete(key));
+  inflight.set(key, p);
+  return p;
+}
+// pemakaian di handler: await coalesce(key, () => forwardToPython())
+```
+
+---
+
+## Sanity Check (yang harus kamu lihat di log setelah patch)
+
+* `SymbolMapping` **jarang muncul** (level DEBUG + throttle 5s).
+* `GET /advanced/ticker/SOL` **jauh lebih sedikit** saat burst (karena micro-cache + singleflight).
+* `POST /gpts/advanced` burst → sebagian **serve dari micro-cache** / coalesced.
+* (Kalau diaktifkan) 1-2 request kena **429** saat kamu uji tembak >20/min → artinya RL bekerja.
+
+---
+
+## Quick Audit Table
+
+| Area                        | Status ideal         | Cara cek                                             |
+| --------------------------- | -------------------- | ---------------------------------------------------- |
+| Ticker source               | **OKX primary**      | Cari di code `advanced/ticker` memanggil adapter OKX |
+| Micro-cache                 | **ON (300–500ms)**   | Burst test: jumlah GET ticker turun drastis          |
+| Singleflight                | **ON**               | Burst identik → 1 upstream call                      |
+| Symbol log                  | **DEBUG + throttle** | Log mapping tidak spam tiap request                  |
+| Rate limit `/gpts/advanced` | **20/min**           | Burst 22x → sebagian 429                             |
+
+---
+
+Kalau mau, gue juga bisa susun **patch kecil** yang nge-refactor `advanced/ticker` → OKX primary + nambahin micro-cache & singleflight seperti di atas, plus aktifin RL & cache di gateway. Mau langsung digas?
