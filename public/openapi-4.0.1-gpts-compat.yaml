@@ -2704,118 +2704,64 @@ paths:
     post:
       operationId: unifiedAdvancedEndpoint
       summary: Unified GPT Actions endpoint for all CoinGlass Premium Intelligence
-      description: |
-        **🚀 Unified GPT Actions Interface - All CoinGlass Premium Intelligence in One Call**
-        
-        Consolidates all 11 /advanced/* endpoints into a single interface supporting both single operations 
-        and batch operations. Reduces API calls and complexity with smart defaults.
-        
-        **✨ Supported Operations:**
-        - `whale_alerts`: Real-time whale detection (>$1M trades)
-        - `whale_positions`: Whale positioning analysis  
-        - `etf_flows`: Bitcoin ETF flow tracking
-        - `etf_bitcoin`: Complete Bitcoin ETF data
-        - `market_sentiment`: Advanced sentiment scoring
-        - `market_coins`: Supported assets list
-        - `atr`: Technical volatility indicators (ATR)
-        - `ticker`: Live price data
-        - `liquidation_heatmap`: Liquidation analysis
-        - `spot_orderbook`: Orderbook depth analysis
-        - `options_oi`: Options open interest tracking
-        
-        **🔧 Smart Defaults (Reduce Parameter Complexity):**
-        - whale_alerts: `min_usd=1,000,000`
-        - market_coins: `limit=200`  
-        - liquidation_heatmap: `timeframe="1h"`
-        - spot_orderbook: `exchange="binance"`
-        - atr: `tf="1h"`, `len=14`
-        - etf_flows: `window="1d"`
-        - options_oi: `window="1d"`
-        
-        **📡 Usage Examples:**
-        
-        Single operation:
-        ```json
-        {
-          "op": "ticker",
-          "params": {"symbol": "SOL"}
-        }
-        ```
-        
-        Batch operations:
-        ```json
-        {
-          "ops": [
-            {"op": "whale_alerts", "params": {"symbol": "BTC"}},
-            {"op": "market_sentiment"},
-            {"op": "ticker", "params": {"symbol": "ETH"}}
-          ]
-        }
-        ```
+      description: "Unified GPT Actions endpoint for CoinGlass Premium Intelligence. Supports whale alerts, ETF flows, market sentiment, ticker data, and 8+ operations in single or batch mode. Use 'op' for single operations or 'ops' array for batch."
       tags: ["🚀 GPT Actions"]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              oneOf:
-                - type: object
-                  properties:
-                    op:
-                      type: string
-                      enum: 
-                        - whale_alerts
-                        - whale_positions
-                        - etf_flows
-                        - etf_bitcoin
-                        - market_sentiment
-                        - market_coins
-                        - atr
-                        - ticker
-                        - liquidation_heatmap
-                        - spot_orderbook
-                        - options_oi
-                      description: Operation to perform
-                    params:
-                      type: object
-                      additionalProperties: true
-                      description: Operation parameters
-                      example: {"symbol": "BTC", "timeframe": "1h"}
-                  required: ["op"]
-                  additionalProperties: false
-                - type: object
-                  properties:
-                    ops:
-                      type: array
-                      items:
+              type: object
+              properties:
+                op:
+                  type: string
+                  enum: 
+                    - whale_alerts
+                    - whale_positions
+                    - etf_flows
+                    - etf_bitcoin
+                    - market_sentiment
+                    - market_coins
+                    - atr
+                    - ticker
+                    - liquidation_heatmap
+                    - spot_orderbook
+                    - options_oi
+                  description: Operation to perform (use this for single operations)
+                params:
+                  type: object
+                  additionalProperties: true
+                  description: Operation parameters
+                  example: {"symbol": "BTC", "timeframe": "1h"}
+                ops:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      op:
+                        type: string
+                        enum:
+                          - whale_alerts
+                          - whale_positions
+                          - etf_flows
+                          - etf_bitcoin
+                          - market_sentiment
+                          - market_coins
+                          - atr
+                          - ticker
+                          - liquidation_heatmap
+                          - spot_orderbook
+                          - options_oi
+                        description: Operation to perform
+                      params:
                         type: object
-                        properties:
-                          op:
-                            type: string
-                            enum:
-                              - whale_alerts
-                              - whale_positions
-                              - etf_flows
-                              - etf_bitcoin
-                              - market_sentiment
-                              - market_coins
-                              - atr
-                              - ticker
-                              - liquidation_heatmap
-                              - spot_orderbook
-                              - options_oi
-                            description: Operation to perform
-                          params:
-                            type: object
-                            additionalProperties: true
-                            description: Operation parameters
-                        required: ["op"]
-                        additionalProperties: false
-                      minItems: 1
-                      maxItems: 10
-                      description: Array of operations to perform
-                  required: ["ops"]
-                  additionalProperties: false
+                        additionalProperties: true
+                        description: Operation parameters
+                    required: ["op"]
+                  minItems: 1
+                  maxItems: 10
+                  description: Array of operations to perform (use this for batch operations)
+              additionalProperties: false
             examples:
               single_operation:
                 summary: Single operation example
