@@ -109,7 +109,7 @@ class OperationResult(BaseModel):
     ok: bool = Field(..., description="Operation success status")
     op: str = Field(..., description="Operation name")
     args: Dict[str, Any] = Field(..., description="Actual parameters used")
-    data: Optional[Dict[str, Any]] = Field(default=None, description="Operation result data")
+    data: Optional[Union[Dict[str, Any], List[Any]]] = Field(default=None, description="Operation result data")
     error: Optional[str] = Field(default=None, description="Error message if failed")
 
 class SingleResponse(BaseModel):
@@ -117,7 +117,7 @@ class SingleResponse(BaseModel):
     ok: bool = Field(..., description="Overall success status")
     op: str = Field(..., description="Operation name")
     args: Dict[str, Any] = Field(..., description="Actual parameters used")
-    data: Optional[Dict[str, Any]] = Field(default=None, description="Result data")
+    data: Optional[Union[Dict[str, Any], List[Any]]] = Field(default=None, description="Result data")
     error: Optional[str] = Field(default=None, description="Error message if failed")
 
 class BatchResponse(BaseModel):
@@ -258,12 +258,26 @@ async def execute_operation(operation: SingleOperationRequest, base_url: str) ->
             )
             
             if response.status_code == 200:
-                data = response.json()
+                raw_data = response.json()
+                
+                # Format adapter: wrap arrays in dict structure for GPT Actions compatibility
+                if isinstance(raw_data, list):
+                    # For array responses, wrap in a dict with metadata
+                    formatted_data = {
+                        "items": raw_data,
+                        "count": len(raw_data),
+                        "type": "array",
+                        "source": "coinglass_api"
+                    }
+                else:
+                    # Keep dict responses as-is
+                    formatted_data = raw_data
+                
                 return OperationResult(
                     ok=True,
                     op=op_name,
                     args=final_params,
-                    data=data
+                    data=formatted_data
                 )
             else:
                 return OperationResult(
