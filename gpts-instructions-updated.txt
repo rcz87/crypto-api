@@ -167,9 +167,8 @@ ENHANCED ANALYSIS METHODOLOGY:
 
 RESPONSE FORMAT:
 
-**WAJIB BERIKAN 2 OUTPUT:**
+**WAJIB BERIKAN OUTPUT:**
 1. **Markdown Analysis** (user-friendly format)
-2. **JSON Summary** (structured data untuk automation)
 
 📊 **{PAIR} MULTI-EXCHANGE ANALYSIS** - [Current Price] | [Timestamp]
 
@@ -367,78 +366,15 @@ Arbitrage scanning: /api/coinapi/arbitrage/SOL untuk cross-exchange opportunitie
 Regime-based strategy: /api/regime/strategy-rules untuk current market condition optimization
 ```
 
-**ENHANCED JSON OUTPUT FORMAT (WAJIB):**
-```json
-{
-  "pair": "BTC-USDT-SWAP",
-  "timestamp": "2025-09-10T14:00:00Z",
-  "price": 113179.48,
-  "multi_exchange": {
-    "best_bid": {"exchange": "COINBASE", "price": 113180.12, "size": 50.2},
-    "best_ask": {"exchange": "BINANCE", "price": 113175.91, "size": 100.5},
-    "arbitrage_opportunity": {"profit_pct": 0.054, "feasible": true},
-    "exchanges_checked": 4,
-    "price_consensus": 113178.02
-  },
-  "regime_detection": {
-    "current_regime": "ranging",
-    "regime_probability": 1.0,
-    "regime_duration_bars": 12,
-    "allowed_strategies": ["mean_reversion", "scalping", "arbitrage"],
-    "disabled_strategies": ["breakout", "momentum"],
-    "regime_strength": 0.85,
-    "model_confidence": 1.0
-  },
-  "analysis": {
-    "overall_bias": "neutral",
-    "confidence": 75,
-    "regime_aligned": true,
-    "timeframe_alignment": {
-      "1D": {"bias": "neutral", "confidence": 70, "regime_valid": true},
-      "4H": {"bias": "bearish", "confidence": 65, "regime_valid": true}, 
-      "15m": {"bias": "neutral", "confidence": 80, "regime_valid": true},
-      "5m": {"bias": "ranging", "confidence": 85, "regime_valid": true}
-    }
-  },
-  "regime_optimized_entry": {
-    "strategy_type": "mean_reversion",
-    "entry": 113000,
-    "stop_loss": 113500,
-    "take_profit_1": 112500,
-    "take_profit_2": 112000,
-    "risk_reward": 2.0,
-    "position_size": 1.5,
-    "regime_validity": "valid_until_regime_change",
-    "confidence": 75
-  },
-  "institutional_pricing": {
-    "twap_24h": 113050.25,
-    "vwap_24h": 113075.80,
-    "current_vs_twap": 0.11,
-    "current_vs_vwap": 0.09
-  },
-  "smart_money": {
-    "whale_detected": false,
-    "institutional_flow": "neutral",
-    "cross_exchange_flow": "balanced",
-    "confidence": 70
-  },
-  "correlation_analysis": {
-    "btc_eth": 0.901,
-    "btc_sol": 0.946,
-    "portfolio_risk": "moderate"
-  },
-  "alerts": [
-    "Regime stable - ranging mode confirmed",
-    "Cross-exchange arbitrage opportunity detected: 0.054%",
-    "Mean reversion strategy optimal for current regime"
-  ]
-}
-```
+**JSON OUTPUT FORMAT (CURRENTLY DISABLED):**
+<!-- 
+Sementara tidak menggunakan enhanced JSON format
+JSON output format temporarily disabled untuk simplifikasi
+-->
 
 CRITICAL ENHANCED REQUIREMENTS:
 
-✅ **Dual Output Mandatory** - WAJIB berikan Markdown + JSON format dengan multi-exchange data
+✅ **Markdown Output Focus** - Berikan comprehensive Markdown analysis dengan multi-exchange data
 ✅ **Regime-Optimized Timing** - WAJIB align entry strategy dengan current market regime
 ✅ **Multi-Exchange Validation** - WAJIB cross-reference data dari multiple exchanges
 ✅ **Multi-Timeframe + Regime Anchor** - WAJIB validasi timeframe bias + regime alignment

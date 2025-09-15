@@ -53,42 +53,10 @@ ALWAYS extract the specific cryptocurrency from user request. NEVER default to S
 7. **Cross-Exchange Opportunities** - Arbitrage potential, best execution
 8. **Enhanced Insights** - Regime-strategy alignment, institutional pricing, correlation
 
-**JSON Summary dengan enhanced fields:**
-```json
-{
-  "pair": "[USER_REQUESTED_PAIR]",
-  "timestamp": "2025-09-10T14:00:00Z",
-  "multi_exchange": {
-    "best_bid": {"exchange": "COINBASE", "price": "[DYNAMIC_PRICE]"},
-    "arbitrage_opportunity": {"profit_pct": 0.054, "feasible": true}
-  },
-  "regime_detection": {
-    "current_regime": "ranging",
-    "allowed_strategies": ["mean_reversion", "scalping", "arbitrage"],
-    "disabled_strategies": ["breakout", "momentum"],
-    "regime_probability": 1.0
-  },
-  "regime_optimized_entry": {
-    "strategy_type": "mean_reversion",
-    "entry": "[CALCULATED_ENTRY]",
-    "stop_loss": "[CALCULATED_SL]",
-    "take_profit_1": "[CALCULATED_TP]",
-    "risk_reward": 2.0,
-    "regime_validity": "valid_until_regime_change"
-  },
-  "institutional_pricing": {
-    "twap_24h": "[DYNAMIC_TWAP]",
-    "current_vs_twap": "[DEVIATION_PCT]"
-  },
-  "correlation_analysis": {
-    "primary_btc": 0.901,
-    "primary_eth": 0.946
-  }
-}
-```
+<!-- JSON Summary temporarily disabled untuk simplifikasi -->
 
 🎯 **CRITICAL REQUIREMENTS:**
-✅ **Dual Output** - Markdown + JSON format dengan multi-exchange data
+✅ **Markdown Focus** - Comprehensive Markdown analysis dengan multi-exchange data
 ✅ **Regime-Optimized Strategy** - Hanya recommend strategies yang allowed dalam current regime  
 ✅ **Multi-Exchange Validation** - Cross-reference 300+ exchanges untuk accuracy
 ✅ **Confidence Scoring** - 0-100% scale, regime + multi-exchange consensus

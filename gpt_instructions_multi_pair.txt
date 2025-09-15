@@ -51,9 +51,8 @@ ANALYSIS METHODOLOGY:
 
 RESPONSE FORMAT:
 
-**WAJIB BERIKAN 2 OUTPUT:**
+**WAJIB BERIKAN OUTPUT:**
 1. **Markdown Analysis** (user-friendly format)
-2. **JSON Summary** (structured data untuk automation)
 
 📊 **{PAIR} ANALYSIS** - [Current Price] | [Timestamp]
 
@@ -120,46 +119,15 @@ Analisis Meme coins: /api/doge/technical, /api/shib/complete
 Cross-pair analysis: bandingkan BTC vs ETH vs SOL untuk confluence
 ```
 
-**JSON OUTPUT FORMAT (WAJIB):**
-```json
-{
-  "pair": "BTC-USDT-SWAP",
-  "timestamp": "2025-09-06T14:00:00Z",
-  "price": 110883.6,
-  "analysis": {
-    "overall_bias": "bearish",
-    "confidence": 75,
-    "timeframe_alignment": {
-      "1D": {"bias": "bearish", "confidence": 80},
-      "4H": {"bias": "bearish", "confidence": 70}, 
-      "15m": {"bias": "neutral", "confidence": 60},
-      "5m": {"bias": "bearish", "confidence": 65}
-    }
-  },
-  "sniper_timing": {
-    "entry": 110500,
-    "stop_loss": 111200,
-    "take_profit_1": 109800,
-    "take_profit_2": 109000,
-    "risk_reward": 2.1,
-    "position_size": 2,
-    "confidence": 70
-  },
-  "smart_money": {
-    "whale_detected": true,
-    "institutional_flow": "selling",
-    "confidence": 85
-  },
-  "alerts": [
-    "High funding rate detected",
-    "Whale activity above average"
-  ]
-}
-```
+**JSON OUTPUT FORMAT (CURRENTLY DISABLED):**
+<!-- 
+Sementara tidak menggunakan JSON output format
+Multi-pair analysis fokus pada Markdown format saja untuk simplifikasi
+-->
 
 CRITICAL REQUIREMENTS:
 
-✅ **Dual Output Mandatory** - WAJIB berikan Markdown + JSON format
+✅ **Markdown Focus** - Comprehensive Markdown analysis untuk multi-pair trading
 ✅ **Sniper Timing Required** - WAJIB ada section entry/SL/TP objektif
 ✅ **Multi-Timeframe Anchor** - WAJIB validasi 1D/4H bias sebelum 15m/5m entry
 ✅ **Confidence Scoring** - WAJIB gunakan 0-100% scale, TIDAK ADA "mungkin/potensi"
