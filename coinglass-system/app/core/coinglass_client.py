@@ -46,20 +46,20 @@ class CoinglassClient:
 
     def whale_positions(self, exchange: str = "hyperliquid"):
         """Get current whale positions >$1M notional value"""
-        url = f"{self.base_url}/api/{exchange}/whale-position"
+        url = f"{self.base_url}/api/{exchange}/whale-positions"
         response = self.http.get(url)
         return response.json()
 
     # === ETF FLOW ENDPOINTS ===
     def bitcoin_etfs(self):
         """Get Bitcoin ETF list and status information"""
-        url = f"{self.base_url}/api/etfs/bitcoin-etfs"
+        url = f"{self.base_url}/api/bitcoin-etfs"
         response = self.http.get(url)
         return response.json()
 
     def etf_flows_history(self, days: int = 30):
         """Get historical Bitcoin ETF flow data"""
-        url = f"{self.base_url}/api/etfs/flows-history"
+        url = f"{self.base_url}/api/etf-flows-history"
         params = {"days": days}
         response = self.http.get(url, params)
         return response.json()
@@ -73,7 +73,7 @@ class CoinglassClient:
 
     def market_sentiment(self):
         """Get futures performance metrics and market sentiment"""
-        url = f"{self.base_url}/api/coins/markets"
+        url = f"{self.base_url}/api/futures/coins-markets"
         response = self.http.get(url)
         return response.json()
 

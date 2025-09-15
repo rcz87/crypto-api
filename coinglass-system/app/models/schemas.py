@@ -53,7 +53,7 @@ class WhaleAlert(BaseModel):
     side: str  # "long" or "short"
     position_size: float
     notional_value: float
-    timestamp: datetime
+    timestamp: Optional[datetime] = None
     meta: Optional[Dict[str, Any]] = None
 
 class WhalePosition(BaseModel):
@@ -63,7 +63,7 @@ class WhalePosition(BaseModel):
     position_size: float
     notional_value: float
     unrealized_pnl: Optional[float] = None
-    timestamp: datetime
+    timestamp: Optional[datetime] = None
 
 class ETFData(BaseModel):
     ticker: str
@@ -74,7 +74,7 @@ class ETFData(BaseModel):
     flows_1d: Optional[float] = None
     flows_7d: Optional[float] = None
     flows_30d: Optional[float] = None
-    timestamp: datetime
+    timestamp: Optional[datetime] = None
 
 class ETFFlowHistory(BaseModel):
     date: datetime
@@ -91,7 +91,7 @@ class MarketSentiment(BaseModel):
     volume_24h: float
     market_cap: Optional[float] = None
     dominance: Optional[float] = None
-    timestamp: datetime
+    timestamp: Optional[datetime] = None
 
 class LiquidationHeatmapData(BaseModel):
     symbol: str
@@ -100,14 +100,14 @@ class LiquidationHeatmapData(BaseModel):
     side: str  # "long" or "short"
     intensity: float  # Heat intensity score
     exchange: Optional[str] = None
-    timestamp: datetime
+    timestamp: Optional[datetime] = None
 
 class SpotOrderbook(BaseModel):
     symbol: str
     exchange: str
     bids: list[list[float]]  # [[price, quantity], ...]
     asks: list[list[float]]  # [[price, quantity], ...]
-    timestamp: datetime
+    timestamp: Optional[datetime] = None
 
 class OptionsData(BaseModel):
     symbol: str
