@@ -1438,3 +1438,168 @@ export type InsertSignalInvalidation = z.infer<typeof insertSignalInvalidationSc
 export type InsertSignalClosure = z.infer<typeof insertSignalClosureSchema>;
 export type InsertWeeklyScorecard = z.infer<typeof insertWeeklyScorecardSchema>;
 
+// ========================
+// FEEDBACK & LEARNING SYSTEM SCHEMAS
+// ========================
+
+// User feedback table for signal ratings
+export const userFeedback = pgTable("user_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ref_id: varchar("ref_id").notNull(), // Signal reference ID (e.g., "ib_20250915_0730")
+  user_id: varchar("user_id"), // Telegram user ID (optional)
+  signal_type: text("signal_type").notNull(), // 'institutional', 'sniper', 'smc', etc.
+  rating: integer("rating").notNull(), // +1 for positive, -1 for negative
+  response_time_seconds: integer("response_time_seconds"), // Time to respond after signal sent
+  metadata: jsonb("metadata"), // Additional context (patterns, confidence, etc.)
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+// Pattern performance tracking with learning adjustments
+export const patternLearning = pgTable("pattern_learning", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pattern_name: varchar("pattern_name").notNull().unique(),
+  pattern_type: text("pattern_type").notNull(), // 'institutional', 'smc', 'technical', etc.
+  base_weight: decimal("base_weight", { precision: 4, scale: 3 }).default("1.0"), // Original weight
+  current_weight: decimal("current_weight", { precision: 4, scale: 3 }).default("1.0"), // Adjusted weight
+  min_confidence: decimal("min_confidence", { precision: 4, scale: 3 }).default("0.7"), // Minimum confidence threshold
+  feedback_stats: jsonb("feedback_stats"), // Rolling feedback statistics
+  performance_history: jsonb("performance_history"), // Historical adjustments
+  last_adjustment: timestamp("last_adjustment").defaultNow(),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Weekly feedback analysis results
+export const weeklyFeedbackAnalysis = pgTable("weekly_feedback_analysis", {
+  week_start: text("week_start").primaryKey(), // DATE as string (YYYY-MM-DD)
+  total_feedback: integer("total_feedback").notNull().default(0),
+  positive_feedback: integer("positive_feedback").notNull().default(0),
+  negative_feedback: integer("negative_feedback").notNull().default(0),
+  net_sentiment: decimal("net_sentiment", { precision: 4, scale: 3 }).notNull().default("0"), // (positive - negative) / total
+  avg_response_time: integer("avg_response_time"), // Average response time in seconds
+  pattern_adjustments: jsonb("pattern_adjustments"), // Patterns that were adjusted this week
+  signal_type_performance: jsonb("signal_type_performance"), // Performance by signal type
+  learning_velocity: decimal("learning_velocity", { precision: 4, scale: 3 }).default("0.1"), // How aggressively to adjust
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Signal quality metrics tracking
+export const signalQualityMetrics = pgTable("signal_quality_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ref_id: varchar("ref_id").notNull().unique(),
+  signal_type: text("signal_type").notNull(),
+  patterns_used: jsonb("patterns_used"), // Patterns that contributed to this signal
+  confidence_score: decimal("confidence_score", { precision: 4, scale: 3 }).notNull(),
+  adjusted_weights: jsonb("adjusted_weights"), // Weights used during signal generation
+  feedback_received: boolean("feedback_received").default(false),
+  final_rating: integer("final_rating"), // Final user rating if received
+  learning_impact: jsonb("learning_impact"), // How this signal affected learning
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Feedback schemas for validation
+export const feedbackSchema = z.object({
+  ref_id: z.string(),
+  user_id: z.string().optional(),
+  signal_type: z.enum(['institutional', 'sniper', 'smc', 'technical', 'whale', 'funding']),
+  rating: z.number().int().min(-1).max(1), // Only +1 or -1 allowed
+  response_time_seconds: z.number().int().optional(),
+  metadata: z.any().optional(),
+});
+
+export const patternLearningSchema = z.object({
+  pattern_name: z.string(),
+  pattern_type: z.string(),
+  base_weight: z.number(),
+  current_weight: z.number(),
+  min_confidence: z.number(),
+  feedback_stats: z.object({
+    total_feedback: z.number(),
+    positive_count: z.number(),
+    negative_count: z.number(),
+    net_sentiment: z.number(),
+    win_rate: z.number(),
+    avg_response_time: z.number().optional(),
+  }).optional(),
+  performance_history: z.array(z.object({
+    date: z.string(),
+    adjustment_reason: z.string(),
+    weight_change: z.number(),
+    confidence_change: z.number(),
+    feedback_trigger: z.object({
+      total_feedback: z.number(),
+      net_sentiment: z.number(),
+    }),
+  })).optional(),
+});
+
+export const weeklyFeedbackReportSchema = z.object({
+  week_start: z.string(),
+  overall_performance: z.object({
+    total_signals: z.number(),
+    total_feedback: z.number(),
+    feedback_rate: z.number(), // percentage of signals that received feedback
+    net_sentiment: z.number(),
+    avg_response_time: z.number(),
+  }),
+  signal_type_breakdown: z.record(z.object({
+    signals_sent: z.number(),
+    feedback_received: z.number(),
+    positive_feedback: z.number(),
+    negative_feedback: z.number(),
+    net_sentiment: z.number(),
+    improvement_trend: z.enum(['improving', 'stable', 'declining']),
+  })),
+  pattern_adjustments: z.array(z.object({
+    pattern_name: z.string(),
+    adjustment_type: z.enum(['weight_increase', 'weight_decrease', 'confidence_increase', 'confidence_decrease']),
+    magnitude: z.number(),
+    reason: z.string(),
+    expected_impact: z.string(),
+  })),
+  learning_insights: z.object({
+    most_improved_pattern: z.string().optional(),
+    worst_performing_pattern: z.string().optional(),
+    learning_velocity: z.number(),
+    total_adjustments: z.number(),
+    patterns_being_watched: z.array(z.string()),
+  }),
+  recommendations: z.array(z.string()),
+});
+
+// Insert schemas for the new tables
+export const insertUserFeedbackSchema = createInsertSchema(userFeedback).omit({
+  id: true,
+  timestamp: true,
+});
+
+export const insertPatternLearningSchema = createInsertSchema(patternLearning).omit({
+  id: true,
+  last_adjustment: true,
+  created_at: true,
+});
+
+export const insertWeeklyFeedbackAnalysisSchema = createInsertSchema(weeklyFeedbackAnalysis).omit({
+  created_at: true,
+});
+
+export const insertSignalQualityMetricsSchema = createInsertSchema(signalQualityMetrics).omit({
+  id: true,
+  created_at: true,
+});
+
+// Type exports for the new tables
+export type UserFeedback = typeof userFeedback.$inferSelect;
+export type PatternLearning = typeof patternLearning.$inferSelect;
+export type WeeklyFeedbackAnalysis = typeof weeklyFeedbackAnalysis.$inferSelect;
+export type SignalQualityMetrics = typeof signalQualityMetrics.$inferSelect;
+
+export type InsertUserFeedback = z.infer<typeof insertUserFeedbackSchema>;
+export type InsertPatternLearning = z.infer<typeof insertPatternLearningSchema>;
+export type InsertWeeklyFeedbackAnalysis = z.infer<typeof insertWeeklyFeedbackAnalysisSchema>;
+export type InsertSignalQualityMetrics = z.infer<typeof insertSignalQualityMetricsSchema>;
+
+// Feedback and learning type exports
+export type FeedbackData = z.infer<typeof feedbackSchema>;
+export type PatternLearningData = z.infer<typeof patternLearningSchema>;
+export type WeeklyFeedbackReport = z.infer<typeof weeklyFeedbackReportSchema>;
+

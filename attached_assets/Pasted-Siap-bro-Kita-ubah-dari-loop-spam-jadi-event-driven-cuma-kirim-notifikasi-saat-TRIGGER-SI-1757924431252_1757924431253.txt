@@ -1,0 +1,175 @@
+Siap, bro. Kita ubah dari “loop spam” jadi **event-driven**: cuma kirim notifikasi saat **TRIGGER SINYAL BAGUS** muncul. Bukan tiap 3–5 menit, tapi **saat ada confluence + perubahan keadaan (state change)**.
+
+# ⚡ TL;DR
+
+* Kirim notif **hanya** jika: `score ≥ 80` **dan** (baru menembus threshold **atau** naik ≥ `+8` poin dari alert terakhir) **dan** lulus konfirmasi heatmap + orderbook.
+* Tambah **cooldown** per simbol (mis. 30 menit), **novelty check**, dan **quiet hours** opsional.
+* Implement pakai `shouldAlert()` + **state store** (Redis/Map) → scheduler tetap jalan, tapi **cuma log** kalau belum “sinyal bagus”.
+
+---
+
+# 🎛️ Definisi “Sinyal Bagus” (gating rules)
+
+| Komponen                   | Rule default (boleh disesuaikan ENV)                                                                                    | Kenapa                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| **Skor AI**                | `ALERT_SCORE_MIN=80`                                                                                                    | Kualitas sinyal cukup tinggi |
+| **Delta skor**             | `ALERT_DELTA_MIN=8` **atau** crossing dari <80 ke ≥80                                                                   | Hindari spam “skor stabil”   |
+| **Confluence**             | Minimal **3/4**: Whale ✓, ETF inflow/outflow jelas ✓, Sentiment strong (≥60 LONG / ≤40 SHORT) ✓, Heatmap magnet dekat ✓ | Butuh alasan multi-sumber    |
+| **Orderbook**              | Wall mendukung (≥5× median) **dan** imbalance sesuai arah                                                               | Validasi eksekusi            |
+| **Cooldown**               | `ALERT_COOLDOWN_MIN=30` menit / simbol                                                                                  | Supaya nggak bertubi-tubi    |
+| **Novelty**                | Jarak harga ke magnet <0.5% **atau** ada **sweep**/CHoCH/FVG signal                                                     | Beda dari alert sebelumnya   |
+| **Data segar**             | Timestamp semua data < 60 dtk                                                                                           | No stale data                |
+| **Quiet hours** (opsional) | 23:00–07:00 hanya kirim jika `score ≥ 88`                                                                               | Anti ganggu tidur 😴         |
+
+---
+
+# ✅ Patch siap tempel (Node/TypeScript)
+
+## 1) State store (pakai Redis kalau ada; fallback Map)
+
+```js
+// services/alertState.js
+const mem = new Map(); // ganti ke Redis di prod
+export async function getLast(symbol){ return mem.get(symbol); }
+export async function setLast(symbol, payload){ mem.set(symbol, payload); }
+```
+
+## 2) Gating utama
+
+```js
+// services/shouldAlert.js
+export function shouldAlert({ symbol, now, score, reasons, confluenceCount, heatmapOK, orderbookOK, last }) {
+  const MIN = Number(process.env.ALERT_SCORE_MIN ?? 80);
+  const DELTA = Number(process.env.ALERT_DELTA_MIN ?? 8);
+  const COOLDOWN = (Number(process.env.ALERT_COOLDOWN_MIN ?? 30)) * 60_000;
+
+  if (score < MIN) return { ok: false, why: "score_below_min" };
+  if (confluenceCount < 3) return { ok: false, why: "confluence_low" };
+  if (!heatmapOK || !orderbookOK) return { ok: false, why: "execution_filters_fail" };
+
+  if (last) {
+    const inCooldown = now - last.ts < COOLDOWN;
+    const improved = score - last.score >= DELTA;
+    const crossed = last.score < MIN && score >= MIN;
+    if (inCooldown && !(improved || crossed)) return { ok: false, why: "cooldown" };
+  }
+  return { ok: true };
+}
+```
+
+## 3) Integrasi di scheduler (event-driven, bukan loop spam)
+
+```js
+// schedulers/institutional.js
+import cron from "node-cron";
+import { institutionalSignal } from "../orchestrator/institutional.js";
+import { shouldAlert } from "../services/shouldAlert.js";
+import { getLast, setLast } from "../services/alertState.js";
+import { sendInstitutionalBias } from "../observability/telegram-actions.js";
+
+const COINS = (process.env.ALERT_COINS ?? "BTC,SOL,ETH").split(",");
+
+cron.schedule("*/1 * * * *", async () => { // jalan tiap menit tapi kirim hanya kalau lolos gating
+  const now = Date.now();
+  for (const alt of COINS) {
+    try {
+      const sig = await institutionalSignal("BTC", alt); // {bias, confidence, reasons, refs:{whale, etf, sentiment, heatmap, orderbook}}
+      const confluenceCount =
+        (sig.refs?.whale ? 1:0) + (sig.refs?.etf ? 1:0) +
+        ((sig.refs?.sentiment?.score ?? 0) >= 60 || (sig.refs?.sentiment?.score ?? 100) <= 40 ? 1:0) +
+        (sig.refs?.heatmap?.nearMagnet ? 1:0);
+      const heatmapOK = !!sig.refs?.heatmap?.nearMagnet;      // magnet <~0.5%
+      const orderbookOK = (sig.refs?.orderbook?.wallX ?? 0) >= 5 && (sig.refs?.orderbook?.imbalanceOK ?? false);
+
+      const last = await getLast(alt);
+      const gate = shouldAlert({
+        symbol: alt,
+        now,
+        score: sig.confidence, // 0..100
+        reasons: sig.reasons,
+        confluenceCount,
+        heatmapOK,
+        orderbookOK,
+        last
+      });
+
+      if (gate.ok) {
+        await sendInstitutionalBias(formatMsg(alt, sig)); // kirim Telegram
+        await setLast(alt, { ts: now, score: sig.confidence });
+      } else {
+        // cukup log; no-send = no-spam
+        // console.log(`[skip ${alt}]`, gate.why);
+      }
+    } catch (e) {
+      // handle error normal: CB/retry sudah ada di layer bawah
+      // console.error("[scheduler err]", alt, e.message);
+    }
+  }
+});
+
+function formatMsg(symbol, sig) {
+  return `🟢 INSTITUTIONAL ${sig.bias} — ${symbol}
+Confidence: ${sig.confidence}%
+Whale/ETF/Sentiment: ${sig.reasons.join(", ")}
+Heatmap & OB: OK
+ref: ib_${symbol}_${Date.now()}`;
+}
+```
+
+> Catatan: `institutionalSignal()` kamu sudah ada. Tinggal pastikan dia mengembalikan **flag** kecil seperti `heatmap.nearMagnet`, `orderbook.wallX`, `orderbook.imbalanceOK`.
+
+---
+
+## 4) ENV (biar fleksibel tanpa ubah kode)
+
+```
+ALERT_SCORE_MIN=80
+ALERT_DELTA_MIN=8
+ALERT_COOLDOWN_MIN=30
+ALERT_COINS=BTC,SOL,ETH
+QUIET_HOURS=23-7           # opsional
+QUIET_SCORE_MIN=88         # hanya kirim saat quiet hours jika >=88
+```
+
+### (Opsional) Quiet hours filter
+
+```js
+function inQuietHours(now, cfg="23-7"){
+  const [a,b] = cfg.split("-").map(Number); // 23..7
+  const h = new Date(now).getHours();
+  return a > b ? (h>=a || h<b) : (h>=a && h<b);
+}
+// pemakaian:
+if (process.env.QUIET_HOURS && inQuietHours(now, process.env.QUIET_HOURS)) {
+  const req = Number(process.env.QUIET_SCORE_MIN ?? 88);
+  if (sig.confidence < req) return; // skip
+}
+```
+
+---
+
+# 🧪 Acceptance Test (5 menit)
+
+* [ ] Saat skor 76→79→78: **tidak kirim**.
+* [ ] Saat 79→**82**: **kirim** (crossing).
+* [ ] Dalam 30 menit, skor 83→86: **tidak kirim** (cooldown), **kecuali** naik ≥ +8 (83→91) → **kirim**.
+* [ ] Heatmap magnet jauh / wall < 5× → **tidak kirim**.
+* [ ] Quiet hours aktif & score 85 → **tidak kirim**; score 89 → **kirim**.
+
+---
+
+# ✅ Checklist eksekusi (singkat)
+
+* [ ] Tambah file `services/shouldAlert.js` & `services/alertState.js`.
+* [ ] Update scheduler jadi pakai gating `shouldAlert()`.
+* [ ] Pastikan `institutionalSignal()` mengisi flag `nearMagnet`, `wallX`, `imbalanceOK`.
+* [ ] Set ENV sesuai kebutuhan risk & kenyamananmu.
+* [ ] Uji Acceptance Test di atas (log dan 1–2 trigger manual).
+
+---
+
+# 🎯 Hasil Akhir
+
+Telegram **hanya bunyi kalau ada trigger sinyal bagus** (confluence kuat, score tinggi, dan **ada yang baru**). Sisanya diam, **no loop, no spam**.
+
+Kalau mau, gue bisa sekalian kasih patch kecil **untuk Sniper SOL**: kirim hanya saat `distance_to_magnet ≤ 0.35%` **dan** ada OB support `wallX ≥ 6`, plus **price-action** (BOS/CHoCH) 5m konfirmasi—biar makin rapih.
