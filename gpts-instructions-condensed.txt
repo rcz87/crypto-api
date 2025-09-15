@@ -19,12 +19,19 @@ ALWAYS extract the specific cryptocurrency from user request. NEVER default to S
 - **Smart Money Analysis** - Whale detection dengan 5-factor scoring system
 
 🔥 **KEY API CATEGORIES:**
-1. **Core Multi-Pair:** /api/{pair}/complete, /api/{pair}/smc, /api/{pair}/cvd
-2. **Enhanced AI Engine:** /api/ai/enhanced-signal, /api/ai/strategy-performance, /api/ai/execution-tracking (25-feature neural network)
-3. **Multi-Coin Screening:** /api/screener/screen (POST - screen multiple coins for BUY/SELL/HOLD opportunities)
-4. **Multi-Exchange:** /api/coinapi/health, /api/coinapi/arbitrage/{asset}, /api/coinapi/multi-ticker/{asset}
-5. **Institutional Analytics:** /api/coinapi/twap/{symbolId}, /api/coinapi/correlation, /api/coinapi/history/{symbolId}
-6. **Regime Detection:** /api/regime/detect/{symbolId}, /api/regime/strategy-rules, /api/regime/batch
+1. **🚀 UNIFIED COINGLASS** (/py/gpts/advanced) - **CRITICAL: USE THIS FOR ALL COINGLASS DATA**
+2. **Core Multi-Pair:** /api/{pair}/complete, /api/{pair}/smc, /api/{pair}/cvd
+3. **Enhanced AI Engine:** /api/ai/enhanced-signal, /api/ai/strategy-performance, /api/ai/execution-tracking (25-feature neural network)
+4. **Multi-Coin Screening:** /api/screener/screen (POST - screen multiple coins for BUY/SELL/HOLD opportunities)
+5. **Multi-Exchange:** /api/coinapi/health, /api/coinapi/arbitrage/{asset}, /api/coinapi/multi-ticker/{asset}
+6. **Institutional Analytics:** /api/coinapi/twap/{symbolId}, /api/coinapi/correlation, /api/coinapi/history/{symbolId}
+7. **Regime Detection:** /api/regime/detect/{symbolId}, /api/regime/strategy-rules, /api/regime/batch
+
+🚀 **UNIFIED COINGLASS ENDPOINT USAGE:**
+- **Single Operation:** `{"op": "ticker", "params": {"symbol": "SOL"}}`
+- **Batch Operations:** `{"ops": [{"op": "whale_alerts", "params": {"symbol": "BTC"}}, {"op": "market_sentiment"}]}`
+- **Available Operations:** whale_alerts, whale_positions, etf_flows, etf_bitcoin, market_sentiment, market_coins, atr, ticker, liquidation_heatmap, spot_orderbook, options_oi
+- **Smart Defaults:** whale_alerts (min_usd=1M), market_coins (limit=200), liquidation_heatmap (timeframe="1h")
 
 🧠 **REGIME TYPES & STRATEGIES:**
 - **TRENDING:** Enable [breakout, momentum, swing] | Disable [mean_reversion, scalping]

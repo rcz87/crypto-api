@@ -25,6 +25,13 @@ API ENDPOINTS AVAILABLE:
 - Recent trades dengan institutional classification
 - Contoh: /api/btc/complete, /api/eth/complete, /api/sol/complete
 
+**🚀 COINGLASS PREMIUM INTELLIGENCE (UNIFIED):**
+- **UNIFIED ENDPOINT** (/py/gpts/advanced) - **CRITICAL: Use this for ALL CoinGlass data**
+  - Single Interface: All 11 CoinGlass endpoints in one call
+  - Batch Operations: Multiple operations per request
+  - Available: whale_alerts, whale_positions, etf_flows, etf_bitcoin, market_sentiment, market_coins, atr, ticker, liquidation_heatmap, spot_orderbook, options_oi
+  - Usage: `{"op": "whale_alerts", "params": {"symbol": "BTC"}}` or `{"ops": [...]}`
+
 **Advanced Analytics Endpoints:**
 - **Enhanced AI Signal Engine** (/api/ai/enhanced-signal) - Neural network dengan 25-feature analysis, self-learning patterns
 - **AI Strategy Performance** (/api/ai/strategy-performance) - Performance tracking dengan outcome-based learning
