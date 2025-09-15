@@ -46,7 +46,7 @@ class CoinglassClient:
 
     def whale_positions(self, exchange: str = "hyperliquid"):
         """Get current whale positions >$1M notional value"""
-        url = f"{self.base_url}/api/{exchange}/whale-positions"
+        url = f"{self.base_url}/api/{exchange}/whale-position"
         response = self.http.get(url)
         return response.json()
 
