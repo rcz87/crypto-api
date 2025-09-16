@@ -42,7 +42,8 @@ app.use((req, res, next) => {
 });
 
 // CoinGlass Python service proxy - MOVE TO TOP!
-import { createProxyMiddleware } from "http-proxy-middleware";
+import { createProxyMiddleware, type Options } from "http-proxy-middleware";
+import type { IncomingMessage, ServerResponse } from 'http';
 import { spawn } from "child_process";
 import fetch from "node-fetch";
 
@@ -59,16 +60,20 @@ const pyRateLimit = rateLimit({
   legacyHeaders: false,
 });
 
-app.use("/py", pyRateLimit);
+app.use("/coinglass", pyRateLimit);
 
 // 💾 Enhanced Memory Cache with eviction for CoinGlass endpoints
-const cache = new Map();
+interface CacheEntry {
+  data: any;
+  exp: number;
+}
+const cache = new Map<string, CacheEntry>();
 const MAX_CACHE_SIZE = 1000; // Prevent unbounded growth
 
 // 🧹 Cache eviction and cleanup
 const evictOldEntries = () => {
   const now = Date.now();
-  for (const [key, value] of cache.entries()) {
+  for (const [key, value] of Array.from(cache.entries())) {
     if (value.exp < now) {
       cache.delete(key);
     }
@@ -77,7 +82,7 @@ const evictOldEntries = () => {
   // Size-based eviction if still too large
   if (cache.size > MAX_CACHE_SIZE) {
     const entries = Array.from(cache.entries());
-    entries.sort((a, b) => (a[1] as any).exp - (b[1] as any).exp); // Sort by expiration
+    entries.sort((a, b) => a[1].exp - b[1].exp); // Sort by expiration
     
     const toDelete = cache.size - MAX_CACHE_SIZE + 100; // Delete extra + buffer
     for (let i = 0; i < toDelete && i < entries.length; i++) {
@@ -115,22 +120,27 @@ const cacheMiddleware = (ttlMs = 15000) => {
 };
 
 // Apply caching to expensive endpoints
-app.use("/py/advanced/etf", cacheMiddleware(30000)); // 30s cache
-app.use("/py/advanced/market/sentiment", cacheMiddleware(15000)); // 15s cache
-app.use("/py/advanced/liquidation/heatmap", cacheMiddleware(10000)); // 10s cache
+app.use("/coinglass/advanced/etf", cacheMiddleware(30000)); // 30s cache
+app.use("/coinglass/advanced/market/sentiment", cacheMiddleware(15000)); // 15s cache
+app.use("/coinglass/advanced/liquidation/heatmap", cacheMiddleware(10000)); // 10s cache
 
 // Add micro-cache for SOL complete endpoint (624ms → faster)
 app.use("/api/sol/complete", cacheMiddleware(500)); // 500ms micro-cache
 app.use("/api/btc/complete", cacheMiddleware(500)); // 500ms micro-cache
 
 // 🚀 PROXY MIDDLEWARE WITH CIRCUIT BREAKER
-let circuitBreaker = { failures: 0, lastFailure: null, isOpen: false };
+interface CircuitBreakerState {
+  failures: number;
+  lastFailure: number | null;
+  isOpen: boolean;
+}
+let circuitBreaker: CircuitBreakerState = { failures: 0, lastFailure: null, isOpen: false };
 
 // 🛡️ PRE-PROXY CIRCUIT BREAKER MIDDLEWARE - Check before proxy
-app.use("/py", (req, res, next) => {
+app.use("/coinglass", (req, res, next) => {
   if (circuitBreaker.isOpen) {
     return res.status(503).json({
-      error: "Service temporarily unavailable - circuit breaker is open",
+      error: "CoinGlass service temporarily unavailable - circuit breaker is open",
       circuitBreaker: { failures: circuitBreaker.failures, isOpen: circuitBreaker.isOpen },
       retryAfter: "60 seconds"
     });
@@ -138,12 +148,12 @@ app.use("/py", (req, res, next) => {
   next();
 });
 
-app.use("/py", createProxyMiddleware({
+app.use("/coinglass", createProxyMiddleware({
   target: PY_BASE,
   changeOrigin: true,
-  pathRewrite: { "^/py": "" },    // /py/health -> /health
+  pathRewrite: { "^/coinglass": "" },    // /coinglass/health -> /health
   proxyTimeout: 20000,
-  onError: (err, req, res) => {
+  onError: (err: Error, req: IncomingMessage, res: ServerResponse) => {
     // Circuit breaker logic
     circuitBreaker.failures++;
     circuitBreaker.lastFailure = Date.now();
@@ -157,14 +167,16 @@ app.use("/py", createProxyMiddleware({
     
     if (!res.headersSent) {
       const status = circuitBreaker.isOpen ? 503 : 502;
-      res.status(status).json({ 
+      res.statusCode = status;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ 
         error: circuitBreaker.isOpen ? "Service temporarily unavailable" : "CoinGlass service unavailable", 
         details: err.message,
         circuitBreaker: { failures: circuitBreaker.failures, isOpen: circuitBreaker.isOpen }
-      });
+      }));
     }
   },
-  onProxyRes: (proxyRes, req, res) => {
+  onProxyRes: (proxyRes: IncomingMessage, req: IncomingMessage, res: ServerResponse) => {
     // Reset circuit breaker on successful response
     if (proxyRes.statusCode && proxyRes.statusCode < 400) {
       if (circuitBreaker.failures > 0) {
@@ -174,7 +186,7 @@ app.use("/py", createProxyMiddleware({
       circuitBreaker.isOpen = false;
     }
   }
-}));
+} as Options));
 
 // Auto-reset circuit breaker after 1 minute
 setInterval(() => {
@@ -187,7 +199,7 @@ setInterval(() => {
   }
 }, 30000);
 
-log(`🚀 CoinGlass Python proxy configured: /py/* → ${PY_BASE} (with guard rails)`);
+log(`🚀 CoinGlass Python proxy configured: /coinglass/* → ${PY_BASE} (with guard rails)`);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -279,7 +291,14 @@ import { metricsCollector } from "./utils/metrics";
 import { enhancedRateLimit, InputSanitizer, getEnhancedSecurityMetrics } from "./middleware/security";
 
 // Apply enhanced security middleware (before other middleware for maximum protection)
-app.use(enhancedRateLimit);
+// Exempt health endpoints from rate limiting to prevent monitoring disruptions
+app.use((req, res, next) => {
+  // Skip rate limiting for health check endpoints
+  if (req.path === '/health' || req.path === '/healthz') {
+    return next();
+  }
+  return enhancedRateLimit(req, res, next);
+});
 app.use(InputSanitizer.validateInput);
 
 // Security headers middleware
@@ -368,7 +387,7 @@ app.use((req, res, next) => {
 
   // 🚀 Initialize Institutional Alert System
   try {
-    const { startInstitutionalScheduler, startSniperScheduler } = await import("./schedulers/institutional.js");
+    const { startInstitutionalScheduler, startSniperScheduler } = await import("./schedulers/institutional");
     startInstitutionalScheduler();
     startSniperScheduler();
     log("✅ Institutional Alert System initialized - bias & sniper alerts active");

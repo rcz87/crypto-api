@@ -343,12 +343,17 @@ export const healthCheckSchema = z.object({
   services: z.object({
     okx: z.enum(['connected', 'disconnected', 'error']),
     api: z.enum(['operational', 'degraded', 'down']),
+    coinglass: z.enum(['connected', 'error']),
   }),
   metrics: z.object({
     responseTime: z.number(),
     requestsToday: z.number(),
     uptime: z.string(),
+    coinglassResponseTimeMs: z.number(),
   }),
+  coinglass: z.object({
+    has_key: z.boolean(),
+  }).optional(),
 });
 
 // API response wrapper schema

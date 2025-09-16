@@ -5,6 +5,7 @@ import { storage } from '../storage.js';
 import { healthCheckSchema } from '../../shared/schema.js';
 import type { SystemLogs } from '../../shared/schema.js';
 import rateLimit from 'express-rate-limit';
+import fetch from 'node-fetch';
 
 /**
  * Register all system and monitoring routes
@@ -44,39 +45,85 @@ export function registerSystemRoutes(app: Express): void {
     }
   });
 
-  // Comprehensive health check endpoint with OKX connectivity test
+  // Comprehensive health check endpoint with OKX and CoinGlass connectivity test
   app.get('/health', async (req: Request, res: Response) => {
     try {
       const startTime = Date.now();
+      
+      // Test OKX connection
       const okxConnected = await okxService.testConnection();
-      const responseTime = Date.now() - startTime;
+      const okxResponseTime = Date.now() - startTime;
+      
+      // Test CoinGlass connection with 1500ms timeout
+      let coinglassConnected = false;
+      let coinglassResponseTime = 0;
+      let coinglassHasKey = false;
+      
+      const coinglassStart = Date.now();
+      try {
+        const PY_BASE = process.env.PY_BASE || 'http://127.0.0.1:8000';
+        
+        // Use AbortController for timeout
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort(), 1500);
+        
+        const response = await fetch(`${PY_BASE}/health`, {
+          signal: abortController.signal
+        });
+        
+        clearTimeout(timeoutId);
+        coinglassResponseTime = Date.now() - coinglassStart;
+        
+        if (response.ok) {
+          const coinglassHealth = await response.json() as any;
+          coinglassConnected = true;
+          // Extract has_key if available in response
+          coinglassHasKey = coinglassHealth?.coinglass?.has_key || false;
+        }
+      } catch (error) {
+        coinglassResponseTime = Date.now() - coinglassStart;
+        console.warn(`CoinGlass health check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+      
+      // Determine overall system status - degraded if any critical service fails
+      const allCriticalServicesHealthy = okxConnected && coinglassConnected;
+      const status = allCriticalServicesHealthy ? 'operational' : 'degraded' as const;
       
       const healthData = {
-        status: okxConnected ? 'operational' : 'degraded' as const,
+        status,
         timestamp: new Date().toISOString(),
         services: {
           okx: okxConnected ? 'connected' : 'error' as const,
           api: 'operational' as const,
+          coinglass: coinglassConnected ? 'connected' : 'error' as const,
         },
         metrics: {
-          responseTime,
+          responseTime: okxResponseTime,
           requestsToday: await storage.getTodayRequestCount(),
           uptime: process.uptime().toString() + 's',
+          coinglassResponseTimeMs: coinglassResponseTime,
+        },
+        coinglass: {
+          has_key: coinglassHasKey,
         },
       };
       
       const validated = healthCheckSchema.parse(healthData);
-      res.json({
-        success: true,
+      
+      // Return 503 if any critical services are down
+      const statusCode = allCriticalServicesHealthy ? 200 : 503;
+      
+      res.status(statusCode).json({
+        success: allCriticalServicesHealthy,
         data: validated,
         timestamp: new Date().toISOString(),
       });
       
-      // Log the health check
+      // Log the comprehensive health check
       await storage.addLog({
-        level: 'info',
-        message: 'Health check performed',
-        details: `Response time: ${responseTime}ms, OKX: ${okxConnected ? 'connected' : 'error'}`,
+        level: allCriticalServicesHealthy ? 'info' : 'warning',
+        message: 'Comprehensive health check performed',
+        details: `OKX: ${okxConnected ? 'connected' : 'error'} (${okxResponseTime}ms), CoinGlass: ${coinglassConnected ? 'connected' : 'error'} (${coinglassResponseTime}ms)`,
       });
       
     } catch (error) {
@@ -277,7 +324,7 @@ export function registerSystemRoutes(app: Express): void {
 
   app.get('/api/scheduler/status', schedulerStatusLimit, async (req: Request, res: Response) => {
     try {
-      const { getSchedulerStatus } = await import('../schedulers/institutional.js');
+      const { getSchedulerStatus } = await import('../schedulers/institutional');
       const status = getSchedulerStatus();
       
       res.json({
