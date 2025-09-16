@@ -58,7 +58,7 @@ class CoinglassClient:
     # Pre-validation helper for pair/exchange validation
     def validate_pair_exchange(self, symbol: str, exchange: str, cache_seconds: int = 120):
         """Pre-validate pair/exchange availability via supported-exchange-pairs"""
-        supported_pairs = self.supported_exchange_pairs()
+        supported_pairs = self.taker_buysell_volume_exchanges()
         if not supported_pairs or 'data' not in supported_pairs:
             return False
             
