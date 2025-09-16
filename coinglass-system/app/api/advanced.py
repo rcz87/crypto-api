@@ -423,12 +423,13 @@ def get_oi_aggregated(
 @router.get("/funding/rate/{symbol}")
 def get_funding_rate(
     symbol: str,
-    interval: str = Query("1h", description="Time interval (1h, 4h, 8h)")
+    interval: str = Query("8h", description="Time interval (8h, 1h, 4h)"),
+    exchange: str = Query("Binance", description="Exchange name")
 ):
     """Get funding rate history (All Packages)"""
     try:
         client = CoinglassClient()
-        raw_data = client.funding_rate(symbol, interval)
+        raw_data = client.funding_rate(symbol, interval, exchange)
         return raw_data
     except Exception as e:
         logger.error(f"Error in funding rate: {e}")

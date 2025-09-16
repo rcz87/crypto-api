@@ -27,10 +27,11 @@ class CoinglassClient:
         return response.json()
 
     # 2. Funding Rate - Available in all packages
-    def funding_rate(self, symbol: str, interval: str = "1h"):
+    def funding_rate(self, symbol: str, interval: str = "8h", exchange: str = "Binance"):
         """Get funding rate history"""
-        url = f"{self.base_url}/api/futures/funding-rate"
-        params = {"symbol": symbol, "interval": interval}
+        url = f"{self.base_url}/api/futures/funding-rate/history"
+        # Use instrument format for funding rate
+        params = {"instrument": f"{symbol}USDT", "interval": interval, "exchange": exchange}
         response = self.http.get(url, params)
         return response.json()
 
@@ -45,13 +46,14 @@ class CoinglassClient:
     # 4. Taker Buy/Sell Volume - Available in all packages
     def taker_buysell_volume_exchanges(self):
         """Get exchange list for taker buy/sell volume"""
-        url = f"{self.base_url}/api/futures/taker-buy-sell-volume/exchange-list"
+        url = f"{self.base_url}/api/futures/supported-exchange"
         response = self.http.get(url)
         return response.json()
     
     def taker_buysell_volume(self, symbol: str, exchange: str = "Binance", interval: str = "1h"):
         """Get taker buy/sell volume data"""
-        url = f"{self.base_url}/api/futures/taker-buy-sell-volume"
+        url = f"{self.base_url}/api/futures/taker-buy-sell-volume/history"
+        # Use both symbol and exchange parameters
         params = {"symbol": symbol, "exchange": exchange, "interval": interval}
         response = self.http.get(url, params)
         return response.json()
