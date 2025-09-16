@@ -107,7 +107,7 @@ class CoinglassClient:
         return result
     
     def taker_buysell_volume_aggregated(self, coin: str, interval: str = "1h"):
-        """Get aggregated taker buy/sell volume data (coin-level) - Official spec: coin= parameter"""
+        """Get aggregated taker buy/sell volume data (coin-level) - Official spec: symbol= parameter"""
         url = f"{self.base_url}/api/futures/aggregated-taker-buy-sell-volume/history"
         # Add time range for last 72 hours to get more data for aggregated
         import time
@@ -115,7 +115,7 @@ class CoinglassClient:
         start_time = end_time - (72 * 60 * 60 * 1000)  # 72 hours ago for better coverage
         
         params = {
-            "symbol": coin,  # WORKING: Use symbol=SOL (actual implementation differs from docs)
+            "symbol": coin,  # OFFICIAL: Use symbol=SOL (matches CoinGlass v4 official documentation)
             "interval": interval,
             "exchange_list": "Binance,OKX,Bybit",  # Required in actual implementation
             "start_time": start_time,
