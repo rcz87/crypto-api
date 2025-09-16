@@ -21,7 +21,7 @@ engine = create_engine(
             "application_name": "coinglass_system",
             "jit": "off"  # Disable JIT for faster query execution
         }
-    }
+    } if settings.DB_URL.startswith('postgresql') else {}
 )
 
 SessionLocal = sessionmaker(

@@ -30,4 +30,5 @@ dependencies = [
     "prometheus-fastapi-instrumentator>=7.1.0",
     "loguru>=0.7.3",
     "pytest>=8.4.2",
+    "replit>=4.1.2",
 ]

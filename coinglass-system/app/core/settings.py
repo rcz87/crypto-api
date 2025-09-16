@@ -1,12 +1,13 @@
 from pydantic_settings import BaseSettings
 from typing import List
 import secrets
+import os
 
 class Settings(BaseSettings):
     # API Configuration
     CG_API_KEY: str
-    DB_URL: str = "sqlite:///./coinglass.db"  # Default to SQLite for development
-    REDIS_URL: str = "redis://localhost:6379"  # Default Redis URL
+    DB_URL: str = os.getenv("DATABASE_URL", "sqlite:///./coinglass.db")  # Use Replit PostgreSQL
+    REDIS_URL: str = "redis://localhost:6379"  # Will be replaced with ReplDB
     TELEGRAM_BOT_TOKEN: str = ""  # Optional
     TELEGRAM_CHAT_ID: str = ""  # Optional
     
