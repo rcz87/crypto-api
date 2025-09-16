@@ -1,0 +1,97 @@
+Congrats, ini udah masuk “institutional-grade flow”. Aku cuma lurusin 2 miskonsepsi kecil biar sistemmu makin rapih, terus kasih next-step yang langsung bisa dieksekusi.
+
+TL;DR
+
+Aggregated taker volume: param yang benar coin= (BTC/SOL/ETH), bukan symbol=. Spec resminya begitu. 
+CoinGlass-API
+
+exchange_list tidak tercantum di spec aggregated (opsional/ignorable oleh server). Jangan dijadikan hard-require. 
+CoinGlass-API
+
+Pair-level taker (v2) & funding & orderbook: endpoint kamu sudah on-track. Rekomendasi: pre-validate pair via supported-exchange-pairs sebelum call. 
+CoinGlass-API
++2
+CoinGlass-API
++2
+
+Cek Kebenaran Param (biar konsisten jangka panjang)
+Kebutuhan	Endpoint (v4)	Param WAJIB	Catatan
+Aggregated Taker (Futures)	/api/futures/aggregated-taker-buy-sell-volume/history	coin, interval, (opsional: start_time, end_time)	coin= (contoh coin=SOL). Spec tidak menyebut exchange_list. 
+CoinGlass-API
+
+Pair Taker (Futures v2)	/api/futures/v2/taker-buy-sell-volume/history	symbol, exchange, interval	Pair-level (contoh symbol=SOLUSDT&exchange=Binance/OKX). 
+CoinGlass-API
+
+Funding OHLC	/api/futures/funding-rate/history	symbol, exchange, interval	Kamu sudah benar; fallback exchange juga OK. 
+CoinGlass-API
+
+Orderbook (Futures, Bid&Ask ±range)	/api/futures/orderbook/ask-bids-history	symbol, exchange, (interval, waktu)	Mulai dari BTC/ETH untuk sanity check; jika kosong, coba window lebih lebar. 
+CoinGlass-API
+
+Supported Pairs (Futures)	/api/futures/supported-exchange-pairs	–	Pakai untuk pre-validate ketersediaan pair/exchange. 
+CoinGlass-API
+Yang Perlu Dikoreksi dari “Key Breakthrough”
+
+“✅ symbol=SOL (bukan coin=SOL) untuk aggregated” → kebalik: harus coin=SOL. Fakta ini juga yang bikin request kamu tiba-tiba tembus setelah kamu ganti dari symbol→coin. 
+CoinGlass-API
+
+“✅ exchange_list required” → di spec tidak ada. Kalau servermu kirim dan tetap sukses, kemungkinan diabaikan oleh upstream. Jangan dijadikan dependensi. 
+CoinGlass-API
+
+Pakai Data Barumu → “Sniper timing (5m) — cepat & objektif”
+
+Berikut resep ringkas (siap di-encode ke engine kamu):
+
+Input (rolling 1–4 jam):
+
+Aggregated taker (coin-level) → buy_usd, sell_usd (H1). 
+CoinGlass-API
+
+Funding (pair) → interval=1h/8h (Binance/OKX, fallback aktif). 
+CoinGlass-API
+
+OI OHLC (pair) → interval=1h. 
+CoinGlass-API
+
+Orderbook (±range) → total bids_usd vs asks_usd di ±0.5–1.5%. 
+CoinGlass-API
+
+Derivasi cepat:
+
+TakerDominance = buy_usd / (buy_usd + sell_usd)
+
+OI_Delta = OI_close - OI_open (H1)
+
+OB_Imbalance = bids_usd / (bids_usd + asks_usd)
+
+Trigger Long (5m):
+
+TakerDominance > 0.55 dan OI_Delta > 0
+
+Funding netral→positif ringan (hindari over-crowded)
+
+OB_Imbalance > 0.52 atau harga reclaim OB/ FVG levelmu
+→ kirim alert LONG, set TP di cluster asks terdekat, SL di bawah liquidity pocket terakhir.
+
+Trigger Short (5m):
+
+TakerDominance < 0.45 dan OI_Delta > 0 saat harga naik (potensi squeeze balik)
+
+Funding positif tinggi (crowded longs)
+
+OB_Imbalance < 0.48
+→ alert SHORT, TP di cluster bids, invalidasi di atas wall absorbsi.
+
+Checklist Production (final polish)
+
+ Pastikan aggregated taker selalu pakai coin= dan hapus hard-require exchange_list. 
+CoinGlass-API
+
+ Tambah pre-validate pair via /api/futures/supported-exchange-pairs (cache 60–120 dtk). 
+CoinGlass-API
+
+ Fallback graph: OKX→Binance (pair-level) → aggregated coin (jika pair kosong). 
+CoinGlass-API
++1
+
+ Orderbook: pakai BTC/ETH untuk health-check harian; jika null, perlebar interval/window.

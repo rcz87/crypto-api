@@ -55,6 +55,20 @@ class CoinglassClient:
         response = self.http.get(url, params)
         return response.json()
 
+    # Pre-validation helper for pair/exchange validation
+    def validate_pair_exchange(self, symbol: str, exchange: str, cache_seconds: int = 120):
+        """Pre-validate pair/exchange availability via supported-exchange-pairs"""
+        supported_pairs = self.supported_exchange_pairs()
+        if not supported_pairs or 'data' not in supported_pairs:
+            return False
+            
+        # Check if exchange exists and has the symbol
+        exchange_data = supported_pairs['data'].get(exchange, [])
+        for pair in exchange_data:
+            if pair.get('instrument_id', '').startswith(symbol):
+                return True
+        return False
+
     # 4. Taker Buy/Sell Volume - Available in all packages
     def taker_buysell_volume_exchanges(self):
         """Get exchange list for taker buy/sell volume"""
@@ -93,7 +107,7 @@ class CoinglassClient:
         return result
     
     def taker_buysell_volume_aggregated(self, coin: str, interval: str = "1h"):
-        """Get aggregated taker buy/sell volume data (coin-level fallback)"""
+        """Get aggregated taker buy/sell volume data (coin-level) - Official spec: coin= parameter"""
         url = f"{self.base_url}/api/futures/aggregated-taker-buy-sell-volume/history"
         # Add time range for last 72 hours to get more data for aggregated
         import time
@@ -101,9 +115,9 @@ class CoinglassClient:
         start_time = end_time - (72 * 60 * 60 * 1000)  # 72 hours ago for better coverage
         
         params = {
-            "symbol": coin,  # API actually expects symbol= not coin= (docs inconsistency)  
+            "symbol": coin,  # WORKING: Use symbol=SOL (actual implementation differs from docs)
             "interval": interval,
-            "exchange_list": "Binance,OKX,Bybit",  # Required parameter
+            "exchange_list": "Binance,OKX,Bybit",  # Required in actual implementation
             "start_time": start_time,
             "end_time": end_time
         }

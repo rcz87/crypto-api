@@ -2,7 +2,9 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from typing import List, Optional
 from datetime import datetime
+import time
 from app.core.coinglass_client import CoinglassClient
+from app.core.sniper_engine import SniperTimingEngine
 from app.core.http import HttpError, RateLimitExceeded
 from app.core.logging import logger
 from app.models.schemas import (
@@ -608,4 +610,38 @@ def get_futures_orderbook_aggregated(
         return raw_data
     except Exception as e:
         logger.error(f"Error in aggregated orderbook: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+@router.get("/sniper-timing/{coin}")
+def get_sniper_timing_signals(
+    coin: str,
+    exchange: str = Query("Binance", description="Exchange for analysis")
+):
+    """Get institutional-grade 5-minute LONG/SHORT sniper signals"""
+    try:
+        engine = SniperTimingEngine()
+        signal_data = engine.analyze_sniper_signals(coin.upper(), exchange)
+        return signal_data
+    except Exception as e:
+        logger.error(f"Error in sniper timing analysis: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+@router.get("/sniper-timing/multi-scan")
+def get_multi_coin_sniper_scan(
+    coins: str = Query("BTC,ETH,SOL", description="Comma-separated coin list")
+):
+    """Scan multiple coins for best sniper timing opportunities"""
+    try:
+        coin_list = [coin.strip().upper() for coin in coins.split(",")]
+        engine = SniperTimingEngine()
+        results = engine.multi_coin_scan(coin_list)
+        
+        return {
+            "scan_results": results,
+            "best_signals": [r for r in results if r.get('confidence', 0) >= 70],
+            "timestamp": int(time.time() * 1000),
+            "coins_scanned": len(coin_list)
+        }
+    except Exception as e:
+        logger.error(f"Error in multi-coin sniper scan: {e}")
         raise HTTPException(status_code=500, detail={"message": str(e)})
