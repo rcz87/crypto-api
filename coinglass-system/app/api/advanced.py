@@ -455,13 +455,27 @@ def get_taker_volume(
     exchange: str = Query("OKX", description="Exchange name"),
     interval: str = Query("1h", description="Time interval")
 ):
-    """Get taker buy/sell volume data (All Packages)"""
+    """Get taker buy/sell volume data (pair-level)"""
     try:
         client = CoinglassClient()
         raw_data = client.taker_buysell_volume(symbol, exchange, interval)
         return raw_data
     except Exception as e:
         logger.error(f"Error in taker volume: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+@router.get("/taker-volume-aggregated/{coin}")
+def get_taker_volume_aggregated(
+    coin: str,
+    interval: str = Query("1h", description="Time interval")
+):
+    """Get aggregated taker buy/sell volume data (coin-level fallback)"""
+    try:
+        client = CoinglassClient()
+        raw_data = client.taker_buysell_volume_aggregated(coin, interval)
+        return raw_data
+    except Exception as e:
+        logger.error(f"Error in aggregated taker volume: {e}")
         raise HTTPException(status_code=500, detail={"message": str(e)})
 
 @router.get("/liquidation/coin-history/{symbol}")

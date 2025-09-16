@@ -1,0 +1,147 @@
+Intinya: URL-nya udah benar, tapi ada beberapa “gotcha” umum (format param, penempatan param GET vs body, dan opsi agregat) yang bisa bikin error seperti yang kamu lihat.
+
+TL;DR (fix cepat)
+
+Funding Rate: pakai symbol=BTCUSDT&exchange=OKX&interval=8h&start_time=...&end_time=... → param di query string (GET), timestamp milidetik, exchange uppercase. Endpoint & interval valid. 
+CoinGlass-API
+
+Taker Buy/Sell (pair): endpoint benar, HARUS kirim symbol (pair, mis. SOLUSDT) + exchange=OKX di query (bukan JSON body). Kalau tetap bandel, pakai rute agregat coin dulu. 
+CoinGlass-API
++1
+
+Supported Exchange (404): path kamu sudah tepat. 404 biasanya karena base URL salah (v3 vs v4), typo, atau header auth. Cek lagi https://open-api-v4.coinglass.com + header CG-Api-Key. 
+CoinGlass-API
++1
+
+1) Funding Rate — “instrument error”
+
+Endpoint resmi:
+GET https://open-api-v4.coinglass.com/api/futures/funding-rate/history (v4) 
+CoinGlass-API
+
+Yang sering bikin gagal
+
+Param harus symbol, bukan instrument.
+
+exchange wajib untuk pair-level.
+
+Param di query string (GET), bukan JSON body.
+
+Timestamp = milidetik (contohmu sudah ms).
+
+interval=8h didukung (Standard: No Limit interval). 
+CoinGlass-API
+
+Contoh yang valid (punyamu sudah OK, pastikan dikirim sebagai GET):
+
+curl -H "CG-Api-Key: $API_KEY" \
+  "https://open-api-v4.coinglass.com/api/futures/funding-rate/history?symbol=BTCUSDT&exchange=OKX&interval=8h&start_time=1726452750000&end_time=1726539150000"
+
+
+Jika masih error, uji “tanpa waktu” dulu (biar server kasih default range) → tambah range belakangan. Rute OI-weight & Vol-weight juga ada kalau butuh. 
+CoinGlass-API
+
+2) Taker Buy/Sell Volume — “Required String parameter 'symbol' is not present”
+
+Endpoint resmi (pair-level):
+GET https://open-api-v4.coinglass.com/api/futures/v2/taker-buy-sell-volume/history 
+CoinGlass-API
+
+Penyebab paling umum error ini
+
+Param dikirim di body JSON atau Content-Type: application/json → backend tidak baca, karena ini GET dengan query string.
+
+Salah nama param (mis. pair, instrument, symbolId) → harus symbol.
+
+Lupa exchange=.
+
+Contoh valid (SOL di OKX, 1h):
+
+curl -H "CG-Api-Key: $API_KEY" \
+  "https://open-api-v4.coinglass.com/api/futures/v2/taker-buy-sell-volume/history?symbol=SOLUSDT&exchange=OKX&interval=1h&start_time=1726452750000&end_time=1726539150000"
+
+
+Plan B (kalau pair-level masih ngambek):
+pakai agregat coin (tidak butuh exchange)
+GET .../api/futures/aggregated-taker-buy-sell-volume/history?coin=SOL&interval=1h... 
+CoinGlass-API
+
+3) Supported Exchange Pairs — 404
+
+Endpoint resmi (futures):
+GET https://open-api-v4.coinglass.com/api/futures/supported-exchange-pairs (ada di docs v4) 
+CoinGlass-API
+
+Kenapa bisa 404 padahal URL betul?
+
+Base URL bukan v4 (mis. open-api-v3 atau domain salah). Pastikan open-api-v4.coinglass.com. 
+CoinGlass-API
+
+Header auth tidak ada/invalid → sebagian gateway balas 404 untuk request tak terotorisasi.
+
+Ada URL encoding aneh (spasi/karakter) saat copy-paste.
+
+Contoh valid:
+
+curl -H "CG-Api-Key: $API_KEY" \
+  "https://open-api-v4.coinglass.com/api/futures/supported-exchange-pairs"
+
+
+Untuk OI per exchange (by coin): .../api/futures/open-interest/exchange-list?coin=SOL (sering dipakai buat scanner). 
+CoinGlass-API
+
+Snippet “anti-nyasar” (siap colok)
+
+Rules umum GET CoinGlass v4:
+
+Selalu letakkan param di query string untuk endpoint GET.
+
+Gunakan konvensi:
+
+pair-level → symbol=BTCUSDT / SOLUSDT + exchange=OKX
+
+coin-level agregat → coin=BTC / SOL (tanpa exchange)
+
+Timestamp ms & uppercase exchange (OKX, Binance, …).
+
+Konsisten di v4 (jangan campur v3). 
+CoinGlass-API
+
+Health-check cepat (cURL):
+
+# 1) Funding rate (pair-level)
+curl -H "CG-Api-Key: $API_KEY" \
+  "https://open-api-v4.coinglass.com/api/futures/funding-rate/history?symbol=BTCUSDT&exchange=OKX&interval=8h"
+
+# 2) Taker (pair-level)
+curl -H "CG-Api-Key: $API_KEY" \
+  "https://open-api-v4.coinglass.com/api/futures/v2/taker-buy-sell-volume/history?symbol=SOLUSDT&exchange=OKX&interval=1h"
+
+# 2b) Taker (coin-aggregated, tanpa exchange)
+curl -H "CG-Api-Key: $API_KEY" \
+  "https://open-api-v4.coinglass.com/api/futures/aggregated-taker-buy-sell-volume/history?coin=SOL&interval=1h"
+
+# 3) Futures supported exchange & pairs
+curl -H "CG-Api-Key: $API_KEY" \
+  "https://open-api-v4.coinglass.com/api/futures/supported-exchange-pairs"
+
+
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+Bonus: triage cepat kalau masih error
+
+400/422: cek ejaan param (symbol, exchange, interval), dan jangan kirim di body. 
+CoinGlass-API
+
+404: cek base URL v4, auth header, atau trailing typo. 
+CoinGlass-API
++1
+
+Plan limit: Standard = No Limit untuk interval di funding & taker (pair/coin) → jadi bukan masalah plan. 
+CoinGlass-API
++1

@@ -30,19 +30,13 @@ class CoinglassClient:
     def funding_rate(self, symbol: str, interval: str = "8h", exchange: str = "OKX"):
         """Get funding rate history"""
         url = f"{self.base_url}/api/futures/funding-rate/history"
-        # Add time range for last 24 hours to get data
-        import time
-        end_time = int(time.time() * 1000)  # Current time in milliseconds
-        start_time = end_time - (24 * 60 * 60 * 1000)  # 24 hours ago
-        
+        # Test basic connection first without time range
         params = {
             "symbol": f"{symbol}USDT", 
             "interval": interval, 
-            "exchange": exchange,
-            "start_time": start_time,
-            "end_time": end_time
+            "exchange": exchange
         }
-        response = self.http.get(url, params)
+        response = self.http.get(url, params=params)  # Explicit params in query string
         return response.json()
 
     # 3. Long/Short Ratio - Available in Standard
@@ -57,25 +51,30 @@ class CoinglassClient:
     def taker_buysell_volume_exchanges(self):
         """Get exchange list for taker buy/sell volume"""
         url = f"{self.base_url}/api/futures/supported-exchange-pairs"
+        # Ensure proper headers for auth
         response = self.http.get(url)
         return response.json()
     
     def taker_buysell_volume(self, symbol: str, exchange: str = "OKX", interval: str = "1h"):
-        """Get taker buy/sell volume data"""
+        """Get taker buy/sell volume data (pair-level)"""
         url = f"{self.base_url}/api/futures/v2/taker-buy-sell-volume/history"
-        # Add time range for last 24 hours to get data
-        import time
-        end_time = int(time.time() * 1000)  # Current time in milliseconds
-        start_time = end_time - (24 * 60 * 60 * 1000)  # 24 hours ago
-        
+        # Ensure params in query string for GET request
         params = {
             "symbol": f"{symbol}USDT", 
             "exchange": exchange, 
-            "interval": interval,
-            "start_time": start_time,
-            "end_time": end_time
+            "interval": interval
         }
-        response = self.http.get(url, params)
+        response = self.http.get(url, params=params)  # Explicit params in query string
+        return response.json()
+    
+    def taker_buysell_volume_aggregated(self, coin: str, interval: str = "1h"):
+        """Get aggregated taker buy/sell volume data (coin-level fallback)"""
+        url = f"{self.base_url}/api/futures/aggregated-taker-buy-sell-volume/history"
+        params = {
+            "coin": coin,  # Use coin instead of symbol for aggregated
+            "interval": interval
+        }
+        response = self.http.get(url, params=params)
         return response.json()
 
     # 5. Liquidation History - Available in Standard
