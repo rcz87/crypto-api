@@ -90,7 +90,17 @@ class CoinglassClient:
         return result
     
     def taker_buysell_volume(self, symbol: str, exchange: str = "OKX", interval: str = "1h"):
-        """Get taker buy/sell volume data (pair-level) with fallback to aggregated"""
+        """Get taker buy/sell volume data (pair-level) with proactive validation and fallback"""
+        
+        # PRE-VALIDATION: Check pair/exchange availability before making request
+        is_valid = self.validate_pair_exchange(symbol, exchange)
+        if not is_valid:
+            # Invalid pair/exchange combo - go directly to aggregated fallback
+            result = self.taker_buysell_volume_aggregated(symbol, interval)
+            result['validation_note'] = f'Pair {symbol}-{exchange} not supported, using aggregated data'
+            return result
+        
+        # Pair/exchange validated - proceed with pair-level request
         url = f"{self.base_url}/api/futures/v2/taker-buy-sell-volume/history"
         params = {
             "symbol": f"{symbol}USDT", 
@@ -100,9 +110,11 @@ class CoinglassClient:
         response = self.http.get(url, params=params)
         result = response.json()
         
-        # If code 400 "instrument" error, fallback to aggregated coin-level
+        # Backup error handling - if still get "instrument" error despite validation
         if isinstance(result, dict) and result.get('code') == '400' and result.get('msg') == 'instrument':
-            return self.taker_buysell_volume_aggregated(symbol, interval)
+            fallback_result = self.taker_buysell_volume_aggregated(symbol, interval)
+            fallback_result['validation_note'] = f'Validation passed but API error, using aggregated fallback'
+            return fallback_result
         
         return result
     
