@@ -1,0 +1,160 @@
+Gokil—progress-nya cakep. Sekarang kita beresin 3 titik kuning/merah kamu dengan **endpoint & param yang PASTI** dari docs v4.
+
+# TL;DR (fix tepat sasaran)
+
+* **Taker Aggregated** → pakai `coin=` (bukan `symbol=`) di:
+  `/api/futures/aggregated-taker-buy-sell-volume/history` → isi `coin=SOL&interval=1h&start_time&end_time`. ([CoinGlass-API][1])
+* **Supported Exchange Pairs (404)** → path resmi:
+  `/api/futures/supported-exchange-pairs` (ejaannya “supported”). Jangan custom “taker-volume-list”. ([CoinGlass-API][2])
+* **Orderbook (null)** → mulai dari **pair Bid\&Ask (±range)**
+  `/api/futures/orderbook/ask-bids-history` **atau** versi umum `/api/futures/orderbook/history` dan, jika perlu, **versi aggregated**: `/api/futures/orderbook/aggregated-history`. Pastikan pakai **symbol & exchange** dan beri **range/time window yang masuk akal**. ([CoinGlass-API][3])
+
+---
+
+# 1) ⚠️ Taker Volume Aggregated → “200 OK tapi data null”
+
+**Masalah umum:** salah param (`symbol=` dipakai di aggregated), window waktu di luar cakupan, atau `interval` terlalu granular untuk data yang tersedia.
+
+**Endpoint BENAR (aggregated coin-level):**
+`GET https://open-api-v4.coinglass.com/api/futures/aggregated-taker-buy-sell-volume/history`  → **pakai `coin=SOL`**, bukan `symbol=SOLUSDT`. ([CoinGlass-API][1])
+
+**Contoh yang *harusnya* keluar data:**
+
+```bash
+curl -H "CG-Api-Key: $API_KEY" \
+"https://open-api-v4.coinglass.com/api/futures/aggregated-taker-buy-sell-volume/history?coin=SOL&interval=1h&start_time=1726452000000&end_time=1726538400000"
+```
+
+Checklist:
+
+* [ ] `coin=SOL` (BUKAN `symbol=`). ([CoinGlass-API][1])
+* [ ] `interval` valid (Standard: **No Limit**, tapi tetap gunakan 1h/4h untuk kestabilan). ([CoinGlass-API][4])
+* [ ] `start_time/end_time` **milidetik** dan ada aktivitas (coba 24–72 jam terakhir).
+
+> Tip: Bila butuh pair-level lagi, tetap pakai `/api/futures/v2/taker-buy-sell-volume/history?symbol=SOLUSDT&exchange=Binance…`. Untuk **OKX** jika 400 “instrument”, fallback ke aggregated coin-level di atas. ([CoinGlass-API][4])
+
+---
+
+# 2) ❌ Supported Exchange Pairs → 404/500
+
+**Path resmi & tersedia di semua plan:**
+`GET https://open-api-v4.coinglass.com/api/futures/supported-exchange-pairs` ([CoinGlass-API][2])
+
+**Contoh:**
+
+```bash
+curl -H "CG-Api-Key: $API_KEY" \
+"https://open-api-v4.coinglass.com/api/futures/supported-exchange-pairs"
+```
+
+Hardening di proxy:
+
+* Validasi **base URL v4** dan header auth (kalau auth gagal, sebagian gateway balas 404). ([CoinGlass-API][5])
+* Jangan pakai route custom “taker-volume-list”—langsung proxy ke endpoint di atas.
+* Alternatif (untuk konfirmasi dukungan OI per coin):
+  `GET /api/futures/open-interest/exchange-list?coin=SOL` (juga tersedia semua plan). ([CoinGlass-API][6])
+
+---
+
+# 3) ⚠️ Orderbook Ask-Bids → “200 OK tapi null”
+
+**Endpoint yang diakui docs v4:**
+
+* **Pair Bid\&Ask (±range)**:
+  `GET https://open-api-v4.coinglass.com/api/futures/orderbook/ask-bids-history` ([CoinGlass-API][3])
+* **Umum (Bid\&Ask)** – dari changelog v4:
+  `GET https://open-api-v4.coinglass.com/api/futures/orderbook/history` ([CoinGlass-API][7])
+* **Aggregated (semua exchange)**:
+  `GET https://open-api-v4.coinglass.com/api/futures/orderbook/aggregated-history` ([CoinGlass-API][7])
+
+**Aksi praktis: mulai dari minimal param yang pasti dibaca**
+
+```bash
+# Pair-level Binance BTC
+curl -H "CG-Api-Key: $API_KEY" \
+"https://open-api-v4.coinglass.com/api/futures/orderbook/ask-bids-history?symbol=BTCUSDT&exchange=Binance&interval=1h&start_time=1726452000000&end_time=1726538400000"
+```
+
+Jika tetap kosong:
+
+* Turunkan **granularitas waktu** (coba `4h`), atau **perlebar window**.
+* Coba **symbol lain yang sangat likuid** (BTCUSDT/ETHUSDT) di Binance untuk sanity check.
+* Jika pair-level masih null, uji **aggregated-history** (tanpa `exchange`) untuk memastikan ada data. ([CoinGlass-API][7])
+
+> Catatan: endpoint ini mengembalikan **total volume bid/ask** dalam rentang harga tertentu (±range). Bila server default range terlalu ketat untuk pair illiquid, hasilnya bisa tampak “kosong”. Mulai dari pair likuid & window waktu lebar dulu. (Docs menegaskan konteks ±range, meski param detailnya tidak ditampilkan penuh di halaman.) ([CoinGlass-API][3])
+
+---
+
+## Snippets “siap-colok” (proxy `/advanced/*` kamu)
+
+**Taker aggregated fallback**
+
+```ts
+// /advanced/taker-volume/:coin (aggregated fallback)
+app.get('/advanced/taker-volume/:coin', async (req,res)=>{
+  const { coin } = req.params;           // e.g. SOL
+  const { interval='1h', start_time, end_time } = req.query;
+  const url = '/api/futures/aggregated-taker-buy-sell-volume/history';
+  const q = { coin, interval, start_time, end_time };
+  return proxyV4(url, q, res);
+});
+```
+
+**Supported exchange pairs**
+
+```ts
+app.get('/advanced/exchanges/supported', async (req,res)=>{
+  return proxyV4('/api/futures/supported-exchange-pairs', {}, res);
+});
+```
+
+**Orderbook (pair) dengan fallback aggregated**
+
+```ts
+app.get('/advanced/orderbook/:symbol', async (req,res)=>{
+  const { symbol } = req.params; // e.g. BTCUSDT
+  const { exchange, interval='1h', start_time, end_time } = req.query;
+  try {
+    const r = await v4('/api/futures/orderbook/ask-bids-history',
+      { symbol, exchange, interval, start_time, end_time });
+    if (Array.isArray(r?.data) && r.data.length) return res.json(r);
+    // Fallback ke aggregated jika kosong
+    const agg = await v4('/api/futures/orderbook/aggregated-history',
+      { coin: symbol.replace('USDT',''), interval, start_time, end_time });
+    return res.status(207).json({ warning: 'fallback_aggregated', ...agg });
+  } catch (e) {
+    return res.status(502).json({ code:'upstream_error', msg:String(e) });
+  }
+});
+```
+
+---
+
+## Quick QA (biar ga revisi bolak-balik)
+
+* **Kenapa Binance “lebih sering jalan” dibanding OKX?** → coverage-data CoinGlass untuk pair tertentu memang beda antar exchange; fallback kamu ke Binance itu tepat. (Docs tak janji semua pair ada di semua exchange.) ([CoinGlass-API][4])
+* **Bisa heatmap spot?** → Ada: `/api/spot/orderbook/history` (heatmap spot) — Standard ke atas. ([CoinGlass-API][8])
+* **Screener derivatif** → `/api/futures/pairs-markets` (semua plan). ([CoinGlass-API][9])
+* **Funding OHLC varian** → OI-weight & Vol-weight juga tersedia. ([CoinGlass-API][10])
+
+---
+
+# Checklist Final (aksi cepat)
+
+* [ ] Ganti taker aggregated ke `coin=…` (bukan `symbol=`). ([CoinGlass-API][1])
+* [ ] Panggil **supported-exchange-pairs** langsung (hapus route custom). ([CoinGlass-API][2])
+* [ ] Uji orderbook pada **BTCUSDT/ETHUSDT Binance** (1h, 24–72h) → baru terapkan ke SOL/OKX. ([CoinGlass-API][3])
+* [ ] Jika pair-level kosong, fallback ke **aggregated-history**. ([CoinGlass-API][7])
+
+Kalau mau, drop **3 request mentah** yang masih null (URL penuh—tanpa key). Aku langsung balikin **URL final** + param yang pas untuk tiap endpoint biar tembus data.
+
+[1]: https://docs.coinglass.com/reference/aggregated-taker-buysell-volume-history?utm_source=chatgpt.com "Coin Taker Buy/Sell Volume History"
+[2]: https://docs.coinglass.com/reference/instruments?utm_source=chatgpt.com "Suported Exchange and Pairs"
+[3]: https://docs.coinglass.com/reference/futures-orderbook-history?utm_source=chatgpt.com "Pair Orderbook Bid&Ask(±range)"
+[4]: https://docs.coinglass.com/reference/taker-buysell-volume?utm_source=chatgpt.com "Pair Taker Buy/Sell Ratio History"
+[5]: https://docs.coinglass.com/?utm_source=chatgpt.com "CoinGlass-API"
+[6]: https://docs.coinglass.com/reference/oi-exchange-list?utm_source=chatgpt.com "Exchange List"
+[7]: https://docs.coinglass.com/reference/change-log " Change Log"
+[8]: https://docs.coinglass.com/reference/orderbook-history-1?utm_source=chatgpt.com "Orderbook Heatmap"
+[9]: https://docs.coinglass.com/reference/pairs-markets?utm_source=chatgpt.com "Pairs Markets"
+[10]: https://docs.coinglass.com/reference/oi-weight-ohlc-history?utm_source=chatgpt.com "OI Weight History (OHLC)"

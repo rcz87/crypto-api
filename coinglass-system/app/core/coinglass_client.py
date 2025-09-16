@@ -58,8 +58,8 @@ class CoinglassClient:
     # 4. Taker Buy/Sell Volume - Available in all packages
     def taker_buysell_volume_exchanges(self):
         """Get exchange list for taker buy/sell volume"""
-        # Fix endpoint path per v4 docs: "Suported Exchange and Pairs"
-        url = f"{self.base_url}/api/futures/suported-exchange-pairs"  # Note: typo in official docs
+        # FIXED: Use correct spelling "supported" from v4 docs
+        url = f"{self.base_url}/api/futures/supported-exchange-pairs"
         response = self.http.get(url)
         result = response.json()
         
@@ -95,9 +95,17 @@ class CoinglassClient:
     def taker_buysell_volume_aggregated(self, coin: str, interval: str = "1h"):
         """Get aggregated taker buy/sell volume data (coin-level fallback)"""
         url = f"{self.base_url}/api/futures/aggregated-taker-buy-sell-volume/history"
+        # Add time range for last 24 hours to get data
+        import time
+        end_time = int(time.time() * 1000)  # Current time in milliseconds
+        start_time = end_time - (24 * 60 * 60 * 1000)  # 24 hours ago
+        
         params = {
-            "coin": coin,  # Use coin instead of symbol for aggregated
-            "interval": interval
+            "symbol": f"{coin}USDT",  # FIXED: Use symbol=SOLUSDT for aggregated, not coin=SOL
+            "interval": interval,
+            "exchange_list": "Binance,OKX,Bybit",  # Required parameter discovered!
+            "start_time": start_time,
+            "end_time": end_time
         }
         response = self.http.get(url, params=params)
         return response.json()
@@ -119,16 +127,43 @@ class CoinglassClient:
 
     # 6. Orderbook History - Available from Standard (v4 corrected)
     def futures_orderbook_askbids_history(self, symbol: str, exchange: str = "Binance"):
-        """Get futures orderbook ask-bids history (v4)"""
+        """Get futures orderbook ask-bids history with time range (v4)"""
         url = f"{self.base_url}/api/futures/orderbook/ask-bids-history"
-        params = {"symbol": symbol, "exchange": exchange}
+        # Add time range for last 24 hours to get data
+        import time
+        end_time = int(time.time() * 1000)  # Current time in milliseconds
+        start_time = end_time - (24 * 60 * 60 * 1000)  # 24 hours ago
+        
+        params = {
+            "symbol": f"{symbol}USDT" if not symbol.endswith("USDT") else symbol,
+            "exchange": exchange,
+            "interval": "1h",
+            "start_time": start_time,
+            "end_time": end_time
+        }
         response = self.http.get(url, params=params)
-        return response.json()
+        result = response.json()
+        
+        # If empty data, fallback to aggregated orderbook
+        if not result.get('data') or (isinstance(result.get('data'), list) and len(result['data']) == 0):
+            return self.futures_orderbook_aggregated(symbol.replace('USDT', ''))
+        
+        return result
     
     def futures_orderbook_aggregated(self, coin: str):
         """Get aggregated futures orderbook (coin-level)"""
-        url = f"{self.base_url}/api/futures/orderbook/aggregated-ask-bids-history"
-        params = {"coin": coin}
+        url = f"{self.base_url}/api/futures/orderbook/aggregated-history"
+        # Add time range for last 24 hours to get data
+        import time
+        end_time = int(time.time() * 1000)  # Current time in milliseconds  
+        start_time = end_time - (24 * 60 * 60 * 1000)  # 24 hours ago
+        
+        params = {
+            "coin": coin,
+            "interval": "1h",
+            "start_time": start_time,
+            "end_time": end_time
+        }
         response = self.http.get(url, params=params)
         return response.json()
     
