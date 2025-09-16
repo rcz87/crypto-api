@@ -390,6 +390,140 @@ def get_options_oi(
         raise HTTPException(status_code=500, detail={"message": "Internal server error"})
 
 
+# === NEW STANDARD PACKAGE ENDPOINTS ===
+
+@router.get("/oi/history/{symbol}")
+def get_oi_history(
+    symbol: str,
+    interval: str = Query("1h", description="Time interval (1h, 4h, 1d)")
+):
+    """Get Open Interest history for specific pair (Standard Package)"""
+    try:
+        client = CoinglassClient()
+        raw_data = client.oi_history(symbol, interval)
+        return raw_data
+    except Exception as e:
+        logger.error(f"Error in OI history: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+@router.get("/oi/aggregated/{symbol}")
+def get_oi_aggregated(
+    symbol: str,
+    interval: str = Query("1h", description="Time interval (1h, 4h, 1d)")
+):
+    """Get Aggregated Open Interest OHLC (Standard Package)"""
+    try:
+        client = CoinglassClient()
+        raw_data = client.oi_aggregated_history(symbol, interval)
+        return raw_data
+    except Exception as e:
+        logger.error(f"Error in OI aggregated: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+@router.get("/funding/rate/{symbol}")
+def get_funding_rate(
+    symbol: str,
+    interval: str = Query("1h", description="Time interval (1h, 4h, 8h)")
+):
+    """Get funding rate history (All Packages)"""
+    try:
+        client = CoinglassClient()
+        raw_data = client.funding_rate(symbol, interval)
+        return raw_data
+    except Exception as e:
+        logger.error(f"Error in funding rate: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+@router.get("/long-short-ratio/{symbol}")
+def get_long_short_ratio(
+    symbol: str,
+    interval: str = Query("1h", description="Time interval (1h, 4h, 1d)")
+):
+    """Get global long-short account ratio (Standard Package)"""
+    try:
+        client = CoinglassClient()
+        raw_data = client.global_long_short_ratio(symbol, interval)
+        return raw_data
+    except Exception as e:
+        logger.error(f"Error in long-short ratio: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+@router.get("/taker-volume/{symbol}")
+def get_taker_volume(
+    symbol: str,
+    exchange: str = Query("Binance", description="Exchange name"),
+    interval: str = Query("1h", description="Time interval")
+):
+    """Get taker buy/sell volume data (All Packages)"""
+    try:
+        client = CoinglassClient()
+        raw_data = client.taker_buysell_volume(symbol, exchange, interval)
+        return raw_data
+    except Exception as e:
+        logger.error(f"Error in taker volume: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+@router.get("/liquidation/coin-history/{symbol}")
+def get_liquidation_coin_history(
+    symbol: str,
+    interval: str = Query("1h", description="Time interval")
+):
+    """Get coin liquidation history (Standard Package)"""
+    try:
+        client = CoinglassClient()
+        raw_data = client.liquidation_history_coin(symbol, interval)
+        return raw_data
+    except Exception as e:
+        logger.error(f"Error in liquidation history: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+@router.get("/orderbook/futures-history/{symbol}")
+def get_futures_orderbook_history(
+    symbol: str,
+    exchange: str = Query("Binance", description="Exchange name")
+):
+    """Get futures orderbook history (Standard Package)"""
+    try:
+        client = CoinglassClient()
+        raw_data = client.futures_orderbook_history(symbol, exchange)
+        return raw_data
+    except Exception as e:
+        logger.error(f"Error in futures orderbook history: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+@router.get("/coins-markets")
+def get_coins_markets():
+    """Get futures coins markets screener (Standard Package)"""
+    try:
+        client = CoinglassClient()
+        raw_data = client.coins_markets()
+        return raw_data
+    except Exception as e:
+        logger.error(f"Error in coins markets: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+@router.get("/exchanges/oi-list")
+def get_oi_exchange_list():
+    """Get exchange list for open interest (Standard Package)"""
+    try:
+        client = CoinglassClient()
+        raw_data = client.oi_exchange_list()
+        return raw_data
+    except Exception as e:
+        logger.error(f"Error in OI exchange list: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+@router.get("/exchanges/taker-volume-list")
+def get_taker_volume_exchanges():
+    """Get exchange list for taker buy/sell volume (All Packages)"""
+    try:
+        client = CoinglassClient()
+        raw_data = client.taker_buysell_volume_exchanges()
+        return raw_data
+    except Exception as e:
+        logger.error(f"Error in taker volume exchanges: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
 @router.get("/health")
 def health_check():
     """Health check endpoint for the advanced CoinGlass API"""
