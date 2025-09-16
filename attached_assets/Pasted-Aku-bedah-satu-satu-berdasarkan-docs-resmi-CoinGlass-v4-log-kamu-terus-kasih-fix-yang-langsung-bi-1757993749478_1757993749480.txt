@@ -1,0 +1,162 @@
+Aku bedah satu-satu berdasarkan docs resmi CoinGlass v4 + log kamu, terus kasih fix yang langsung bisa dieksekusi.
+
+TL;DR
+
+ETF Flows (404) → Memang bukan fitur Standard; ETF endpoints itu area premium/terbatas. Jangan panggil; hide di UI kecuali tier>=Pro. 
+CoinGlass-API
++1
+
+Funding Rate SOL-OKX (code 400 “instrument”) → Endpoint & query OK, tapi pair/exchange availability tidak selalu ada. Cek dukungan pair dulu, atau fallback ke funding “Exchange List” / ganti exchange (Binance). 
+CoinGlass-API
++1
+
+Taker Volume SOL-OKX (code 400 “instrument”) → Endpoint benar, error karena pair SOLUSDT di OKX tidak tersedia di taker-volume v4. Pakai aggregated coin (tanpa exchange) atau pindah exchange. 
+CoinGlass-API
++1
+
+Supported Exchange Pairs (500 karena upstream 404) → Pakai endpoint yang benar: “Suported Exchange and Pairs” (v4) untuk daftar exchange+pair futures. Alternatif: OI Exchange List (per coin). 
+CoinGlass-API
++1
+
+Rate limiting internal → Masalah di middleware kamu (bukan di CoinGlass). Turunkan strictness & tambahkan jitter/backoff.
+
+1) ETF Flows → 404 (benar, non-Standard)
+
+Dokumen resmi menempatkan ETF sebagai kategori tersendiri; sebagian endpoint tidak dibuka untuk plan rendah. Gunakan feature flag: sembunyikan/disable route /advanced/etf/* untuk tier<Pro. 
+CoinGlass-API
++1
+
+Patch cepat (pseudo-Express):
+
+app.use('/advanced/etf', (req,res,next)=>{
+  if (process.env.CG_TIER !== 'pro' && process.env.CG_TIER !== 'enterprise') {
+    return res.status(402).json({code:'feature_locked', msg:'ETF endpoints require Pro+'});
+  }
+  next();
+});
+
+2) Funding Rate SOL di OKX → 200 dengan body error {"code":"400","msg":"instrument"}
+
+Endpoint kamu sudah tepat:
+GET /api/futures/funding-rate/history?symbol=SOLUSDT&exchange=OKX&interval=8h 
+CoinGlass-API
+
+Error “instrument” umumnya = pair-exchange tidak didukung di endpoint tsb. Solusi:
+
+Verifikasi dukungan pair di Suported Exchange and Pairs (v4). 
+CoinGlass-API
+
+Kalau hanya mau snapshot exchange mana yang punya funding utk SOL → pakai Funding Rate “Exchange List” untuk coin SOL, lalu pilih exchange yang tersedia. 
+CoinGlass-API
+
+Atau ganti ke Binance (log kamu bukti “working perfect”).
+
+Failover logic (server):
+
+// if funding-rate/history returns code 400 instrument:
+if (resp.code === '400' && resp.msg === 'instrument') {
+  // 1) hit fr-exchange-list -> pilih exchange pertama yang support SOL
+  // 2) retry funding-rate/history dengan exchange pengganti
+}
+
+3) Taker Buy/Sell Volume SOL-OKX → {"code":"400","msg":"instrument"}
+
+Endpoint pair-level benar:
+GET /api/futures/v2/taker-buy-sell-volume/history?symbol=SOLUSDT&exchange=OKX&interval=1h 
+CoinGlass-API
+
+Kalau pair di exchange itu tak tersedia → fallback ke aggregated coin (tanpa exchange):
+GET /api/futures/aggregated-taker-buy-sell-volume/history?coin=SOL&interval=1h 
+CoinGlass-API
+
+Failover (server):
+
+async function getTaker(pair, ex, interval, t0, t1){
+  const r = await v4('/api/futures/v2/taker-buy-sell-volume/history',{symbol:pair, exchange:ex, interval, start_time:t0, end_time:t1});
+  if (r.code==='400' && r.msg==='instrument') {
+    return v4('/api/futures/aggregated-taker-buy-sell-volume/history',{coin: pair.replace('USDT',''), interval, start_time:t0, end_time:t1});
+  }
+  return r;
+}
+
+4) Supported Exchange Pairs → upstream 404 (proxy jadi 500)
+
+Gunakan endpoint yang tepat di v4:
+
+Suported Exchange and Pairs (Futures): daftar seluruh exchange dan pair yang didukung (inilah yang kamu butuh untuk pre-validate). 
+CoinGlass-API
+
+OI Exchange List: daftar OI per exchange untuk coin tertentu (bagus buat cross-check ketersediaan). 
+CoinGlass-API
+
+Catatan: halaman docs v4 menuliskan “Suported Exchange and Pairs” (ejaan di docs memang begitu). Pastikan kamu pakai path dari toc v4, bukan sisa path v3. 
+CoinGlass-API
++1
+
+Hardening proxy:
+
+app.get('/advanced/exchanges/taker-volume-list', async (req,res)=>{
+  try {
+    const data = await v4('/api/futures/suported-exchange-pairs'); // per docs title "Suported"
+    return res.json(data);
+  } catch (e) {
+    // fallback: gunakan oi-exchange-list?coin=BTC untuk deteksi exchange aktif
+    const fb = await v4('/api/futures/open-interest/exchange-list', {coin:'BTC'});
+    return res.status(207).json({warning:'fallback_oi_exchange_list', data: fb});
+  }
+});
+
+5) Orderbook / Heatmap (bonus)
+
+Futures orderbook history (±range):
+/api/futures/orderbook/ask-bids-history (v4) — tersedia hingga Standard (granularitas No-Limit). Cocok untuk liquidity pockets. 
+CoinGlass-API
++2
+CoinGlass-API
++2
+
+Aggregated futures orderbook (±range): coin-level agregat. 
+CoinGlass-API
+
+6) Rate Limiting internal (IP 127.0.0.1 keblok)
+
+Itu bukan limit CoinGlass; dari Express limiter kamu. Turunkan windowMs dan max, tambah token bucket & jitter.
+
+import rateLimit from 'express-rate-limit';
+app.use(rateLimit({
+  windowMs: 10_000, // 10s
+  max: 40,          // was 8 -> naikkan
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: req => req.ip,
+  handler: (req,res) => res.status(429).json({code:'rate_limited', retry_after_ms: 2500})
+}));
+
+
+Tambahkan client-side backoff: 429 → retry setelah retry_after_ms + random(0..500).
+
+Checklist “anti-nyangkut” (langsung pakai)
+
+ Pre-validate pair via Suported Exchange & Pairs; cache 1 menit. 
+CoinGlass-API
+
+ Funding/Taker pair-level → kalau code=400 instrument: fallback ke (a) exchange lain (Binance), atau (b) aggregated coin utk taker. 
+CoinGlass-API
++1
+
+ ETF/Heatmap model → lock by tier, balas 402 feature_locked + saran upgrade. 
+coinglass
+
+ Orderbook → gunakan ask-bids-history (pair) &/atau aggregated untuk liquidity map. 
+CoinGlass-API
++1
+
+ Limiter → naikkan threshold & implement backoff.
+
+Dampak ke sistem trading-mu
+
+Dengan fallback & pre-validation, pipeline sinyal (Funding + Taker + OI) bakal stabil lintas exchange; Binance >> OKX untuk reliabilitas memang sesuai observasi kamu. 
+CoinGlass-API
++1
+
+Orderbook (±range) dari v4 cukup untuk mapping TP/invalidasi ala liquidity SMC tanpa perlu heatmap model premium

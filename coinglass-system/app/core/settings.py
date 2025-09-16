@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     SIGNAL_COOLDOWN_MINUTES: int = 5
     MAX_ALERTS_PER_HOUR: int = 20
     BACKUP_RETENTION_DAYS: int = 30
+    
+    # CoinGlass Tier Configuration
+    CG_TIER: str = "standard"  # Options: standard, pro, enterprise
 
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
 

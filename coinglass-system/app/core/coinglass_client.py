@@ -28,16 +28,24 @@ class CoinglassClient:
 
     # 2. Funding Rate - Available in all packages  
     def funding_rate(self, symbol: str, interval: str = "8h", exchange: str = "OKX"):
-        """Get funding rate history"""
+        """Get funding rate history with fallback logic"""
         url = f"{self.base_url}/api/futures/funding-rate/history"
-        # Test basic connection first without time range
         params = {
             "symbol": f"{symbol}USDT", 
             "interval": interval, 
             "exchange": exchange
         }
-        response = self.http.get(url, params=params)  # Explicit params in query string
-        return response.json()
+        response = self.http.get(url, params=params)
+        result = response.json()
+        
+        # If code 400 "instrument" error, fallback to Binance
+        if isinstance(result, dict) and result.get('code') == '400' and result.get('msg') == 'instrument':
+            if exchange != "Binance":
+                params["exchange"] = "Binance"
+                fallback_response = self.http.get(url, params=params)
+                return fallback_response.json()
+        
+        return result
 
     # 3. Long/Short Ratio - Available in Standard
     def global_long_short_ratio(self, symbol: str, interval: str = "1h"):
@@ -50,22 +58,39 @@ class CoinglassClient:
     # 4. Taker Buy/Sell Volume - Available in all packages
     def taker_buysell_volume_exchanges(self):
         """Get exchange list for taker buy/sell volume"""
-        url = f"{self.base_url}/api/futures/supported-exchange-pairs"
-        # Ensure proper headers for auth
+        # Fix endpoint path per v4 docs: "Suported Exchange and Pairs"
+        url = f"{self.base_url}/api/futures/suported-exchange-pairs"  # Note: typo in official docs
         response = self.http.get(url)
-        return response.json()
+        result = response.json()
+        
+        # If 404, fallback to OI exchange list
+        if response.status_code == 404:
+            fallback_url = f"{self.base_url}/api/futures/open-interest/exchange-list"
+            fallback_params = {"coin": "BTC"}  # Use BTC as reference coin
+            fallback_response = self.http.get(fallback_url, params=fallback_params)
+            return {
+                "warning": "fallback_oi_exchange_list", 
+                "data": fallback_response.json()
+            }
+        
+        return result
     
     def taker_buysell_volume(self, symbol: str, exchange: str = "OKX", interval: str = "1h"):
-        """Get taker buy/sell volume data (pair-level)"""
+        """Get taker buy/sell volume data (pair-level) with fallback to aggregated"""
         url = f"{self.base_url}/api/futures/v2/taker-buy-sell-volume/history"
-        # Ensure params in query string for GET request
         params = {
             "symbol": f"{symbol}USDT", 
             "exchange": exchange, 
             "interval": interval
         }
-        response = self.http.get(url, params=params)  # Explicit params in query string
-        return response.json()
+        response = self.http.get(url, params=params)
+        result = response.json()
+        
+        # If code 400 "instrument" error, fallback to aggregated coin-level
+        if isinstance(result, dict) and result.get('code') == '400' and result.get('msg') == 'instrument':
+            return self.taker_buysell_volume_aggregated(symbol, interval)
+        
+        return result
     
     def taker_buysell_volume_aggregated(self, coin: str, interval: str = "1h"):
         """Get aggregated taker buy/sell volume data (coin-level fallback)"""
@@ -92,19 +117,26 @@ class CoinglassClient:
         response = self.http.get(url, params)
         return response.json()
 
-    # 6. Orderbook History - Available from Standard
-    def futures_orderbook_history(self, symbol: str, exchange: str = "Binance"):
-        """Get futures orderbook history"""
-        url = f"{self.base_url}/api/futures/orderbook/history"
+    # 6. Orderbook History - Available from Standard (v4 corrected)
+    def futures_orderbook_askbids_history(self, symbol: str, exchange: str = "Binance"):
+        """Get futures orderbook ask-bids history (v4)"""
+        url = f"{self.base_url}/api/futures/orderbook/ask-bids-history"
         params = {"symbol": symbol, "exchange": exchange}
-        response = self.http.get(url, params)
+        response = self.http.get(url, params=params)
+        return response.json()
+    
+    def futures_orderbook_aggregated(self, coin: str):
+        """Get aggregated futures orderbook (coin-level)"""
+        url = f"{self.base_url}/api/futures/orderbook/aggregated-ask-bids-history"
+        params = {"coin": coin}
+        response = self.http.get(url, params=params)
         return response.json()
     
     def spot_orderbook_history(self, symbol: str, exchange: str = "Binance"):
         """Get spot orderbook history"""
         url = f"{self.base_url}/api/spot/orderbook/history"
         params = {"symbol": symbol, "exchange": exchange}
-        response = self.http.get(url, params)
+        response = self.http.get(url, params=params)
         return response.json()
 
     # 7. Large Limit Orders - Available from Standard
@@ -179,11 +211,6 @@ class CoinglassClient:
         return response.json()
 
     # === MACRO SENTIMENT ENDPOINTS ===
-    def supported_coins(self):
-        """Get list of supported cryptocurrencies"""
-        url = f"{self.base_url}/api/futures/supported-coins"
-        response = self.http.get(url)
-        return response.json()
 
     def market_sentiment(self):
         """Get futures performance metrics and market sentiment"""

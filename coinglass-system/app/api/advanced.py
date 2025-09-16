@@ -102,7 +102,15 @@ def get_whale_positions(
 
 @router.get("/etf/bitcoin", response_model=List[ETFData])
 def get_bitcoin_etfs():
-    """Get Bitcoin ETF list and status information"""
+    """Get Bitcoin ETF list and status information (Pro+ feature)"""
+    # Feature gate: ETF endpoints require Pro+ tier
+    from app.core.settings import settings
+    if not hasattr(settings, 'CG_TIER') or settings.CG_TIER not in ['pro', 'enterprise']:
+        raise HTTPException(
+            status_code=402, 
+            detail={"code": "feature_locked", "message": "ETF endpoints require Pro+ subscription"}
+        )
+    
     try:
         client = CoinglassClient()
         raw_data = client.bitcoin_etfs()
@@ -143,7 +151,15 @@ def get_bitcoin_etfs():
 def get_etf_flows_history(
     days: int = Query(30, ge=1, le=365, description="Number of days of ETF flow history")
 ):
-    """Get historical Bitcoin ETF flow data"""
+    """Get historical Bitcoin ETF flow data (Pro+ feature)"""
+    # Feature gate: ETF endpoints require Pro+ tier
+    from app.core.settings import settings
+    if not hasattr(settings, 'CG_TIER') or settings.CG_TIER not in ['pro', 'enterprise']:
+        raise HTTPException(
+            status_code=402, 
+            detail={"code": "feature_locked", "message": "ETF endpoints require Pro+ subscription"}
+        )
+    
     try:
         client = CoinglassClient()
         raw_data = client.etf_flows_history(days)
@@ -500,7 +516,7 @@ def get_futures_orderbook_history(
     """Get futures orderbook history (Standard Package)"""
     try:
         client = CoinglassClient()
-        raw_data = client.futures_orderbook_history(symbol, exchange)
+        raw_data = client.futures_orderbook_askbids_history(symbol, exchange)
         return raw_data
     except Exception as e:
         logger.error(f"Error in futures orderbook history: {e}")
@@ -566,3 +582,30 @@ def health_check():
                 "message": "Advanced CoinGlass API is experiencing issues"
             }
         )
+
+@router.get("/orderbook/futures-askbids/{symbol}")
+def get_futures_orderbook_askbids(
+    symbol: str,
+    exchange: str = Query("Binance", description="Exchange name")
+):
+    """Get futures orderbook ask-bids history for liquidity analysis (Standard)"""
+    try:
+        client = CoinglassClient()
+        raw_data = client.futures_orderbook_askbids_history(symbol, exchange)
+        return raw_data
+    except Exception as e:
+        logger.error(f"Error in futures orderbook: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+@router.get("/orderbook/futures-aggregated/{coin}")
+def get_futures_orderbook_aggregated(
+    coin: str
+):
+    """Get aggregated futures orderbook for coin-level liquidity (Standard)"""
+    try:
+        client = CoinglassClient()
+        raw_data = client.futures_orderbook_aggregated(coin)
+        return raw_data
+    except Exception as e:
+        logger.error(f"Error in aggregated orderbook: {e}")
+        raise HTTPException(status_code=500, detail={"message": str(e)})
