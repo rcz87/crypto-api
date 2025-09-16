@@ -101,12 +101,13 @@ class CoinglassClient:
         start_time = end_time - (72 * 60 * 60 * 1000)  # 72 hours ago for better coverage
         
         params = {
-            "coin": coin,  # CORRECT: Use coin=SOL for aggregated (NOT symbol=SOLUSDT)
+            "symbol": coin,  # API actually expects symbol= not coin= (docs inconsistency)  
             "interval": interval,
+            "exchange_list": "Binance,OKX,Bybit",  # Required parameter
             "start_time": start_time,
             "end_time": end_time
-            # REMOVED: exchange_list not supported in aggregated endpoint
         }
+        
         response = self.http.get(url, params=params)
         return response.json()
 
