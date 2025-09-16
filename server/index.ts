@@ -136,6 +136,11 @@ interface CircuitBreakerState {
 }
 let circuitBreaker: CircuitBreakerState = { failures: 0, lastFailure: null, isOpen: false };
 
+// Helper function to access circuit breaker state for metrics
+export function getCoinglassCircuitBreakerState(): CircuitBreakerState {
+  return { ...circuitBreaker };
+}
+
 // 🛡️ PRE-PROXY CIRCUIT BREAKER MIDDLEWARE - Check before proxy
 app.use("/coinglass", (req, res, next) => {
   if (circuitBreaker.isOpen) {
@@ -153,7 +158,19 @@ app.use("/coinglass", createProxyMiddleware({
   changeOrigin: true,
   pathRewrite: { "^/coinglass": "" },    // /coinglass/health -> /health
   proxyTimeout: 20000,
+  onProxyReq: (proxyReq: any, req: IncomingMessage, res: ServerResponse) => {
+    // Track request start time
+    (req as any).startTime = Date.now();
+  },
   onError: (err: Error, req: IncomingMessage, res: ServerResponse) => {
+    // Track request duration and error
+    const duration = (req as any).startTime ? Date.now() - (req as any).startTime : 0;
+    
+    // Import and record metrics
+    import('./utils/metrics.js').then(({ metricsCollector }) => {
+      metricsCollector.recordCoinglassRequest(duration, true);
+    }).catch(() => {/* Ignore import errors */});
+    
     // Circuit breaker logic
     circuitBreaker.failures++;
     circuitBreaker.lastFailure = Date.now();
@@ -177,6 +194,15 @@ app.use("/coinglass", createProxyMiddleware({
     }
   },
   onProxyRes: (proxyRes: IncomingMessage, req: IncomingMessage, res: ServerResponse) => {
+    // Track successful request duration
+    const duration = (req as any).startTime ? Date.now() - (req as any).startTime : 0;
+    const isError = proxyRes.statusCode ? proxyRes.statusCode >= 400 : false;
+    
+    // Import and record metrics
+    import('./utils/metrics.js').then(({ metricsCollector }) => {
+      metricsCollector.recordCoinglassRequest(duration, isError);
+    }).catch(() => {/* Ignore import errors */});
+    
     // Reset circuit breaker on successful response
     if (proxyRes.statusCode && proxyRes.statusCode < 400) {
       if (circuitBreaker.failures > 0) {

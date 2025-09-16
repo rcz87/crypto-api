@@ -28,6 +28,19 @@ interface Metrics {
     blockedIPs: number;
     lastSecurityEvent: number;
   };
+  coinglass: {
+    requests: number;
+    errors: number;
+    avgLatency: number;
+    lastHealthCheck: number;
+    healthStatus: 'connected' | 'error' | 'unknown';
+    hasKey: boolean;
+    circuitBreaker: {
+      failures: number;
+      isOpen: boolean;
+      lastFailure: number | null;
+    };
+  };
 }
 
 class MetricsCollector {
@@ -36,10 +49,20 @@ class MetricsCollector {
     cache: { hits: 0, misses: 0, size: 0 },
     ws: { reconnects: 0, activeClients: 0, bufferedAmount: 0 },
     okx: { restStatus: 'down', wsStatus: 'down', lastRestCall: 0, lastWsMessage: 0 },
-    security: { rateLimitHits: 0, validationFailures: 0, suspiciousRequests: 0, blockedIPs: 0, lastSecurityEvent: 0 }
+    security: { rateLimitHits: 0, validationFailures: 0, suspiciousRequests: 0, blockedIPs: 0, lastSecurityEvent: 0 },
+    coinglass: { 
+      requests: 0, 
+      errors: 0, 
+      avgLatency: 0, 
+      lastHealthCheck: 0, 
+      healthStatus: 'unknown', 
+      hasKey: false,
+      circuitBreaker: { failures: 0, isOpen: false, lastFailure: null }
+    }
   };
 
   private responseTimes: number[] = [];
+  private coinglassResponseTimes: number[] = [];
   private readonly maxSamples = 100;
   private startTime = Date.now();
 
@@ -118,6 +141,35 @@ class MetricsCollector {
     this.metrics.security.blockedIPs = count;
   }
 
+  // CoinGlass metrics
+  recordCoinglassRequest(duration: number, isError: boolean = false) {
+    this.metrics.coinglass.requests++;
+    if (isError) this.metrics.coinglass.errors++;
+    
+    this.coinglassResponseTimes.push(duration);
+    if (this.coinglassResponseTimes.length > this.maxSamples) {
+      this.coinglassResponseTimes.shift();
+    }
+    
+    // Calculate average latency
+    if (this.coinglassResponseTimes.length > 0) {
+      const sum = this.coinglassResponseTimes.reduce((a, b) => a + b, 0);
+      this.metrics.coinglass.avgLatency = Math.round(sum / this.coinglassResponseTimes.length);
+    }
+  }
+
+  updateCoinglassHealthCheck(status: 'connected' | 'error', hasKey: boolean = false) {
+    this.metrics.coinglass.healthStatus = status;
+    this.metrics.coinglass.hasKey = hasKey;
+    this.metrics.coinglass.lastHealthCheck = Date.now();
+  }
+
+  updateCoinglassCircuitBreaker(failures: number, isOpen: boolean, lastFailure: number | null) {
+    this.metrics.coinglass.circuitBreaker.failures = failures;
+    this.metrics.coinglass.circuitBreaker.isOpen = isOpen;
+    this.metrics.coinglass.circuitBreaker.lastFailure = lastFailure;
+  }
+
   getMetrics() {
     const uptime = Math.floor((Date.now() - this.startTime) / 1000);
     const cacheHitRatio = this.metrics.cache.hits + this.metrics.cache.misses > 0 
@@ -150,6 +202,15 @@ class MetricsCollector {
         ...this.metrics.security,
         securityHealth: this.metrics.security.lastSecurityEvent > 0 ? 
           Date.now() - this.metrics.security.lastSecurityEvent < 300000 ? 'recent_activity' : 'quiet' : 'no_events'
+      },
+      coinglass: {
+        ...this.metrics.coinglass,
+        errorRate: this.metrics.coinglass.requests > 0 
+          ? ((this.metrics.coinglass.errors / this.metrics.coinglass.requests) * 100).toFixed(2) + '%'
+          : '0.00%',
+        lastHealthCheckMs: this.metrics.coinglass.lastHealthCheck > 0 
+          ? Date.now() - this.metrics.coinglass.lastHealthCheck 
+          : -1
       }
     };
   }

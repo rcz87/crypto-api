@@ -182,6 +182,81 @@ export function registerSystemRoutes(app: Express): void {
         // Fallback: basic metrics only if security middleware unavailable
         console.warn('Security middleware unavailable, returning basic metrics only');
       }
+
+      // Enhance CoinGlass metrics with aggregated data
+      try {
+        // Try to get circuit breaker state from server/index.ts
+        const { getCoinglassCircuitBreakerState } = await import('../index.js');
+        const circuitBreakerState = getCoinglassCircuitBreakerState();
+        
+        // Update metrics collector with circuit breaker state
+        if (circuitBreakerState) {
+          metricsCollector.updateCoinglassCircuitBreaker(
+            circuitBreakerState.failures,
+            circuitBreakerState.isOpen,
+            circuitBreakerState.lastFailure
+          );
+        }
+
+        // Try to fetch Python service metrics with timeout
+        let pythonMetrics = null;
+        const PY_BASE = process.env.PY_BASE || 'http://127.0.0.1:8000';
+        
+        try {
+          const abortController = new AbortController();
+          const timeoutId = setTimeout(() => abortController.abort(), 1000);
+          
+          const pythonResponse = await fetch(`${PY_BASE}/metrics`, {
+            signal: abortController.signal,
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (pythonResponse.ok) {
+            pythonMetrics = await pythonResponse.json();
+          }
+        } catch (error) {
+          // Python service metrics unavailable - continue with local metrics
+          console.warn('CoinGlass Python service metrics unavailable:', error instanceof Error ? error.message : 'Unknown error');
+        }
+
+        // Re-fetch updated metrics that include circuit breaker state
+        metrics = metricsCollector.getMetrics();
+
+        // Transform CoinGlass metrics to match expected output format
+        metrics.coinglass = {
+          health: metrics.coinglass.healthStatus,
+          has_key: metrics.coinglass.hasKey,
+          requests: {
+            total: metrics.coinglass.requests,
+            errors: metrics.coinglass.errors,
+            error_rate: parseFloat(metrics.coinglass.errorRate.replace('%', '')) / 100
+          },
+          performance: {
+            avg_latency_ms: metrics.coinglass.avgLatency,
+            last_health_check_ms_ago: metrics.coinglass.lastHealthCheckMs
+          },
+          circuit_breaker: {
+            failures: metrics.coinglass.circuitBreaker.failures,
+            is_open: metrics.coinglass.circuitBreaker.isOpen,
+            last_failure: metrics.coinglass.circuitBreaker.lastFailure
+          },
+          python_service: pythonMetrics ? {
+            available: true,
+            response_time_ms: pythonMetrics.response_time_ms || null,
+            metrics: pythonMetrics
+          } : {
+            available: false,
+            reason: 'Service unavailable or timeout'
+          }
+        };
+
+      } catch (error) {
+        console.warn('Failed to enhance CoinGlass metrics:', error instanceof Error ? error.message : 'Unknown error');
+        // Keep basic CoinGlass metrics from collector
+      }
       
       res.json({
         success: true,
