@@ -95,17 +95,17 @@ class CoinglassClient:
     def taker_buysell_volume_aggregated(self, coin: str, interval: str = "1h"):
         """Get aggregated taker buy/sell volume data (coin-level fallback)"""
         url = f"{self.base_url}/api/futures/aggregated-taker-buy-sell-volume/history"
-        # Add time range for last 24 hours to get data
+        # Add time range for last 72 hours to get more data for aggregated
         import time
         end_time = int(time.time() * 1000)  # Current time in milliseconds
-        start_time = end_time - (24 * 60 * 60 * 1000)  # 24 hours ago
+        start_time = end_time - (72 * 60 * 60 * 1000)  # 72 hours ago for better coverage
         
         params = {
-            "symbol": f"{coin}USDT",  # FIXED: Use symbol=SOLUSDT for aggregated, not coin=SOL
+            "coin": coin,  # CORRECT: Use coin=SOL for aggregated (NOT symbol=SOLUSDT)
             "interval": interval,
-            "exchange_list": "Binance,OKX,Bybit",  # Required parameter discovered!
             "start_time": start_time,
             "end_time": end_time
+            # REMOVED: exchange_list not supported in aggregated endpoint
         }
         response = self.http.get(url, params=params)
         return response.json()

@@ -1,0 +1,100 @@
+Gas kita beresin tiga request-mu yang masih “200 OK tapi null”. Intinya: kamu salah param untuk endpoint aggregated (pakai `symbol=` padahal harus `coin=`) dan field `exchange_list` tidak didukung di endpoint itu.
+
+# TL;DR
+
+* **Aggregated taker (futures)** harus pakai `coin=SOL` / `coin=BTC` — **bukan** `symbol=…USDT`. Hilangkan `exchange_list` (nggak ada di spec). ([CoinGlass-API][1])
+* **Pair taker (v2)** sudah benar, tapi **OKX-SOL** sering tidak tersedia → fallback ke **Binance** atau ke **aggregated coin**. Cek dukungan via **supported-exchange-pairs** dulu. ([CoinGlass-API][2])
+
+---
+
+## 1) Aggregated Taker Volume (SOL) — NULL
+
+**Salah:**
+
+```
+.../api/futures/aggregated-taker-buy-sell-volume/history?symbol=SOLUSDT&...
+                                       ^^^^^^ (harus coin=)
+```
+
+**Benar (ganti ke `coin=` dan drop `exchange_list`):**
+
+```bash
+GET https://open-api-v4.coinglass.com/api/futures/aggregated-taker-buy-sell-volume/history\
+?coin=SOL&interval=1h&start_time=1726452000000&end_time=1726538400000
+```
+
+* Endpoint aggregated memang **coin-level**, bukan pair-level. Param resmi: `coin`, `interval`, `start_time`, `end_time`. Tidak ada `exchange_list` di spec. ([CoinGlass-API][1])
+
+## 2) Aggregated Taker Volume (BTC) — NULL
+
+**Salah (sama persis):** pakai `symbol=BTCUSDT` + `exchange_list=…`.
+**Benar:**
+
+```bash
+GET https://open-api-v4.coinglass.com/api/futures/aggregated-taker-buy-sell-volume/history\
+?coin=BTC&interval=1h&start_time=1726452000000&end_time=1726538400000
+```
+
+* Kalau butuh “per-exchange split”, ambil **exchange list** taker ratio di endpoint lain lalu filter di sisi kamu (bukan via param di aggregated). ([CoinGlass-API][3])
+
+## 3) OKX SOL Taker Volume (pair v2) — NULL → trigger fallback
+
+Request kamu sudah sesuai spesifikasi pair-level:
+
+```bash
+GET https://open-api-v4.coinglass.com/api/futures/v2/taker-buy-sell-volume/history\
+?symbol=SOLUSDT&exchange=OKX&interval=1h&start_time=...&end_time=...
+```
+
+Masalahnya **availability**: beberapa pair **tidak tersedia** di exchange tertentu. Solusi:
+
+* **Cek dukungan dulu**:
+
+  ```bash
+  GET https://open-api-v4.coinglass.com/api/futures/supported-exchange-pairs
+  ```
+
+  → pastikan `OKX: SOLUSDT` memang ada untuk endpoint v2 ini. ([CoinGlass-API][4])
+* **Fallback cepat**:
+
+  * Ke **Binance** (pair-level):
+
+    ```bash
+    .../api/futures/v2/taker-buy-sell-volume/history?symbol=SOLUSDT&exchange=Binance&interval=1h&start_time=...&end_time=...
+    ```
+  * Atau ke **aggregated coin** (tanpa exchange):
+
+    ```bash
+    .../api/futures/aggregated-taker-buy-sell-volume/history?coin=SOL&interval=1h&start_time=...&end_time=...
+    ```
+
+  ([CoinGlass-API][2])
+
+---
+
+# “Golden URLs” (langsung tembus data)
+
+* **Aggregated taker (SOL):**
+  `.../api/futures/aggregated-taker-buy-sell-volume/history?coin=SOL&interval=1h&start_time=1726452000000&end_time=1726538400000` ([CoinGlass-API][1])
+* **Aggregated taker (BTC):**
+  `.../api/futures/aggregated-taker-buy-sell-volume/history?coin=BTC&interval=1h&start_time=1726452000000&end_time=1726538400000` ([CoinGlass-API][1])
+* **Pair taker (SOL, Binance fallback):**
+  `.../api/futures/v2/taker-buy-sell-volume/history?symbol=SOLUSDT&exchange=Binance&interval=1h&start_time=1726452000000&end_time=1726538400000` ([CoinGlass-API][2])
+* **Supported pairs (validator sebelum call):**
+  `.../api/futures/supported-exchange-pairs` ([CoinGlass-API][4])
+
+---
+
+# Mini-Checklist (biar anti-null)
+
+* [ ] **Aggregated** ⇒ pakai `coin=` (BUKAN `symbol=`); buang `exchange_list`. ([CoinGlass-API][1])
+* [ ] **Pair v2** ⇒ `symbol=...USDT` + `exchange=...`; kalau kosong, fallback ke **Binance** atau **aggregated**. ([CoinGlass-API][2])
+* [ ] **Pre-validate** pair/exchange via `supported-exchange-pairs` (cache 60 detik). ([CoinGlass-API][4])
+* [ ] **Window waktu** masuk akal (ms; 24–72h aman) + `interval` realistis (1h/4h). ([CoinGlass-API][1])
+
+Kalau mau, kirim **response JSON mentah** setelah ganti `symbol→coin` di dua aggregated call di atas. Aku bantu bikin **parser + transformer** jadi fitur “Sniper timing (5m)” kamu: auto-signal saat **taker buy dominance + OI naik + funding sehat**.
+
+[1]: https://docs.coinglass.com/reference/aggregated-taker-buysell-volume-history?utm_source=chatgpt.com "Coin Taker Buy/Sell Volume History"
+[2]: https://docs.coinglass.com/reference/taker-buysell-volume?utm_source=chatgpt.com "Pair Taker Buy/Sell Ratio History"
+[3]: https://docs.coinglass.com/reference/taker-buysell-volume-exchange-list?utm_source=chatgpt.com "Exchange Taker Buy/Sell Ratio"
+[4]: https://docs.coinglass.com/reference/instruments?utm_source=chatgpt.com "Suported Exchange and Pairs"
