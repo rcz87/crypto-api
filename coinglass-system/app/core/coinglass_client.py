@@ -26,12 +26,22 @@ class CoinglassClient:
         response = self.http.get(url, params)
         return response.json()
 
-    # 2. Funding Rate - Available in all packages
-    def funding_rate(self, symbol: str, interval: str = "8h", exchange: str = "Binance"):
+    # 2. Funding Rate - Available in all packages  
+    def funding_rate(self, symbol: str, interval: str = "8h", exchange: str = "OKX"):
         """Get funding rate history"""
         url = f"{self.base_url}/api/futures/funding-rate/history"
-        # Use instrument format for funding rate
-        params = {"instrument": f"{symbol}USDT", "interval": interval, "exchange": exchange}
+        # Add time range for last 24 hours to get data
+        import time
+        end_time = int(time.time() * 1000)  # Current time in milliseconds
+        start_time = end_time - (24 * 60 * 60 * 1000)  # 24 hours ago
+        
+        params = {
+            "symbol": f"{symbol}USDT", 
+            "interval": interval, 
+            "exchange": exchange,
+            "start_time": start_time,
+            "end_time": end_time
+        }
         response = self.http.get(url, params)
         return response.json()
 
@@ -46,15 +56,25 @@ class CoinglassClient:
     # 4. Taker Buy/Sell Volume - Available in all packages
     def taker_buysell_volume_exchanges(self):
         """Get exchange list for taker buy/sell volume"""
-        url = f"{self.base_url}/api/futures/supported-exchange"
+        url = f"{self.base_url}/api/futures/supported-exchange-pairs"
         response = self.http.get(url)
         return response.json()
     
-    def taker_buysell_volume(self, symbol: str, exchange: str = "Binance", interval: str = "1h"):
+    def taker_buysell_volume(self, symbol: str, exchange: str = "OKX", interval: str = "1h"):
         """Get taker buy/sell volume data"""
-        url = f"{self.base_url}/api/futures/taker-buy-sell-volume/history"
-        # Use both symbol and exchange parameters
-        params = {"symbol": symbol, "exchange": exchange, "interval": interval}
+        url = f"{self.base_url}/api/futures/v2/taker-buy-sell-volume/history"
+        # Add time range for last 24 hours to get data
+        import time
+        end_time = int(time.time() * 1000)  # Current time in milliseconds
+        start_time = end_time - (24 * 60 * 60 * 1000)  # 24 hours ago
+        
+        params = {
+            "symbol": f"{symbol}USDT", 
+            "exchange": exchange, 
+            "interval": interval,
+            "start_time": start_time,
+            "end_time": end_time
+        }
         response = self.http.get(url, params)
         return response.json()
 

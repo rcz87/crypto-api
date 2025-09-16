@@ -424,7 +424,7 @@ def get_oi_aggregated(
 def get_funding_rate(
     symbol: str,
     interval: str = Query("8h", description="Time interval (8h, 1h, 4h)"),
-    exchange: str = Query("Binance", description="Exchange name")
+    exchange: str = Query("OKX", description="Exchange name")
 ):
     """Get funding rate history (All Packages)"""
     try:
@@ -452,7 +452,7 @@ def get_long_short_ratio(
 @router.get("/taker-volume/{symbol}")
 def get_taker_volume(
     symbol: str,
-    exchange: str = Query("Binance", description="Exchange name"),
+    exchange: str = Query("OKX", description="Exchange name"),
     interval: str = Query("1h", description="Time interval")
 ):
     """Get taker buy/sell volume data (All Packages)"""

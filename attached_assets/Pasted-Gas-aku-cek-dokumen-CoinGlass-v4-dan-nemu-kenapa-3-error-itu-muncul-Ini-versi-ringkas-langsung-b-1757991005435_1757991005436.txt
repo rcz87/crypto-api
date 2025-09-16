@@ -1,0 +1,98 @@
+Gas, aku cek dokumen CoinGlass v4 dan nemu kenapa 3 error itu muncul. Ini versi ringkas + langsung bisa dieksekusi.
+
+TL;DR
+	•	Funding Rate (history): pakai v4 .../api/futures/funding-rate/history + wajib symbol & exchange (format symbol: BTCUSDT, SOLUSDT, dst). Jangan pakai param instrument.  ￼
+	•	Taker Buy/Sell (pair): endpoint-nya v4: .../api/futures/v2/taker-buy-sell-volume/history. Error “symbol not present” karena param symbol wajib (juga exchange).  ￼
+	•	Exchange list (futures): path yang benar bukan /supported-exchange, tapi /supported-exchange-pairs (daftar bursa + pair) atau pakai /futures/open-interest/exchange-list (daftar OI per exchange).  ￼
+
+⸻
+
+1) Funding Rate Endpoint
+
+Masalahmu: “instrument error” → karena param yang benar symbol (bukan instrument) + exchange.
+
+Endpoint (v4):
+GET https://open-api-v4.coinglass.com/api/futures/funding-rate/history   ￼
+
+Contoh sukses (SOL-OKX, interval 1h):
+
+curl -H "CG-Api-Key: $API_KEY" \
+  "https://open-api-v4.coinglass.com/api/futures/funding-rate/history?symbol=SOLUSDT&exchange=OKX&interval=1h&start_time=1719705600000&end_time=1719792000000"
+
+Notes:
+	•	symbol: BTCUSDT, ETHUSDT, SOLUSDT, dst
+	•	exchange: OKX, Binance, dll
+	•	interval: dukung candlestick (1h, 4h, 8h, 1d, …) dengan limit sesuai plan.  ￼
+
+Kalau butuh versi OI/Vol weighted:
+	•	OI-weight: .../funding-rate/oi-weight-history  ￼
+	•	Vol-weight: .../funding-rate/vol-weight-history  ￼
+
+⸻
+
+2) Taker Volume Endpoint
+
+Masalahmu: “Required String parameter symbol is not present” → kamu sudah benar menambah /history, tapi lupa/keliru nama param; harus symbol (bukan pair/instrument) dan tambah exchange.
+
+Endpoint (v4, pair-level):
+GET https://open-api-v4.coinglass.com/api/futures/v2/taker-buy-sell-volume/history  ￼
+
+Contoh sukses (SOL-OKX, 1h):
+
+curl -H "CG-Api-Key: $API_KEY" \
+  "https://open-api-v4.coinglass.com/api/futures/v2/taker-buy-sell-volume/history?symbol=SOLUSDT&exchange=OKX&interval=1h&start_time=1719705600000&end_time=1719792000000"
+
+Kalau mau versi agregat (coin-level, semua exchange):
+GET https://open-api-v4.coinglass.com/api/futures/aggregated-taker-buy-sell-volume/history
+(agregat tidak minta exchange, biasanya cukup coin=SOL atau langsung tanpa param untuk keseluruhan—cek skema respons di docs)  ￼
+
+Catatan kompatibilitas: banyak contoh lama beredar pakai v3 (open-api-v3.coinglass.com/api/futures/takerBuySellVolume/history). Pastikan semua rute kamu konsisten di v4 biar nggak ke-catch perbedaan nama param.  ￼
+
+⸻
+
+3) Exchange List (404)
+
+Masalahmu: hit ke /api/futures/supported-exchange (404).
+Yang benar ada 2 jalur sesuai kebutuhan:
+
+a) Daftar exchange + pair yang didukung (futures):
+GET https://open-api-v4.coinglass.com/api/futures/supported-exchange-pairs  ￼
+
+b) Daftar OI per exchange untuk satu koin:
+GET https://open-api-v4.coinglass.com/api/futures/open-interest/exchange-list?coin=SOL  ￼
+
+Contoh:
+
+# a) Baca seluruh bursa & pair futures yang didukung
+curl -H "CG-Api-Key: $API_KEY" \
+  "https://open-api-v4.coinglass.com/api/futures/supported-exchange-pairs"
+
+# b) Baca OI per exchange untuk SOL
+curl -H "CG-Api-Key: $API_KEY" \
+  "https://open-api-v4.coinglass.com/api/futures/open-interest/exchange-list?coin=SOL"
+
+
+⸻
+
+Bonus yang sering miss (bikin hidup lebih mudah)
+
+Kebutuhan	Endpoint v4	Kapan dipakai
+Orderbook Heatmap (Futures)	.../api/futures/orderbook/history	Mapping wall/liquidity pasif (butuh Standard+).  ￼
+Orderbook Heatmap (Spot)	.../api/spot/orderbook/history	Confluence likuiditas spot vs futures.  ￼
+Large Limit Orders (Spot)	.../api/spot/orderbook/large-limit-order	Deteksi tembok besar real-time.  ￼
+Global Long/Short Account Ratio (pair)	.../api/futures/global-long-short-account-ratio/history	Filter crowded side + konfirmasi SMC layer.  ￼
+Pairs Markets	.../api/futures/pairs-markets	Screener derivatif buat shortlist koin volatile.  ￼
+
+
+⸻
+
+Quick checklist integrasi (biar nggak kejadian lagi)
+	•	Base URL konsisten: https://open-api-v4.coinglass.com (hindari campur v3 & v4).  ￼
+	•	Header auth: CG-Api-Key: <KEY>
+	•	Nama param tepat: gunakan symbol=SOLUSDT, exchange=OKX, coin=SOL sesuai endpoint. (Kalau nemu “instrument”, hampir pasti itu bukan v4.)  ￼
+	•	Interval sesuai plan: beberapa endpoint punya limit interval per plan; Standard sudah No Limit di banyak endpoint utama.  ￼
+	•	Fallback agregat: kalau pair-level error, coba coin-level aggregated dulu (kadang tidak butuh exchange).  ￼
+
+⸻
+
+Kalau kamu kirimkan URL lengkap yang kamu call (tanpa API key), aku bisa spot-fix param yang salah dan kasih snippet siap colok ke OKXFetcher/SharpSignalEngine kamu. Mau sekalian aku bikinin helper TS/Flask buat 3 rute ini (funding, taker, supported-exchange-pairs) biar rapi?
