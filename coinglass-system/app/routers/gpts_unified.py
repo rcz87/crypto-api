@@ -130,8 +130,8 @@ OPERATION_CONFIG = {
     "whale_alerts": {
         "endpoint": "/advanced/whale/alerts",
         "method": "GET",
-        "defaults": {"symbol": "BTC", "min_usd": 1000000},
-        "query_params": ["symbol", "min_usd"],
+        "defaults": {"exchange": "hyperliquid"},
+        "query_params": ["exchange"],
         "path_params": []
     },
     "whale_positions": {
