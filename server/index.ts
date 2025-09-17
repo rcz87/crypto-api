@@ -214,6 +214,39 @@ setInterval(() => {
 
 log(`🚀 CoinGlass Python proxy configured: /coinglass/* → ${PY_BASE} (with guard rails)`);
 
+// 🎯 CRITICAL FIX: GPTs Gateway proxy with prefix stripping
+// Scheduler calls /gpts/institutional/bias but Python serves /institutional/bias
+app.use("/gpts", createProxyMiddleware({
+  target: PY_BASE,
+  changeOrigin: true,
+  pathRewrite: { "^/gpts": "" },    // /gpts/institutional/bias -> /institutional/bias
+  proxyTimeout: 15000,
+  onProxyReq: (proxyReq: any, req: IncomingMessage, res: ServerResponse) => {
+    (req as any).startTime = Date.now();
+    log(`[GPTs Gateway] Proxying: ${req.url} → ${PY_BASE}${req.url?.replace('/gpts', '')}`);
+  },
+  onError: (err: Error, req: IncomingMessage, res: ServerResponse) => {
+    const duration = (req as any).startTime ? Date.now() - (req as any).startTime : 0;
+    log(`[GPTs Gateway Error] ${req.url} failed: ${err.message} (${duration}ms)`);
+    
+    if (!res.headersSent) {
+      res.statusCode = 502;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ 
+        error: "GPTs Gateway service unavailable", 
+        details: err.message,
+        url: req.url
+      }));
+    }
+  },
+  onProxyRes: (proxyRes: IncomingMessage, req: IncomingMessage, res: ServerResponse) => {
+    const duration = (req as any).startTime ? Date.now() - (req as any).startTime : 0;
+    log(`[GPTs Gateway] ${req.url} → ${proxyRes.statusCode} (${duration}ms)`);
+  }
+} as Options));
+
+log(`🤖 GPTs Gateway routes registered: /gpts/unified/* → ${PY_BASE}`);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

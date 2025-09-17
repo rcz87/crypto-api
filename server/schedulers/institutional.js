@@ -172,19 +172,28 @@ export function startSniperScheduler() {
  */
 async function runSOLSniperTask() {
   try {
-    // Only run during active trading hours (UTC)
-    const hour = new Date().getUTCHours();
-    const isActiveHours = (hour >= 13 && hour <= 21); // 13:00-21:00 UTC (8am-4pm EST)
+    // 🎯 CRITICAL FIX: Use Jakarta time (UTC+7) for active trading hours
+    const now = new Date();
+    const jakartaTime = new Date(now.getTime() + (7 * 60 * 60 * 1000)); // UTC+7
+    const jakartaHour = jakartaTime.getUTCHours();
+    const jakartaMinutes = jakartaTime.getUTCMinutes();
+    
+    // Active trading: 07:00 - 23:30 Jakarta time (covers Asian + European sessions)
+    const isActiveHours = (jakartaHour >= 7 && jakartaHour < 23) || 
+                         (jakartaHour === 23 && jakartaMinutes <= 30);
     
     if (!isActiveHours) {
-      console.log("🕒 [SCHEDULER] Outside active trading hours, skipping SOL sniper check");
+      console.log(`🕒 [SCHEDULER] Outside active trading hours, skipping SOL sniper check`);
+      console.log(`⏰ Jakarta time: ${jakartaHour.toString().padStart(2, '0')}:${jakartaMinutes.toString().padStart(2, '0')} (active: 07:00-23:30)`);
       return {
         success: true,
-        data: { skipped: true, reason: "Outside trading hours" },
+        data: { skipped: true, reason: "Outside trading hours", jakartaTime: `${jakartaHour}:${jakartaMinutes}` },
         isRateLimit: false,
         shouldBackoff: false
       };
     }
+    
+    console.log(`⚡ [SCHEDULER] Active trading hours - Jakarta: ${jakartaHour.toString().padStart(2, '0')}:${jakartaMinutes.toString().padStart(2, '0')}`);   
 
     console.log("🎯 [SCHEDULER] Running SOL sniper timing check...");
     

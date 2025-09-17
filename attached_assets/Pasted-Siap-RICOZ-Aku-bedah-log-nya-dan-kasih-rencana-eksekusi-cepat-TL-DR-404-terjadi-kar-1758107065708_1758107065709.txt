@@ -1,0 +1,221 @@
+Siap, RICOZ. Aku bedah log-nya dan kasih rencana eksekusi cepat.
+
+# TL;DR
+
+* **404 terjadi** karena **mismatch route prefix `/gpts/…`** di Node vs **route Python tanpa prefix**. Solusi: **strip `/gpts` saat proxy** atau **ubah client URL**.
+* **SOL Sniper “Outside active trading hours”** → window waktu aktif belum cocok **Asia/Jakarta (UTC+7)**. Set jam & TZ biar scheduler jalan.
+* **Semua telemetry (Prometheus, OTel, Telegram alert) OK**, rate budget juga aman.
+
+---
+
+## 1) Diagnosa Cepat (berdasarkan log)
+
+| Komponen            | Bukti di log                                                                                   | Status | Analisis                                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Python health       | `GET /health 200 OK`                                                                           | ✅      | Service hidup normal.                                                                                                         |
+| Proxy Node → Python | `CoinGlass Python service confirmed healthy`                                                   | ✅      | Koneksi dasar OK.                                                                                                             |
+| Bias single         | `GET /institutional/bias?symbol=SOL-USDT-SWAP 200 OK` → `Whale=false, ETF=false, Sentiment=50` | ✅      | Endpoint **tanpa** prefix `/gpts` berjalan.                                                                                   |
+| Bias multi          | `GET /advanced/institutional/bias/multi?symbols=BTC,ETH,SOL 200 OK`                            | ✅      | Batch ok.                                                                                                                     |
+| Error 404           | `Client error 404: Not Found` muncul saat memanggil `.../gpts/institutional/bias?...`          | ❌      | **Prefix `/gpts` tidak ada di Python** (Python expose `/institutional/bias`), sementara Node route yg ada: `/gpts/unified/*`. |
+| SOL Sniper skip     | `Outside active trading hours, skipping SOL sniper check`                                      | ⚠️     | Window waktu aktif belum sesuai zona trading kamu.                                                                            |
+| Rate budget         | `coinglass/okx/coinapi` terset                                                                 | ✅      | Manajer rate jalan, konsumsi rendah.                                                                                          |
+
+---
+
+## 2) Akar Masalah 404 & Fix
+
+**Masalah:** Client memanggil `http://127.0.0.1:5000/gpts/institutional/bias?...`
+**Python** hanya punya `/institutional/bias` (tanpa `/gpts`). Node hanya daftarkan **`/gpts/unified/*`** ke Python.
+
+### Opsi Fix A (paling cepat – proxy strip prefix)
+
+Di **Express** proxy, tambahkan rule yang **menghapus `/gpts`** untuk rute institutional:
+
+```ts
+// server/index.ts (Express)
+import { createProxyMiddleware } from 'http-proxy-middleware';
+
+// 1) Tambah proxy agar /gpts/institutional/* diarahkan ke Python tanpa prefix
+app.use(
+  '/gpts/institutional',
+  createProxyMiddleware({
+    target: 'http://127.0.0.1:8000',
+    changeOrigin: true,
+    pathRewrite: { '^/gpts': '' }, // <- STRIP '/gpts'
+    onProxyReq: (proxyReq) => proxyReq.setHeader('x-from-proxy', 'node'),
+  })
+);
+
+// 2) (opsional) general fallback: strip '/gpts' untuk semua GPTs Gateway
+app.use(
+  '/gpts',
+  createProxyMiddleware({
+    target: 'http://127.0.0.1:8000',
+    changeOrigin: true,
+    pathRewrite: { '^/gpts': '' },
+  })
+);
+```
+
+### Opsi Fix B (ubah client)
+
+Ubah **BiasClient** dari:
+
+```
+/gpts/institutional/bias?symbol=...
+```
+
+→ langsung:
+
+```
+/institutional/bias?symbol=...
+```
+
+(**ke port 5000** bila Node akan mem-proxy **tanpa** prefix, atau **langsung ke 8000** bila bypass Node).
+
+> Rekomendasi: **Opsi A** supaya semua panggilan GPTs tetap lewat Node (observability & rate budget tetap konsisten).
+
+**Tes cepat (curl):**
+
+```bash
+# Harus 200 OK dan memunculkan objek bias
+curl -i "http://127.0.0.1:5000/gpts/institutional/bias?symbol=SOL-USDT-SWAP"
+
+# Multi symbols (harus 200)
+curl -i "http://127.0.0.1:5000/gpts/advanced/institutional/bias/multi?symbols=BTC,ETH,SOL"
+```
+
+---
+
+## 3) SOL Sniper “Outside active trading hours”
+
+Kemungkinan window aktif default masih UTC atau hardcoded.
+
+### Fix berlapis
+
+**a) Set TZ & jam aktif via ENV**
+
+```
+TRADING_TIMEZONE=Asia/Jakarta
+ACTIVE_TRADING_START=07:00   # contoh
+ACTIVE_TRADING_END=23:30     # contoh
+```
+
+**b) Validasi di scheduler**
+
+```ts
+import { DateTime } from 'luxon';
+
+function isActiveWindow() {
+  const tz = process.env.TRADING_TIMEZONE || 'Asia/Jakarta';
+  const start = process.env.ACTIVE_TRADING_START || '07:00';
+  const end   = process.env.ACTIVE_TRADING_END   || '23:30';
+
+  const now = DateTime.now().setZone(tz);
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+
+  const startDt = now.set({ hour: sh, minute: sm, second: 0 });
+  const endDt   = now.set({ hour: eh, minute: em, second: 0 });
+
+  // handle overnight windows jika end < start
+  const inWindow = endDt >= startDt
+    ? now >= startDt && now <= endDt
+    : now >= startDt || now <= endDt;
+
+  return inWindow;
+}
+```
+
+**c) Log verifikasi**
+Tambahkan log saat skip/run:
+
+```
+[SOLSniper] now=18:02 Asia/Jakarta, activeWindow=07:00-23:30 → RUN
+```
+
+> Catatan: Sekarang jam kamu **18\:xx WIB**, jadi setelah fix, **harusnya RUN**, bukan skip.
+
+---
+
+## 4) Standarisasi simbol & normalisasi
+
+Di log terlihat normalisasi `SOL-USDT-SWAP` → `SOL-USDT-SWAP (normalized from SOL-USDT-SWAP)` dan juga request `?symbol=SOL`. Pastikan **1 sumber kebenaran**:
+
+* **Derivatif**: gunakan `SOL-USDT-SWAP` (OKX perpetual).
+* **Spot**: gunakan `SOL/USDT` atau `BINANCE:SOLUSDT` (TV widget).
+
+**Action:**
+
+* Buat **util `normalizeSymbol(pair, marketType)`** yang:
+
+  * Validasi input (`SOL`, `SOLUSDT`, `SOL-USDT-SWAP`)
+  * Kembalikan format kanonik sesuai endpoint (derivatif vs spot)
+  * Log warning jika auto-fallback terjadi, supaya mudah audit.
+
+---
+
+## 5) Health & Observability (kondisi sekarang)
+
+Checklist:
+
+* [x] **Prometheus** `/metrics` aktif (45 metrics).
+* [x] **OpenTelemetry** tracing → `http://localhost:4318/v1/traces`.
+* [x] **Telegram Alerter** hidup (errorRate & trading alerter).
+* [x] **RateBudget** manajer aktif & konsumsi ringan.
+* [ ] Tambahkan **alert 404 spike** (lihat patch singkat di bawah).
+
+**Mini-patch: alert 404**
+
+```ts
+// setelah response
+app.use((req, res, next) => {
+  const oldSend = res.send;
+  res.send = function (body) {
+    // @ts-ignore
+    if (this.statusCode === 404) {
+      metrics.increment('http_404_total', { path: req.path });
+      if (req.path.startsWith('/gpts/')) {
+        telegram.notify(`⚠️ 404 on ${req.path} — kemungkinan prefix mismatch. Host: ${req.hostname}`);
+      }
+    }
+    // @ts-ignore
+    return oldSend.apply(this, arguments);
+  };
+  next();
+});
+```
+
+---
+
+## 6) Uji Fungsional Pasca-Patch (urutan eksekusi)
+
+1. **Restart** Node setelah patch proxy.
+2. **Curl test** dua endpoint (single & multi) via `/gpts/...` → pastikan **200**.
+3. **Jalankan scheduler manual** (trigger run) atau tunggu interval → pastikan **tidak skip** (jam aktif).
+4. **Cek log**:
+
+   * Tidak ada lagi `Client error 404`.
+   * Ada output bias/sniper normal.
+5. **Grafana/Prometheus**: 404 metric turun, rate budget stabil.
+
+---
+
+## 7) Quick Win Extras
+
+* **Circuit breaker** untuk backup target (8000) jika 5000 balas 404/5xx beruntun.
+* **Contract test** (supertest) untuk memastikan semua **public routes** tersedia (tanpa bergantung UI).
+
+---
+
+## Rencana Aksi (Checklist)
+
+* [ ] Tambah proxy rule strip `/gpts` → Python.
+* [ ] (Atau) ubah BiasClient URL ke `/institutional/bias`.
+* [ ] Set ENV: `TRADING_TIMEZONE=Asia/Jakarta`, `ACTIVE_TRADING_START/END`.
+* [ ] Tambah logging verifikasi window waktu.
+* [ ] Implement `normalizeSymbol()` dan enforce format derivatif vs spot.
+* [ ] Tambah 404 alert & metric.
+* [ ] Jalankan uji fungsional (curl + scheduler).
+
+Kalau mau, aku bisa lanjutkan dengan **patch code siap tempel** (Express proxy + scheduler time window + 404 alert + normalizer) dalam satu blok.
