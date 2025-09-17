@@ -95,6 +95,21 @@ export class RegimeDetectionService {
   }
 
   /**
+   * Extract numeric value from candle data with multiple fallback field names
+   */
+  private extractNumericValue(candle: any, fieldNames: (string | number)[]): number | null {
+    for (const field of fieldNames) {
+      if (candle[field] !== undefined && candle[field] !== null) {
+        const value = parseFloat(String(candle[field]));
+        if (!isNaN(value)) {
+          return value;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * Initialize Hidden Markov Model with 4 regimes
    */
   private initializeHMM(): void {
@@ -171,7 +186,7 @@ export class RegimeDetectionService {
   async detectRegime(symbolId: string, lookback_hours: number = 48): Promise<RegimeDetectionResult> {
     try {
       // Get historical data for feature calculation
-      const historicalData = await coinAPIService.getHistoricalData(
+      const historicalDataResponse = await coinAPIService.getHistoricalData(
         symbolId,
         '1HRS',
         undefined,
@@ -179,11 +194,30 @@ export class RegimeDetectionService {
         lookback_hours
       );
 
-      if (historicalData.length < 20) {
-        throw new Error('Insufficient historical data for regime detection');
+      // Enhanced defensive programming - ensure we have valid array data
+      let historicalData: any[] = [];
+      
+      if (historicalDataResponse && typeof historicalDataResponse === 'object') {
+        // Handle the ValidatedHistoricalData response format
+        if ('data' in historicalDataResponse && Array.isArray(historicalDataResponse.data)) {
+          historicalData = historicalDataResponse.data;
+        } else if (Array.isArray(historicalDataResponse)) {
+          // Handle direct array response (legacy format)
+          historicalData = historicalDataResponse;
+        } else {
+          console.warn(`🚨 [RegimeDetection] Invalid data format for ${symbolId}:`, typeof historicalDataResponse, historicalDataResponse);
+          throw new Error(`Invalid historical data format received for ${symbolId}`);
+        }
       }
 
-      // Calculate regime features
+      if (!Array.isArray(historicalData) || historicalData.length < 20) {
+        console.warn(`🚨 [RegimeDetection] Insufficient historical data for ${symbolId}: ${historicalData?.length || 0} candles (need 20+)`);
+        throw new Error(`Insufficient historical data for regime detection: ${historicalData?.length || 0} candles (need 20+)`);
+      }
+
+      console.log(`📊 [RegimeDetection] Processing ${historicalData.length} candles for ${symbolId}`);
+
+      // Calculate regime features with enhanced validation
       const features = this.calculateRegimeFeatures(historicalData);
       
       // Store feature history for trend analysis
@@ -227,13 +261,58 @@ export class RegimeDetectionService {
   }
 
   /**
-   * Calculate regime features from historical data
+   * Calculate regime features from historical data with enhanced validation
    */
   private calculateRegimeFeatures(data: any[]): RegimeFeatures {
-    const prices = data.map(d => d.price_close);
-    const highs = data.map(d => d.price_high);
-    const lows = data.map(d => d.price_low);
-    const volumes = data.map(d => d.volume_traded);
+    // Enhanced defensive programming - validate input data
+    if (!Array.isArray(data)) {
+      console.error(`🚨 [RegimeDetection] calculateRegimeFeatures received non-array:`, typeof data, data);
+      throw new Error(`Expected array but received ${typeof data}`);
+    }
+    
+    if (data.length === 0) {
+      throw new Error('Empty data array provided to calculateRegimeFeatures');
+    }
+    
+    // Log sample data for debugging
+    console.log(`📊 [RegimeDetection] Sample candle data:`, data[0]);
+    
+    // Extract price and volume data with robust error handling
+    const prices: number[] = [];
+    const highs: number[] = [];
+    const lows: number[] = [];
+    const volumes: number[] = [];
+    
+    for (let i = 0; i < data.length; i++) {
+      const candle = data[i];
+      if (!candle || typeof candle !== 'object') {
+        console.warn(`🚨 [RegimeDetection] Invalid candle at index ${i}:`, candle);
+        continue;
+      }
+      
+      // Extract values with fallback field names
+      const priceClose = this.extractNumericValue(candle, ['price_close', 'close', 'c', 4]);
+      const priceHigh = this.extractNumericValue(candle, ['price_high', 'high', 'h', 2]);
+      const priceLow = this.extractNumericValue(candle, ['price_low', 'low', 'l', 3]);
+      const volume = this.extractNumericValue(candle, ['volume_traded', 'volume', 'vol', 'v', 5]);
+      
+      if (priceClose !== null && priceHigh !== null && priceLow !== null) {
+        prices.push(priceClose);
+        highs.push(priceHigh);
+        lows.push(priceLow);
+        volumes.push(volume || 0);
+      } else {
+        console.warn(`🚨 [RegimeDetection] Missing price data at index ${i}:`, {
+          close: priceClose, high: priceHigh, low: priceLow, volume: volume
+        });
+      }
+    }
+    
+    if (prices.length < 14) {
+      throw new Error(`Insufficient valid price data: ${prices.length} candles (need 14+ for calculations)`);
+    }
+    
+    console.log(`✅ [RegimeDetection] Extracted ${prices.length} valid candles from ${data.length} input candles`);
 
     // Calculate ATR (Average True Range)
     const atr = this.calculateATR(highs, lows, prices, 14);
@@ -258,15 +337,18 @@ export class RegimeDetectionService {
     // Calculate volatility regime (rolling volatility percentile)
     const volatility_regime = this.calculateVolatilityRegime(returns.slice(-20));
 
-    return {
-      atr_normalized,
-      rsi_mean,
-      rsi_volatility,
-      price_kurtosis,
-      volume_normalized,
-      trend_strength,
-      volatility_regime
+    const features = {
+      atr_normalized: isNaN(atr_normalized) ? 0.5 : atr_normalized,
+      rsi_mean: isNaN(rsi_mean) ? 50 : rsi_mean,
+      rsi_volatility: isNaN(rsi_volatility) ? 10 : rsi_volatility,
+      price_kurtosis: isNaN(price_kurtosis) ? 0 : price_kurtosis,
+      volume_normalized: isNaN(volume_normalized) ? 1 : volume_normalized,
+      trend_strength: isNaN(trend_strength) ? 0 : trend_strength,
+      volatility_regime: isNaN(volatility_regime) ? 0.5 : volatility_regime
     };
+    
+    console.log('📊 [RegimeDetection] Calculated features:', features);
+    return features;
   }
 
   /**

@@ -387,6 +387,114 @@ export class CoinAPIService {
     return `coinapi:${method}:${JSON.stringify(params || {})}`;
   }
   
+  /**
+   * Check if an error is retryable (temporary network/server issues)
+   */
+  private isRetryableError(error: any): boolean {
+    // Retry on network errors, timeouts, and 5xx server errors
+    if (error.code === 'ECONNRESET' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT') {
+      return true;
+    }
+    if (error.response?.status >= 500) {
+      return true;
+    }
+    if (error.message?.includes('timeout')) {
+      return true;
+    }
+    return false;
+  }
+  
+  /**
+   * Sleep utility for retry backoff
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+  
+  /**
+   * Check if we should use segmented fetching for large date ranges
+   */
+  private shouldUseSegmentedFetch(timeStart?: string, timeEnd?: string, limit?: number): boolean {
+    if (!timeStart || !timeEnd) return false;
+    
+    const start = new Date(timeStart);
+    const end = new Date(timeEnd);
+    const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+    
+    // Use segmented fetch for requests spanning more than 48 hours
+    return diffHours > 48 || Boolean(limit && limit > 100);
+  }
+  
+  /**
+   * Get historical data using segmented fetching for large date ranges
+   */
+  private async getHistoricalDataSegmented(
+    symbolId: string,
+    period: string,
+    timeStart: string,
+    timeEnd: string,
+    limit: number
+  ): Promise<ValidatedHistoricalData> {
+    const start = new Date(timeStart);
+    const end = new Date(timeEnd);
+    const segments: CoinAPIHistoricalData[] = [];
+    
+    // Split into 24-hour chunks
+    const chunkHours = 24;
+    let currentStart = start;
+    
+    while (currentStart < end) {
+      const chunkEnd = new Date(Math.min(
+        currentStart.getTime() + (chunkHours * 60 * 60 * 1000),
+        end.getTime()
+      ));
+      
+      try {
+        console.log(`📊 [CoinAPI] Fetching segment: ${currentStart.toISOString()} to ${chunkEnd.toISOString()}`);
+        
+        const segmentData = await this.getHistoricalData(
+          symbolId,
+          period,
+          currentStart.toISOString(),
+          chunkEnd.toISOString(),
+          50 // Smaller limit per segment
+        );
+        
+        if (segmentData.data && Array.isArray(segmentData.data)) {
+          segments.push(...segmentData.data);
+        }
+        
+        // Small delay between segments to avoid rate limiting
+        await this.sleep(100);
+        
+      } catch (error) {
+        console.warn(`⚠️ [CoinAPI] Segment failed: ${currentStart.toISOString()} to ${chunkEnd.toISOString()}`, error instanceof Error ? error.message : 'Unknown error');
+      }
+      
+      currentStart = chunkEnd;
+    }
+    
+    // Sort by timestamp and remove duplicates
+    const uniqueSegments = segments
+      .sort((a, b) => new Date(a.time_open).getTime() - new Date(b.time_open).getTime())
+      .filter((item, index, arr) => 
+        index === 0 || item.time_open !== arr[index - 1].time_open
+      );
+    
+    console.log(`✅ [CoinAPI] Segmented fetch completed: ${uniqueSegments.length} candles total`);
+    
+    return {
+      data: uniqueSegments.slice(0, limit), // Respect original limit
+      data_quality: {
+        is_valid: true,
+        quality: 'good',
+        validation_errors: [],
+        timestamp: new Date().toISOString()
+      },
+      source: 'api'
+    };
+  }
+
   // Last-good cache helper methods
   private getLastGoodCacheKey(method: string, params?: any): string {
     return `coinapi_lastgood:${method}:${JSON.stringify(params || {})}`;
@@ -655,14 +763,30 @@ export class CoinAPIService {
     for (let i = 0; i < okxCandles.length; i++) {
       const candle = okxCandles[i];
       
-      if (!Array.isArray(candle) || candle.length < 6) {
-        console.warn(`🚨 [CoinAPI] Invalid candle data at index ${i} for ${symbolId}:`, candle);
+      // Handle both array format [timestamp, open, high, low, close, volume] 
+      // and object format {timestamp, open, high, low, close, volume}
+      let timestamp, priceOpen, priceHigh, priceLow, priceClose, volumeTraded, tradesCount;
+      
+      if (Array.isArray(candle) && candle.length >= 6) {
+        // OKX standard array format
+        [timestamp, priceOpen, priceHigh, priceLow, priceClose, volumeTraded, tradesCount] = candle;
+      } else if (candle && typeof candle === 'object') {
+        // OKX object format (fallback or alternative format)
+        timestamp = candle.timestamp || candle.ts || candle[0];
+        priceOpen = candle.open || candle.o || candle[1];
+        priceHigh = candle.high || candle.h || candle[2];
+        priceLow = candle.low || candle.l || candle[3];
+        priceClose = candle.close || candle.c || candle[4];
+        volumeTraded = candle.volume || candle.vol || candle.v || candle[5];
+        tradesCount = candle.trades || candle.count || candle[6] || 0;
+      } else {
+        console.warn(`🚨 [CoinAPI] Unsupported candle format at index ${i} for ${symbolId}:`, typeof candle, candle);
         continue;
       }
       
-      const openTime = this.parseTimestampSafely(candle[0]);
+      const openTime = this.parseTimestampSafely(timestamp);
       if (!openTime) {
-        console.warn(`🚨 [CoinAPI] Failed to parse timestamp for candle ${i}:`, candle[0]);
+        console.warn(`🚨 [CoinAPI] Failed to parse timestamp for candle ${i}:`, timestamp);
         continue;
       }
       
@@ -670,17 +794,25 @@ export class CoinAPIService {
       const openTimeIso = openTime.toISOString();
       const closeTimeIso = closeTime.toISOString();
       
-      // Validate numeric values
-      const priceOpen = parseFloat(candle[1]);
-      const priceHigh = parseFloat(candle[2]);
-      const priceLow = parseFloat(candle[3]);
-      const priceClose = parseFloat(candle[4]);
-      const volumeTraded = parseFloat(candle[5]);
-      const tradesCount = parseInt(candle[6], 10);
+      // Parse and validate numeric values
+      const numOpen = parseFloat(String(priceOpen));
+      const numHigh = parseFloat(String(priceHigh));
+      const numLow = parseFloat(String(priceLow));
+      const numClose = parseFloat(String(priceClose));
+      const numVolume = parseFloat(String(volumeTraded)) || 0;
+      const numTrades = parseInt(String(tradesCount), 10) || 0;
       
-      if (isNaN(priceOpen) || isNaN(priceHigh) || isNaN(priceLow) || isNaN(priceClose)) {
+      if (isNaN(numOpen) || isNaN(numHigh) || isNaN(numLow) || isNaN(numClose)) {
         console.warn(`🚨 [CoinAPI] Invalid price data for candle ${i}:`, {
           open: priceOpen, high: priceHigh, low: priceLow, close: priceClose
+        });
+        continue;
+      }
+      
+      // Validate price relationships (basic sanity check)
+      if (numHigh < numLow || numOpen < 0 || numClose < 0) {
+        console.warn(`🚨 [CoinAPI] Illogical price relationships for candle ${i}:`, {
+          open: numOpen, high: numHigh, low: numLow, close: numClose
         });
         continue;
       }
@@ -690,12 +822,12 @@ export class CoinAPIService {
         time_period_end: closeTimeIso,
         time_open: openTimeIso,
         time_close: closeTimeIso,
-        price_open: priceOpen || 0,
-        price_high: priceHigh || 0,
-        price_low: priceLow || 0,
-        price_close: priceClose || 0,
-        volume_traded: volumeTraded || 0,
-        trades_count: tradesCount || 0
+        price_open: numOpen,
+        price_high: numHigh,
+        price_low: numLow,
+        price_close: numClose,
+        volume_traded: numVolume,
+        trades_count: numTrades
       });
     }
     
@@ -913,27 +1045,61 @@ export class CoinAPIService {
     if (!skipCoinAPI) {
       const healthStatus = await this.healthCheck();
       
-      // Try main CoinAPI function if healthy or degraded
+      // Try main CoinAPI function with retry mechanism (max 3 attempts)
       if (healthStatus.status === 'healthy' || healthStatus.status === 'degraded') {
-        try {
-          const data = await fn();
-          const quality = this.validateDataQuality(data, dataType);
-          
-          // Cache good data for fallback
-          if (cacheKey && quality.is_valid) {
-            this.setLastGoodCache(cacheKey, data, quality);
+        const maxRetries = 3;
+        let lastError: Error | null = null;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            console.log(`🔄 [CoinAPI] Attempt ${attempt}/${maxRetries} for ${symbolForCircuitBreaker || 'unknown'} (${dataType})`);
+            
+            const data = await fn();
+            const quality = this.validateDataQuality(data, dataType);
+            
+            if (quality.is_valid) {
+              // Cache good data for fallback
+              if (cacheKey) {
+                this.setLastGoodCache(cacheKey, data, quality);
+              }
+              
+              console.log(`✅ [CoinAPI] Success on attempt ${attempt}/${maxRetries} for ${symbolForCircuitBreaker || 'unknown'}`);
+              return {
+                data,
+                quality,
+                timestamp: new Date().toISOString(),
+                source: 'api'
+              };
+            } else {
+              console.warn(`🚨 [CoinAPI] Data quality validation failed on attempt ${attempt} for ${dataType}:`, quality.validation_errors);
+              lastError = new Error(`Data quality validation failed: ${quality.validation_errors.join(', ')}`);
+              // Don't retry on data quality issues - these are usually permanent
+              break;
+            }
+            
+          } catch (error: any) {
+            lastError = error;
+            console.error(`🚨 CoinAPI Error (attempt ${attempt}/${maxRetries}):`, error.response?.data || error.message);
+            
+            // If the error suggests an invalid symbol, don't retry
+            if (error.response?.status === 400) {
+              if (symbolForCircuitBreaker) {
+                this.recordSymbolFailure(symbolForCircuitBreaker);
+              }
+              break;
+            }
+            
+            // For temporary errors (500, timeout, network), add exponential backoff
+            if (attempt < maxRetries && this.isRetryableError(error)) {
+              const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Max 5 second backoff
+              console.log(`⏳ [CoinAPI] Retrying in ${backoffMs}ms after error: ${error.message}`);
+              await this.sleep(backoffMs);
+              continue;
+            }
           }
-          
-          console.log(`✅ CoinAPI success: ${dataType} data retrieved (${quality.quality})`);
-          return {
-            data,
-            quality,
-            timestamp: new Date().toISOString(),
-            source: 'api'
-          };
-        } catch (error) {
-          console.warn(`🚨 CoinAPI main function failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
+        
+        console.warn(`🚨 CoinAPI main function failed after ${maxRetries} attempts:`, lastError?.message);
       }
     }
     
@@ -1461,6 +1627,14 @@ export class CoinAPIService {
     const lastGoodKey = this.getLastGoodCacheKey('history', { symbolId, period, timeStart, timeEnd, limit });
     
     return cache.getSingleFlight(cacheKey, async () => {
+      // Implement segmented fetching for large date ranges
+      const shouldUseSegmentedFetch = this.shouldUseSegmentedFetch(timeStart, timeEnd, limit);
+      
+      if (shouldUseSegmentedFetch && timeStart && timeEnd) {
+        console.log(`📊 [CoinAPI] Using segmented fetch for ${symbolId} (${timeStart} to ${timeEnd})`);
+        return this.getHistoricalDataSegmented(symbolId, period, timeStart, timeEnd, limit);
+      }
+      
       const result = await this.safeCoinAPI<CoinAPIHistoricalData[]>(
         // Main function
         async () => {
@@ -1469,7 +1643,15 @@ export class CoinAPIService {
           if (timeEnd) url += `&time_end=${timeEnd}`;
           
           const response = await this.client.get(url);
-          return response.data;
+          
+          // Ensure we always return an array
+          const data = response.data;
+          if (!Array.isArray(data)) {
+            console.warn(`🚨 [CoinAPI] Non-array response for ${symbolId}:`, typeof data, data);
+            return [];
+          }
+          
+          return data;
         },
         // PRIORITY 1: OKX secondary fallback for historical data
         async () => {
@@ -1483,7 +1665,15 @@ export class CoinAPIService {
             const okxCandles = await this.okxService.getCandles(okxSymbol, okxPeriod, limit);
             
             // Map OKX candles to CoinAPI historical format
-            return this.mapOKXCandlesToHistorical(okxCandles, symbolId, period);
+            const mappedData = this.mapOKXCandlesToHistorical(okxCandles, symbolId, period);
+            
+            // Ensure we always return an array
+            if (!Array.isArray(mappedData)) {
+              console.warn(`🚨 [CoinAPI] OKX mapping returned non-array for ${symbolId}:`, typeof mappedData);
+              return [];
+            }
+            
+            return mappedData;
           } catch (error) {
             console.warn(`🚨 OKX historical fallback failed:`, error instanceof Error ? error.message : 'Unknown error');
             throw new Error('OKX historical fallback exhausted');
@@ -1494,8 +1684,15 @@ export class CoinAPIService {
         symbolId
       );
       
+      // Final safety check - ensure result.data is always an array
+      const finalData = Array.isArray(result.data) ? result.data : [];
+      
+      if (finalData.length === 0) {
+        console.warn(`⚠️ [CoinAPI] No valid historical data returned for ${symbolId} (${period})`);
+      }
+      
       return {
-        data: result.data,
+        data: finalData,
         data_quality: result.quality,
         source: result.source
       };
