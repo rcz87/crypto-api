@@ -22,7 +22,8 @@ import {
   historicalOpenInterestDataSchema,
   volumeHistorySchema,
   confluenceScreeningRequestSchema,
-  confluenceScreeningResponseSchema
+  confluenceScreeningResponseSchema,
+  ConfluenceScreeningResponse
 } from '../../shared/schema.js';
 import { validateAndFormatPair, getSupportedPairs } from '../utils/pairValidator.js';
 import { calculateTimeToNextCandleClose, getTimeToCloseDescription } from '../utils/timeCalculator.js';
@@ -162,12 +163,12 @@ async function performConfluenceScreening(requestData: any): Promise<any> {
     })();
 
     // Race between analysis and timeout
-    const screeningResult = await Promise.race([servicesPromise, timeoutPromise]);
+    const screeningResult = await Promise.race([servicesPromise, timeoutPromise]) as ConfluenceScreeningResponse;
     
     // Transform to match user-requested output format
     const formattedResults: Record<string, any> = {};
     
-    Object.entries(screeningResult.results).forEach(([symbol, analysis]) => {
+    Object.entries(screeningResult.results || {}).forEach(([symbol, analysis]) => {
       // Clean symbol for output (remove -USDT-SWAP suffix if present)
       const cleanSymbol = symbol.replace('-USDT-SWAP', '').toUpperCase();
       
@@ -190,11 +191,14 @@ async function performConfluenceScreening(requestData: any): Promise<any> {
     const processingTime = Date.now() - startTime;
     
     // Enhanced summary statistics
+    const results = screeningResult.results || {};
+    const resultValues = Object.values(results);
     const summary = {
       ...screeningResult.summary,
       processing_time_ms: processingTime,
-      average_score: Object.values(screeningResult.results)
-        .reduce((sum, r) => sum + (r as any).overall_score, 0) / Object.values(screeningResult.results).length,
+      average_score: resultValues.length > 0 
+        ? resultValues.reduce((sum, r) => sum + (r as any).overall_score, 0) / resultValues.length
+        : 0,
       symbols_analyzed: requestData.symbols,
       timeframe_used: requestData.timeframe,
       analysis_timestamp: new Date().toISOString()
@@ -323,6 +327,308 @@ async function getRealHistoricalVolume(symbol: string, currentVolume: number): P
  * Includes complete market data, technical analysis, and advanced trading intelligence
  */
 export function registerTradingRoutes(app: Express): void {
+  /**
+   * Advanced Multi-Symbol Screener with Automatic Batching
+   * POST /api/screener/screen
+   * 
+   * Handles large screening requests by automatically splitting them into batches
+   * when >15 symbols are provided. Uses Promise.allSettled for parallel processing
+   * and merges results transparently. Prevents 500 errors on large requests.
+   * 
+   * Features:
+   * - Automatic batching for >15 symbols (max 15 per batch)
+   * - Parallel processing with Promise.allSettled
+   * - Graceful handling of partial failures
+   * - Comprehensive logging and metrics
+   * - Backward compatible with existing frontend
+   */
+  app.post('/api/screener/screen', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    const BATCH_SIZE = 15; // Max symbols per batch to prevent overload
+    
+    try {
+      // Parse and validate request body
+      const { symbols, timeframe = '15m', enabledLayers = {}, ...otherParams } = req.body;
+      
+      // Input validation
+      if (!symbols || !Array.isArray(symbols)) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_REQUEST',
+          message: 'Symbols array is required',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      if (symbols.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_REQUEST', 
+          message: 'Symbols array cannot be empty',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      if (symbols.length > 100) {
+        return res.status(400).json({
+          success: false,
+          error: 'TOO_MANY_SYMBOLS',
+          message: 'Maximum 100 symbols allowed per request',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Clean and validate symbols
+      const cleanedSymbols = symbols.map((s: string) => s.trim().toUpperCase()).filter(Boolean);
+      const symbolsRequested = cleanedSymbols.length;
+      
+      // Log the request
+      await storage.addLog({
+        level: 'info',
+        message: 'Multi-symbol screening request received',
+        details: `POST /api/screener/screen - ${symbolsRequested} symbols - ${timeframe} - ${symbolsRequested > BATCH_SIZE ? 'BATCHED' : 'DIRECT'}`
+      });
+
+      // Determine if batching is needed
+      const needsBatching = cleanedSymbols.length > BATCH_SIZE;
+      let allResults: any[] = [];
+      let totalProcessed = 0;
+      let totalSuccessful = 0;
+      let totalFailed = 0;
+      let batchSummaries: any[] = [];
+      
+      if (needsBatching) {
+        // **AUTOMATIC BATCHING LOGIC**
+        console.log(`🔄 [SCREENER BATCHING] Processing ${symbolsRequested} symbols in batches of ${BATCH_SIZE}`);
+        
+        // Split symbols into batches
+        const batches: string[][] = [];
+        for (let i = 0; i < cleanedSymbols.length; i += BATCH_SIZE) {
+          batches.push(cleanedSymbols.slice(i, i + BATCH_SIZE));
+        }
+        
+        console.log(`📦 [SCREENER BATCHING] Created ${batches.length} batches: ${batches.map(b => `[${b.length}]`).join(', ')}`);
+        
+        // Process batches in parallel with Promise.allSettled
+        const batchPromises = batches.map(async (batchSymbols, batchIndex) => {
+          const batchStartTime = Date.now();
+          
+          try {
+            console.log(`🚀 [BATCH ${batchIndex + 1}/${batches.length}] Processing ${batchSymbols.length} symbols: ${batchSymbols.slice(0, 3).join(', ')}${batchSymbols.length > 3 ? '...' : ''}`);
+            
+            // Import and use the original screener service
+            const { ScreenerService } = await import('../modules/screener/screener.service.js');
+            const screenerService = new ScreenerService();
+            
+            // Create batch request
+            const batchRequest = {
+              symbols: batchSymbols,
+              timeframe,
+              enabledLayers: {
+                smc: true,
+                price_action: true,
+                ema: true,
+                rsi_macd: true,
+                funding: true,
+                oi: true,
+                cvd: true,
+                fibo: true,
+                ...enabledLayers
+              },
+              ...otherParams
+            };
+            
+            const batchResult = await screenerService.screenMultipleSymbols(batchRequest);
+            const batchTime = Date.now() - batchStartTime;
+            
+            console.log(`✅ [BATCH ${batchIndex + 1}] Completed in ${batchTime}ms - ${batchResult.results?.length || 0} results`);
+            
+            return {
+              batchIndex: batchIndex + 1,
+              symbols: batchSymbols,
+              result: batchResult,
+              processingTime: batchTime,
+              success: true
+            };
+            
+          } catch (error) {
+            const batchTime = Date.now() - batchStartTime;
+            const errorMessage = error instanceof Error ? error.message : 'Unknown batch error';
+            
+            console.error(`❌ [BATCH ${batchIndex + 1}] Failed after ${batchTime}ms: ${errorMessage}`);
+            
+            return {
+              batchIndex: batchIndex + 1,
+              symbols: batchSymbols,
+              error: errorMessage,
+              processingTime: batchTime,
+              success: false
+            };
+          }
+        });
+        
+        // Wait for all batches to complete (using Promise.allSettled for fault tolerance)
+        const batchResults = await Promise.allSettled(batchPromises);
+        
+        // Process batch results and handle partial failures
+        for (let i = 0; i < batchResults.length; i++) {
+          const batchOutcome = batchResults[i];
+          
+          if (batchOutcome.status === 'fulfilled') {
+            const batchData = batchOutcome.value;
+            batchSummaries.push({
+              batch: batchData.batchIndex,
+              symbols_count: batchData.symbols.length,
+              success: batchData.success,
+              processing_time_ms: batchData.processingTime,
+              results_count: batchData.success && batchData.result ? (batchData.result.results?.length || 0) : 0,
+              error: batchData.success ? null : batchData.error
+            });
+            
+            if (batchData.success && batchData.result && batchData.result.results) {
+              // Merge successful results
+              allResults = allResults.concat(batchData.result.results);
+              totalSuccessful += batchData.symbols.length;
+            } else {
+              totalFailed += batchData.symbols.length;
+            }
+            totalProcessed += batchData.symbols.length;
+          } else {
+            // Promise.allSettled caught a rejection - this shouldn't happen with our try/catch
+            console.error(`❌ [BATCH ${i + 1}] Unexpected rejection:`, batchOutcome.reason);
+            totalFailed += batches[i].length;
+            totalProcessed += batches[i].length;
+            
+            batchSummaries.push({
+              batch: i + 1,
+              symbols_count: batches[i].length,
+              success: false,
+              processing_time_ms: 0,
+              results_count: 0,
+              error: 'Unexpected batch failure'
+            });
+          }
+        }
+        
+        console.log(`🏁 [SCREENER BATCHING] Completed: ${totalSuccessful}/${totalProcessed} successful, ${totalFailed} failed`);
+        
+      } else {
+        // **DIRECT PROCESSING** (no batching needed)
+        try {
+          const { ScreenerService } = await import('../modules/screener/screener.service.js');
+          const screenerService = new ScreenerService();
+          
+          const directRequest = {
+            symbols: cleanedSymbols,
+            timeframe,
+            enabledLayers: {
+              smc: true,
+              price_action: true, 
+              ema: true,
+              rsi_macd: true,
+              funding: true,
+              oi: true,
+              cvd: true,
+              fibo: true,
+              ...enabledLayers
+            },
+            ...otherParams
+          };
+          
+          const directResult = await screenerService.screenMultipleSymbols(directRequest);
+          allResults = directResult.results || [];
+          totalProcessed = cleanedSymbols.length;
+          totalSuccessful = allResults.length;
+          totalFailed = cleanedSymbols.length - allResults.length;
+          
+        } catch (error) {
+          throw error; // Let outer catch handle it
+        }
+      }
+      
+      // Calculate final metrics
+      const processingTime = Date.now() - startTime;
+      
+      // Generate aggregated statistics
+      const stats = {
+        total_symbols_requested: symbolsRequested,
+        total_symbols_processed: totalProcessed,
+        successful_results: totalSuccessful,
+        failed_results: totalFailed,
+        success_rate: totalProcessed > 0 ? ((totalSuccessful / totalProcessed) * 100).toFixed(1) + '%' : '0%',
+        processing_time_ms: processingTime,
+        batching_used: needsBatching,
+        batch_count: needsBatching ? batchSummaries.length : 1,
+        ...(needsBatching && { batch_summaries: batchSummaries })
+      };
+      
+      // Count signal types
+      const buySignals = allResults.filter(r => r.signal === 'BUY' || r.label === 'BUY').length;
+      const sellSignals = allResults.filter(r => r.signal === 'SELL' || r.label === 'SELL').length;
+      const holdSignals = allResults.filter(r => r.signal === 'HOLD' || r.label === 'HOLD').length;
+      
+      // Update storage metrics
+      await storage.updateMetrics(processingTime);
+      
+      // Log successful completion
+      await storage.addLog({
+        level: 'info',
+        message: 'Multi-symbol screening completed successfully',
+        details: `POST /api/screener/screen - ${processingTime}ms - ${totalSuccessful}/${symbolsRequested} symbols - BUY: ${buySignals}, SELL: ${sellSignals}, HOLD: ${holdSignals} - ${needsBatching ? 'BATCHED' : 'DIRECT'}`
+      });
+      
+      // Send response
+      res.json({
+        success: true,
+        data: {
+          results: allResults,
+          stats: {
+            ...stats,
+            buy_signals: buySignals,
+            sell_signals: sellSignals,
+            hold_signals: holdSignals
+          }
+        },
+        meta: {
+          processing_time_ms: processingTime,
+          timestamp: new Date().toISOString(),
+          api_version: '2.1.0',
+          batching_enabled: needsBatching,
+          batch_size: BATCH_SIZE
+        }
+      });
+      
+    } catch (error) {
+      const processingTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown screening error';
+      
+      console.error('[POST /api/screener/screen] Error:', errorMessage);
+      
+      // Log error
+      await storage.addLog({
+        level: 'error',
+        message: 'Multi-symbol screening request failed',
+        details: `POST /api/screener/screen - ${processingTime}ms - Error: ${errorMessage}`
+      });
+      
+      // Determine appropriate status code
+      let statusCode = 500;
+      if (errorMessage.includes('validation') || errorMessage.includes('Invalid')) {
+        statusCode = 400;
+      } else if (errorMessage.includes('timeout') || errorMessage.includes('unavailable')) {
+        statusCode = 503;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: 'SCREENING_FAILED',
+        message: errorMessage,
+        processing_time_ms: processingTime,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // Get supported trading pairs endpoint
   app.get('/api/pairs/supported', async (req: Request, res: Response) => {
     try {
@@ -3724,82 +4030,329 @@ export function registerTradingRoutes(app: Express): void {
   });
 
   /**
-   * Batch regime detection for multiple symbols
+   * Advanced Batch Regime Detection with Automatic Batching
+   * GET /api/regime/batch?symbols=SYMBOL1,SYMBOL2&lookback_hours=24
+   * 
+   * Handles large regime detection requests by automatically splitting them into batches
+   * when >10 symbols are provided. Uses Promise.allSettled for parallel processing
+   * and merges results transparently. Prevents timeouts on large requests.
+   * 
+   * Features:
+   * - Automatic batching for >10 symbols (max 10 per batch)
+   * - Parallel processing with Promise.allSettled
+   * - Graceful handling of partial failures
+   * - Comprehensive logging and metrics
+   * - Backward compatible with existing frontend
+   * 
    * Example: /api/regime/batch?symbols=BINANCE_SPOT_SOL_USDT,BINANCE_SPOT_BTC_USDT&lookback_hours=24
    */
   app.get('/api/regime/batch', async (req: Request, res: Response) => {
     const startTime = Date.now();
+    const BATCH_SIZE = 10; // Max symbols per batch to prevent timeouts
     
     try {
       const { symbols, lookback_hours = '48' } = req.query;
       
+      // Input validation
       if (!symbols) {
         return res.status(400).json({
           success: false,
-          error: 'Symbols parameter is required (comma-separated list)',
+          error: 'INVALID_REQUEST',
+          message: 'Symbols parameter is required (comma-separated list)',
           timestamp: new Date().toISOString(),
         });
       }
       
-      const { regimeDetectionService } = await import('../services/regimeDetection.js');
-      const symbol_list = (symbols as string).split(',').map(s => s.trim());
-      const lookback = parseInt(lookback_hours as string);
-      
-      // Enforce maximum batch size limit to prevent timeouts
-      const MAX_BATCH_SIZE = 10;
-      if (symbol_list.length > MAX_BATCH_SIZE) {
+      if (typeof symbols !== 'string') {
         return res.status(400).json({
           success: false,
-          error: `Batch size exceeds maximum limit. Requested: ${symbol_list.length}, Maximum: ${MAX_BATCH_SIZE}`,
-          details: {
-            requested_symbols: symbol_list.length,
-            max_allowed: MAX_BATCH_SIZE,
-            suggestion: `Split your request into smaller batches of ${MAX_BATCH_SIZE} symbols or fewer`,
-            example_split: `For ${symbol_list.length} symbols, use ${Math.ceil(symbol_list.length / MAX_BATCH_SIZE)} separate requests`
-          },
+          error: 'INVALID_REQUEST',
+          message: 'Symbols must be a comma-separated string',
           timestamp: new Date().toISOString(),
         });
       }
       
-      const regime_promises = symbol_list.map(async (symbolId) => {
-        try {
-          return await regimeDetectionService.detectRegime(symbolId, lookback);
-        } catch (error) {
-          console.warn(`Failed to detect regime for ${symbolId}:`, error);
-          return null;
-        }
+      // Parse and validate symbols
+      const symbol_list = (symbols as string).split(',').map(s => s.trim()).filter(Boolean);
+      const lookback = parseInt(lookback_hours as string);
+      
+      if (symbol_list.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_REQUEST',
+          message: 'Symbols list cannot be empty',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      if (symbol_list.length > 100) {
+        return res.status(400).json({
+          success: false,
+          error: 'TOO_MANY_SYMBOLS',
+          message: 'Maximum 100 symbols allowed per request',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      if (isNaN(lookback) || lookback <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_REQUEST',
+          message: 'lookback_hours must be a positive number',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const symbolsRequested = symbol_list.length;
+      
+      // Log the request
+      await storage.addLog({
+        level: 'info',
+        message: 'Regime batch detection request received',
+        details: `GET /api/regime/batch - ${symbolsRequested} symbols - ${lookback}h lookback - ${symbolsRequested > BATCH_SIZE ? 'BATCHED' : 'DIRECT'}`
       });
       
-      const regimes = await Promise.all(regime_promises);
-      const successful_regimes = regimes.filter(r => r !== null);
+      // Import regime detection service
+      const { regimeDetectionService } = await import('../services/regimeDetection.js');
+      
+      // Determine if batching is needed
+      const needsBatching = symbol_list.length > BATCH_SIZE;
+      let allRegimes: any[] = [];
+      let totalProcessed = 0;
+      let totalSuccessful = 0;
+      let totalFailed = 0;
+      let batchSummaries: any[] = [];
+      
+      if (needsBatching) {
+        // **AUTOMATIC BATCHING LOGIC**
+        console.log(`🔄 [REGIME BATCHING] Processing ${symbolsRequested} symbols in batches of ${BATCH_SIZE}`);
+        
+        // Split symbols into batches
+        const batches: string[][] = [];
+        for (let i = 0; i < symbol_list.length; i += BATCH_SIZE) {
+          batches.push(symbol_list.slice(i, i + BATCH_SIZE));
+        }
+        
+        console.log(`📦 [REGIME BATCHING] Created ${batches.length} batches: ${batches.map(b => `[${b.length}]`).join(', ')}`);
+        
+        // Process batches in parallel with Promise.allSettled
+        const batchPromises = batches.map(async (batchSymbols, batchIndex) => {
+          const batchStartTime = Date.now();
+          
+          try {
+            console.log(`🚀 [REGIME BATCH ${batchIndex + 1}/${batches.length}] Processing ${batchSymbols.length} symbols: ${batchSymbols.slice(0, 3).join(', ')}${batchSymbols.length > 3 ? '...' : ''}`);
+            
+            // Process each symbol in the batch
+            const regime_promises = batchSymbols.map(async (symbolId) => {
+              try {
+                const regime = await regimeDetectionService.detectRegime(symbolId, lookback);
+                return { symbolId, regime, success: true };
+              } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                console.warn(`Failed to detect regime for ${symbolId}:`, errorMessage);
+                return { symbolId, error: errorMessage, success: false };
+              }
+            });
+            
+            // Wait for all symbols in batch to complete
+            const batchResults = await Promise.allSettled(regime_promises);
+            const batchTime = Date.now() - batchStartTime;
+            
+            // Process batch results
+            const successfulRegimes: any[] = [];
+            let batchSuccessful = 0;
+            let batchFailed = 0;
+            
+            batchResults.forEach((result, index) => {
+              if (result.status === 'fulfilled') {
+                if (result.value.success && result.value.regime) {
+                  successfulRegimes.push(result.value.regime);
+                  batchSuccessful++;
+                } else {
+                  batchFailed++;
+                }
+              } else {
+                console.error(`❌ [REGIME BATCH ${batchIndex + 1}] Symbol ${batchSymbols[index]} failed unexpectedly:`, result.reason);
+                batchFailed++;
+              }
+            });
+            
+            console.log(`✅ [REGIME BATCH ${batchIndex + 1}] Completed in ${batchTime}ms - ${batchSuccessful}/${batchSymbols.length} successful`);
+            
+            return {
+              batchIndex: batchIndex + 1,
+              symbols: batchSymbols,
+              results: successfulRegimes,
+              successful: batchSuccessful,
+              failed: batchFailed,
+              processingTime: batchTime,
+              success: true
+            };
+            
+          } catch (error) {
+            const batchTime = Date.now() - batchStartTime;
+            const errorMessage = error instanceof Error ? error.message : 'Unknown batch error';
+            
+            console.error(`❌ [REGIME BATCH ${batchIndex + 1}] Failed after ${batchTime}ms: ${errorMessage}`);
+            
+            return {
+              batchIndex: batchIndex + 1,
+              symbols: batchSymbols,
+              results: [],
+              successful: 0,
+              failed: batchSymbols.length,
+              error: errorMessage,
+              processingTime: batchTime,
+              success: false
+            };
+          }
+        });
+        
+        // Wait for all batches to complete (using Promise.allSettled for fault tolerance)
+        const batchResults = await Promise.allSettled(batchPromises);
+        
+        // Process batch results and handle partial failures
+        for (let i = 0; i < batchResults.length; i++) {
+          const batchOutcome = batchResults[i];
+          
+          if (batchOutcome.status === 'fulfilled') {
+            const batchData = batchOutcome.value;
+            batchSummaries.push({
+              batch: batchData.batchIndex,
+              symbols_count: batchData.symbols.length,
+              success: batchData.success,
+              processing_time_ms: batchData.processingTime,
+              successful_detections: batchData.successful,
+              failed_detections: batchData.failed,
+              error: batchData.success ? null : batchData.error
+            });
+            
+            if (batchData.success && batchData.results) {
+              // Merge successful results
+              allRegimes = allRegimes.concat(batchData.results);
+              totalSuccessful += batchData.successful;
+              totalFailed += batchData.failed;
+            } else {
+              totalFailed += batchData.symbols.length;
+            }
+            totalProcessed += batchData.symbols.length;
+          } else {
+            // Promise.allSettled caught a rejection - this shouldn't happen with our try/catch
+            console.error(`❌ [REGIME BATCH ${i + 1}] Unexpected rejection:`, batchOutcome.reason);
+            totalFailed += batches[i].length;
+            totalProcessed += batches[i].length;
+            
+            batchSummaries.push({
+              batch: i + 1,
+              symbols_count: batches[i].length,
+              success: false,
+              processing_time_ms: 0,
+              successful_detections: 0,
+              failed_detections: batches[i].length,
+              error: 'Unexpected batch failure'
+            });
+          }
+        }
+        
+        console.log(`🏁 [REGIME BATCHING] Completed: ${totalSuccessful}/${totalProcessed} successful, ${totalFailed} failed`);
+        
+      } else {
+        // **DIRECT PROCESSING** for ≤10 symbols (existing logic)
+        console.log(`🎯 [REGIME DIRECT] Processing ${symbolsRequested} symbols directly`);
+        
+        const regime_promises = symbol_list.map(async (symbolId) => {
+          try {
+            const regime = await regimeDetectionService.detectRegime(symbolId, lookback);
+            return { regime, success: true };
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.warn(`Failed to detect regime for ${symbolId}:`, errorMessage);
+            return { error: errorMessage, success: false };
+          }
+        });
+        
+        const regimeResults = await Promise.allSettled(regime_promises);
+        
+        regimeResults.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            if (result.value.success && result.value.regime) {
+              allRegimes.push(result.value.regime);
+              totalSuccessful++;
+            } else {
+              totalFailed++;
+            }
+          } else {
+            console.error(`❌ [REGIME DIRECT] Symbol ${symbol_list[index]} failed unexpectedly:`, result.reason);
+            totalFailed++;
+          }
+          totalProcessed++;
+        });
+      }
+      
       const responseTime = Date.now() - startTime;
       
-      res.json({
+      // Log successful completion
+      await storage.addLog({
+        level: 'info',
+        message: 'Regime batch detection completed successfully',
+        details: `Regime detection - ${symbolsRequested} symbols - ${responseTime}ms - ${totalSuccessful} successful - ${needsBatching ? 'BATCHED' : 'DIRECT'}`
+      });
+      
+      // Build comprehensive response
+      const response = {
         success: true,
         data: {
           batch_info: {
-            requested_symbols: symbol_list.length,
-            max_batch_size: 10,
-            batch_utilization: `${symbol_list.length}/10 symbols`,
-            successful_detections: successful_regimes.length,
-            failed_detections: symbol_list.length - successful_regimes.length
+            requested_symbols: symbolsRequested,
+            batch_size: BATCH_SIZE,
+            batching_used: needsBatching,
+            total_batches: needsBatching ? batchSummaries.length : 1,
+            batch_utilization: needsBatching ? `${symbolsRequested} symbols in ${batchSummaries.length} batches` : `${symbolsRequested}/${BATCH_SIZE} symbols`,
+            successful_detections: totalSuccessful,
+            failed_detections: totalFailed,
+            success_rate: totalProcessed > 0 ? `${Math.round((totalSuccessful / totalProcessed) * 100)}%` : '0%'
           },
-          regimes: successful_regimes
+          regimes: allRegimes,
+          ...(needsBatching && {
+            batch_details: batchSummaries
+          })
         },
+        metadata: {
+          source: 'RegimeDetection',
+          response_time_ms: responseTime,
+          lookback_hours: lookback,
+          processing_mode: needsBatching ? 'batched' : 'direct',
+          ...(needsBatching && {
+            total_processing_time: batchSummaries.reduce((sum, batch) => sum + batch.processing_time_ms, 0),
+            average_batch_time: Math.round(batchSummaries.reduce((sum, batch) => sum + batch.processing_time_ms, 0) / batchSummaries.length)
+          })
+        },
+        timestamp: new Date().toISOString(),
+      };
+      
+      res.json(response);
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+      
+      console.error('❌ [REGIME BATCH] Global error:', error);
+      
+      // Log error
+      await storage.addLog({
+        level: 'error',
+        message: 'Regime batch detection failed',
+        details: `Regime detection - ${responseTime}ms - ${errorMessage}`
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: 'REGIME_BATCH_ERROR',
+        message: errorMessage,
         metadata: {
           source: 'RegimeDetection',
           response_time_ms: responseTime
         },
-        timestamp: new Date().toISOString(),
-      });
-      
-    } catch (error) {
-      const responseTime = Date.now() - startTime;
-      console.error('Error in /api/regime/batch:', error);
-      
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Internal server error',
         timestamp: new Date().toISOString(),
       });
     }

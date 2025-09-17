@@ -1,0 +1,138 @@
+Baik, saya buatkan **strategi fallback otomatis** agar sistem tetap stabil meskipun ada endpoint error/limitation.
+
+---
+
+## 🛠️ **Fallback Strategy Implementation**
+
+### 1. **Screener (`/api/screener/screen`)**
+
+* **Masalah:** error 500 kalau input >20 coin.
+* **Solusi Fallback:**
+
+  * Pecah request menjadi batch (misalnya 10–15 coin per batch).
+  * Gabungkan hasil setelah semua batch selesai.
+
+```ts
+async function safeScreenerScreen(symbols: string[], timeframe: string) {
+  const batchSize = 15;
+  let results: any[] = [];
+
+  for (let i = 0; i < symbols.length; i += batchSize) {
+    const batch = symbols.slice(i, i + batchSize);
+
+    try {
+      const res = await fetch("/api/screener/screen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbols: batch, timeframe })
+      });
+      const data = await res.json();
+      results = results.concat(data);
+    } catch (err) {
+      console.error("Screener batch gagal:", batch, err);
+    }
+  }
+
+  return results;
+}
+```
+
+---
+
+### 2. **Regime Batch (`/api/regime/batch`)**
+
+* **Masalah:** timeout kalau >20 symbol.
+* **Solusi Fallback:**
+
+  * Jalankan per 10 simbol saja.
+  * Pakai `Promise.allSettled` agar kalau ada batch error, batch lain tetap jalan.
+
+```ts
+async function safeRegimeBatch(symbols: string[]) {
+  const batchSize = 10;
+  let results: any[] = [];
+
+  const tasks = [];
+  for (let i = 0; i < symbols.length; i += batchSize) {
+    const batch = symbols.slice(i, i + batchSize);
+    tasks.push(fetch("/api/regime/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbols: batch })
+    }).then(res => res.json()));
+  }
+
+  const settled = await Promise.allSettled(tasks);
+  settled.forEach(s => {
+    if (s.status === "fulfilled") results = results.concat(s.value);
+    else console.error("Regime batch error:", s.reason);
+  });
+
+  return results;
+}
+```
+
+---
+
+### 3. **CoinAPI History (`/api/coinapi/history/{symbolId}`)**
+
+* **Masalah:** sering gagal load penuh.
+* **Solusi Fallback:**
+
+  * Implementasikan retry segmented → ambil data per range (misalnya 24 jam sekali).
+  * Kalau gagal, coba ulang max 3 kali.
+
+```ts
+async function fetchHistoryWithRetry(symbolId: string, start: string, end: string, retries = 3) {
+  const url = `/api/coinapi/history/${symbolId}?start=${start}&end=${end}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Request failed");
+    return await res.json();
+  } catch (err) {
+    if (retries > 0) {
+      console.warn(`Retry history ${symbolId}, sisa: ${retries}`);
+      return fetchHistoryWithRetry(symbolId, start, end, retries - 1);
+    }
+    console.error("History gagal total:", symbolId, err);
+    return [];
+  }
+}
+```
+
+---
+
+### 4. **CoinAPI TWAP (`/api/coinapi/twap/{symbolId}`)**
+
+* **Masalah:** data kadang incomplete/null.
+* **Solusi Fallback:**
+
+  * Validasi response, kalau tidak ada TWAP → hitung manual pakai **VWAP dari multi-ticker**.
+
+```ts
+async function safeTwap(symbolId: string) {
+  const res = await fetch(`/api/coinapi/twap/${symbolId}`);
+  const data = await res.json();
+
+  if (!data || !data.twap) {
+    console.warn("TWAP kosong, fallback ke VWAP");
+    const multi = await fetch(`/api/coinapi/multi-ticker/${symbolId}`);
+    const mdata = await multi.json();
+    return mdata?.vwap || null;
+  }
+
+  return data.twap;
+}
+```
+
+---
+
+## ✅ Keuntungan
+
+* **Screener & Regime batch:** tidak crash meskipun input banyak → auto split.
+* **History:** retry segmented → data lebih lengkap.
+* **TWAP:** fallback ke VWAP kalau kosong → tidak ada data null.
+
+---
+
+Mau saya buatkan juga **flowchart fallback** (diagram sederhana) supaya tim dev bisa cepat memahami jalur eksekusi setiap endpoint?
