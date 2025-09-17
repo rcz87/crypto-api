@@ -1,0 +1,52 @@
+Saya sudah cek file **OpenAPI YAML** Anda (`openapi-4.0.1-gpts-compat (8).yaml`) 🔍
+
+### ✅ Hal yang Sudah Benar
+
+* **Struktur schema konsisten** → semua response pakai `allOf` composition → bagus untuk maintainability.
+* **Deskripsi lengkap** → ada penjelasan jelas tiap komponen (misal: RSI, MACD, Funding Rate).
+* **Contoh (`example`) tersedia** → memudahkan testing & validasi API.
+* **Error handling schema (ProblemDetails)** sudah mengikuti **RFC 7807** (standar industri).
+* **RateLimitInfo** ada → bagus untuk throttling & transparansi.
+
+---
+
+### ⚠️ Hal yang Bisa Diperbaiki
+
+1. **Duplikasi Schema**
+
+   * Ada `Problem` yang sudah **deprecated**, tapi masih didefinisikan.
+     👉 Solusi: hapus `Problem` lama, cukup gunakan `ProblemDetails`.
+
+2. **Inconsistency Tipe Data**
+
+   * Beberapa field numeric disimpan sebagai `string` dengan `pattern` angka (`^[0-9]+…$`).
+     👉 Lebih baik langsung pakai `type: number` supaya client tidak perlu parsing manual.
+     Contoh: `oi`, `oiUsd`, `fundingRate`.
+
+3. **Enum Tidak Konsisten**
+
+   * Misalnya di **divergence\_strength** ada nilai `"none"` padahal secara natural lebih cocok hanya `"weak" | "moderate" | "strong"`.
+     👉 Sebaiknya pisahkan: gunakan `divergence_present: boolean` (sudah ada) → kalau `false`, `divergence_strength` bisa dihilangkan.
+
+4. **Required Fields**
+
+   * Beberapa schema (`TechnicalAnalysisResponse`) tidak punya `required`.
+     👉 Sebaiknya tambahkan `required: ["success", "data"]` untuk konsistensi.
+
+5. **Timestamp**
+
+   * Semua timestamp pakai `format: date-time`, tapi ada contoh yang pakai milisecond-based ID (`req_1757901234567`).
+     👉 Pastikan konsisten → untuk `request_id` gunakan `pattern`, untuk waktu tetap pakai ISO 8601.
+
+---
+
+### 📌 Rekomendasi Perbaikan
+
+* 🔄 **Refactor tipe numeric** → ubah dari `string + pattern` jadi `number`.
+* 🗑️ **Remove deprecated schema** (`Problem`).
+* 🧩 **Konsistenkan enum & required fields** → hindari nilai campuran seperti `"none"`.
+* ⏱️ **Standardisasi timestamp** → semua `date-time` wajib ISO 8601.
+
+---
+
+Mau saya buatkan **patch YAML siap tempel** dengan perubahan yang saya sarankan (numeric → number, hapus `Problem`, tambah required, enum fix)?
