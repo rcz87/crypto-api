@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { metricsCollector } from '../utils/metrics';
+import { getClientIp, isLoopback, isPrivateNetwork } from '../utils/ip';
 
 // Rate limiting configuration for different endpoint tiers
 interface RateLimitConfig {
@@ -306,14 +307,22 @@ class SecurityMonitor {
 
 export const securityMonitor = new SecurityMonitor();
 
-// Get client IP address with proxy support
-function getClientIP(req: Request): string {
-  return (
-    req.ip ||
-    req.socket.remoteAddress ||
-    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-    'unknown'
-  );
+// Route exemptions for rate limiting
+function isExemptRoute(path: string): boolean {
+  const exemptPaths = [
+    '/health',
+    '/healthz',
+    '/api/metrics',
+    '/metrics',
+    '/py/',
+    '/coinglass/',
+    '/openapi',
+    '/favicon.ico',
+    '/robots.txt',
+    '/sitemap.xml'
+  ];
+  
+  return exemptPaths.some(exemptPath => path.startsWith(exemptPath));
 }
 
 // Determine rate limit tier based on request path
@@ -339,13 +348,30 @@ function getRateLimitTier(path: string): string {
 
 // Enhanced rate limiting middleware with tiered protection
 export function enhancedRateLimit(req: Request, res: Response, next: NextFunction): void {
-  const clientIP = getClientIP(req);
   const path = req.path;
+  
+  // Early exemption for critical routes
+  if (isExemptRoute(path)) {
+    return next();
+  }
+  
+  const clientIP = getClientIp(req);
   const tier = getRateLimitTier(path);
   const config = RATE_LIMIT_TIERS[tier];
   
-  // SECURITY: Rate limiting applies to ALL environments and IPs
-  // No development bypass to prevent production security gaps
+  // Exempt loopback addresses to prevent system self-blocking
+  if (isLoopback(clientIP)) {
+    // Still log for monitoring but don't rate limit
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(`[RATE_LIMIT] Exempting loopback IP: ${clientIP} for ${path}`);
+    }
+    return next();
+  }
+  
+  // Exempt private network addresses in development
+  if (process.env.NODE_ENV === 'development' && isPrivateNetwork(clientIP)) {
+    return next();
+  }
 
   // Check if IP is blocked
   if (securityMonitor.isBlocked(clientIP)) {
@@ -482,7 +508,12 @@ export class InputSanitizer {
 
   // Comprehensive input validation middleware
   static validateInput(req: Request, res: Response, next: NextFunction): void {
-    const clientIP = getClientIP(req);
+    const clientIP = getClientIp(req);
+    
+    // Skip validation for loopback addresses to prevent self-blocking
+    if (isLoopback(clientIP)) {
+      return next();
+    }
     let hasViolation = false;
     let violationReason = '';
 

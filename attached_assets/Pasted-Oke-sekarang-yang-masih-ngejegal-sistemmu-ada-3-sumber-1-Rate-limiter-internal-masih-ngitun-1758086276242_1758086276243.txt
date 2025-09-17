@@ -1,0 +1,256 @@
+Oke—sekarang yang masih “ngejegal” sistemmu ada 3 sumber:
+
+1. **Rate limiter internal masih ngitung 127.0.0.1** → keblokir sendiri.
+2. **Scheduler nabrak limit CoinGlass (HTTP 429)** → perlu backoff + budget-aware.
+3. **/gpts/unified/symbols → 404** di Python → rute belum ada / salah prefix.
+
+Di bawah ini patch drop-in, singkat, dan aman (backward-compatible). Langsung tempel.
+
+---
+
+# 1) Hard-fix rate limiter (whitelist loopback + exempt routes + normalisasi IP)
+
+Masalah umum: `req.ip` bisa berupa `::1`, `::ffff:127.0.0.1`, atau header `X-Forwarded-For`. Juga, limiter lain (kedua) bisa masih aktif.
+
+**A. Util normalisasi IP**
+
+```ts
+// apps/api/src/utils/ip.ts
+export function getClientIp(req: any): string {
+  const xf = (req.headers?.["x-forwarded-for"] || "") as string;
+  const firstHop = xf.split(",")[0]?.trim();
+  const ip = firstHop || req.ip || req.connection?.remoteAddress || "";
+  // normalize IPv6-mapped IPv4
+  return ip.replace("::ffff:", "");
+}
+
+export function isLoopback(ip: string) {
+  return ip === "127.0.0.1" || ip === "::1" || ip === "localhost" || ip === "";
+}
+```
+
+**B. Rate limiter (single source of truth)**
+
+```ts
+// apps/api/src/middlewares/rateLimit.ts
+import type { Request, Response, NextFunction } from "express";
+import { getClientIp, isLoopback } from "../utils/ip";
+
+type RLParams = {
+  tier: string;
+  requestsPerMin: number;
+  isExempt?: (req: Request) => boolean;
+};
+
+const buckets = new Map<string, { tokens: number; t: number }>();
+
+export function rateLimit(opts: RLParams) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const ip = getClientIp(req);
+    const path = req.path;
+
+    // Exempt: loopback & route penting
+    if (
+      isLoopback(ip) ||
+      /^\/healthz$/.test(path) ||
+      /^\/api\/metrics$/.test(path) ||
+      /^\/py(\/|$)/.test(path)
+    ) return next();
+
+    if (opts.isExempt?.(req)) return next();
+
+    const key = `${opts.tier}:${ip}`;
+    const now = Date.now();
+    const perMs = opts.requestsPerMin / 60_000;
+    let b = buckets.get(key);
+    if (!b) { b = { tokens: opts.requestsPerMin, t: now }; buckets.set(key, b); }
+
+    // refill
+    b.tokens = Math.min(opts.requestsPerMin, b.tokens + (now - b.t) * perMs);
+    b.t = now;
+
+    if (b.tokens < 1) {
+      return res.status(429).json({ error: "rate limit exceeded", tier: opts.tier });
+    }
+    b.tokens -= 1;
+    next();
+  };
+}
+```
+
+**C. Wiring (pastikan tidak ada limiter lain yang nembak duluan)**
+
+```ts
+// apps/api/src/server/index.ts
+import express from "express";
+import { rateLimit } from "../middlewares/rateLimit";
+import { coinglassProxy } from "../middlewares/coinglassProxy";
+
+export function createServer() {
+  const app = express();
+  app.set("trust proxy", true);
+  app.use(express.json());
+
+  // PASANG SATU limiter global di awal
+  app.use(rateLimit({ tier: "general", requestsPerMin: 100 }));
+
+  // Proxy Python (exempted oleh limiter di atas)
+  app.use("/py", coinglassProxy);
+
+  // ... routes lain
+  return app;
+}
+```
+
+> Penting: cari dan **matikan limiter lain** (middleware ke-2/ke-3) kalau masih ada. Yang aktif **cukup satu** supaya whitelist efektif.
+
+---
+
+# 2) CoinGlass 429: make it adaptive (budget-aware + jitter + backoff)
+
+Scheduler kamu nembak terlalu rapat. Kita bikin guard sederhana:
+
+```ts
+// apps/api/src/rate/rateBudget.ts
+type Bucket = { cap: number; used: number; resetAt: number };
+const buckets: Record<string, Bucket> = {
+  "coinglass:scheduler": { cap: 100, used: 0, resetAt: Date.now() + 60_000 },
+};
+
+export function tryConsume(key: keyof typeof buckets, n=1) {
+  const b = buckets[key];
+  const now = Date.now();
+  if (now >= b.resetAt) { b.used = 0; b.resetAt = now + 60_000; }
+  if (b.used + n > b.cap) return false;
+  b.used += n;
+  return true;
+}
+```
+
+**Scheduler dengan jitter + backoff:**
+
+```ts
+// apps/api/src/schedulers/institutionalBias.ts
+let backoffMs = 0;           // tumbuh saat 429
+const baseInterval = 5*60_000;
+
+async function run() {
+  const allow = tryConsume("coinglass:scheduler", 3);
+  if (!allow) {
+    // skip run kali ini, jangan paksakan
+    return scheduleNext(10_000);
+  }
+  try {
+    await doInstitutionalBias(); // panggil CoinGlass
+    backoffMs = Math.max(0, Math.floor(backoffMs/2)); // sukses → kurangi backoff
+  } catch (e: any) {
+    if (String(e?.message || e).includes("429")) {
+      // eksponensial, max 2 menit
+      backoffMs = Math.min((backoffMs || 5_000) * 2, 120_000);
+    }
+  } finally {
+    const jitter = 5_000 + Math.floor(Math.random()*10_000);
+    scheduleNext(baseInterval + backoffMs + jitter);
+  }
+}
+
+function scheduleNext(ms: number) {
+  setTimeout(run, ms);
+}
+
+// start
+scheduleNext(3_000 + Math.floor(Math.random()*5_000));
+```
+
+**Di layer API call** (CoinGlass fetcher), lempar error 429 yang “terdeteksi” jelas:
+
+```ts
+// apps/api/src/clients/coinglass.ts
+export async function cgGet(url: string, init?: any) {
+  const r = await fetch(url, init);
+  if (r.status === 429) {
+    const txt = await r.text();
+    throw new Error(`CoinGlass 429: ${txt.slice(0,120)}`);
+  }
+  if (!r.ok) throw new Error(`CoinGlass ${r.status}`);
+  return r.json();
+}
+```
+
+Hasilnya: kalau 429, interval scheduler **otomatis melebar** (backoff), lalu mengecil lagi saat normal.
+
+---
+
+# 3) `/gpts/unified/symbols` → 404 (Python)
+
+Ini jelas: rute belum ada di Python service. Dua opsi:
+
+* **Tambah gateway di Node** yang map ke rute Python yang ada.
+* **Atau** implement rute Python sesuai yang dipanggil scheduler/AI.
+
+Contoh shim cepat di Node:
+
+```ts
+// apps/api/src/routes/gpts.ts
+import { Router } from "express";
+import fetch from "node-fetch";
+export const gptsRouter = Router();
+
+const PY = process.env.COINGLASS_PROXY_BASE ?? "http://127.0.0.1:8000";
+
+// GET /gpts/unified/symbols → Python /symbols (misal)
+gptsRouter.get("/gpts/unified/symbols", async (_req, res) => {
+  const r = await fetch(`${PY}/symbols`);
+  if (!r.ok) return res.status(r.status).send(await r.text());
+  res.json(await r.json());
+});
+```
+
+Dan register:
+
+```ts
+// apps/api/src/server/index.ts
+import { gptsRouter } from "../routes/gpts";
+app.use(gptsRouter);
+```
+
+Kalau Python memang punya rute lain (misal `/unified/symbols`), tinggal samakan path-nya.
+
+---
+
+# 4) Healthz tetap 503? Longgarkan agregator
+
+Pastikan `/healthz` **exempt limiter** (sudah di #1). Lalu health aggregator **jangan 503** hanya gara-gara CoinGlass non-kritis/429. Contoh:
+
+```ts
+// apps/api/src/routes/healthz.ts
+import { Router } from "express";
+import { fetchCoinGlassServiceHealth } from "../utils/coinglassServiceMetrics";
+export const healthRouter = Router();
+
+healthRouter.get("/healthz", async (_req, res) => {
+  const dbOk  = await pingDb();
+  const okxOk = await okxStatus(); // "connected"|"reconnecting"|"down"
+  const py    = await fetchCoinGlassServiceHealth(); // hanya cek reachable
+
+  const criticalDown = !dbOk || okxOk === "down";
+  const status = criticalDown ? "down" : (!py.reachable ? "degraded" : "ok");
+  res.status(status === "down" ? 503 : 200).json({
+    status, details: { dbOk, okxOk, coinglassReachable: py.reachable },
+    uptime: Math.floor(process.uptime())
+  });
+});
+```
+
+---
+
+# 5) Quick sanity checks
+
+* [ ] Cari **middleware limiter lain** dan nonaktifkan (biar whitelist efektif).
+* [ ] Pastikan log “Rate limit exceeded … 127.0.0.1” **hilang** setelah patch.
+* [ ] Setelah 1–2 siklus, lihat log: scheduler **tidak** lagi 429 beruntun; backoff bekerja.
+* [ ] `/healthz` kembali 200 **kecuali** DB/OKX bener-bener down.
+
+Kalau kamu mau, aku siapin **diff PR siap-merge** (4 file): `ip.ts`, `rateLimit.ts`, `healthz.ts`, `institutionalBias.ts` (+ wiring). Semua tetap selaras dengan desain non-invasif & Phase-1 notifier di playbook Replit.&#x20;
+
+Ingin sekalian aku bikin **dashboard kecil** di FE untuk melihat `backoffMs`, `429 count`, dan `budget remaining` per sumber? Itu bakal ngebantu debug kalau 429 kejadian lagi.

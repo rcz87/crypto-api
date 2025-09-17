@@ -329,7 +329,7 @@ export class RateBudgetManager extends EventEmitter {
 
     Object.entries(this.config).forEach(([provider, config]) => {
       Object.entries(config.allocation).forEach(([useCase, allocation]) => {
-        if (allocation > 0) { // Only include active allocations
+        if ((allocation as number) > 0) { // Only include active allocations
           results.push(this.getBudgetStatus(provider as Provider, useCase as UseCase));
         }
       });
@@ -393,7 +393,7 @@ export class RateBudgetManager extends EventEmitter {
     // Calculate total usage per provider
     Object.entries(this.config).forEach(([provider, config]) => {
       Object.entries(config.allocation).forEach(([useCase, allocation]) => {
-        if (allocation > 0) {
+        if ((allocation as number) > 0) {
           const status = this.getBudgetStatus(provider as Provider, useCase as UseCase);
           totalUsed[provider as Provider] += status.used;
         }
@@ -406,7 +406,7 @@ export class RateBudgetManager extends EventEmitter {
 
     // Calculate health score (lower is better for violations, higher usage = lower health)
     const averageUsage = Object.entries(totalUsed).reduce((sum, [provider, used]) => {
-      return sum + (used / totalAllocated[provider as Provider]);
+      return (sum as number) + ((used as number) / totalAllocated[provider as Provider]);
     }, 0) / 3;
 
     const healthScore = Math.max(0, Math.min(100, 
@@ -428,7 +428,7 @@ export class RateBudgetManager extends EventEmitter {
     const summary: any = {};
     
     Object.entries(this.config).forEach(([provider, config]) => {
-      const totalAllocated = Object.values(config.allocation).reduce((sum, val) => sum + val, 0);
+      const totalAllocated = Object.values(config.allocation).reduce((sum, val) => (sum as number) + (val as number), 0);
       summary[provider] = {
         total: config.total,
         allocations: totalAllocated
@@ -444,9 +444,9 @@ export class RateBudgetManager extends EventEmitter {
   private initializeTrackers(): void {
     Object.entries(this.config).forEach(([provider, config]) => {
       Object.entries(config.allocation).forEach(([useCase, allocation]) => {
-        if (allocation > 0) { // Only create trackers for active allocations
+        if ((allocation as number) > 0) { // Only create trackers for active allocations
           const key = this.getTrackerKey(provider as Provider, useCase as UseCase);
-          const tracker = new SlidingWindowTracker(allocation, config.window);
+          const tracker = new SlidingWindowTracker(allocation as number, config.window);
           this.trackers.set(key, tracker);
         }
       });
@@ -534,5 +534,3 @@ export function resetBudgets() {
   return getRateBudgetManager().resetAllBudgets();
 }
 
-// Export types for external usage
-export type { Provider, UseCase, RateLimit, RateBudgetConfig, BudgetStatus, RateLimitViolation };

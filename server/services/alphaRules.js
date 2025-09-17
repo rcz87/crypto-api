@@ -146,9 +146,11 @@ export async function runSOLSniperAlert() {
 }
 
 /**
- * 🔄 Fetch with retry and timeout
+ * 🔄 Enhanced Fetch with retry, timeout, and 429 handling
  */
 async function fetchWithRetry(url, options = {}, retries = 3) {
+  let lastError = null;
+  
   for (let i = 0; i < retries; i++) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
@@ -165,21 +167,52 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
         return await response.json();
       }
       
+      // Handle specific HTTP errors
+      const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+      error.status = response.status;
+      error.isRateLimit = response.status === 429;
+      
+      // For 429, parse retry-after if available
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        error.retryAfter = retryAfter ? parseInt(retryAfter) * 1000 : null;
+        console.warn(`⚠️ [API] Rate limit hit for ${url} (attempt ${i + 1}/${retries})`);
+        
+        // If this is our last retry, propagate the 429 error immediately
+        if (i === retries - 1) {
+          lastError = error;
+          break;
+        }
+        
+        // Use server-suggested retry time or exponential backoff
+        const waitTime = error.retryAfter || Math.pow(2, i + 2) * 1000; // Start with 4s for 429
+        console.log(`🕒 [API] Waiting ${waitTime/1000}s before retry...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+      
+      // For other 4xx/5xx errors, use standard exponential backoff
+      lastError = error;
       if (i === retries - 1) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        break;
       }
       
     } catch (error) {
       clearTimeout(timeout);
+      lastError = error;
       
       if (i === retries - 1) {
-        throw error;
+        break;
       }
       
       // Wait before retry (exponential backoff)
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+      const waitTime = Math.pow(2, i) * 1000;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
     }
   }
+  
+  // Throw the last error encountered
+  throw lastError;
 }
 
 /**

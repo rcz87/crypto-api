@@ -8,7 +8,7 @@ import { setupVite, serveStatic, log } from "./vite";
 const app = express();
 
 // Trust proxy for proper IP detection behind Replit's proxy
-app.set('trust proxy', 1);
+app.set('trust proxy', true);
 
 // Whitelist domains for CORS
 const allowedOrigins = [
@@ -52,18 +52,8 @@ import { metricsCollector } from "./utils/metrics";
 
 const PY_BASE = process.env.PY_BASE || "http://127.0.0.1:8000";
 
-// 🛡️ GUARD RAILS - Rate Limiting for Python API
-import rateLimit from "express-rate-limit";
-
-const pyRateLimit = rateLimit({
-  windowMs: 60 * 1000, // 1 minute window
-  max: 120, // Limit each IP to 120 requests per minute
-  message: { error: "Too many requests to CoinGlass API, please try again later" },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use("/coinglass", pyRateLimit);
+// Note: Rate limiting now handled by enhanced security middleware
+// which properly exempts loopback addresses and critical routes
 
 // 💾 Enhanced Memory Cache with eviction for CoinGlass endpoints
 interface CacheEntry {
@@ -311,14 +301,8 @@ startPythonService();
 import { enhancedRateLimit, InputSanitizer, getEnhancedSecurityMetrics } from "./middleware/security";
 
 // Apply enhanced security middleware (before other middleware for maximum protection)
-// Exempt health endpoints from rate limiting to prevent monitoring disruptions
-app.use((req, res, next) => {
-  // Skip rate limiting for health check endpoints
-  if (req.path === '/health' || req.path === '/healthz') {
-    return next();
-  }
-  return enhancedRateLimit(req, res, next);
-});
+// Route exemptions now handled within the enhanced rate limiter
+app.use(enhancedRateLimit);
 app.use(InputSanitizer.validateInput);
 
 // Security headers middleware
