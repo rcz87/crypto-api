@@ -327,12 +327,43 @@ def get_liquidation_heatmap(
         logger.error(f"Unexpected error in liquidation heatmap: {e}")
         raise HTTPException(status_code=500, detail={"message": "Internal server error"})
 
+async def _binance_orderbook_fallback(symbol: str, limit: int = 50):
+    """Fallback to Binance API when CoinGlass fails"""
+    import httpx
+    import asyncio
+    
+    # Ensure symbol has USDT suffix for Binance
+    if not symbol.upper().endswith('USDT'):
+        symbol = f"{symbol.upper()}USDT"
+    
+    url = f"https://api.binance.com/api/v3/depth"
+    params = {"symbol": symbol, "limit": limit}
+    
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(url, params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            return SpotOrderbook(
+                symbol=symbol,
+                exchange="binance-fallback",
+                bids=[[float(p), float(q)] for p, q in data.get('bids', [])],
+                asks=[[float(p), float(q)] for p, q in data.get('asks', [])],
+                timestamp=data.get('lastUpdateId')
+            )
+    
+    raise Exception(f"Binance fallback failed: {response.status_code}")
+
 @router.get("/spot/orderbook/{symbol}", response_model=SpotOrderbook)
-def get_spot_orderbook(
+async def get_spot_orderbook(
     symbol: str,
-    exchange: str = Query("binance", description="Exchange for orderbook data")
+    exchange: str = Query("binance", description="Exchange for orderbook data"),
+    depth: int = Query(50, description="Orderbook depth"),
+    limit: int = Query(50, description="Orderbook limit (alias for depth)")
 ):
     """Get spot market order book data"""
+    depth_limit = max(depth, limit)  # Use the larger value
+    
     try:
         client = CoinglassClient()
         raw_data = client.spot_orderbook(symbol.upper(), exchange)
@@ -347,25 +378,57 @@ def get_spot_orderbook(
                 asks=data.get('asks', []),
                 timestamp=data.get('timestamp')
             )
+            logger.info(f"✅ CoinGlass spot orderbook success for {symbol}")
             return orderbook
         
-        # Return empty orderbook if no data
-        return SpotOrderbook(
-            symbol=symbol.upper(),
-            exchange=exchange,
-            bids=[],
-            asks=[],
-            timestamp=None
-        )
+        # Try Binance fallback if no data
+        logger.warning(f"⚠️ CoinGlass returned no data for {symbol}, trying Binance fallback")
+        return await _binance_orderbook_fallback(symbol, depth_limit)
         
     except RateLimitExceeded as e:
-        raise HTTPException(status_code=429, detail={"message": "Rate limit exceeded"})
+        logger.warning(f"⚠️ Rate limit on CoinGlass for {symbol}, trying Binance fallback")
+        try:
+            return await _binance_orderbook_fallback(symbol, depth_limit)
+        except:
+            raise HTTPException(status_code=429, detail={"message": "Rate limit exceeded"})
     except HttpError as e:
         logger.error(f"HTTP error in spot orderbook: {e}")
-        raise HTTPException(status_code=e.status_code or 500, detail={"message": e.message})
+        logger.warning(f"⚠️ CoinGlass error for {symbol}, trying Binance fallback")
+        try:
+            return await _binance_orderbook_fallback(symbol, depth_limit)
+        except:
+            raise HTTPException(status_code=e.status_code or 500, detail={"message": e.message})
     except Exception as e:
         logger.error(f"Unexpected error in spot orderbook: {e}")
-        raise HTTPException(status_code=500, detail={"message": "Internal server error"})
+        logger.warning(f"⚠️ General error for {symbol}, trying Binance fallback")
+        try:
+            return await _binance_orderbook_fallback(symbol, depth_limit)
+        except:
+            raise HTTPException(status_code=500, detail={"message": "Internal server error"})
+
+# Additional route variations to handle different URL patterns
+@router.get("/spot/orderbook", response_model=SpotOrderbook)
+async def get_spot_orderbook_query(
+    symbol: str = Query(..., description="Trading symbol"),
+    exchange: str = Query("binance", description="Exchange for orderbook data"),
+    depth: int = Query(50, description="Orderbook depth"),
+    limit: int = Query(50, description="Orderbook limit (alias for depth)"),
+    ex: str = Query(None, description="Exchange alias")
+):
+    """Get spot market order book data via query parameters"""
+    # Use 'ex' parameter if provided, otherwise use 'exchange'
+    final_exchange = ex if ex else exchange
+    return await get_spot_orderbook(symbol, final_exchange, depth, limit)
+
+@router.get("/spot/orderbook/{exchange}/{symbol}", response_model=SpotOrderbook) 
+async def get_spot_orderbook_exchange_path(
+    exchange: str,
+    symbol: str,
+    depth: int = Query(50, description="Orderbook depth"),
+    limit: int = Query(50, description="Orderbook limit (alias for depth)")
+):
+    """Get spot market order book data with exchange in path"""
+    return await get_spot_orderbook(symbol, exchange, depth, limit)
 
 @router.get("/options/oi/{symbol}", response_model=List[OptionsData])
 def get_options_oi(

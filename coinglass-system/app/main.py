@@ -50,9 +50,10 @@ if gpts_router is not None:
 try:
     from app.api.advanced import router as advanced_router
     from app.api.heatmap import router as heatmap_router
-    app.include_router(advanced_router)
+    # Mount with /advanced prefix to match expected URLs
+    app.include_router(advanced_router, prefix="/advanced")
     app.include_router(heatmap_router)
-    print("✅ Real CoinGlass API routes loaded successfully")
+    print("✅ Real CoinGlass API routes loaded successfully with /advanced prefix")
 except ImportError as e:
     print(f"❌ Failed to load real CoinGlass API routes: {e}")
 

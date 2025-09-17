@@ -36,15 +36,29 @@ export async function getSpotOrderbook(
   }
 
   // SHIM fallback (optional)
-  if (FEAT('SPOT_OB_SHIM')) {
+  const shimFeatureEnabled = FEAT('SPOT_OB_SHIM');
+  console.log(`[SpotOB Client] All primary endpoints failed. FEATURE_SPOT_OB_SHIM=${shimFeatureEnabled}`);
+  
+  if (shimFeatureEnabled) {
+    console.log(`[SpotOB Client] Attempting Binance shim fallback for symbol: ${spot}`);
     try {
       const shim = await fetchSpotOrderbookBinance(spot, depth);
+      console.log(`[SpotOB Client] ✅ Shim fallback SUCCESS: ${shim.source} with ${shim.bids.length} bids, ${shim.asks.length} asks`);
       return shim; // shape agreed upon (see documentation below)
     } catch (e: any) {
+      console.error(`[SpotOB Client] ❌ Shim fallback FAILED:`, e.message);
+      console.error(`[SpotOB Client] Shim error details:`, {
+        name: e.name,
+        status: e.status,
+        cause: e.cause?.message || 'none'
+      });
       // fall through to structured error
     }
+  } else {
+    console.log(`[SpotOB Client] Shim disabled, proceeding to final error`);
   }
 
+  console.log(`[SpotOB Client] Final error: SPOT_OB_NOT_AVAILABLE (tried ${candidates.length} endpoints)`);
   const err: any = new Error('SPOT_OB_NOT_AVAILABLE');
   err.cause = lastErr;
   throw err;
