@@ -1,6 +1,6 @@
 # Overview
 
-This project delivers an institutional-grade perpetual futures trading data gateway for SOL-USDT-SWAP, featuring an 8-layer SharpSignalEngine. It provides advanced derivatives trading intelligence, including real-time whale detection, smart money analysis, and GPT integration, prioritizing institutional trading standards with target response time <200ms (tested avg 250ms) and high data accuracy. Key capabilities include 16 API endpoints for comprehensive market analysis, order flow, smart money concepts, and real-time data, complemented by a professional UI with TradingView and Binance-style market depth charts. The business vision is to provide unparalleled trading intelligence and become a leading data provider for institutional and high-tier retail traders, with the ambition to compete in institutional-grade trading, serving both retail traders and hedge funds.
+This project provides an institutional-grade perpetual futures trading data gateway for SOL-USDT-SWAP, powered by an 8-layer SharpSignalEngine. It offers advanced derivatives trading intelligence, including real-time whale detection, smart money analysis, and GPT integration, aiming for institutional trading standards with a target response time of <200ms and high data accuracy. The system features 16 API endpoints for comprehensive market analysis, order flow, and real-time data, complemented by a professional UI with TradingView and Binance-style market depth charts. The business vision is to become a leading data provider for institutional and high-tier retail traders, delivering unparalleled trading intelligence.
 
 # User Preferences
 
@@ -11,141 +11,53 @@ System preference: Real-time data accuracy with professional trading standards
 
 # System Architecture
 
-## Frontend Architecture
-- **Framework**: React 18 with TypeScript, using Vite.
-- **UI Library**: shadcn/ui built on Radix UI primitives.
-- **Styling**: Tailwind CSS with CSS variables.
+## Frontend
+- **Framework**: React 18 with TypeScript (Vite).
+- **UI**: shadcn/ui (Radix UI), Tailwind CSS.
 - **State Management**: TanStack Query (React Query).
-- **Routing**: Wouter for lightweight client-side routing.
-- **Design System**: Modern dashboard interface with real-time data visualization, professional dark theme, SVG-based smooth curves for market depth, and TradingView widget integration.
+- **Routing**: Wouter.
+- **Design**: Modern dashboard with real-time data visualization, professional dark theme, SVG market depth charts, and TradingView integration.
 
-## Backend Architecture
+## Backend
 - **Runtime**: Node.js with Express.js.
-- **Language**: TypeScript with ES modules.
-- **API Design**: RESTful architecture with structured JSON responses.
-- **Middleware**: Custom rate limiting (100 requests/minute per IP), CORS, request logging.
-- **Error Handling**: Centralized error handling with proper HTTP status codes.
+- **Language**: TypeScript (ES modules).
+- **API**: RESTful, structured JSON.
+- **Middleware**: Custom rate limiting (100 requests/minute), CORS, request logging.
+- **Error Handling**: Centralized with proper HTTP status codes.
 
-## Data Storage Solutions
-- **Database**: PostgreSQL with Drizzle ORM.
-- **Provider**: Neon Database (serverless PostgreSQL).
-- **Schema**: System metrics, logs, and structured crypto data models.
+## Data Storage
+- **Database**: PostgreSQL with Drizzle ORM (Neon Database).
+- **Schema**: System metrics, logs, structured crypto data models.
 - **Migrations**: Drizzle Kit.
 
-## Authentication and Authorization
-- **Rate Limiting**: IP-based rate limiting.
+## Core Features
+- **SharpSignalEngine**: 8-layer detection for whale scoring, CVD analysis, multi-timeframe smart money.
+- **Premium Orderbook**: VIP tier-based analysis, 1000-level depth, market maker detection.
+- **Real-Time Data**: WebSocket streaming for OKX (Level 2 tick-by-tick, 6 channels, 7-timeframe candlesticks).
+- **VIP Tier Management**: 4-tier subscription system.
+- **Market Depth Chart**: Binance-style SVG rendering.
+- **Order Flow**: Real-time trades with buy/sell indicators and whale alerts.
+- **Premium Analytics**: Liquidity prediction, institutional signals, market maker flow.
+- **AI Trading System**: Neural network-based AI Signal Engine, genetic algorithm-based Strategy Optimization, Backtesting Framework, Reinforcement Learning, Market Intelligence, Performance Analytics.
+- **Enhanced Indicators**: CCI, Parabolic SAR, Ichimoku Cloud, OBV, Williams %R.
+- **GPT Actions Integration**: Unified endpoint for 11 CoinGlass premium endpoints, supporting single/batch operations with smart parameter defaults.
 
-## Core Feature Specifications
-- **SharpSignalEngine**: 8-layer detection algorithms including 5-factor whale scoring, advanced CVD analysis, and multi-timeframe smart money detection.
-- **Premium Orderbook System**: VIP tier-based analysis with up to 1000-level depth, institutional-grade analytics, and market maker detection.
-- **Real-Time Data**: WebSocket streaming for OKX data (Level 2 tick-by-tick orderbook, 6 channels, premium feeds, 7-timeframe candlestick data).
-- **VIP Tier Management**: 4-tier subscription system (Standard, VIP1, VIP8, Institutional) with progressive feature unlocking.
-- **Market Depth Chart**: Binance-style professional chart with SVG rendering and interactive hover points.
-- **Order Flow**: Real-time trades table with buy/sell indicators and whale trade alerts.
-- **Premium Analytics**: Enhanced metrics including liquidity prediction, institutional signals, and market maker flow detection.
-- **AI Trading System**: Neural network-based AI Signal Engine, genetic algorithm-based Strategy Optimization, comprehensive Backtesting Framework, Reinforcement Learning, Market Intelligence, and Performance Analytics.
-- **Enhanced Indicators**: CCI, Parabolic SAR, Ichimoku Cloud, OBV, and Williams %R integrated for comprehensive signal generation and trend analysis.
-- **GPT Actions Integration**: Unified endpoint (`/py/gpts/advanced`) consolidates all 11 CoinGlass premium endpoints into a single interface, supporting both single and batch operations with smart parameter defaults for seamless AI integration.
-
-## API Resilience & Performance Features
-
-### Auto-Batching System
-- **Screener Auto-Batching**: Automatically batches requests with >15 symbols into parallel groups of 15 symbols using `Promise.allSettled`
-- **Regime Auto-Batching**: Handles requests with >10 symbols by processing them in batches of 10 symbols with parallel execution
-- **Performance**: Successfully tested with 50 symbols (max limit), all returning 200 OK responses
-- **Metadata**: Response includes batch information with `batching_used`, `total_batches`, and processing statistics
-
-### Retry Mechanisms
-- **Exponential Backoff**: HTTP client implements smart retry logic with exponential backoff (1s → 2s → 4s → max 30s)
-- **Rate Limit Handling**: Intelligent 429 rate limit detection with `Retry-After` header compliance
-- **Server Error Recovery**: Automatic retry for 5xx server errors with jitter to prevent thundering herd
-- **CoinAPI Retry**: Enhanced `safeCoinAPI` wrapper with multi-layer retry for temporary network issues
-- **WebSocket Reconnection**: Auto-reconnection with exponential backoff, max 10 attempts, 5-minute cooldown reset
-
-### Fallback Strategies
-- **Multi-Provider Cascade**: CoinAPI (primary) → OKX (secondary) → Last-good cache → Graceful degradation
-- **Exchange-Specific Fallbacks**: OKX funding rate errors automatically fallback to Binance data
-- **TWAP/VWAP Fallback**: TWAP calculation failures gracefully fallback to VWAP with validation notices
-- **Orderbook Fallback**: Exchange-specific orderbook failures fallback to aggregated orderbook data
-- **Circuit Breaker Protection**: Symbol-specific failure tracking prevents cascading failures (3 failures = 5min cooldown)
-
-### Circuit Breaker Implementation
-- **Symbol-Level Protection**: Track failures per trading pair, disable problematic symbols for 5 minutes
-- **Service-Level Breakers**: Confluence screening and CoinAPI services have dedicated circuit breakers
-- **Adaptive Recovery**: Exponential backoff with jitter, automatic reset after cooldown periods
-- **Failure Tracking**: Comprehensive monitoring of consecutive failures, rate limit errors, and success rates
-
-### Performance Metrics & Validation
-- **Target Latency**: <200ms response time (achieved <50ms average for most endpoints)
-- **Load Testing**: CVD analysis completes under 200ms with 500 candles, order flow under 200ms with 5000 trades
-- **Batch Processing**: Successfully processes up to 50 symbols with auto-batching in <2s
-- **Error Recovery**: 99.5% success rate with fallback mechanisms, <1% error rate after all retries
-- **Health Monitoring**: Real-time metrics via `/api/health` with latency, error rates, and circuit breaker status
-
-### Data Quality & Validation
-- **Input Validation**: Comprehensive Zod schema validation for all API requests
-- **Response Validation**: Runtime data quality checks with detailed error reporting
-- **Degradation Notices**: Transparent communication when using fallback data sources
-- **Cache Integrity**: Last-good cache with quality scoring and timestamp validation
+## API Resilience & Performance
+- **Auto-Batching**: Automatically batches requests for efficiency (e.g., Screener >15 symbols, Regime >10 symbols).
+- **Retry Mechanisms**: Exponential backoff, intelligent 429 rate limit handling, server error recovery, WebSocket auto-reconnection.
+- **Fallback Strategies**: Multi-provider cascade (CoinAPI → OKX → Last-good cache), exchange-specific fallbacks (OKX to Binance for funding rates), circuit breaker protection.
+- **Circuit Breaker**: Symbol-level and service-level protection to prevent cascading failures.
+- **Performance**: Target <200ms response time (achieved <50ms average), <2s for 50-symbol batches.
+- **Data Quality**: Zod schema validation, runtime quality checks, transparent degradation notices.
 
 # External Dependencies
 
-- **Crypto Data**: OKX exchange API for real-time SOL trading data and premium feeds.
-- **Multi-Exchange Data**: CoinAPI integration with 300+ exchanges for institutional-grade coverage.
-- **CoinGlass v4 API**: Real institutional-grade data with 21 exchanges support (Binance, OKX, Bybit+).
-- **Database**: Neon Database for PostgreSQL hosting.
-- **AI Integration**: OpenAI GPT-5 API for enhanced reasoning and analysis.
-- **Hosting**: Replit with custom domain (guardiansofthegreentoken.com).
+- **Crypto Data**: OKX exchange API.
+- **Multi-Exchange Data**: CoinAPI (300+ exchanges).
+- **Institutional Data**: CoinGlass v4 API (21 exchanges).
+- **Database**: Neon Database (PostgreSQL).
+- **AI Integration**: OpenAI GPT-5 API.
+- **Hosting**: Replit.
 - **Fonts**: Google Fonts (Inter, DM Sans, Fira Code, Geist Mono).
 - **Icons**: Lucide React.
-- **Charting**: TradingView embedded widget.
-
-# Future Development Plans
-
-## Phase 1: Event-Driven Signal Notifier
-**Target**: Q1 2025 implementation of autonomous Telegram alert system for high-quality trading signals.
-
-**Core Features:**
-- **Event-Driven Architecture**: WebSocket-triggered analysis (no polling loops) with real-time OKX data integration
-- **Signal Quality Gating**: Multi-layer filtering system requiring confluence ≥0.75, p_win ≥threshold per regime, RR ≥1.5
-- **Anti-Spam Protection**: Intelligent cooldown (8min per symbol), zone deduplication (ATR×0.2), auto-expiry (30-45min)
-- **Dual Output Format**: Human-friendly Telegram messages + structured JSON for automation
-- **Integration Points**: Leverages existing SharpSignalEngine, enhanced services, and OKXFetcher without modifications
-
-**Technical Specifications:**
-- **Microservice Design**: Isolated from core system to ensure zero disruption to current 79% resilience score
-- **Trigger Criteria**: Sniper 5m confirmations, spread ≤0.08%, regime-specific probability thresholds
-- **Observability**: p95 latency ≤350ms, error rate <1%, comprehensive logging for signal outcomes
-
-## Phase 2: Self-Learning Framework  
-**Target**: Q2 2025 implementation of autonomous model improvement and optimization system.
-
-**Machine Learning Pipeline:**
-- **L1 Calibration**: Probability accuracy optimization with Isotonic Regression and regime-specific threshold tuning
-- **L2 Contextual Bandit**: Dynamic 8-layer weight optimization per market regime and timeframe
-- **L3 Meta Learning**: Advanced timing optimization and adaptive position sizing through reinforcement learning
-
-**Core Components:**
-- **ExecutionRecorder**: Comprehensive signal and outcome logging with MFE/MAE tracking, time-to-fill analysis
-- **Champion-Challenger System**: Automated model promotion/demotion based on PR-AUC, Brier score, and P&L metrics
-- **Risk Management**: Circuit breakers (3 SL pause), adaptive sizing, drawdown protection with auto-scaling
-- **Feedback Loop**: Telegram inline feedback integration for rapid human-in-the-loop labeling
-
-**Safety Mechanisms:**
-- **Paper Trading**: 10% exploration allocation for safe model testing without capital risk
-- **Auto-Rollback**: Automatic reversion to previous model if performance degrades beyond thresholds
-- **Data Validation**: Comprehensive outcome labeling with win/lose classification, realized RR tracking
-
-**Integration Strategy:**
-- **Non-Invasive Design**: Add-on architecture preserving all existing functionality and performance
-- **Database Expansion**: New tables (ai_signals, ai_outcomes) without touching current schema
-- **API Extension**: New endpoints (/api/ai/*) supplementing existing trading infrastructure
-
-## Implementation Priorities
-1. **Immediate**: Event-driven notifier as standalone microservice (Phase 1)
-2. **Medium-term**: Self-learning data collection and basic L1 calibration (Phase 2A)  
-3. **Long-term**: Advanced bandit optimization and meta-learning capabilities (Phase 2B)
-
-## Success Metrics
-- **Phase 1**: Signal quality improvement (reduce false positives by 60%), user satisfaction via Telegram feedback
-- **Phase 2**: Model performance gains (15-25% improvement in risk-adjusted returns), automated optimization cycles
+- **Charting**: TradingView widget.
