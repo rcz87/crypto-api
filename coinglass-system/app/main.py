@@ -60,6 +60,17 @@ except ImportError as e:
 def health():
     return {"status": "ok", "has_key": bool(settings.COINGLASS_API_KEY)}
 
+@app.get("/institutional/bias")
+def institutional_bias_root(symbol: str = "BTC"):
+    """
+    🎯 ROOT ENDPOINT - Institutional Bias (for Scheduler)
+    
+    This is the ROOT endpoint that schedulers expect.
+    Redirects to /advanced/institutional/bias internally.
+    """
+    from app.api.advanced import get_institutional_bias
+    return get_institutional_bias(symbol)
+
 # Stub endpoints removed - real implementations loaded from app.api.advanced
 
 @app.get("/advanced/technical/atr")
