@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { CVDAnalysis } from '@shared/schema';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend, Area, AreaChart } from 'recharts';
+import { useSymbol } from '@/contexts/SymbolContext';
 
 interface CVDProps {
   className?: string;
@@ -34,15 +35,19 @@ interface CVDProps {
 export function CVDAnalysisComponent({ className = '' }: CVDProps) {
   const [timeframe, setTimeframe] = useState('1H');
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const { symbol } = useSymbol();
+  
+  // Format symbol for API (remove USDT suffix and convert to lowercase)
+  const selectedPair = symbol.replace('USDT', '').toLowerCase();
   
   const { data: cvdData, isLoading, error, dataUpdatedAt } = useQuery<{
     success: boolean;
     data: CVDAnalysis;
     timestamp: string;
   }>({
-    queryKey: [`/api/sol/cvd`, timeframe],
+    queryKey: [`/api/${selectedPair}/cvd`, timeframe],
     queryFn: async ({ signal }) => {
-      const response = await fetch(`/api/sol/cvd?timeframe=${timeframe}&limit=100`, {
+      const response = await fetch(`/api/${selectedPair}/cvd?timeframe=${timeframe}&limit=100`, {
         signal // AbortController signal for cleanup
       });
       if (!response.ok) {

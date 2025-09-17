@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BarChart3, Target, TrendingUp, TrendingDown, Volume2, Users, Brain, DollarSign, Activity, Layers, Shield } from 'lucide-react';
 import { useMemo } from 'react';
+import { useSymbol } from '@/contexts/SymbolContext';
 
 interface VolumeNode {
   price: string;
@@ -29,7 +30,12 @@ interface VolumeProfileData {
 }
 
 export function VolumeProfile() {
-  // Get complete SOL data for institutional analytics
+  const { symbol } = useSymbol();
+  
+  // Format symbol for API (remove USDT suffix and convert to lowercase)
+  const selectedPair = symbol.replace('USDT', '').toLowerCase();
+  
+  // Get complete data for institutional analytics
   const { data: completeData } = useQuery<{
     success: boolean;
     data: {
@@ -43,7 +49,7 @@ export function VolumeProfile() {
       };
     };
   }>({
-    queryKey: ['/api/sol/complete'],
+    queryKey: [`/api/${selectedPair}/complete`],
     refetchInterval: false, // Manual refresh only
     refetchIntervalInBackground: false
   });
@@ -53,9 +59,9 @@ export function VolumeProfile() {
     data: VolumeProfileData;
     timestamp: string;
   }>({
-    queryKey: ['/api/sol/volume-profile'],
+    queryKey: [`/api/${selectedPair}/volume-profile`],
     queryFn: async ({ signal }) => {
-      const response = await fetch('/api/sol/volume-profile', {
+      const response = await fetch(`/api/${selectedPair}/volume-profile`, {
         signal // AbortController signal for cleanup
       });
       if (!response.ok) {

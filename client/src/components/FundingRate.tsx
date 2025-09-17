@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Clock, DollarSign, BarChart3, AlertTriangle, Target } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { useSymbol } from '@/contexts/SymbolContext';
 
 interface FundingRateData {
   instId: string;
@@ -19,14 +20,19 @@ interface FundingRateData {
 }
 
 export function FundingRate() {
+  const { symbol } = useSymbol();
+  
+  // Format symbol for API (remove USDT suffix and convert to lowercase)
+  const selectedPair = symbol.replace('USDT', '').toLowerCase();
+  
   const { data: fundingData, isLoading, error } = useQuery<{
     success: boolean;
     data: FundingRateData;
     timestamp: string;
   }>({
-    queryKey: ['/api/sol/funding'],
+    queryKey: [`/api/${selectedPair}/funding`],
     queryFn: async ({ signal }) => {
-      const response = await fetch('/api/sol/funding', {
+      const response = await fetch(`/api/${selectedPair}/funding`, {
         signal // AbortController signal for cleanup
       });
       if (!response.ok) {

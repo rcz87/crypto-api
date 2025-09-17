@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TrendingUp, TrendingDown, Zap, Shield, AlertTriangle, Eye, RefreshCw, CheckCircle, XCircle, Bell } from 'lucide-react';
+import { useSymbol } from '@/contexts/SymbolContext';
 
 interface HeatmapBucket {
   priceLevel: number;
@@ -85,6 +86,10 @@ const LiquidityHeatmap = React.memo(() => {
   const [error, setError] = useState<string | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number>(207.0);
   const [refreshing, setRefreshing] = useState(false);
+  const { symbol } = useSymbol();
+  
+  // Format symbol for API (remove USDT suffix and convert to lowercase)
+  const selectedPair = symbol.replace('USDT', '').toLowerCase();
   
   // Enhanced: Interactive Notifications State
   const [notifications, setNotifications] = useState<PriceLevelNotification[]>([]);
@@ -128,7 +133,7 @@ const LiquidityHeatmap = React.memo(() => {
 
   const fetchCurrentPrice = useCallback(async () => {
     try {
-      const response = await fetch('/api/sol/complete');
+      const response = await fetch(`/api/${selectedPair}/complete`);
       const result = await response.json();
       if (result.success && result.data?.ticker?.last) {
         const newPrice = parseFloat(result.data.ticker.last);
@@ -152,7 +157,7 @@ const LiquidityHeatmap = React.memo(() => {
     } catch (err) {
       console.warn('Failed to fetch current price:', err);
     }
-  }, [data]);
+  }, [data, selectedPair]);
 
   useEffect(() => {
     // Only fetch once on mount, no auto-refresh

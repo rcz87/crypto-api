@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BarChart3, Target, TrendingUp, TrendingDown, Volume2, Users, Brain, DollarSign, Activity, Layers, Shield, AlertTriangle, CheckCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMemo } from 'react';
+import { useSymbol } from '@/contexts/SymbolContext';
 
 interface VolumeNode {
   price: string;
@@ -29,7 +30,12 @@ interface VolumeProfileData {
 }
 
 export function EnhancedVolumeProfile() {
-  // Get complete SOL data for institutional analytics
+  const { symbol } = useSymbol();
+  
+  // Format symbol for API (remove USDT suffix and convert to lowercase)
+  const selectedPair = symbol.replace('USDT', '').toLowerCase();
+  
+  // Get complete data for institutional analytics
   const { data: completeData } = useQuery<{
     success: boolean;
     data: {
@@ -45,7 +51,7 @@ export function EnhancedVolumeProfile() {
       };
     };
   }>({
-    queryKey: ['/api/sol/complete'],
+    queryKey: [`/api/${selectedPair}/complete`],
     refetchInterval: 30000, // Refresh every 30 seconds
     refetchIntervalInBackground: false
   });
@@ -55,7 +61,7 @@ export function EnhancedVolumeProfile() {
     data: VolumeProfileData;
     timestamp: string;
   }>({
-    queryKey: ['/api/sol/volume-profile'],
+    queryKey: [`/api/${selectedPair}/volume-profile`],
     refetchInterval: 30000, // Refresh every 30 seconds
     refetchIntervalInBackground: false,
   });
@@ -69,7 +75,7 @@ export function EnhancedVolumeProfile() {
       volumeChangePercentage: number;
     };
   }>({
-    queryKey: ['/api/sol/volume-history'],
+    queryKey: [`/api/${selectedPair}/volume-history`],
     refetchInterval: 60000, // Refresh every minute
     refetchIntervalInBackground: false,
   });

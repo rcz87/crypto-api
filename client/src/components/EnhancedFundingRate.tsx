@@ -24,13 +24,14 @@ import {
   Calendar,
   PieChart
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
 import { DataTrustIndicator } from '@/components/DataTrustIndicator';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { TabsSkeleton, MetricsSkeleton, ChartSkeleton } from '@/components/ui/dashboard-skeleton';
 import { ErrorState, TimeoutWarning } from '@/components/ui/error-states';
 import { EmptyState } from '@/components/ui/empty-states';
+import { useSymbol } from '@/contexts/SymbolContext';
 
 // Enhanced Types
 interface EnhancedFundingRateData {
@@ -169,6 +170,10 @@ export function EnhancedFundingRate() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<'24h' | '7d' | '30d'>('24h');
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
   const isMobile = useIsMobile();
+  const { symbol } = useSymbol();
+  
+  // Format symbol for API (remove USDT suffix and convert to lowercase)
+  const selectedPair = symbol.replace('USDT', '').toLowerCase();
 
   // Enhanced API Queries with metadata tracking
   const { data: enhancedData, isLoading, error, refetch, isRefetching } = useQuery<{
@@ -181,26 +186,30 @@ export function EnhancedFundingRate() {
       dataSource: string;
     };
   }>({
-    queryKey: ['/api/sol/funding/enhanced'],
+    queryKey: [`/api/${selectedPair}/funding/enhanced`],
     refetchInterval: 30000, // 30 seconds
     retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    onError: () => {
-      setShowTimeoutWarning(false);
-    },
-    onSuccess: () => {
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000)
+  });
+
+  // Handle success/error states with useEffect for TanStack Query v5 compatibility
+  useEffect(() => {
+    if (!isLoading && !error) {
       setShowTimeoutWarning(false);
     }
-  });
+    if (error) {
+      setShowTimeoutWarning(false);
+    }
+  }, [isLoading, error]);
 
   const { data: historicalData } = useQuery<{
     success: boolean;
     data: HistoricalFundingData;
     timestamp: string;
   }>({
-    queryKey: ['/api/sol/funding/history', selectedTimeframe],
+    queryKey: [`/api/${selectedPair}/funding/history`, selectedTimeframe],
     queryFn: async () => {
-      const response = await fetch(`/api/sol/funding/history?timeframe=${selectedTimeframe}`);
+      const response = await fetch(`/api/${selectedPair}/funding/history?timeframe=${selectedTimeframe}`);
       if (!response.ok) throw new Error('Failed to fetch historical data');
       return response.json();
     },
@@ -212,7 +221,7 @@ export function EnhancedFundingRate() {
     data: FundingCorrelationData;
     timestamp: string;
   }>({
-    queryKey: ['/api/sol/funding/correlation'],
+    queryKey: [`/api/${selectedPair}/funding/correlation`],
     refetchInterval: 120000, // 2 minutes
   });
 
@@ -222,15 +231,15 @@ export function EnhancedFundingRate() {
     
     const conflicts = enhancedData.data.signal_analysis.conflicts_detected || [];
     const hasConflicts = conflicts.length > 0;
-    const criticalConflicts = conflicts.filter(c => c.severity === 'critical');
+    const criticalConflicts = conflicts.filter((c: any) => c.severity === 'critical');
     
     return {
       hasConflicts,
       conflicts,
       criticalConflicts,
-      highestSeverity: conflicts.length > 0 ? conflicts.reduce((max, c) => {
+      highestSeverity: conflicts.length > 0 ? conflicts.reduce((max: any, c: any) => {
         const severityOrder = { low: 1, medium: 2, high: 3, critical: 4 };
-        return severityOrder[c.severity] > severityOrder[max.severity] ? c : max;
+        return (severityOrder as any)[c.severity] > (severityOrder as any)[max.severity] ? c : max;
       }, conflicts[0]).severity : 'low' as const
     };
   }, [enhancedData]);
@@ -503,7 +512,7 @@ export function EnhancedFundingRate() {
                   </AlertDescription>
                 </Alert>
 
-                {conflictAnalysis.conflicts.map((conflict, index) => (
+                {conflictAnalysis.conflicts.map((conflict: any, index: number) => (
                   <Card key={index} className={`border ${
                     conflict.severity === 'critical' ? 'border-red-500/50 bg-red-900/10' :
                     conflict.severity === 'high' ? 'border-orange-500/50 bg-orange-900/10' :
@@ -578,7 +587,7 @@ export function EnhancedFundingRate() {
                   <div>
                     <span className="text-xs text-green-400 mb-1 block">Supporting Signals</span>
                     <div className="space-y-1">
-                      {data.signal_analysis.supporting_signals.map((signal, idx) => (
+                      {data.signal_analysis.supporting_signals.map((signal: string, idx: number) => (
                         <Badge key={idx} variant="outline" className="text-xs border-green-400 text-green-400">
                           {signal}
                         </Badge>
@@ -588,7 +597,7 @@ export function EnhancedFundingRate() {
                   <div>
                     <span className="text-xs text-red-400 mb-1 block">Contradicting Signals</span>
                     <div className="space-y-1">
-                      {data.signal_analysis.contradicting_signals.map((signal, idx) => (
+                      {data.signal_analysis.contradicting_signals.map((signal: string, idx: number) => (
                         <Badge key={idx} variant="outline" className="text-xs border-red-400 text-red-400">
                           {signal}
                         </Badge>
@@ -873,7 +882,7 @@ export function EnhancedFundingRate() {
                 <div>
                   <div className="text-xs text-gray-400 mb-2">Strategy Suggestions</div>
                   <div className="space-y-2">
-                    {data.trading_implications.strategy_suggestions.map((suggestion, idx) => (
+                    {data.trading_implications.strategy_suggestions.map((suggestion: string, idx: number) => (
                       <div key={idx} className="flex items-start gap-2 text-sm text-green-300">
                         <ChevronRight className="w-4 h-4 mt-0.5 text-green-400" />
                         <span>{suggestion}</span>
@@ -885,7 +894,7 @@ export function EnhancedFundingRate() {
                 <div>
                   <div className="text-xs text-gray-400 mb-2">Risk Factors</div>
                   <div className="space-y-2">
-                    {data.trading_implications.risk_factors.map((risk, idx) => (
+                    {data.trading_implications.risk_factors.map((risk: string, idx: number) => (
                       <div key={idx} className="flex items-start gap-2 text-sm text-red-300">
                         <AlertTriangle className="w-4 h-4 mt-0.5 text-red-400" />
                         <span>{risk}</span>

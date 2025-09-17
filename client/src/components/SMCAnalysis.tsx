@@ -23,6 +23,7 @@ import {
   Gauge
 } from 'lucide-react';
 import { SMCAnalysisData } from '@shared/schema';
+import { useSymbol } from '@/contexts/SymbolContext';
 
 interface SMCProps {
   className?: string;
@@ -32,15 +33,19 @@ export function SMCAnalysis({ className = '' }: SMCProps) {
   const [timeframe, setTimeframe] = useState('1H');
   const [scenariosOpen, setScenariosOpen] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const { symbol } = useSymbol();
+  
+  // Format symbol for API (remove USDT suffix and convert to lowercase)
+  const selectedPair = symbol.replace('USDT', '').toLowerCase();
   
   const { data: smcData, isLoading, error, dataUpdatedAt } = useQuery<{
     success: boolean;
     data: SMCAnalysisData;
     timestamp: string;
   }>({
-    queryKey: [`/api/sol/smc`, timeframe],
+    queryKey: [`/api/${selectedPair}/smc`, timeframe],
     queryFn: async ({ signal }) => {
-      const response = await fetch(`/api/sol/smc?timeframe=${timeframe}&limit=100`, {
+      const response = await fetch(`/api/${selectedPair}/smc?timeframe=${timeframe}&limit=100`, {
         signal // AbortController signal for cleanup
       });
       if (!response.ok) {

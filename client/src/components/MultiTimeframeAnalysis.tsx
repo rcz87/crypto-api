@@ -23,6 +23,7 @@ import {
   ArrowDown,
   Minus
 } from 'lucide-react';
+import { useSymbol } from '@/contexts/SymbolContext';
 
 // Timeframe configuration with display names and colors
 const TIMEFRAMES = [
@@ -56,13 +57,17 @@ export function MultiTimeframeAnalysis() {
   const [selectedTimeframes, setSelectedTimeframes] = useState(['15m', '1H', '4H', '1D']);
   const [syncMode, setSyncMode] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const { symbol } = useSymbol();
+  
+  // Format symbol for API (remove USDT suffix and convert to lowercase)
+  const selectedPair = symbol.replace('USDT', '').toLowerCase();
 
   // Fetch data for all selected timeframes
   const timeframeAnalyses: TimeframeAnalysis[] = selectedTimeframes.map(timeframe => {
     const { data: smcData, isLoading: smcLoading, error: smcError } = useQuery({
-      queryKey: [`/api/sol/smc`, timeframe, lastRefresh],
+      queryKey: [`/api/${selectedPair}/smc`, timeframe, lastRefresh],
       queryFn: async () => {
-        const response = await fetch(`/api/sol/smc?timeframe=${timeframe}&limit=100`);
+        const response = await fetch(`/api/${selectedPair}/smc?timeframe=${timeframe}&limit=100`);
         if (!response.ok) throw new Error('SMC fetch failed');
         return response.json();
       },
@@ -71,9 +76,9 @@ export function MultiTimeframeAnalysis() {
     });
 
     const { data: confluenceData, isLoading: confluenceLoading, error: confluenceError } = useQuery({
-      queryKey: [`/api/sol/confluence`, timeframe, lastRefresh],
+      queryKey: [`/api/${selectedPair}/confluence`, timeframe, lastRefresh],
       queryFn: async () => {
-        const response = await fetch(`/api/sol/confluence?timeframe=${timeframe}`);
+        const response = await fetch(`/api/${selectedPair}/confluence?timeframe=${timeframe}`);
         if (!response.ok) throw new Error('Confluence fetch failed');
         return response.json();
       },
@@ -82,9 +87,9 @@ export function MultiTimeframeAnalysis() {
     });
 
     const { data: technicalData, isLoading: technicalLoading, error: technicalError } = useQuery({
-      queryKey: [`/api/sol/technical`, timeframe, lastRefresh],
+      queryKey: [`/api/${selectedPair}/technical`, timeframe, lastRefresh],
       queryFn: async () => {
-        const response = await fetch(`/api/sol/technical?timeframe=${timeframe}&limit=100`);
+        const response = await fetch(`/api/${selectedPair}/technical?timeframe=${timeframe}&limit=100`);
         if (!response.ok) throw new Error('Technical fetch failed');
         return response.json();
       },
@@ -93,9 +98,9 @@ export function MultiTimeframeAnalysis() {
     });
 
     const { data: fibonacciData, isLoading: fibonacciLoading, error: fibonacciError } = useQuery({
-      queryKey: [`/api/sol/fibonacci`, timeframe, lastRefresh],
+      queryKey: [`/api/${selectedPair}/fibonacci`, timeframe, lastRefresh],
       queryFn: async () => {
-        const response = await fetch(`/api/sol/fibonacci?timeframe=${timeframe}&limit=100`);
+        const response = await fetch(`/api/${selectedPair}/fibonacci?timeframe=${timeframe}&limit=100`);
         if (!response.ok) throw new Error('Fibonacci fetch failed');
         return response.json();
       },
@@ -104,9 +109,9 @@ export function MultiTimeframeAnalysis() {
     });
 
     const { data: cvdData, isLoading: cvdLoading, error: cvdError } = useQuery({
-      queryKey: [`/api/sol/cvd`, timeframe, lastRefresh],
+      queryKey: [`/api/${selectedPair}/cvd`, timeframe, lastRefresh],
       queryFn: async () => {
-        const response = await fetch(`/api/sol/cvd?timeframe=${timeframe}&limit=100`);
+        const response = await fetch(`/api/${selectedPair}/cvd?timeframe=${timeframe}&limit=100`);
         if (!response.ok) throw new Error('CVD fetch failed');
         return response.json();
       },

@@ -1,0 +1,29 @@
+Baik, berikut saya buatkan **tabel ringkasan endpoint yang error/deprecated beserta alternatif penggantinya** agar lebih mudah dipakai:
+
+---
+
+### 📊 Tabel Endpoint Error & Alternatif Pengganti
+
+| **Kategori**         | **Endpoint Error / Deprecated**         | **Keterangan Error**             | **Alternatif Pengganti**                                |
+| -------------------- | --------------------------------------- | -------------------------------- | ------------------------------------------------------- |
+| **SOL (Legacy)**     | `/api/sol/complete`                     | Data tidak konsisten, deprecated | `getCompleteAnalysis`                                   |
+|                      | `/api/sol/smc`                          | Error fetch, tidak update        | `getSmartMoneyConcepts`                                 |
+|                      | `/api/sol/cvd`                          | Gagal load, tidak stabil         | `getCVDAnalysis`                                        |
+|                      | `/api/sol/funding-rates`                | Timeout & deprecated             | `getFundingRates` (global) atau `getSOLEnhancedFunding` |
+|                      | `/api/sol/open-interest`                | Error response kosong            | `getOpenInterest` atau `getSOLEnhancedOpenInterest`     |
+| **Multi-Exchange**   | `/api/coinapi/history/{symbolId}`       | Gagal load penuh, parsing error  | `getCompleteAnalysis` + `correlation` untuk cross-check |
+|                      | `/api/coinapi/twap/{symbolId}`          | Kadang return incomplete         | Gunakan `VWAP` dari `multi-ticker` data                 |
+| **Regime Detection** | `/api/regime/batch`                     | Timeout jika >20 simbol          | Pecah jadi batch kecil (≤10 simbol)                     |
+| **Screener**         | `/api/screener/screen` (input >20 coin) | `500 error` overload             | Jalankan screening dalam batch ≤15 coin                 |
+
+---
+
+✅ **Rekomendasi Praktis:**
+
+* Hindari **Legacy SOL endpoints** → selalu gunakan versi `getCompleteAnalysis`, `getSmartMoneyConcepts`, `getCVDAnalysis`.
+* Untuk **multi-coin / screener** → batasi ≤15 coin sekali request.
+* Untuk **regime batch** → gunakan per 10 simbol agar tidak timeout.
+
+---
+
+Mau saya buatkan juga **contoh request JSON** (misalnya untuk BTC/ETH/SOL) menggunakan endpoint **baru (non-error)** supaya langsung siap dipakai di sistem Anda?

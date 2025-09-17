@@ -3094,6 +3094,22 @@ export function registerTradingRoutes(app: Express): void {
       const symbol_list = (symbols as string).split(',').map(s => s.trim());
       const lookback = parseInt(lookback_hours as string);
       
+      // Enforce maximum batch size limit to prevent timeouts
+      const MAX_BATCH_SIZE = 10;
+      if (symbol_list.length > MAX_BATCH_SIZE) {
+        return res.status(400).json({
+          success: false,
+          error: `Batch size exceeds maximum limit. Requested: ${symbol_list.length}, Maximum: ${MAX_BATCH_SIZE}`,
+          details: {
+            requested_symbols: symbol_list.length,
+            max_allowed: MAX_BATCH_SIZE,
+            suggestion: `Split your request into smaller batches of ${MAX_BATCH_SIZE} symbols or fewer`,
+            example_split: `For ${symbol_list.length} symbols, use ${Math.ceil(symbol_list.length / MAX_BATCH_SIZE)} separate requests`
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
       const regime_promises = symbol_list.map(async (symbolId) => {
         try {
           return await regimeDetectionService.detectRegime(symbolId, lookback);
@@ -3110,8 +3126,13 @@ export function registerTradingRoutes(app: Express): void {
       res.json({
         success: true,
         data: {
-          requested_symbols: symbol_list.length,
-          successful_detections: successful_regimes.length,
+          batch_info: {
+            requested_symbols: symbol_list.length,
+            max_batch_size: 10,
+            batch_utilization: `${symbol_list.length}/10 symbols`,
+            successful_detections: successful_regimes.length,
+            failed_detections: symbol_list.length - successful_regimes.length
+          },
           regimes: successful_regimes
         },
         metadata: {
@@ -3201,11 +3222,10 @@ export function registerTradingRoutes(app: Express): void {
       const tradingSymbol = validation.symbol;
       
       // Use singleton Enhanced AI Signal Engine instance
-      const { enhancedAISignalEngine } = await import('../services/enhancedAISignalEngine');
-      const enhancedAI = enhancedAISignalEngine;
+      const { aiSignalEngine } = await import('../services/aiSignalEngine.js');
       
       // Generate enhanced AI signal
-      const enhancedSignal = await enhancedAI.generateEnhancedAISignal(tradingSymbol);
+      const enhancedSignal = await aiSignalEngine.generateAISignal(tradingSymbol);
       const responseTime = Date.now() - startTime;
       
       // Update metrics
