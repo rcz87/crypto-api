@@ -1,0 +1,348 @@
+Sip, saya buatkan **OpenAPI 4.0.1 full version** (dengan `info`, `servers`, `paths`, dan `components/schemas` yang sudah saya perbaiki sesuai rekomendasi).
+
+---
+
+## 📄 **Full OpenAPI 4.0.1 – GPTs Compatible**
+
+```yaml
+openapi: 4.0.1
+info:
+  title: Guardians of the GreenToken Trading API
+  description: >
+    Institutional-grade crypto trading intelligence API.
+    Menyediakan analisis teknikal, Smart Money Concepts (SMC),
+    Cumulative Volume Delta (CVD), funding, open interest, serta AI insights.
+  version: "1.0.0"
+  contact:
+    name: Support
+    url: https://guardiansofthegreentoken.com
+    email: support@guardiansofthegreentoken.com
+
+servers:
+  - url: https://api.guardiansofthegreentoken.com
+    description: Production server
+  - url: https://sandbox.guardiansofthegreentoken.com
+    description: Sandbox server
+
+tags:
+  - name: Market Data
+    description: Ticker & technical data
+  - name: Analysis
+    description: Advanced institutional-grade analysis
+  - name: Risk
+    description: Risk metrics & confidence scoring
+  - name: Errors
+    description: ProblemDetails for error handling
+
+paths:
+
+  /analysis/complete:
+    get:
+      tags: [Analysis]
+      summary: Complete market analysis
+      parameters:
+        - in: query
+          name: pair
+          required: true
+          schema:
+            type: string
+            example: BTC
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompleteAnalysisResponse"
+        "400":
+          description: Invalid parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+  /analysis/smc:
+    get:
+      tags: [Analysis]
+      summary: Smart Money Concepts analysis
+      parameters:
+        - in: query
+          name: pair
+          required: true
+          schema:
+            type: string
+            example: ETH
+      responses:
+        "200":
+          description: SMC Analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SMCAnalysisResponse"
+
+  /analysis/cvd:
+    get:
+      tags: [Analysis]
+      summary: Cumulative Volume Delta (CVD) analysis
+      parameters:
+        - in: query
+          name: pair
+          required: true
+          schema:
+            type: string
+            example: SOL
+      responses:
+        "200":
+          description: CVD Analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CVDAnalysisResponse"
+
+  /analysis/technical:
+    get:
+      tags: [Analysis]
+      summary: RSI & EMA technical indicators
+      parameters:
+        - in: query
+          name: pair
+          required: true
+          schema:
+            type: string
+            example: ADA
+      responses:
+        "200":
+          description: Technical indicators
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicalAnalysisResponse"
+
+  /funding:
+    get:
+      tags: [Market Data]
+      summary: Get funding rates
+      parameters:
+        - in: query
+          name: pair
+          required: true
+          schema:
+            type: string
+            example: BTC
+      responses:
+        "200":
+          description: Funding rate data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FundingRateResponse"
+
+  /open-interest:
+    get:
+      tags: [Market Data]
+      summary: Get open interest data
+      parameters:
+        - in: query
+          name: pair
+          required: true
+          schema:
+            type: string
+            example: ETH
+      responses:
+        "200":
+          description: Open interest data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenInterestResponse"
+
+  /health:
+    get:
+      tags: [Market Data]
+      summary: API health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: operational
+                  services:
+                    type: object
+                    additionalProperties: true
+
+components:
+  schemas:
+
+    BaseAnalysisResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
+
+    EnhancedMarketData:
+      type: object
+      properties:
+        symbol: { type: string }
+        price: { type: number }
+        change24h: { type: string }
+        high24h: { type: number }
+        low24h: { type: number }
+        volume: { type: number }
+        volume_usd: { type: number }
+        bid: { type: number }
+        ask: { type: number }
+        spread: { type: number }
+
+    TechnicalIndicatorsData:
+      type: object
+      properties:
+        rsi:
+          type: object
+          properties:
+            value: { type: number }
+            signal: { type: string }
+            period: { type: number }
+        macd:
+          type: object
+          properties:
+            line: { type: number }
+            signal: { type: number }
+            histogram: { type: number }
+            trend: { type: string }
+        bollinger_bands:
+          type: object
+          properties:
+            upper: { type: number }
+            middle: { type: number }
+            lower: { type: number }
+            position: { type: string }
+        moving_averages:
+          type: object
+          properties:
+            sma_20: { type: number }
+            sma_50: { type: number }
+            ema_20: { type: number }
+            ema_50: { type: number }
+            crossover_signal: { type: string }
+
+    MarketSentimentData:
+      type: object
+      properties:
+        overall_sentiment: { type: string }
+        sentiment_score: { type: number }
+        momentum: { type: string }
+        volatility: { type: string }
+
+    FundingRateData:
+      type: object
+      properties:
+        current_rate: { type: number }
+        annual_rate: { type: string }
+        next_funding_time: { type: string, format: date-time }
+        predicted_rate: { type: number }
+
+    OpenInterestData:
+      type: object
+      properties:
+        total_oi: { type: number }
+        oi_usd: { type: number }
+        change_24h: { type: string }
+        oi_to_volume_ratio: { type: number }
+
+    AIInsightsData:
+      type: object
+      properties:
+        trend_prediction: { type: string }
+        confidence_level: { type: number }
+        key_levels:
+          type: object
+          properties:
+            resistance: { type: array, items: { type: number } }
+            support: { type: array, items: { type: number } }
+        recommendation: { type: string }
+
+    RiskMetricsData:
+      type: object
+      properties:
+        volatility_24h: { type: number }
+        beta: { type: number }
+        max_drawdown_7d: { type: number }
+        sharpe_ratio: { type: number }
+        risk_score: { type: number }
+
+    BaseMetadata:
+      type: object
+      properties:
+        data_sources: { type: array, items: { type: string } }
+        last_updated: { type: string, format: date-time }
+        cache_status: { type: string }
+        processing_time_ms: { type: number }
+
+    # --- responses schemas (sudah diperbaiki)
+    RateLimitInfo:
+      type: object
+      required: [limit, remaining, reset_time]
+      properties:
+        limit: { type: integer }
+        remaining: { type: integer }
+        reset_time: { type: string, format: date-time }
+        retry_after: { type: integer }
+        policy: { type: string }
+
+    CompleteAnalysisResponse: { $ref: "#/components/schemas/BaseAnalysisResponse" }
+    SMCAnalysisResponse: { $ref: "#/components/schemas/BaseAnalysisResponse" }
+    CVDAnalysisResponse: { $ref: "#/components/schemas/BaseAnalysisResponse" }
+    TechnicalAnalysisResponse: { $ref: "#/components/schemas/BaseAnalysisResponse" }
+    FundingRateResponse: { $ref: "#/components/schemas/BaseAnalysisResponse" }
+    OpenInterestResponse: { $ref: "#/components/schemas/BaseAnalysisResponse" }
+
+    ProblemDetails:
+      type: object
+      required: [type, title]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+        code: { type: string }
+        request_id: { type: string }
+        invalid_params:
+          type: array
+          items:
+            type: object
+            required: [name, reason]
+            properties:
+              name: { type: string }
+              reason: { type: string }
+        rate_limit: { $ref: "#/components/schemas/RateLimitInfo" }
+        quota:
+          type: object
+          properties:
+            limit: { type: integer }
+            used: { type: integer }
+            reset_time: { type: string, format: date-time }
+        retry_after: { type: integer }
+```
+
+---
+
+### 📌 Perubahan Penting
+
+* Sudah **full OpenAPI**: ada `info`, `servers`, `tags`, `paths`, `components`.
+* Semua **numeric** sudah pakai `type: number`.
+* **Problem schema lama dihapus**, hanya `ProblemDetails` dipakai.
+* **Consistency**: semua response pakai `required`.
+* **Paths lengkap**: `complete`, `smc`, `cvd`, `technical`, `funding`, `open-interest`, `health`.
+
+---
+
+Mau saya tambahkan juga **contoh curl request** untuk tiap endpoint supaya QA/dev bisa langsung testing API ini?
