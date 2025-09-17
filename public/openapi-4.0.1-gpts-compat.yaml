@@ -4274,6 +4274,7 @@ components:
 
     CVDAnalysisResponse:
       type: object
+      required: ["success", "data", "timestamp"]
       description: |
         Cumulative Volume Delta (CVD) analysis providing insights into buying vs selling pressure.
         Tracks institutional order flow and detects divergences between price and volume.
@@ -4287,28 +4288,28 @@ components:
               type: object
               description: Current CVD metrics and real-time data
               properties:
-                currentCVD: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "892347.15" }
-                previousCVD: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "875692.80" }
-                deltaChange: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "+16654.35" }
+                currentCVD: { type: number, example: 892347.15, description: "Current cumulative volume delta" }
+                previousCVD: { type: number, example: 875692.80, description: "Previous period CVD value" }
+                deltaChange: { type: number, example: 16654.35, description: "CVD change from previous period" }
                 percentageChange: { type: number, example: 1.90 }
                 trend: { type: string, enum: ["accumulation", "distribution", "neutral"], example: "accumulation" }
             volume_profile:
               type: object
               description: Volume distribution and order flow characteristics
               properties:
-                buy_volume: { type: string, example: "548291.75" }
-                sell_volume: { type: string, example: "344082.81" }
+                buy_volume: { type: number, example: 548291.75, description: "Total buy volume" }
+                sell_volume: { type: number, example: 344082.81, description: "Total sell volume" }
                 buy_sell_ratio: { type: number, example: 1.59 }
-                aggressive_buyers: { type: string, example: "312847.20" }
-                aggressive_sellers: { type: string, example: "198735.45" }
-                passive_volume: { type: string, example: "380791.91" }
+                aggressive_buyers: { type: number, example: 312847.20, description: "Market buy orders volume" }
+                aggressive_sellers: { type: number, example: 198735.45, description: "Market sell orders volume" }
+                passive_volume: { type: number, example: 380791.91, description: "Limit order volume" }
             divergence_analysis:
               type: object
               description: Price-CVD divergence detection and strength assessment
               properties:
                 divergence_present: { type: boolean, example: false }
                 divergence_type: { type: string, enum: ["bullish", "bearish", "none"], example: "none" }
-                divergence_strength: { type: string, enum: ["weak", "moderate", "strong", "none"], example: "none" }
+                divergence_strength: { type: string, enum: ["weak", "moderate", "strong"], example: "moderate", description: "Divergence strength (only present when divergence_present=true)" }
                 price_trend: { type: string, enum: ["up", "down", "sideways"], example: "up" }
                 cvd_trend: { type: string, enum: ["up", "down", "sideways"], example: "up" }
                 correlation_score: { type: number, minimum: -1, maximum: 1, example: 0.78 }
@@ -4342,22 +4343,22 @@ components:
         data:
           timeframe: "1H"
           current_analysis:
-            currentCVD: "892347.15"
-            previousCVD: "875692.80"
-            deltaChange: "+16654.35"
+            currentCVD: 892347.15
+            previousCVD: 875692.80
+            deltaChange: 16654.35
             percentageChange: 1.90
             trend: "accumulation"
           volume_profile:
-            buy_volume: "548291.75"
-            sell_volume: "344082.81"
+            buy_volume: 548291.75
+            sell_volume: 344082.81
             buy_sell_ratio: 1.59
-            aggressive_buyers: "312847.20"
-            aggressive_sellers: "198735.45"
-            passive_volume: "380791.91"
+            aggressive_buyers: 312847.20
+            aggressive_sellers: 198735.45
+            passive_volume: 380791.91
           divergence_analysis:
             divergence_present: false
             divergence_type: "none"
-            divergence_strength: "none"
+            divergence_strength: "moderate"
             price_trend: "up"
             cvd_trend: "up"
             correlation_score: 0.78
@@ -4380,6 +4381,7 @@ components:
 
     TechnicalAnalysisResponse:
       type: object
+      required: ["success", "data", "timestamp"]
       properties:
         success: { type: boolean, example: true }
         data:
@@ -4395,35 +4397,37 @@ components:
             ema:
               type: object
               properties:
-                ema20: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "111250.5" }
-                ema50: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "112100.2" }
+                ema20: { type: number, example: 111250.5, description: "20-period Exponential Moving Average" }
+                ema50: { type: number, example: 112100.2, description: "50-period Exponential Moving Average" }
                 crossover: { type: string, enum: ["bullish","bearish","none"], example: "bearish" }
         timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
 
     FundingRateResponse:
       type: object
+      required: ["success", "data", "timestamp"]
       properties:
         success: { type: boolean, example: true }
         data:
           type: object
           properties:
             instId: { type: string, example: "BTC-USDT-SWAP" }
-            fundingRate: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "0.0000888594997051" }
-            nextFundingRate: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "0.0001234567890123" }
+            fundingRate: { type: number, example: 0.0000888594997051, description: "Current funding rate (8h basis)" }
+            nextFundingRate: { type: number, example: 0.0001234567890123, description: "Predicted next funding rate" }
             nextFundingTime: { type: string, format: date-time, example: "2025-09-06T16:00:00Z" }
             nextCursor: { type: ["string", "null"], example: "eyJwYWdlIjoyfQ==" }
         timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
 
     OpenInterestResponse:
       type: object
+      required: ["success", "data", "timestamp"]
       properties:
         success: { type: boolean, example: true }
         data:
           type: object
           properties:
             instId: { type: string, example: "BTC-USDT-SWAP" }
-            oi: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "234567.89" }
-            oiUsd: { type: string, pattern: '^-?[0-9]+(\.[0-9]+)?$', example: "25987653210.45" }
+            oi: { type: number, example: 234567.89, description: "Open interest in base currency" }
+            oiUsd: { type: number, example: 25987653210.45, description: "Open interest USD notional value" }
             change24h: { type: string, example: "2.34%" }
             nextCursor: { type: ["string", "null"], example: "eyJwYWdlIjozfQ==" }
         timestamp: { type: string, format: date-time, example: "2025-09-06T14:30:00Z" }
@@ -4554,12 +4558,3 @@ components:
         invalid_params:
           - name: "pair"
             reason: "Must be a valid trading pair symbol (2-10 uppercase alphanumeric characters)"
-    
-    # Legacy schema for backward compatibility (deprecated)
-    Problem:
-      deprecated: true
-      description: |
-        Deprecated: Use ProblemDetails instead.
-        Legacy problem details schema for backward compatibility.
-      allOf:
-        - $ref: '#/components/schemas/ProblemDetails'
