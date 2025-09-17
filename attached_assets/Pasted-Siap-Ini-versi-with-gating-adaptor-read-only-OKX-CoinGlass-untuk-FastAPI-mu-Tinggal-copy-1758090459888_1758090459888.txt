@@ -1,0 +1,341 @@
+Siap. Ini versi **with gating** + **adaptor read-only OKX/CoinGlass** untuk FastAPI-mu. Tinggal copy–paste ke service Python (struktur bebas, contoh di bawah). Desain & ambang konsisten dengan blueprint Phase-1 (confluence ≥0.75, p\_win regime-based, RR ≥1.5, spread ≤0.08%, cooldown, dst).&#x20;
+
+---
+
+# 0) ENV yang dipakai
+
+```
+COINGLASS_API_KEY=...       # wajib untuk endpoint CoinGlass
+COINGLASS_BASE=https://api.coinglass.com/api
+OKX_BASE=https://www.okx.com
+HTTP_TIMEOUT=4.0            # detik
+CACHE_TTL=3                 # detik (cache ringan supaya hemat rate)
+```
+
+---
+
+# 1) `app/services/http_client.py` — HTTP client + cache TTL ringan
+
+```py
+# app/services/http_client.py
+import os, time, json, httpx
+from typing import Any, Dict, Tuple
+
+TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "4.0"))
+_client = httpx.AsyncClient(timeout=TIMEOUT)
+
+# Cache TTL sederhana (in-memory)
+_TTL = int(os.getenv("CACHE_TTL", "3"))
+_cache: Dict[str, Tuple[float, Any]] = {}
+
+def _key(method: str, url: str, params: Dict[str, Any] | None) -> str:
+    return json.dumps([method.upper(), url, params or {}], sort_keys=True)
+
+async def get_json(url: str, headers: Dict[str,str] | None = None, params: Dict[str,Any] | None = None) -> Any:
+    k = _key("GET", url, params)
+    now = time.time()
+    if k in _cache:
+        ts, val = _cache[k]
+        if now - ts <= _TTL:
+            return val
+    r = await _client.get(url, headers=headers, params=params)
+    r.raise_for_status()
+    data = r.json()
+    _cache[k] = (now, data)
+    return data
+```
+
+---
+
+# 2) `app/services/adapters.py` — adaptor read-only OKX & CoinGlass
+
+```py
+# app/services/adapters.py
+import os
+from typing import Any, Dict
+from .http_client import get_json
+
+OKX_BASE = os.getenv("OKX_BASE", "https://www.okx.com")
+CG_BASE  = os.getenv("COINGLASS_BASE", "https://api.coinglass.com/api")
+CG_KEY   = os.getenv("COINGLASS_API_KEY", "")
+
+def _cg_headers() -> Dict[str, str]:
+    return {"accept": "application/json", "coinglassSecret": CG_KEY} if CG_KEY else {"accept": "application/json"}
+
+# ---- OKX (public, read-only) ----
+async def okx_ticker(inst_id: str) -> Dict[str, Any]:
+    # https://www.okx.com/api/v5/market/ticker?instId=SOL-USDT-SWAP
+    url = f"{OKX_BASE}/api/v5/market/ticker"
+    data = await get_json(url, params={"instId": inst_id})
+    return data
+
+async def okx_orderbook(inst_id: str, depth: int = 40) -> Dict[str, Any]:
+    # https://www.okx.com/api/v5/market/books?instId=...&sz=40
+    url = f"{OKX_BASE}/api/v5/market/books"
+    data = await get_json(url, params={"instId": inst_id, "sz": depth})
+    return data
+
+# ---- CoinGlass (requires key) ----
+async def cg_open_interest(symbol: str) -> Dict[str, Any]:
+    # Contoh endpoint: /futures/open_interest (sesuaikan dgn dokmu)
+    url = f"{CG_BASE}/futures/open_interest"
+    data = await get_json(url, headers=_cg_headers(), params={"symbol": symbol})
+    return data
+
+async def cg_funding_rate(symbol: str) -> Dict[str, Any]:
+    url = f"{CG_BASE}/futures/funding_rates"
+    data = await get_json(url, headers=_cg_headers(), params={"symbol": symbol})
+    return data
+
+async def cg_volume(symbol: str) -> Dict[str, Any]:
+    url = f"{CG_BASE}/futures/volume"
+    data = await get_json(url, headers=_cg_headers(), params={"symbol": symbol})
+    return data
+```
+
+> Catatan: path CoinGlass di atas **contoh** sesuai pola umum; sesuaikan dengan rute pasti di proxy Python-mu (di log kamu sudah ada “Real CoinGlass API routes loaded successfully”). Karena sifatnya **read-only**, adaptor ini hanya `GET` + header key.
+
+---
+
+# 3) `app/services/features.py` — ekstraksi fitur ringan (confluence, spread, RR, regime)
+
+```py
+# app/services/features.py
+from typing import Any, Dict, Tuple
+import math
+
+def _mid_from_ticker(t: Dict[str, Any]) -> float | None:
+    # OKX ticker response: data:[{last, bidPx, askPx, ...}]
+    try:
+        d = t["data"][0]
+        bid = float(d.get("bidPx"))
+        ask = float(d.get("askPx"))
+        return (bid + ask)/2.0 if bid and ask else float(d.get("last"))
+    except Exception:
+        return None
+
+def compute_spread_bps(ticker: Dict[str, Any]) -> float:
+    try:
+        d = ticker["data"][0]
+        bid = float(d.get("bidPx")); ask = float(d.get("askPx"))
+        if bid and ask and ask > 0:
+            return (ask - bid) / ask * 10_000  # bps
+    except Exception:
+        pass
+    return 99999.0
+
+def compute_regime(oi: Dict[str, Any], vol: Dict[str, Any]) -> str:
+    # Heuristik sederhana: OI & volume (yoy/rolling) → regime
+    try:
+        v = float(vol.get("value", 0))
+        o = float(oi.get("value", 0))
+        if v > 0 and o > 0:
+            if v > 1.2*o: return "high_vol"
+            if o > 1.2*v: return "trend"
+            return "range"
+    except Exception:
+        pass
+    return "range"
+
+def expected_rr(entry: float, sl: float, tp: float) -> float:
+    try:
+        risk = abs(entry - sl)
+        reward = abs(tp - entry)
+        return reward / risk if risk > 0 else 0.0
+    except Exception:
+        return 0.0
+
+def confluence_score(layers: Dict[str, float]) -> float:
+    # layers = {"smc":0..1,"cvd":0..1,"trend":0..1,"whale":0..1,"liquidity":0..1}
+    # Ambil rata-rata berbobot ringan
+    if not layers: return 0.0
+    weights = {"smc":1.2, "cvd":1.0, "trend":1.0, "whale":1.3, "liquidity":0.8}
+    num, den = 0.0, 0.0
+    for k,v in layers.items():
+        w = weights.get(k, 1.0)
+        num += w * max(0.0, min(1.0, float(v)))
+        den += w
+    return num/den if den>0 else 0.0
+
+def decide_bias(cvd_up: bool, trend_up: bool) -> str:
+    if cvd_up and trend_up: return "bullish"
+    if (not cvd_up) and (not trend_up): return "bearish"
+    return "neutral"
+```
+
+---
+
+# 4) `app/services/gating.py` — gating kualitas sinyal
+
+```py
+# app/services/gating.py
+from typing import Dict, Any
+
+class GateCfg:
+    def __init__(self,
+        min_confluence=0.75,        # sesuai blueprint Phase-1
+        min_rr=1.5,
+        regime_thresholds=None,     # p_win by regime
+        max_spread_bps=8.0          # 0.08% = 8 bps
+    ):
+        self.min_confluence = min_confluence
+        self.min_rr = min_rr
+        self.max_spread_bps = max_spread_bps
+        self.regime_thresholds = regime_thresholds or {
+            "trend": 0.60,
+            "range": 0.55,
+            "high_vol": 0.62,
+            "low_vol": 0.55
+        }
+
+def evaluate_gates(
+    confluence: float,
+    p_win: float,
+    rr: float,
+    regime: str,
+    spread_bps: float,
+    cfg: GateCfg
+) -> Dict[str, Any]:
+    reasons = []
+    passed = True
+
+    if confluence < cfg.min_confluence:
+        passed = False; reasons.append(f"confluence<{cfg.min_confluence:.2f}")
+    if rr < cfg.min_rr:
+        passed = False; reasons.append(f"RR<{cfg.min_rr:.2f}")
+
+    need = cfg.regime_thresholds.get(regime, 0.55)
+    if p_win < need:
+        passed = False; reasons.append(f"p_win<{need:.2f} (regime={regime})")
+
+    if spread_bps > cfg.max_spread_bps:
+        passed = False; reasons.append(f"spread>{cfg.max_spread_bps:.1f}bps")
+
+    return {"passed": passed, "reasons": reasons, "thresholds": {
+        "confluence": cfg.min_confluence,
+        "rr": cfg.min_rr,
+        "p_win_required": need,
+        "max_spread_bps": cfg.max_spread_bps
+    }}
+```
+
+---
+
+# 5) `app/routers/institutional.py` — endpoint **with gating**
+
+```py
+# app/routers/institutional.py
+from fastapi import APIRouter, Query
+from fastapi.responses import JSONResponse
+from datetime import datetime
+from typing import Any, Dict
+
+from app.services.adapters import okx_ticker, okx_orderbook, cg_open_interest, cg_funding_rate, cg_volume
+from app.services.features import (
+    _mid_from_ticker, compute_spread_bps, compute_regime,
+    expected_rr, confluence_score, decide_bias
+)
+from app.services.gating import GateCfg, evaluate_gates
+
+router = APIRouter(prefix="", tags=["institutional"])
+
+@router.get("/institutional/bias")
+async def institutional_bias(
+    symbol: str = Query(..., description="OKX perp, ex: SOL-USDT-SWAP"),
+    tp_bps: float = Query(25.0, description="TP jarak target (bps) untuk RR est."),
+    sl_bps: float = Query(12.0, description="SL jarak proteksi (bps) untuk RR est."),
+):
+    # 1) Fetch data (read-only)
+    ticker = await okx_ticker(symbol)
+    orderbook = await okx_orderbook(symbol, depth=40)
+    oi = await cg_open_interest(symbol)
+    fr = await cg_funding_rate(symbol)
+    vol = await cg_volume(symbol)
+
+    # 2) Feature extraction
+    mid = _mid_from_ticker(ticker) or 0.0
+    spread_bps = compute_spread_bps(ticker)
+
+    # Heuristik arah: contoh sederhana (silakan ganti dgn engine-mu)
+    # - cvd_up & trend_up dummy dari OI/Volume proxy
+    regime = compute_regime(oi, vol)
+    cvd_up = (float(vol.get("value",0)) >= float(oi.get("value",0)))
+    trend_up = (float(oi.get("value",0)) >= float(vol.get("value",0)))
+    bias = decide_bias(cvd_up, trend_up)
+
+    # Confluence (contoh 5 layer → angka 0..1)
+    layers = {
+        "smc": 0.70,        # TODO ganti real SMC
+        "cvd": 0.65 if cvd_up else 0.35,
+        "trend": 0.62 if trend_up else 0.38,
+        "whale": 0.68,      # TODO ganti real whale score
+        "liquidity": 0.60   # TODO ganti real liquidity map
+    }
+    conf = confluence_score(layers)
+
+    # p_win dummy (ganti nanti dengan NN/Calibrator)
+    # Bisa diatur berbeda per regime jika mau (di GateCfg)
+    p_win = 0.61 if regime in ("trend","high_vol") else 0.57
+
+    # Hitung RR expected dari TP/SL bps (sederhana & deterministic)
+    entry = mid
+    tp = entry * (1 + tp_bps/10_000) if bias == "bullish" else entry * (1 - tp_bps/10_000)
+    sl = entry * (1 - sl_bps/10_000) if bias == "bullish" else entry * (1 + sl_bps/10_000)
+    rr = expected_rr(entry, sl, tp)
+
+    # 3) Gating
+    gates = GateCfg(min_confluence=0.75, min_rr=1.5, max_spread_bps=8.0)
+    g = evaluate_gates(conf, p_win, rr, regime, spread_bps, gates)
+
+    # 4) Response
+    payload: Dict[str, Any] = {
+        "symbol": symbol,
+        "bias": bias,
+        "score": round(conf, 3),
+        "confidence": round(p_win, 3),
+        "regime": regime,
+        "features": {
+            "confluence": round(conf, 3),
+            "p_win": round(p_win, 3),
+            "rr_expected": round(rr, 2),
+            "spread_bps": round(spread_bps, 2),
+            "layers": layers
+        },
+        "gates": g,
+        "entryPlan": { "entry": entry, "sl": sl, "tp": tp },
+        "inputs": { "tp_bps": tp_bps, "sl_bps": sl_bps },
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
+
+    # Flag sinyal human-friendly (sesuai Phase-1 notifier)
+    payload["signal_ready"] = bool(g["passed"])
+    return JSONResponse(content=payload, media_type="application/json")
+```
+
+---
+
+# 6) Kenapa ini aman & inline dengan sistemmu?
+
+* **Read-only**: adaptor hanya `GET`, tidak mengubah state—aman untuk Phase-1.
+* **Gating solid**: pakai threshold dari blueprint (confluence ≥0.75, p\_win by regime, RR ≥1.5, spread ≤8bps).&#x20;
+* **Low-noise**: ada `CACHE_TTL` & `HTTP_TIMEOUT` supaya hemat rate & cepat.
+* **Future-proof**: tinggal ganti layer `smc/whale/liquidity` dan sumber `p_win` ke model aslimu; kontrak respons **tidak berubah**.
+* **Notifier-ready**: field `signal_ready=true` → bisa langsung dipakai Telegram microservice kamu.
+
+---
+
+## Quick test (manual)
+
+```bash
+# OKX & CoinGlass siap → harus JSON OK
+curl -s "http://127.0.0.1:8000/institutional/bias?symbol=SOL-USDT-SWAP" | jq .
+
+# Uji gating strict:
+curl -s "http://127.0.0.1:8000/institutional/bias?symbol=SOL-USDT-SWAP&tp_bps=15&sl_bps=15" | jq .  # RR≈1 → harus gagal gates
+```
+
+Kalau kamu mau, aku lanjutkan:
+
+* hubungkan `p_win` ke **Calibrator (Isotonic)** + table hasil eksekusi (Phase-2A),
+* ganti `layers` ke real SMC/whale/liquidity dari engine Node lewat endpoint internal,
+* tambah **cooldown, dedup ATR×0.2, expiry** di Python (mirror spec Phase-1) supaya notifikasi super bersih.

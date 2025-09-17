@@ -817,21 +817,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Enhance CoinGlass metrics with aggregated data
       try {
-        // Try to get circuit breaker state from server/index.ts
-        const { getCoinglassCircuitBreakerState } = await import('./index.js');
-        const circuitBreakerState = getCoinglassCircuitBreakerState();
-        
-        // Update metrics collector with circuit breaker state
-        if (circuitBreakerState) {
-          metricsCollector.updateCoinglassCircuitBreaker(
-            circuitBreakerState.failures,
-            circuitBreakerState.isOpen,
-            circuitBreakerState.lastFailure
-          );
+        // Try to get circuit breaker state - using metrics collector directly
+        const currentMetrics = metricsCollector.getMetrics();
+        if (currentMetrics.coinglass?.circuitBreaker) {
+          // Circuit breaker metrics are already included in collector
+          metrics = currentMetrics;
         }
-
-        // Re-fetch updated metrics that include circuit breaker state
-        metrics = metricsCollector.getMetrics();
 
       } catch (error) {
         console.warn('Failed to enhance CoinGlass metrics:', error instanceof Error ? error.message : 'Unknown error');

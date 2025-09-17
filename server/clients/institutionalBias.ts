@@ -37,13 +37,19 @@ async function getOnce(base: string, symbol: string): Promise<BiasOk | BiasUnava
 
   console.log(`[BiasClient] Fetching from: ${url}`);
 
-  const response = await fetch(url, { 
-    headers: { 
-      Accept: "application/json",
-      "User-Agent": "InstitutionalBias-Client"
-    },
-    timeout: 10000
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  
+  try {
+    const response = await fetch(url, { 
+      headers: { 
+        Accept: "application/json",
+        "User-Agent": "InstitutionalBias-Client"
+      },
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
 
   // 404 → treat as unavailable (bukan throw)
   if (response.status === 404) {
@@ -62,13 +68,20 @@ async function getOnce(base: string, symbol: string): Promise<BiasOk | BiasUnava
     throw new Error(`Bias API ${response.status}: ${body.slice(0, 160)}`);
   }
 
-  const data = await jsonOrText(response);
-  return { 
-    ok: true, 
-    status: response.status, 
-    data, 
-    symbol: norm 
-  };
+    const data = await jsonOrText(response);
+    return { 
+      ok: true, 
+      status: response.status, 
+      data, 
+      symbol: norm 
+    };
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timeout after 10000ms for ${url}`);
+    }
+    throw error;
+  }
 }
 
 /**
@@ -110,8 +123,8 @@ export async function fetchSupportedSymbols(): Promise<string[]> {
     
     if (!response.ok) return [];
     
-    const data = await response.json();
-    return Array.isArray(data) ? data : (data?.symbols || []);
+    const data = await response.json() as any;
+    return Array.isArray(data) ? data : (data?.symbols ? data.symbols : []);
   } catch {
     return [];
   }

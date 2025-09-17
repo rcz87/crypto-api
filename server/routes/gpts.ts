@@ -74,6 +74,9 @@ export function registerGptsRoutes(app: Express): void {
   app.post('/gpts/unified/advanced', async (req: Request, res: Response) => {
     try {
       // Forward request to Python service with body and headers
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
       const response = await fetch(`${PY_BASE}/gpts/advanced`, {
         method: 'POST',
         headers: {
@@ -82,8 +85,10 @@ export function registerGptsRoutes(app: Express): void {
           'User-Agent': 'GPTs-Gateway-Node'
         },
         body: JSON.stringify(req.body),
-        timeout: 30000 // 30 second timeout for complex operations
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -128,14 +133,19 @@ export function registerGptsRoutes(app: Express): void {
       }
 
       // Forward to Python advanced ticker endpoint
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      
       const response = await fetch(`${PY_BASE}/advanced/ticker/${symbol}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'GPTs-Gateway-Node'
         },
-        timeout: 15000
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -189,14 +199,19 @@ export function registerGptsRoutes(app: Express): void {
       console.log(`[GPTs Gateway] Fetching institutional bias for ${symbol} (normalized from ${rawSymbol})`);
 
       // Forward request to Python service
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      
       const response = await fetch(`${PY_BASE}/institutional/bias?symbol=${encodeURIComponent(symbol)}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'GPTs-Gateway-Node'
         },
-        timeout: 15000
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       // Handle 404 specifically
       if (response.status === 404) {
@@ -264,14 +279,19 @@ export function registerGptsRoutes(app: Express): void {
   app.get('/gpts/health', async (req: Request, res: Response) => {
     try {
       // Test connectivity to Python service
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
       const response = await fetch(`${PY_BASE}/health`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'GPTs-Gateway-Node'
         },
-        timeout: 5000
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       const isHealthy = response.ok;
       

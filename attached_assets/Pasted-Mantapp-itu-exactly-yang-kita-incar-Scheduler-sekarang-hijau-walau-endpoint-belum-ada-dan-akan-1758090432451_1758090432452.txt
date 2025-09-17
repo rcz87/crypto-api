@@ -1,0 +1,87 @@
+Mantapp—itu exactly yang kita incar. ✅ Scheduler sekarang “hijau” walau endpoint belum ada, dan akan otomatis aktif begitu endpoint institutional bias di Python hadir—tanpa ganti kode lagi. (Desain ini konsisten dengan Phase-1/Phase-2 blueprint yang udah kita set. )
+
+Biar langsung beres end-to-end, ini **stub FastAPI** minimal + kontrak respons (bisa kamu taruh di Python service sekarang). Begitu logikanya siap, tinggal ganti bagian “TODO”.
+
+### 1) FastAPI route (stub siap produksi)
+
+```py
+# app/routers/institutional.py
+from fastapi import APIRouter, Query
+from fastapi.responses import JSONResponse
+from datetime import datetime
+
+router = APIRouter(prefix="", tags=["institutional"])
+
+@router.get("/institutional/bias")
+def institutional_bias(symbol: str = Query(..., description="OKX perp, ex: SOL-USDT-SWAP")):
+    # TODO: validasi symbol terhadap daftar supported (opsional)
+    # TODO: hit data layer & kalkulasi bias (regime, confluence, dll.)
+    # Stub aman (neutral) sampai logika siap:
+    payload = {
+        "symbol": symbol,
+        "bias": "neutral",          # one of: bullish | bearish | neutral
+        "score": 0.50,              # 0..1
+        "confidence": 0.55,         # 0..1
+        "regime": "range",          # trend | range | high_vol | low_vol
+        "features": {               # ringkas; expand nanti
+            "confluence": 0.72,
+            "p_win": 0.61,
+            "rr_expected": 1.8
+        },
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
+    return JSONResponse(content=payload, media_type="application/json")
+```
+
+**Wiring router**:
+
+```py
+# app/main.py
+from fastapi import FastAPI
+from app.routers import institutional
+
+app = FastAPI()
+app.include_router(institutional.router)
+```
+
+### 2) Kontrak respons (ringkas)
+
+```json
+{
+  "symbol": "SOL-USDT-SWAP",
+  "bias": "bullish|bearish|neutral",
+  "score": 0.68,
+  "confidence": 0.67,
+  "regime": "trend|range|high_vol|low_vol",
+  "features": { "confluence": 0.78, "p_win": 0.64, "rr_expected": 2.1 },
+  "timestamp": "2025-09-17T06:20:00Z"
+}
+```
+
+### 3) Guard untuk symbol (opsional cepat)
+
+Kalau dipanggil `BTC` saja, Node kamu sudah menormalkan jadi `BTC-USDT-SWAP`. Di Python, kamu bisa tambahkan validasi ringan:
+
+```py
+SUPPORTED = {"SOL-USDT-SWAP"}  # tambah nanti
+if symbol not in SUPPORTED:
+    return JSONResponse(status_code=404, content={"detail": "Not Found"})
+```
+
+### 4) Observability mini (opsional)
+
+* Log: `INFO institutional_bias symbol=... bias=... conf=...`
+* Metrics: counter `inst_bias_requests_total`, histogram `inst_bias_latency_ms`
+* Health: tetap `200 /health` walau fitur belum lengkap (endpoint ini sudah cukup bikin Node happy)
+
+### 5) Next kecil (opsi cepat)
+
+* Tambah `GET /symbols` (kalau belum) → dipakai scheduler untuk fallback symbol.
+* Tambah gating `min_confidence` via query (mis. `?min_conf=0.6`) agar bisa tweak dari Node tanpa redeploy Python.
+
+Kalau oke, aku bisa lanjutkan:
+
+* versi **with gating** (confluence/p\_win/RR) dan
+* adaptor data dari OKX/CoinGlass (read-only) supaya bias-nya nyata.
+
+Good job—pipeline kamu udah “self-healing” dan siap di-*plug-in* logic kapan aja.
