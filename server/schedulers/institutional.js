@@ -150,21 +150,40 @@ async function runInstitutionalBiasTask() {
 }
 
 /**
- * 🎯 Adaptive SOL Sniper Timing Alert Scheduler
+ * 🎯 Enhanced SOL Sniper Scheduler with Graceful Degradation
+ * REPLACED: Old scheduler yang gagal karena ETF 402
  */
-export function startSniperScheduler() {
-  console.log("🎯 Starting Adaptive SOL Sniper Scheduler");
+export async function startSniperScheduler() {
+  console.log("🎯 Starting Enhanced SOL Sniper Scheduler with graceful degradation...");
   
-  // Create adaptive sniper task
-  const sniperTask = async () => {
-    return await runSOLSniperTask();
-  };
-  
-  // Create and start adaptive scheduler
-  sniperScheduler = createSniperScheduler(sniperTask);
-  sniperScheduler.start();
-  
-  return sniperScheduler;
+  try {
+    // Dynamic import untuk ES modules
+    const { startEnhancedSniperScheduler, stopEnhancedSniperScheduler } = await import('../sniper/scheduler.js');
+    
+    // Start enhanced scheduler yang tidak akan fail karena ETF 402
+    startEnhancedSniperScheduler();
+    
+    console.log("✅ Enhanced SOL Sniper Scheduler started - ETF 402 errors will be soft-fail only");
+    
+    return { 
+      start: () => {}, 
+      stop: () => stopEnhancedSniperScheduler()
+    };
+  } catch (error) {
+    console.error("❌ Failed to start enhanced sniper scheduler:", error.message);
+    
+    // Fallback: tetap jalankan scheduler lama tapi dengan peringatan
+    console.log("🔄 Falling back to original scheduler (with ETF 402 issues)...");
+    
+    const sniperTask = async () => {
+      return await runSOLSniperTask();
+    };
+    
+    sniperScheduler = createSniperScheduler(sniperTask);
+    sniperScheduler.start();
+    
+    return sniperScheduler;
+  }
 }
 
 /**

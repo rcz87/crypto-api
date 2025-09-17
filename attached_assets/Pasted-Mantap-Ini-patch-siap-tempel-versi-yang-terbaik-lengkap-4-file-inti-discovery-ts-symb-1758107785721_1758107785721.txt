@@ -1,0 +1,393 @@
+Mantap. Ini **patch siap tempel – versi “yang terbaik”**: lengkap 4 file inti (`discovery.ts`, `symbol.ts`, `clients/*`, `runner.ts`) dengan **graceful degrade, feature flag, circuit breaker 402, capability discovery, dan normalisasi simbol**. Cukup copy–paste sesuai path.
+
+# TL;DR
+
+* **Tidak ada lagi jatuh bareng**: ETF 402 → **soft-fail** (sniper lanjut pakai modul lain).
+* **404 diselesaikan otomatis**: **capability discovery** baca `/openapi.json` + **fallback URL patterns**.
+* **Simbol rapih**: `SOL` → `SOLUSDT` (spot) & `SOL-USDT-SWAP` (derivatif).
+* **Feature flag**: `FEATURE_ETF`, `FEATURE_HEATMAP`, `FEATURE_SPOT_OB`.
+* **Health logic baru**: soft-fail ≠ unhealthy; backoff reset kalau ada modul sukses.
+
+---
+
+```ts
+// ================================================
+// FILE: src/services/discovery.ts
+// ================================================
+/**
+ * Capability Discovery: baca OpenAPI Python lalu petakan path yang tersedia.
+ * Cache 10 menit untuk menghindari overhead.
+ */
+const PY_BASE = process.env.PY_BASE_URL ?? 'http://127.0.0.1:8000';
+
+type OpenApiDoc = { paths?: Record<string, any> };
+
+let _cache:
+  | { at: number; map: Record<string, string> }
+  | null = null;
+
+export async function getApiMap(): Promise<Record<string, string>> {
+  const now = Date.now();
+  if (_cache && now - _cache.at < 10 * 60 * 1000) return _cache.map;
+
+  const res = await fetch(`${PY_BASE}/openapi.json`);
+  if (!res.ok) {
+    // fallback: kosongkan map agar client pakai default patterns
+    _cache = { at: now, map: {} };
+    return _cache.map;
+  }
+
+  const spec = (await res.json()) as OpenApiDoc;
+  const paths = Object.keys(spec.paths ?? {});
+
+  const map: Record<string, string> = {
+    // heuristik untuk path yang sering beda antar build
+    heatmap:
+      paths.find((p) => /liquidation.*heatmap/i.test(p)) ||
+      paths.find((p) => /liquidations.*heatmap/i.test(p)) ||
+      '',
+    spot_ob:
+      paths.find((p) => /spot.*orderbook/i.test(p)) ||
+      paths.find((p) => /orderbook.*spot/i.test(p)) ||
+      '',
+    bias:
+      paths.find((p) => /institutional.*bias/i.test(p)) ||
+      '/institutional/bias',
+    whale_alerts:
+      paths.find((p) => /whale.*alerts/i.test(p)) || '/advanced/whale/alerts',
+    etf_flows:
+      paths.find((p) => /etf.*flows/i.test(p)) || '/advanced/etf/flows',
+  };
+
+  _cache = { at: now, map };
+  return map;
+}
+
+export function pyUrl(path: string) {
+  // pastikan path dimulai dengan '/'
+  const p = path.startsWith('/') ? path : `/${path}`;
+  return `${PY_BASE}${p}`;
+}
+
+export async function getJson(path: string) {
+  const r = await fetch(pyUrl(path));
+  if (!r.ok) {
+    const e: any = new Error(`HTTP ${r.status}: ${r.statusText}`);
+    e.status = r.status;
+    e.url = path;
+    throw e;
+  }
+  return r.json();
+}
+
+export async function getText(path: string) {
+  const r = await fetch(pyUrl(path));
+  if (!r.ok) {
+    const e: any = new Error(`HTTP ${r.status}: ${r.statusText}`);
+    e.status = r.status;
+    e.url = path;
+    throw e;
+  }
+  return r.text();
+}
+```
+
+```ts
+// ================================================
+// FILE: src/utils/symbol.ts
+// ================================================
+/**
+ * Normalisasi simbol agar konsisten lintas modul:
+ * - Spot   : SOL -> SOLUSDT
+ * - Deriv  : SOL/SOLUSDT -> SOL-USDT-SWAP (OKX style)
+ */
+export type MarketType = 'spot' | 'derivatives';
+
+export function normalizeSymbol(input: string, market: MarketType): string {
+  const s = input.replace(/[:/]/g, '').toUpperCase();
+  if (market === 'spot') {
+    if (s === 'SOL') return 'SOLUSDT';
+    return s.includes('USDT') ? s : `${s}USDT`;
+  }
+  // derivatives
+  if (s.includes('-USDT-SWAP')) return s;
+  if (s === 'SOL' || s === 'SOLUSDT') return 'SOL-USDT-SWAP';
+  const base = s.replace('USDT', '');
+  return `${base}-USDT-SWAP`;
+}
+```
+
+```ts
+// ================================================
+// FILE: src/clients/heatmap.ts
+// ================================================
+import { getApiMap, getJson } from '../services/discovery';
+import { normalizeSymbol } from '../utils/symbol';
+
+export type HeatmapTF = '5m' | '15m' | '1h' | '4h' | '1d';
+
+export async function getHeatmap(symbol: string, timeframe: HeatmapTF = '1h') {
+  const map = await getApiMap();
+  const base = map['heatmap'] || '/advanced/liquidation/heatmap';
+  const sym = normalizeSymbol(symbol, 'derivatives');
+
+  const candidates = [
+    `${base}?symbol=${encodeURIComponent(sym)}&timeframe=${timeframe}`,
+    `${base}/${encodeURIComponent(sym)}?timeframe=${timeframe}`,
+    `${base}?asset=${encodeURIComponent(sym)}&tf=${timeframe}`,
+  ];
+
+  let lastErr: any;
+  for (const url of candidates) {
+    try {
+      return await getJson(url);
+    } catch (e: any) {
+      if (e.status !== 404) throw e;
+      lastErr = e;
+    }
+  }
+  const err: any = new Error('HEATMAP_NOT_AVAILABLE');
+  err.cause = lastErr;
+  throw err;
+}
+```
+
+```ts
+// ================================================
+// FILE: src/clients/spotOrderbook.ts
+// ================================================
+import { getApiMap, getJson } from '../services/discovery';
+import { normalizeSymbol } from '../utils/symbol';
+
+export async function getSpotOrderbook(
+  symbol: string,
+  exchange = 'binance',
+  depth = 50
+) {
+  const map = await getApiMap();
+  const base = map['spot_ob'] || '/advanced/spot/orderbook';
+  const spot = normalizeSymbol(symbol, 'spot');
+
+  const candidates = [
+    `${base}?symbol=${spot}&exchange=${exchange}&depth=${depth}`,
+    `${base}/${exchange}/${spot}?depth=${depth}`,
+    `${base}/${spot}?ex=${exchange}&limit=${depth}`,
+  ];
+
+  let lastErr: any;
+  for (const url of candidates) {
+    try {
+      return await getJson(url);
+    } catch (e: any) {
+      if (e.status !== 404) throw e;
+      lastErr = e;
+    }
+  }
+  const err: any = new Error('SPOT_OB_NOT_AVAILABLE');
+  err.cause = lastErr;
+  throw err;
+}
+```
+
+```ts
+// ================================================
+// FILE: src/clients/etf.ts
+// ================================================
+import { getApiMap, getJson } from '../services/discovery';
+
+const CIRCUIT_MS_DEFAULT = 60 * 60 * 1000; // 1 jam
+
+export class EtfClient {
+  private circuitUntil: number | null = null;
+
+  constructor(private circuitMs = CIRCUIT_MS_DEFAULT) {}
+
+  circuitOpen() {
+    return this.circuitUntil !== null && Date.now() < this.circuitUntil;
+  }
+
+  private openCircuit() {
+    this.circuitUntil = Date.now() + this.circuitMs;
+  }
+
+  async getFlows(asset: 'BTC' | 'ETH') {
+    if (this.circuitOpen()) {
+      const err: any = new Error('ETF_CIRCUIT_OPEN');
+      err.soft = true;
+      throw err;
+    }
+
+    const map = await getApiMap();
+    const path = `${map['etf_flows'] || '/advanced/etf/flows'}?asset=${asset}`;
+
+    try {
+      return await getJson(path);
+    } catch (e: any) {
+      if (e.status === 402) {
+        this.openCircuit();
+        const err: any = new Error('ETF_PAYMENT_REQUIRED');
+        err.soft = true; // soft-fail
+        throw err;
+      }
+      throw e;
+    }
+  }
+}
+```
+
+```ts
+// ================================================
+// FILE: src/sniper/runner.ts
+// ================================================
+/**
+ * Sniper runner dengan:
+ * - feature flag (ETF/HEATMAP/SPOT_OB)
+ * - graceful degrade (soft-fail modul opsional)
+ * - reset backoff saat ada modul sukses
+ */
+import { getHeatmap } from '../clients/heatmap';
+import { getSpotOrderbook } from '../clients/spotOrderbook';
+import { EtfClient } from '../clients/etf';
+import { normalizeSymbol } from '../utils/symbol';
+
+const FEAT = (name: string) =>
+  (process.env[`FEATURE_${name}`] ?? 'on').toLowerCase() !== 'off';
+
+const etf = new EtfClient();
+
+export type RunResult = {
+  success: boolean;
+  softFails: string[];
+  usedModules: string[];
+  context: Record<string, any>;
+};
+
+export async function runSolSniper(): Promise<RunResult> {
+  const softFails: string[] = [];
+  const used: string[] = [];
+  const context: Record<string, any> = {};
+
+  // 1) Whale signals (contoh: kamu sudah punya di tempat lain)
+  // assume whale sudah di-run di tempat lain → kita fokus 3 modul ini
+
+  // 2) ETF (opsional)
+  if (FEAT('ETF')) {
+    try {
+      const flows = await etf.getFlows('BTC');
+      context.etf = { available: true, flows };
+      used.push('etf');
+    } catch (e: any) {
+      if (e.soft) {
+        softFails.push(e.message);
+        context.etf = { available: false, reason: e.message };
+      } else {
+        // error keras non-402 → jangan jatuhkan run, tapi catat
+        softFails.push(`ETF_HARD:${e.message}`);
+      }
+    }
+  } else {
+    context.etf = { available: false, reason: 'FEATURE_OFF' };
+  }
+
+  // 3) Heatmap (opsional – degrade ke null)
+  if (FEAT('HEATMAP')) {
+    try {
+      const hm = await getHeatmap('SOL', '1h');
+      context.heatmap = hm;
+      used.push('heatmap');
+    } catch (e: any) {
+      softFails.push(e.message || 'HEATMAP_FAIL');
+      context.heatmap = null;
+    }
+  }
+
+  // 4) Spot Orderbook (opsional – degrade ke null)
+  if (FEAT('SPOT_OB')) {
+    try {
+      const ob = await getSpotOrderbook('SOL', 'binance', 50);
+      context.spotOB = ob;
+      used.push('spot_ob');
+    } catch (e: any) {
+      softFails.push(e.message || 'SPOT_OB_FAIL');
+      context.spotOB = null;
+    }
+  }
+
+  // 5) Normalize simbol utk downstream
+  context.symbols = {
+    spot: normalizeSymbol('SOL', 'spot'),
+    perp: normalizeSymbol('SOL', 'derivatives'),
+  };
+
+  // 6) Sukses kalau minimal ada 1 modul berhasil
+  const anyOK = used.length > 0;
+  return {
+    success: anyOK,
+    softFails,
+    usedModules: used,
+    context,
+  };
+}
+
+/**
+ * Contoh integrasi dengan scheduler:
+ * - Jika success=true → reset backoff, set consecutiveFailures=0
+ * - Jika success=false → failure++ (keras), baru pertimbangkan unhealthy
+ */
+```
+
+---
+
+## (Opsional tapi direkomendasikan) Tambahan 1 baris di Express Proxy
+
+> Biar semua `/gpts/...` otomatis dipetakan ke Python tanpa prefix (menghapus sisa 404 prefix mismatch).
+
+```ts
+// server/index.ts (Express)
+import { createProxyMiddleware } from 'http-proxy-middleware';
+
+app.use(
+  '/gpts',
+  createProxyMiddleware({
+    target: process.env.PY_BASE_URL ?? 'http://127.0.0.1:8000',
+    changeOrigin: true,
+    pathRewrite: { '^/gpts': '' }, // strip prefix
+  })
+);
+```
+
+---
+
+## ENV yang didukung
+
+```
+PY_BASE_URL=http://127.0.0.1:8000
+FEATURE_ETF=on        # off untuk mematikan ETF modul
+FEATURE_HEATMAP=on
+FEATURE_SPOT_OB=on
+TRADING_TIMEZONE=Asia/Jakarta
+ACTIVE_TRADING_START=07:00
+ACTIVE_TRADING_END=23:30
+```
+
+---
+
+## Checklist Uji Cepat
+
+* [ ] Set `FEATURE_ETF=off` → jalankan sniper → **success=true**, tidak ada “scheduler unhealthy”.
+* [ ] Set `FEATURE_ETF=on` (tanpa lisensi) → pertama kali **softFail: ETF\_PAYMENT\_REQUIRED**, **success tetap true**.
+* [ ] Pantau log: **Active trading hours - Jakarta: HH\:MM** (sudah ✅ di log kamu).
+* [ ] Panggil `getHeatmap('SOL','1h')` & `getSpotOrderbook('SOL','binance')` manual:
+
+  * Jika Python punya rute → **200 OK**.
+  * Jika tidak → error **HEATMAP\_NOT\_AVAILABLE** / **SPOT\_OB\_NOT\_AVAILABLE** (soft-fail), sniper tetap lanjut.
+
+---
+
+## Catatan Strategis (biar future-proof)
+
+* **ETF = enhancer, bukan gatekeeper** sinyal. Treat as opsional.
+* **Capability discovery** bikin client **self-healing** kalau backend Python ganti nama rute.
+* **Normalizer** menghapus 80% noise bug (spot vs perp).
+
+Kalau mau, aku bisa lanjutkan **patch scheduler**-mu (reset backoff on partial success + Prometheus metrics `sniper_soft_fail{module="..."}`) biar observability makin cakep.

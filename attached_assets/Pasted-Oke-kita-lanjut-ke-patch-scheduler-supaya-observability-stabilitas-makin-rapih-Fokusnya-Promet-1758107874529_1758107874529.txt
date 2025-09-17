@@ -1,0 +1,122 @@
+Oke, kita lanjut ke patch scheduler supaya observability + stabilitas makin rapih. Fokusnya:
+
+Prometheus metrics untuk soft-fail per modul (ETF, Heatmap, Spot OB).
+
+Reset backoff kalau ada modul sukses → scheduler gak “terkunci pesimis”.
+
+Telegram alerting hanya kalau semua modul utama gagal, bukan hanya ETF/opsional.
+
+// ================================================
+// FILE: src/sniper/scheduler.ts
+// ================================================
+import { runSolSniper } from './runner';
+import client from 'prom-client';
+import { telegramNotify } from '../services/telegram';
+
+const REG = client.register;
+
+// Metric baru: counter untuk soft fail modul
+export const sniperSoftFailCounter = new client.Counter({
+  name: 'sniper_soft_fail_total',
+  help: 'Soft-fail events in sniper modules',
+  labelNames: ['module'],
+});
+
+// Metric: hard fail run
+export const sniperHardFailCounter = new client.Counter({
+  name: 'sniper_hard_fail_total',
+  help: 'Hard-fail sniper runs (all modules down)',
+});
+
+// Gauge: consecutive failures
+export const sniperConsecutiveFailures = new client.Gauge({
+  name: 'sniper_consecutive_failures',
+  help: 'Number of consecutive hard failures in sniper',
+});
+
+// Backoff params
+let consecutiveFailures = 0;
+let nextIntervalMs = 5000; // start 5s
+
+function calcBackoff() {
+  const base = Math.min(60000, 5000 * Math.pow(2, consecutiveFailures));
+  const jitter = Math.floor(Math.random() * 5000);
+  return base + jitter;
+}
+
+export async function sniperTick() {
+  const res = await runSolSniper();
+
+  // Catat soft fails
+  res.softFails.forEach((sf) => {
+    if (sf.includes('ETF')) {
+      sniperSoftFailCounter.inc({ module: 'etf' });
+    } else if (sf.includes('HEATMAP')) {
+      sniperSoftFailCounter.inc({ module: 'heatmap' });
+    } else if (sf.includes('SPOT_OB')) {
+      sniperSoftFailCounter.inc({ module: 'spot_ob' });
+    }
+  });
+
+  if (res.success) {
+    // Reset fail count & backoff
+    consecutiveFailures = 0;
+    nextIntervalMs = 5000;
+    sniperConsecutiveFailures.set(0);
+
+    console.log(
+      `✅ Sniper run OK — used [${res.usedModules.join(', ')}], softFails=${
+        res.softFails.length
+      }`
+    );
+  } else {
+    consecutiveFailures++;
+    sniperHardFailCounter.inc();
+    sniperConsecutiveFailures.set(consecutiveFailures);
+
+    nextIntervalMs = calcBackoff();
+    console.error(
+      `❌ Sniper HARD FAIL (${consecutiveFailures} consecutive). Next=${(
+        nextIntervalMs / 1000
+      ).toFixed(1)}s`
+    );
+
+    if (consecutiveFailures % 3 === 0) {
+      telegramNotify(
+        `🚨 Sniper hard-fail x${consecutiveFailures} — ALL modules unavailable!`
+      );
+    }
+  }
+
+  setTimeout(sniperTick, nextIntervalMs);
+}
+
+🔧 Integrasi di server/index.ts
+import { sniperTick } from './sniper/scheduler';
+
+// saat startup
+sniperTick();
+
+✅ Hasil patch ini:
+
+Kalau ETF 402 → softFail metric naik, tapi run tetap success=true.
+
+Kalau heatmap/orderbook 404 → juga hanya softFail.
+
+Kalau semua modul gagal → hardFail++, consecutive naik, backoff panjang, Telegram alert dikirim.
+
+Prometheus bisa grafana-in:
+
+rate(sniper_soft_fail_total[5m]) by (module)
+
+sniper_consecutive_failures untuk health.
+
+Rencana Tes
+
+Jalankan dengan FEATURE_ETF=off → tidak ada softFail ETF.
+
+Jalankan dengan FEATURE_ETF=on tapi tanpa lisensi → lihat sniper_soft_fail_total{module="etf"} naik, tapi success=true.
+
+Matikan semua modul (misal matikan Python service) → lihat hard_fail_total + alert Telegram.
+
+Periksa bahwa setelah 1 run sukses, consecutiveFailures=0 dan interval kembali 5s.

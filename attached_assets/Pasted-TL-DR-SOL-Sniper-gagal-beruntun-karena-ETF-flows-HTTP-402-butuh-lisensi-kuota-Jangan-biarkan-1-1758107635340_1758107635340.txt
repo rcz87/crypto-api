@@ -1,0 +1,224 @@
+TL;DR
+
+SOL Sniper gagal beruntun karena ETF flows → HTTP 402 (butuh lisensi/kuota). Jangan biarkan 1 modul bikin seluruh sniper FAIL. Graceful degrade + feature flag.
+
+404 untuk advanced/liquidation/heatmap & advanced/spot/orderbook. Kemungkinan route tidak ada / beda naming / butuh param lain. Solusinya: capability discovery (baca /openapi.json Python) + alias map + fallback.
+
+1) Diagnosis cepat (dari log)
+Gejala	Bukti	Penyebab paling mungkin	Dampak
+Sniper error 402 beruntun	GET /advanced/etf/flows?asset=BTC → 402 Payment Required	Endpoint premium/limit	Scheduler ditandai “unhealthy”, run berikutnya backoff makin panjang
+404 heatmap	GET /advanced/liquidation/heatmap/SOL?timeframe=1h → 404	Path tidak ada atau butuh format symbol/param lain	Modul heatmap mati total
+404 spot orderbook	GET /advanced/spot/orderbook/SOL?exchange=binance → 404	Path beda (mungkin /spot/orderbook), format symbol harus SOLUSDT, atau param depth wajib	Orderbook spot gak kebaca
+Bias OK	/institutional/bias?symbol=SOL-USDT-SWAP → 200	—	Komponen institutional aman
+2) Quick Wins (langsung memperbaiki “jatuh bareng”)
+2.1. Matikan ketergantungan wajib ke ETF flows (graceful degrade)
+
+Jangan fail seluruh sniper kalau ETF 402. Mark saja etfUnavailable=true dan lanjutkan modul lain (whale, whale SOL/BTC OK di log).
+
+// sniper/etfClient.ts
+export class EtfClient {
+  private circuitUntil: number | null = null;
+
+  async getFlows(asset: 'BTC'|'ETH') {
+    const now = Date.now();
+    if (this.circuitUntil && now < this.circuitUntil) {
+      throw new Error('ETF_CIRCUIT_OPEN');
+    }
+    try {
+      return await http.get(`/advanced/etf/flows?asset=${asset}`);
+    } catch (e: any) {
+      if (e.status === 402) {
+        // buka circuit 1 jam biar gak spam
+        this.circuitUntil = now + 60 * 60 * 1000;
+        throw new Error('ETF_PAYMENT_REQUIRED');
+      }
+      throw e;
+    }
+  }
+}
+
+// sniper/runner.ts (bagian assemble signal)
+const modules = {
+  whale: await whaleSignals(),
+  // ETF optional
+  etf: await etfClient.getFlows('BTC').catch(err => {
+    logger.warn(`ETF module degraded: ${err.message}`);
+    return { available: false };
+  }),
+  heatmap: await heatmapClient.fetchOrNull('SOL').catch(() => null),
+  spotOb: await spotClient.fetchOrNull('SOLUSDT','binance').catch(() => null),
+};
+
+// Jangan fail run hanya karena modul opsional gagal
+const context = {
+  etfAvailable: modules.etf?.available === true,
+  // pakai yang ada saja
+};
+
+
+Tambahkan feature flag supaya kamu bisa ON/OFF modul tanpa redeploy:
+
+FEATURE_ETF=off
+FEATURE_HEATMAP=on
+FEATURE_SPOT_OB=on
+
+
+Di kode:
+
+const FEAT = (name: string) => (process.env[`FEATURE_${name}`]?.toLowerCase() !== 'off');
+if (FEAT('ETF')) { /* call ETF */ } // kalau off, skip.
+
+2.2. Jangan “mark unhealthy” scheduler karena 402 opsional
+
+Ubah logika health:
+
+if (error.message.includes('ETF_PAYMENT_REQUIRED') || error.message==='ETF_CIRCUIT_OPEN') {
+  // count as soft-failure, jangan naikkan consecutiveFailures
+  metrics.increment('sniper_soft_fail', { module: 'etf' });
+} else {
+  consecutiveFailures++;
+}
+
+3) Hilangkan 404 untuk heatmap & spot orderbook (capability discovery + alias)
+
+Masalah kita: kita nebak path. Biar anti 404, baca OpenAPI Python dan build router dinamis.
+
+3.1. Capability discovery (sekali saat startup + cache 10 menit)
+// services/discovery.ts
+let cache: { at: number, map: Record<string, string> } | null = null;
+
+export async function getApiMap() {
+  const now = Date.now();
+  if (cache && now - cache.at < 10 * 60 * 1000) return cache.map;
+
+  const spec = await http.get('http://127.0.0.1:8000/openapi.json');
+  const paths = Object.keys(spec.paths || {});
+
+  const map: Record<string, string> = {};
+  // contoh heuristik: temukan heatmap & orderbook path yang ada
+  map['heatmap'] = paths.find(p => /liquidation.*heatmap/i.test(p)) || '';
+  map['spot_ob'] = paths.find(p => /spot.*orderbook/i.test(p)) || '';
+
+  cache = { at: now, map };
+  return map;
+}
+
+3.2. Client dengan fallback + alias parameter
+// clients/heatmap.ts
+export async function getHeatmap(symbol: string, timeframe='1h') {
+  const map = await getApiMap();
+  const base = map['heatmap'] || '/liquidations/heatmap'; // fallback “reasonable”
+  const sym = normalizeSymbol(symbol, 'derivatives'); // e.g. SOL-USDT-SWAP
+
+  // coba beberapa variasi yang sering beda antar API
+  const candidates = [
+    `${base}?symbol=${sym}&timeframe=${timeframe}`,
+    `${base}/${sym}?timeframe=${timeframe}`,
+    `${base}?asset=${sym}&tf=${timeframe}`,
+  ];
+
+  for (const url of candidates) {
+    try { return await http.get(url); } catch (e: any) {
+      if (e.status !== 404) throw e;
+    }
+  }
+  throw new Error('HEATMAP_NOT_AVAILABLE');
+}
+
+// clients/spotOb.ts
+export async function getSpotOrderbook(symbol: string, exchange='binance', depth=50) {
+  const map = await getApiMap();
+  const base = map['spot_ob'] || '/spot/orderbook';
+
+  const spot = normalizeSymbol(symbol, 'spot'); // e.g. SOLUSDT
+  const tries = [
+    `${base}?symbol=${spot}&exchange=${exchange}&depth=${depth}`,
+    `${base}/${exchange}/${spot}?depth=${depth}`,
+    `${base}/${spot}?ex=${exchange}&limit=${depth}`,
+  ];
+
+  for (const url of tries) {
+    try { return await http.get(url); } catch (e: any) {
+      if (e.status !== 404) throw e;
+    }
+  }
+  throw new Error('SPOT_OB_NOT_AVAILABLE');
+}
+
+3.3. Normalisasi simbol (wajib)
+// utils/symbol.ts
+export function normalizeSymbol(input: string, market: 'spot'|'derivatives') {
+  const s = input.replace(':','').replace('/','').toUpperCase();
+  if (market==='spot') {
+    if (s==='SOL') return 'SOLUSDT';
+    return s.includes('USDT') ? s : `${s}USDT`;
+  }
+  // derivatives (OKX swap style)
+  if (s.includes('-USDT-SWAP')) return s;
+  if (s==='SOL' || s==='SOLUSDT') return 'SOL-USDT-SWAP';
+  const base = s.replace('USDT','');
+  return `${base}-USDT-SWAP`;
+}
+
+4) Proxy & prefix (lanjutan)
+
+Kamu sudah register /gpts/unified/*. Untuk rute lain yang kamu panggil via /gpts/..., pastikan strip prefix:
+
+// server/index.ts
+app.use('/gpts', createProxyMiddleware({
+  target: 'http://127.0.0.1:8000',
+  changeOrigin: true,
+  pathRewrite: { '^/gpts': '' },
+}));
+
+
+Dengan ini, GET /gpts/institutional/bias?... → Python /institutional/bias?... dan 404 prefix hilang.
+
+5) Telemetry & proteksi tambahan
+
+Tag soft degrade di Prometheus: sniper_soft_fail{module="etf"}.
+
+Alert Telegram hanya saat semua modul utama gagal (whale+heatmap+orderbook), bukan saat ETF 402.
+
+Jitter/backoff biarkan, tapi reset saat ada 1 modul success supaya scheduler tidak “terkunci pesimis”.
+
+if (anyModuleSucceeded) {
+  consecutiveFailures = 0;
+  backoff.reset();
+}
+
+6) Test Plan (ceklist singkat)
+
+ Set FEATURE_ETF=off dulu (sementara), jalankan sniper → harus RUN sukses tanpa error 402.
+
+ Aktifkan kembali FEATURE_ETF=on, lihat circuit breaker jalan saat 402 pertama, run tidak fail.
+
+ Panggil getHeatmap('SOL', '1h') & getSpotOrderbook('SOL','binance') → pastikan tidak 404, atau degrade dengan error terkontrol HEATMAP_NOT_AVAILABLE/SPOT_OB_NOT_AVAILABLE (tanpa menggagalkan sniper).
+
+ Verifikasi log:
+
+Active trading hours - Jakarta: ... (sudah ada ✅)
+
+Tidak ada lagi “Scheduler unhealthy” kecuali semua modul gagal.
+
+7) Pendapat kuat (biar tajam & future-proof)
+
+ETF flows bagus, tapi jangan jadi “single point of failure”. Di production, treat as alpha enhancer saja.
+
+Capability discovery bikin klienmu self-healing saat backend Python nambah/ubah route. Ini setara “contract testing” ringan.
+
+Symbol normalizer akan menghapus 80% error konyol (SOL vs SOLUSDT vs SOL-USDT-SWAP). Murah, efeknya besar.
+
+Rencana Aksi (to-do langsung eksekusi)
+
+ Tambah proxy strip /gpts (jika belum).
+
+ Implement normalizeSymbol() (spot & derivatif).
+
+ Tambah capability discovery + clients dengan fallback untuk heatmap & spot OB.
+
+ Terapkan graceful degrade + feature flag + circuit breaker untuk ETF.
+
+ Ubah health-check scheduler: soft-fail untuk 402 ETF; reset backoff saat modul lain sukses.
+
+ Jalankan test plan di atas.
