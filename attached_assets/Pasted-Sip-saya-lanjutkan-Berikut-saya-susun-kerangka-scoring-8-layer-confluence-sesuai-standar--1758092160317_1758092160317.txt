@@ -1,0 +1,62 @@
+Sip, saya lanjutkan 🚀
+
+Berikut saya susun **kerangka scoring 8-layer confluence** sesuai standar institutional-grade yang biasa dipakai hedge fund & prop firm.
+
+---
+
+## 📊 **Kerangka Scoring 8-Layer**
+
+Total skor = 100% (dibagi sesuai bobot kepentingan).
+
+| **Layer**                            | **Bobot** | **Indikator/Filter**                                 | **Interpretasi**                            |
+| ------------------------------------ | --------- | ---------------------------------------------------- | ------------------------------------------- |
+| 1. **Smart Money Concepts (SMC)**    | **20%**   | Order Block, BOS/CHOCH, Liquidity sweep              | Validasi arah struktur pasar utama          |
+| 2. **CVD (Cumulative Volume Delta)** | **15%**   | Accumulation vs Distribution, Whale flow             | Tekanan beli/jual riil dari volume agresif  |
+| 3. **Momentum (RSI/EMA/MACD)**       | **15%**   | RSI, EMA crossover, MACD histogram                   | Overbought/oversold & momentum shift        |
+| 4. **Market Structure**              | **10%**   | Higher Highs/Lows, Trendline break                   | Konfirmasi pola harga makro                 |
+| 5. **Open Interest (OI)**            | **15%**   | OI naik/turun, OI to Volume ratio                    | Validasi minat pasar derivatif              |
+| 6. **Funding Rate**                  | **10%**   | Positif tinggi (overlong), Negatif dalam (overshort) | Bias jangka pendek trader futures           |
+| 7. **Institutional Flow**            | **10%**   | Whale inflow/outflow, Block trade, TWAP/VWAP         | Aktivitas institusi & distribusi akumulasi  |
+| 8. **Fibonacci & Key Levels**        | **5%**    | Fibo retracement/extension, POC                      | Entry/exit presisi berdasarkan level teknis |
+
+---
+
+### 📌 Contoh Scoring BTC (15m)
+
+* **SMC:** BOS bullish + OB kuat (✅) → 20/20
+* **CVD:** Accumulation + whale inflow (✅) → 15/15
+* **RSI/EMA/MACD:** RSI 35 (oversold) + EMA20 > EMA50 (❌ mismatch) → 10/15
+* **Market Structure:** HH/HL jelas (✅) → 10/10
+* **OI:** OI naik + harga naik (✅) → 15/15
+* **Funding:** Positif rendah (netral) → 5/10
+* **Institutional Flow:** VWAP > harga (✅ bullish) → 10/10
+* **Fibo Levels:** Harga reject di 61.8% (✅) → 5/5
+
+📊 **Total Score BTC = 90/100 → STRONG BUY**
+
+---
+
+### 📌 Contoh Scoring ETH (15m)
+
+* **SMC:** Tidak ada BOS jelas (❌) → 0/20
+* **CVD:** Distribution (❌) → 0/15
+* **RSI/EMA/MACD:** RSI 55 (netral) (✅) → 10/15
+* **Market Structure:** Sideways (❌) → 5/10
+* **OI:** OI flat (❌) → 5/15
+* **Funding:** Positif tinggi (❌ overlonged) → 0/10
+* **Institutional Flow:** VWAP \~ harga (netral) → 5/10
+* **Fibo Levels:** Harga mantul di 50% retracement (✅) → 5/5
+
+📊 **Total Score ETH = 30/100 → HOLD/NO TRADE**
+
+---
+
+⚠️ Dengan scoring ini, sinyal jadi **risk-adjusted**:
+
+* **>75% = Eksekusi utama (BUY/SELL kuat)**
+* **50–74% = Bias lemah, hati-hati, tunggu konfirmasi**
+* **<50% = Hindari (HOLD/NO TRADE)**
+
+---
+
+Mau saya buatkan **template kalkulasi scoring dalam Python** biar bisa Anda jalankan otomatis untuk BTC, ETH, SOL?

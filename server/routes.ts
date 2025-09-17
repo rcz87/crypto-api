@@ -50,6 +50,7 @@ import { InputSanitizer, getEnhancedSecurityMetrics } from './middleware/securit
 
 // Degradation utilities import
 import { applyDegradationNotice } from './utils/degradationNotice';
+import { addDeprecationWarning, wrapResponseWithDeprecation } from './utils/deprecationNotice';
 
 // CORS middleware
 function corsMiddleware(req: Request, res: Response, next: Function) {
@@ -156,6 +157,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/technical',
+        newEndpoint: '/api/sol/technical (or /api/{pair}/technical for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/technical, /api/eth/technical, etc. for other trading pairs. Technical indicators support all 65+ trading pairs.'
+      });
+
       // Enhanced input sanitization
       const timeframe = InputSanitizer.sanitizeTimeframe(req.query.timeframe as string);
       const limit = InputSanitizer.sanitizeNumeric(req.query.limit, 1, 1000, 100);
@@ -177,14 +187,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addLog({
         level: 'info',
         message: 'Technical indicators analysis request completed',
-        details: `GET /api/sol/technical - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+        details: `GET /api/sol/technical - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit} - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: technicalAnalysis,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/technical',
+        newEndpoint: '/api/sol/technical (or /api/{pair}/technical for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/technical, /api/eth/technical, etc. for other trading pairs. Technical indicators support all 65+ trading pairs.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -209,6 +228,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/multi-exchange-orderbook',
+        newEndpoint: '/api/{pair}/multi-exchange-orderbook (planned)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Multi-exchange orderbook aggregation will be available for all trading pairs. Use newer unified endpoints for multi-pair support.'
+      });
+
       const { multiExchangeService } = await import('./services/multiExchange.js');
       // Enhanced input sanitization
       const symbol = InputSanitizer.sanitizeSymbol(req.query.symbol as string) || 'SOL-USDT';
@@ -223,15 +251,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addLog({
         level: 'info',
         message: 'Multi-exchange orderbook aggregation completed',
-        details: `GET /api/sol/multi-exchange-orderbook - ${responseTime}ms - 200 OK - Symbol: ${symbol}, Exchanges: ${result.stats.activeExchanges.join(', ')}, Depth: ${result.stats.totalLevels}`,
+        details: `GET /api/sol/multi-exchange-orderbook - ${responseTime}ms - 200 OK - Symbol: ${symbol}, Exchanges: ${result.stats.activeExchanges.join(', ')}, Depth: ${result.stats.totalLevels} - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: result.data,
         stats: result.stats,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/multi-exchange-orderbook',
+        newEndpoint: '/api/{pair}/multi-exchange-orderbook (planned)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Multi-exchange orderbook aggregation will be available for all trading pairs. Use newer unified endpoints for multi-pair support.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -256,6 +293,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/multi-exchange-stats',
+        newEndpoint: '/api/{pair}/multi-exchange-stats (planned)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Multi-exchange statistics will be available for all trading pairs. Use newer unified endpoints for multi-pair support.'
+      });
+
       const { multiExchangeService } = await import('./services/multiExchange.js');
       const stats = await multiExchangeService.getMultiExchangeStats();
       const responseTime = Date.now() - startTime;
@@ -263,14 +309,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addLog({
         level: 'info',
         message: 'Multi-exchange statistics retrieved',
-        details: `GET /api/sol/multi-exchange-stats - ${responseTime}ms - 200 OK`,
+        details: `GET /api/sol/multi-exchange-stats - ${responseTime}ms - 200 OK - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: stats,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/multi-exchange-stats',
+        newEndpoint: '/api/{pair}/multi-exchange-stats (planned)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Multi-exchange statistics will be available for all trading pairs. Use newer unified endpoints for multi-pair support.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -381,6 +436,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/fibonacci',
+        newEndpoint: '/api/sol/fibonacci (or /api/{pair}/fibonacci for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/fibonacci, /api/eth/fibonacci, etc. for other trading pairs. Fibonacci analysis supports all 65+ trading pairs.'
+      });
+
       // Enhanced input sanitization
       const timeframe = InputSanitizer.sanitizeTimeframe(req.query.timeframe as string);
       const limit = InputSanitizer.sanitizeNumeric(req.query.limit, 1, 1000, 100);
@@ -402,14 +466,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addLog({
         level: 'info',
         message: 'Fibonacci analysis request completed',
-        details: `GET /api/sol/fibonacci - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+        details: `GET /api/sol/fibonacci - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit} - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: fibonacciAnalysis,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/fibonacci',
+        newEndpoint: '/api/sol/fibonacci (or /api/{pair}/fibonacci for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/fibonacci, /api/eth/fibonacci, etc. for other trading pairs. Fibonacci analysis supports all 65+ trading pairs.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -434,6 +507,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/order-flow',
+        newEndpoint: '/api/sol/order-flow (or /api/{pair}/order-flow for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/order-flow, /api/eth/order-flow, etc. for other trading pairs. Order flow analysis supports all 65+ trading pairs.'
+      });
+
       // Enhanced input sanitization
       const timeframe = InputSanitizer.sanitizeTimeframe(req.query.timeframe as string);
       const tradeLimit = InputSanitizer.sanitizeNumeric(req.query.tradeLimit, 1, 1000, 200);
@@ -458,14 +540,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addLog({
         level: 'info',
         message: 'Order flow analysis request completed',
-        details: `GET /api/sol/order-flow - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Trades: ${tradeLimit}`,
+        details: `GET /api/sol/order-flow - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Trades: ${tradeLimit} - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: orderFlowAnalysis,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/order-flow',
+        newEndpoint: '/api/sol/order-flow (or /api/{pair}/order-flow for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/order-flow, /api/eth/order-flow, etc. for other trading pairs. Order flow analysis supports all 65+ trading pairs.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -962,6 +1053,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/liquidation',
+        newEndpoint: '/api/{pair}/liquidation (planned)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Liquidation analysis will be available for all trading pairs. Consider using the liquidation heat map for market-wide risk analysis.'
+      });
+
       const timeframe = (req.query.timeframe as string) || '1H';
       
       // Get required data for liquidation analysis
@@ -995,14 +1095,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addLog({
         level: 'info',
         message: 'Liquidation analysis request completed',
-        details: `GET /api/sol/liquidation - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}`,
+        details: `GET /api/sol/liquidation - ${responseTime}ms - 200 OK - Timeframe: ${timeframe} - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: liquidationAnalysis,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/liquidation',
+        newEndpoint: '/api/{pair}/liquidation (planned)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Liquidation analysis will be available for all trading pairs. Consider using the liquidation heat map for market-wide risk analysis.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -1027,6 +1136,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/liquidation-heatmap',
+        newEndpoint: '/api/{pair}/liquidation-heatmap (planned)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Liquidation heat map analysis will be available for all trading pairs. This provides market-wide risk analysis across multiple assets.'
+      });
+
       // Get required market data
       const [currentTicker, openInterest, fundingRate] = await Promise.all([
         okxService.getTicker(),
@@ -1059,14 +1177,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addLog({
         level: 'info',
         message: 'Liquidation heat map analysis completed',
-        details: `GET /api/sol/liquidation-heatmap - ${responseTime}ms - 200 OK - Price: $${currentPrice}, Risk Score: ${heatMapAnalysis.overallRiskScore}`,
+        details: `GET /api/sol/liquidation-heatmap - ${responseTime}ms - 200 OK - Price: $${currentPrice}, Risk Score: ${heatMapAnalysis.overallRiskScore} - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: heatMapAnalysis,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/liquidation-heatmap',
+        newEndpoint: '/api/{pair}/liquidation-heatmap (planned)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Liquidation heat map analysis will be available for all trading pairs. This provides market-wide risk analysis across multiple assets.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -1239,6 +1366,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/liquidation-price',
+        newEndpoint: '/api/{pair}/liquidation-price (planned)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Liquidation price calculator will be available for all trading pairs. Use the newer unified position calculator for multi-pair support.'
+      });
+
       const entryPrice = parseFloat(req.query.entryPrice as string);
       const leverage = parseFloat(req.query.leverage as string);
       const side = req.query.side as 'long' | 'short';
@@ -1270,10 +1406,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addLog({
         level: 'info',
         message: 'Liquidation price calculation completed',
-        details: `GET /api/sol/liquidation-price - ${responseTime}ms - 200 OK - Entry: ${entryPrice}, Leverage: ${leverage}x ${side}`,
+        details: `GET /api/sol/liquidation-price - ${responseTime}ms - 200 OK - Entry: ${entryPrice}, Leverage: ${leverage}x ${side} - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: {
           entryPrice,
@@ -1286,7 +1423,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ((liquidationPrice - entryPrice) / entryPrice) * 100
         },
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/liquidation-price',
+        newEndpoint: '/api/{pair}/liquidation-price (planned)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Liquidation price calculator will be available for all trading pairs. Use the newer unified position calculator for multi-pair support.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;

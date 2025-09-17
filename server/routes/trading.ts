@@ -23,6 +23,7 @@ import {
 } from '../../shared/schema.js';
 import { validateAndFormatPair, getSupportedPairs } from '../utils/pairValidator.js';
 import { calculateTimeToNextCandleClose, getTimeToCloseDescription } from '../utils/timeCalculator.js';
+import { addDeprecationWarning, wrapResponseWithDeprecation } from '../utils/deprecationNotice.js';
 
 /**
  * Get real historical volume data from OKX API for 24h comparison
@@ -164,6 +165,15 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/complete',
+        newEndpoint: '/api/sol/complete (or /api/{pair}/complete for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/complete, /api/eth/complete, etc. for other trading pairs'
+      });
+
       const solData = await okxService.getCompleteSOLData();
       const responseTime = Date.now() - startTime;
       
@@ -177,14 +187,15 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'API request completed successfully',
-        details: `GET /api/sol/complete - ${responseTime}ms - 200 OK`,
+        details: `GET /api/sol/complete - ${responseTime}ms - 200 OK - DEPRECATED`,
       });
       
       // Add accurate timing information for SOL
       const currentCandle = validated.candles['1H'][validated.candles['1H'].length - 1];
       const timingInfo = calculateTimeToNextCandleClose('1H', currentCandle?.timestamp);
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: {
           ...validated,
@@ -198,7 +209,15 @@ export function registerTradingRoutes(app: Express): void {
           }
         },
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/complete',
+        newEndpoint: '/api/sol/complete (or /api/{pair}/complete for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/complete, /api/eth/complete, etc. for other trading pairs'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -333,6 +352,15 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/funding',
+        newEndpoint: '/api/sol/funding (or /api/{pair}/funding for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/funding, /api/eth/funding, etc. for other trading pairs'
+      });
+
       const fundingData = await okxService.getFundingRate('SOL-USDT-SWAP');
       const responseTime = Date.now() - startTime;
       
@@ -346,14 +374,23 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'Funding rate request completed',
-        details: `GET /api/sol/funding - ${responseTime}ms - 200 OK`,
+        details: `GET /api/sol/funding - ${responseTime}ms - 200 OK - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: validated,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/funding',
+        newEndpoint: '/api/sol/funding (or /api/{pair}/funding for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/funding, /api/eth/funding, etc. for other trading pairs'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -436,6 +473,15 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/oi/enhanced',
+        newEndpoint: '/api/sol/oi/enhanced (or /api/{pair}/oi/enhanced for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/oi/enhanced, /api/eth/oi/enhanced, etc. for other trading pairs'
+      });
+
       const { enhancedOpenInterestService } = await import('../services/enhancedOpenInterest');
       const enhancedData = await enhancedOpenInterestService.getEnhancedOpenInterest('SOL-USDT-SWAP');
       const responseTime = Date.now() - startTime;
@@ -445,14 +491,23 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'Enhanced open interest request completed',
-        details: `GET /api/sol/oi/enhanced - ${responseTime}ms - 200 OK`,
+        details: `GET /api/sol/oi/enhanced - ${responseTime}ms - 200 OK - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: enhancedData,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/oi/enhanced',
+        newEndpoint: '/api/sol/oi/enhanced (or /api/{pair}/oi/enhanced for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/oi/enhanced, /api/eth/oi/enhanced, etc. for other trading pairs'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -536,6 +591,15 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/oi/history',
+        newEndpoint: '/api/sol/oi/history (or /api/{pair}/oi/history for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/oi/history, /api/eth/oi/history, etc. for other trading pairs'
+      });
+
       const timeframe = (req.query.timeframe as '24h' | '7d' | '30d') || '24h';
       const { enhancedOpenInterestService } = await import('../services/enhancedOpenInterest');
       const historicalData = await enhancedOpenInterestService.getHistoricalOpenInterest('SOL-USDT-SWAP', timeframe);
@@ -546,14 +610,23 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'Open interest history request completed',
-        details: `GET /api/sol/oi/history?timeframe=${timeframe} - ${responseTime}ms - 200 OK`,
+        details: `GET /api/sol/oi/history?timeframe=${timeframe} - ${responseTime}ms - 200 OK - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: historicalData,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/oi/history',
+        newEndpoint: '/api/sol/oi/history (or /api/{pair}/oi/history for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/oi/history, /api/eth/oi/history, etc. for other trading pairs'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -1027,6 +1100,15 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/volume-history',
+        newEndpoint: '/api/sol/volume-history (or /api/{pair}/volume-history for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/volume-history, /api/eth/volume-history, etc. for other trading pairs'
+      });
+
       // Get current and historical volume data for 24h comparison
       const { okxService } = await import('../services/okx');
       const completeData = await okxService.getCompleteData('SOL-USDT-SWAP');
@@ -1046,10 +1128,11 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'Volume history request completed',
-        details: `GET /api/sol/volume-history - ${responseTime}ms - 200 OK`,
+        details: `GET /api/sol/volume-history - ${responseTime}ms - 200 OK - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: {
           volume24hAgo,
@@ -1057,7 +1140,15 @@ export function registerTradingRoutes(app: Express): void {
           volumeChangePercentage
         },
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/volume-history',
+        newEndpoint: '/api/sol/volume-history (or /api/{pair}/volume-history for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/volume-history, /api/eth/volume-history, etc. for other trading pairs'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -1147,6 +1238,15 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/volume-profile',
+        newEndpoint: '/api/sol/volume-profile (or /api/{pair}/volume-profile for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/volume-profile, /api/eth/volume-profile, etc. for other trading pairs'
+      });
+
       const timeframe = (req.query.timeframe as string) || '1H';
       
       // Get required data for volume profile analysis
@@ -1163,14 +1263,23 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'Volume profile request completed',
-        details: `GET /api/sol/volume-profile - ${responseTime}ms - 200 OK`,
+        details: `GET /api/sol/volume-profile - ${responseTime}ms - 200 OK - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: validated,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/volume-profile',
+        newEndpoint: '/api/sol/volume-profile (or /api/{pair}/volume-profile for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/volume-profile, /api/eth/volume-profile, etc. for other trading pairs'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -1254,6 +1363,15 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/smc',
+        newEndpoint: '/api/sol/smc (or /api/{pair}/smc for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/smc, /api/eth/smc, etc. for other trading pairs. SMC analysis supports all 65+ trading pairs.'
+      });
+
       const timeframe = req.query.timeframe as string || '1H';
       const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
       const smcAnalysis = await okxService.getSMCAnalysis('SOL-USDT-SWAP', timeframe, limit);
@@ -1269,14 +1387,23 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'SMC analysis request completed',
-        details: `GET /api/sol/smc - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+        details: `GET /api/sol/smc - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit} - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: validated,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/smc',
+        newEndpoint: '/api/sol/smc (or /api/{pair}/smc for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/smc, /api/eth/smc, etc. for other trading pairs. SMC analysis supports all 65+ trading pairs.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -1368,6 +1495,15 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/cvd',
+        newEndpoint: '/api/sol/cvd (or /api/{pair}/cvd for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/cvd, /api/eth/cvd, etc. for other trading pairs. CVD analysis supports all 65+ trading pairs.'
+      });
+
       const timeframe = req.query.timeframe as string || '1H';
       const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
       
@@ -1391,14 +1527,23 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'CVD analysis request completed',
-        details: `GET /api/sol/cvd - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+        details: `GET /api/sol/cvd - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit} - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: cvdAnalysis,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/cvd',
+        newEndpoint: '/api/sol/cvd (or /api/{pair}/cvd for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/cvd, /api/eth/cvd, etc. for other trading pairs. CVD analysis supports all 65+ trading pairs.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -1531,6 +1676,15 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/confluence',
+        newEndpoint: '/api/sol/confluence (or /api/{pair}/confluence for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/confluence, /api/eth/confluence, etc. for other trading pairs. Confluence analysis supports all 65+ trading pairs.'
+      });
+
       const timeframe = req.query.timeframe as string || '1H';
       const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
       
@@ -1589,14 +1743,23 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'Confluence analysis request completed',
-        details: `GET /api/sol/confluence - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+        details: `GET /api/sol/confluence - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit} - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: analysisData,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/confluence',
+        newEndpoint: '/api/sol/confluence (or /api/{pair}/confluence for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/confluence, /api/eth/confluence, etc. for other trading pairs. Confluence analysis supports all 65+ trading pairs.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -1685,6 +1848,15 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/technical',
+        newEndpoint: '/api/sol/technical (or /api/{pair}/technical for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/technical, /api/eth/technical, etc. for other trading pairs. Technical analysis supports all 65+ trading pairs.'
+      });
+
       const timeframe = req.query.timeframe as string || '1H';
       const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
       
@@ -1705,14 +1877,23 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'Technical analysis request completed',
-        details: `GET /api/sol/technical - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+        details: `GET /api/sol/technical - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit} - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: technicalAnalysis,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/technical',
+        newEndpoint: '/api/sol/technical (or /api/{pair}/technical for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/technical, /api/eth/technical, etc. for other trading pairs. Technical analysis supports all 65+ trading pairs.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -1806,6 +1987,15 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/fibonacci',
+        newEndpoint: '/api/sol/fibonacci (or /api/{pair}/fibonacci for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/fibonacci, /api/eth/fibonacci, etc. for other trading pairs. Fibonacci analysis supports all 65+ trading pairs.'
+      });
+
       const timeframe = req.query.timeframe as string || '1H';
       const limit = Math.max(1, Math.min(1000, parseInt(req.query.limit as string) || 100));
       
@@ -1826,14 +2016,23 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'Fibonacci analysis request completed',
-        details: `GET /api/sol/fibonacci - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit}`,
+        details: `GET /api/sol/fibonacci - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, Limit: ${limit} - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: fibonacciAnalysis,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/fibonacci',
+        newEndpoint: '/api/sol/fibonacci (or /api/{pair}/fibonacci for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/fibonacci, /api/eth/fibonacci, etc. for other trading pairs. Fibonacci analysis supports all 65+ trading pairs.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -1931,6 +2130,15 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/order-flow',
+        newEndpoint: '/api/sol/order-flow (or /api/{pair}/order-flow for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/order-flow, /api/eth/order-flow, etc. for other trading pairs. Order flow analysis supports all 65+ trading pairs.'
+      });
+
       const timeframe = req.query.timeframe as string || '1H';
       const tradeLimit = Math.max(1, Math.min(1000, parseInt(req.query.tradeLimit as string) || parseInt(req.query.limit as string) || 200));
       
@@ -1955,14 +2163,23 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'Order flow analysis request completed',
-        details: `GET /api/sol/order-flow - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, TradeLimit: ${tradeLimit}`,
+        details: `GET /api/sol/order-flow - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}, TradeLimit: ${tradeLimit} - DEPRECATED`,
       });
       
-      res.json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: orderFlowAnalysis,
         timestamp: new Date().toISOString(),
+      }, {
+        legacyEndpoint: '/api/sol/order-flow',
+        newEndpoint: '/api/sol/order-flow (or /api/{pair}/order-flow for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/order-flow, /api/eth/order-flow, etc. for other trading pairs. Order flow analysis supports all 65+ trading pairs.'
       });
+
+      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -2049,6 +2266,15 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/trading-signals',
+        newEndpoint: '/api/sol/trading-signals (or /api/{pair}/trading-signals for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/trading-signals, /api/eth/trading-signals, etc. for other trading pairs. Trading signals support all 65+ trading pairs.'
+      });
+
       const timeframe = req.query.timeframe as string || '15m';
       
       const signalsData = await tradingSignalsService.generateLiveSignals(timeframe);
@@ -2061,15 +2287,24 @@ export function registerTradingRoutes(app: Express): void {
       await storage.addLog({
         level: 'info',
         message: 'Trading signals generated successfully',
-        details: `GET /api/sol/trading-signals - ${responseTime}ms - ${signalsData.primary.signal} signal`,
+        details: `GET /api/sol/trading-signals - ${responseTime}ms - ${signalsData.primary.signal} signal - DEPRECATED`,
       });
       
-      res.status(200).json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: signalsData,
         timestamp: new Date().toISOString(),
         responseTime
+      }, {
+        legacyEndpoint: '/api/sol/trading-signals',
+        newEndpoint: '/api/sol/trading-signals (or /api/{pair}/trading-signals for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/trading-signals, /api/eth/trading-signals, etc. for other trading pairs. Trading signals support all 65+ trading pairs.'
       });
+
+      res.status(200).json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -2156,15 +2391,33 @@ export function registerTradingRoutes(app: Express): void {
     const startTime = Date.now();
     
     try {
+      // Add deprecation warning
+      addDeprecationWarning(req, res, {
+        legacyEndpoint: '/api/sol/signal-history',
+        newEndpoint: '/api/sol/signal-history (or /api/{pair}/signal-history for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/signal-history, /api/eth/signal-history, etc. for other trading pairs. Signal history supports all 65+ trading pairs.'
+      });
+
       const history = tradingSignalsService.getSignalHistory();
       const responseTime = Date.now() - startTime;
       
-      res.status(200).json({
+      // Wrap response with deprecation notice
+      const responseData = wrapResponseWithDeprecation({
         success: true,
         data: history,
         timestamp: new Date().toISOString(),
         responseTime
+      }, {
+        legacyEndpoint: '/api/sol/signal-history',
+        newEndpoint: '/api/sol/signal-history (or /api/{pair}/signal-history for other coins)',
+        deprecatedSince: '2024-01-01',
+        removalDate: '2024-06-01',
+        migrationGuide: 'Use /api/btc/signal-history, /api/eth/signal-history, etc. for other trading pairs. Signal history supports all 65+ trading pairs.'
       });
+
+      res.status(200).json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
