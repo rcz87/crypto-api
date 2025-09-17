@@ -214,38 +214,7 @@ setInterval(() => {
 
 log(`🚀 CoinGlass Python proxy configured: /coinglass/* → ${PY_BASE} (with guard rails)`);
 
-// 🎯 CRITICAL FIX: GPTs Gateway proxy with prefix stripping
-// Scheduler calls /gpts/institutional/bias but Python serves /institutional/bias
-app.use("/gpts", createProxyMiddleware({
-  target: PY_BASE,
-  changeOrigin: true,
-  pathRewrite: { "^/gpts": "" },    // /gpts/institutional/bias -> /institutional/bias
-  proxyTimeout: 15000,
-  onProxyReq: (proxyReq: any, req: IncomingMessage, res: ServerResponse) => {
-    (req as any).startTime = Date.now();
-    log(`[GPTs Gateway] Proxying: ${req.url} → ${PY_BASE}${req.url?.replace('/gpts', '')}`);
-  },
-  onError: (err: Error, req: IncomingMessage, res: ServerResponse) => {
-    const duration = (req as any).startTime ? Date.now() - (req as any).startTime : 0;
-    log(`[GPTs Gateway Error] ${req.url} failed: ${err.message} (${duration}ms)`);
-    
-    if (!res.headersSent) {
-      res.statusCode = 502;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ 
-        error: "GPTs Gateway service unavailable", 
-        details: err.message,
-        url: req.url
-      }));
-    }
-  },
-  onProxyRes: (proxyRes: IncomingMessage, req: IncomingMessage, res: ServerResponse) => {
-    const duration = (req as any).startTime ? Date.now() - (req as any).startTime : 0;
-    log(`[GPTs Gateway] ${req.url} → ${proxyRes.statusCode} (${duration}ms)`);
-  }
-} as Options));
-
-log(`🤖 GPTs Gateway routes registered: /gpts/unified/* → ${PY_BASE}`);
+// Note: GPT proxy middleware moved to after registerRoutes() to ensure Node.js routes get priority
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -433,6 +402,39 @@ app.use((req, res, next) => {
   }
 
   const server = await registerRoutes(app);
+
+  // 🎯 GPTs Gateway proxy middleware (AFTER Node.js routes to ensure Node.js gets priority)
+  // This handles /gpts/* routes that weren't handled by Node.js (like /gpts/institutional/bias)
+  app.use("/gpts", createProxyMiddleware({
+    target: PY_BASE,
+    changeOrigin: true,
+    pathRewrite: { "^/gpts": "" },    // /gpts/institutional/bias -> /institutional/bias
+    proxyTimeout: 15000,
+    onProxyReq: (proxyReq: any, req: IncomingMessage, res: ServerResponse) => {
+      (req as any).startTime = Date.now();
+      log(`[GPTs Gateway] Proxying fallback route: ${req.url} → ${PY_BASE}${req.url?.replace('/gpts', '')}`);
+    },
+    onError: (err: Error, req: IncomingMessage, res: ServerResponse) => {
+      const duration = (req as any).startTime ? Date.now() - (req as any).startTime : 0;
+      log(`[GPTs Gateway Error] ${req.url} failed: ${err.message} (${duration}ms)`);
+      
+      if (!res.headersSent) {
+        res.statusCode = 502;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ 
+          error: "GPTs Gateway service unavailable", 
+          details: err.message,
+          url: req.url
+        }));
+      }
+    },
+    onProxyRes: (proxyRes: IncomingMessage, req: IncomingMessage, res: ServerResponse) => {
+      const duration = (req as any).startTime ? Date.now() - (req as any).startTime : 0;
+      log(`[GPTs Gateway] ${req.url} → ${proxyRes.statusCode} (${duration}ms)`);
+    }
+  } as Options));
+
+  log(`🤖 GPTs Gateway fallback proxy configured: Node.js routes first, then → ${PY_BASE}`);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
