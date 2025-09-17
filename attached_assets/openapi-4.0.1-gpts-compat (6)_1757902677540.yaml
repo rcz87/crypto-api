@@ -165,6 +165,7 @@ paths:
       responses:
         '200':
           description: CVD analysis with divergence patterns
+
           headers:
             RateLimit-Limit: { schema: { type: integer } }
             RateLimit-Remaining: { schema: { type: integer } }
