@@ -1,0 +1,80 @@
+Pertanyaan bagus 🚀
+
+Kalau kita mau bikin **multi-coin screening (BTC, ETH, SOL)** dengan hasil **BUY/SELL/HOLD**, biasanya screening engine menggunakan **beberapa filter utama** supaya sinyal tidak asal keluar.
+
+---
+
+### 📌 Filter Screening Utama
+
+1. **Trend & Market Structure**
+
+   * Apakah harga sedang dalam **uptrend, downtrend, atau ranging** (dari SMC/BOS/CHOCH).
+   * Menggunakan `getSmartMoneyConcepts`.
+
+2. **Momentum & Volume**
+
+   * Divergensi antara harga vs CVD (accumulation/distribution).
+   * Apakah ada **whale inflow/outflow** signifikan.
+   * Dari `getCVDAnalysis`.
+
+3. **Overbought/Oversold (RSI / EMA)**
+
+   * RSI > 70 → SELL bias
+   * RSI < 30 → BUY bias
+   * EMA crossover → bullish/bearish filter.
+   * Dari `getTechnicalIndicators`.
+
+4. **Funding Rate**
+
+   * Funding positif tinggi → pasar cenderung **overlonged** (SELL bias).
+   * Funding negatif dalam → pasar **overshorted** (BUY bias).
+   * Dari `getFundingRates`.
+
+5. **Open Interest (OI)**
+
+   * OI naik + harga naik → valid uptrend.
+   * OI naik + harga turun → tekanan short → SELL bias.
+   * Dari `getOpenInterest`.
+
+6. **AI Signal / Neural Network Confluence**
+
+   * AI memberikan arah **long/short/neutral** dengan confidence score.
+   * Dari `getEnhancedAISignal`.
+
+---
+
+### 📊 Contoh Payload Multi-Coin Screening (BTC, ETH, SOL)
+
+```json
+{
+  "symbols": ["BTC", "ETH", "SOL"],
+  "timeframe": "15m",
+  "filters": {
+    "rsi": { "min": 30, "max": 70 },
+    "ema_crossover": true,
+    "cvd_trend": ["accumulation", "distribution"],
+    "funding_bias": true,
+    "open_interest": true,
+    "ai_signal": true
+  }
+}
+```
+
+📌 Output dari screener nanti →
+
+```json
+{
+  "BTC": { "signal": "BUY", "confidence": 82 },
+  "ETH": { "signal": "HOLD", "confidence": 64 },
+  "SOL": { "signal": "SELL", "confidence": 78 }
+}
+```
+
+---
+
+🔥 Jadi screening **BUY/SELL/HOLD** keluar dari **konfluensi minimal 3–4 filter searah**.
+Misalnya: RSI oversold + CVD accumulation + Funding negatif → **BUY**.
+
+---
+
+Mau saya buatkan **template scoring (0–100%)** biar bisa lihat confluence tiap filter (misalnya BTC: BUY 82% karena 5/6 filter searah)?

@@ -5,6 +5,7 @@ import { premiumOrderbookService } from '../services/premiumOrderbook.js';
 import { CVDService } from '../services/cvd.js';
 import { ConfluenceService } from '../services/confluence.js';
 import { TechnicalIndicatorsService } from '../services/technicalIndicators.js';
+import { EightLayerConfluenceService } from '../services/eightLayerConfluence.js';
 import { FibonacciService } from '../services/fibonacci.js';
 import { OrderFlowService } from '../services/orderFlow.js';
 import { LiquidationService } from '../services/liquidation.js';
@@ -19,11 +20,131 @@ import {
   smcAnalysisSchema,
   enhancedOpenInterestSchema,
   historicalOpenInterestDataSchema,
-  volumeHistorySchema
+  volumeHistorySchema,
+  confluenceScreeningRequestSchema,
+  confluenceScreeningResponseSchema
 } from '../../shared/schema.js';
 import { validateAndFormatPair, getSupportedPairs } from '../utils/pairValidator.js';
 import { calculateTimeToNextCandleClose, getTimeToCloseDescription } from '../utils/timeCalculator.js';
 import { addDeprecationWarning, wrapResponseWithDeprecation } from '../utils/deprecationNotice.js';
+import { EventEmitter } from 'events';
+
+// Increase EventEmitter maxListeners to prevent memory leak warnings
+EventEmitter.defaultMaxListeners = 15;
+
+/**
+ * Shared confluence screening logic for both GET and POST endpoints
+ * Extracts common logic to prevent recursion and improve maintainability
+ */
+async function performConfluenceScreening(requestData: any): Promise<any> {
+  const startTime = Date.now();
+  
+  try {
+    // Initialize service dependencies
+    const smcService = new (await import('../services/smc.js')).SMCService(okxService);
+    const cvdService = new CVDService(okxService);
+    const technicalService = new TechnicalIndicatorsService();
+    const confluenceService = new ConfluenceService();
+    
+    // Initialize the 8-layer confluence service
+    const eightLayerService = new EightLayerConfluenceService(
+      smcService,
+      cvdService,
+      technicalService,
+      confluenceService
+    );
+
+    // Perform multi-symbol confluence screening
+    const screeningResult = await eightLayerService.screenMultipleSymbols(requestData);
+    
+    // Transform to match user-requested output format
+    const formattedResults: Record<string, any> = {};
+    
+    Object.entries(screeningResult.results).forEach(([symbol, analysis]) => {
+      // Clean symbol for output (remove -USDT-SWAP suffix if present)
+      const cleanSymbol = symbol.replace('-USDT-SWAP', '').toUpperCase();
+      
+      formattedResults[cleanSymbol] = {
+        signal: (analysis as any).signal,
+        score: Math.round((analysis as any).overall_score),
+        layers_passed: (analysis as any).layers_passed,
+        confluence: (analysis as any).confluence,
+        risk_level: (analysis as any).risk_level,
+        recommendation: (analysis as any).recommendation,
+        timeframe: (analysis as any).timeframe,
+        details: requestData.include_details ? {
+          layers: (analysis as any).layers,
+          timestamp: (analysis as any).timestamp
+        } : undefined
+      };
+    });
+
+    // Calculate processing metrics
+    const processingTime = Date.now() - startTime;
+    
+    // Enhanced summary statistics
+    const summary = {
+      ...screeningResult.summary,
+      processing_time_ms: processingTime,
+      average_score: Object.values(screeningResult.results)
+        .reduce((sum, r) => sum + (r as any).overall_score, 0) / Object.values(screeningResult.results).length,
+      symbols_analyzed: requestData.symbols,
+      timeframe_used: requestData.timeframe,
+      analysis_timestamp: new Date().toISOString()
+    };
+
+    // Update system metrics
+    await storage.updateMetrics(processingTime);
+    
+    // Log successful request
+    await storage.addLog({
+      level: 'info',
+      message: '8-Layer Confluence Screening completed successfully',
+      details: `Confluence screening - ${requestData.symbols.length} symbols - ${processingTime}ms - 200 OK`
+    });
+
+    return {
+      success: true,
+      results: formattedResults,
+      summary,
+      metadata: {
+        processing_time_ms: processingTime,
+        timestamp: new Date().toISOString(),
+        timeframe: requestData.timeframe,
+        api_version: '2.0',
+        symbols_requested: requestData.symbols.length,
+        include_details: requestData.include_details
+      }
+    };
+    
+  } catch (error) {
+    const processingTime = Date.now() - startTime;
+    
+    // Safe error logging - avoid circular reference issues
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorName = error instanceof Error ? error.name : 'Error';
+    
+    console.error(`[ConfluenceScreening] ${errorName}: ${errorMessage}`);
+    
+    // Log error with details
+    await storage.addLog({
+      level: 'error',
+      message: '8-Layer Confluence Screening failed',
+      details: `Confluence screening - ${processingTime}ms - ${errorMessage}`
+    });
+
+    // Return error object instead of throwing
+    return {
+      success: false,
+      error: 'Internal server error during confluence analysis',
+      message: 'The 8-layer confluence screening system encountered an error. Please try again.',
+      processing_time_ms: processingTime,
+      timestamp: new Date().toISOString(),
+      errorType: errorName,
+      errorDetails: errorMessage
+    };
+  }
+}
 
 /**
  * Get real historical volume data from OKX API for 24h comparison
@@ -83,6 +204,136 @@ export function registerTradingRoutes(app: Express): void {
       });
     }
   });
+
+  // ===============================
+  // 8-LAYER CONFLUENCE SCREENING ENDPOINT  
+  // ===============================
+  
+  /**
+   * Advanced 8-Layer Confluence Screening for Multi-Coin Analysis
+   * POST /api/screening/confluence
+   * 
+   * Analyzes up to 20 cryptocurrencies using sophisticated 8-layer confluence scoring:
+   * - SMC (20%), CVD (15%), Momentum (15%), Market Structure (10%)
+   * - Open Interest (15%), Funding Rate (10%), Institutional Flow (10%), Fibonacci (5%)
+   * 
+   * Returns 0-100% scoring with signal categories:
+   * - >75%: Strong BUY/SELL
+   * - 50-74%: Weak Bias  
+   * - <50%: HOLD
+   */
+  app.post('/api/screening/confluence', async (req: Request, res: Response) => {
+    try {
+      // Parse and validate the request body
+      const requestData = confluenceScreeningRequestSchema.parse(req.body);
+      
+      // Use shared confluence screening logic
+      const result = await performConfluenceScreening(requestData);
+      
+      // Determine response status based on result
+      if (result.success) {
+        res.json(result);
+      } else {
+        // Handle validation errors
+        if (result.errorType === 'ZodError' || result.errorDetails?.includes('validation')) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid request parameters',
+            details: result.errorDetails,
+            examples: {
+              valid_request: {
+                symbols: ['BTC', 'ETH', 'SOL'],
+                timeframe: '15m',
+                include_details: false
+              }
+            },
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        res.status(500).json(result);
+      }
+      
+    } catch (error) {
+      // Handle validation errors at the route level
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      console.error('[POST /api/screening/confluence] Validation error:', errorMessage);
+      
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid request parameters',
+        details: errorMessage,
+        examples: {
+          valid_request: {
+            symbols: ['BTC', 'ETH', 'SOL'],
+            timeframe: '15m',
+            include_details: false
+          }
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // GET version for quick screening (default symbols: BTC, ETH, SOL)
+  app.get('/api/screening/confluence', async (req: Request, res: Response) => {
+    try {
+      // Parse query parameters
+      const symbols = (req.query.symbols as string)?.split(',').map(s => s.trim().toUpperCase()) || ['BTC', 'ETH', 'SOL'];
+      const timeframe = (req.query.timeframe as string) || '15m';
+      const includeDetails = req.query.include_details === 'true';
+
+      // Validate symbols count
+      if (symbols.length > 20) {
+        return res.status(400).json({
+          success: false,
+          error: 'Too many symbols requested',
+          message: 'Maximum 20 symbols allowed per request',
+          requested: symbols.length,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Create request object
+      const requestData = confluenceScreeningRequestSchema.parse({
+        symbols,
+        timeframe,
+        include_details: includeDetails
+      });
+
+      // Use shared confluence screening logic (NO MORE RECURSION!)
+      const result = await performConfluenceScreening(requestData);
+      
+      // Send response based on result
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json(result);
+      }
+      
+    } catch (error) {
+      // Safe error logging - avoid circular reference issues
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      console.error('[GET /api/screening/confluence] Parameter error:', errorMessage);
+      
+      res.status(400).json({
+        success: false,
+        error: 'Invalid query parameters',
+        details: errorMessage,
+        examples: {
+          valid_urls: [
+            '/api/screening/confluence',
+            '/api/screening/confluence?symbols=BTC,ETH,SOL&timeframe=1h',
+            '/api/screening/confluence?symbols=BTC&include_details=true'
+          ]
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // Dynamic trading pair complete data endpoint - supports any pair like SOL, BTC, ETH
   app.get('/api/:pair/complete', async (req: Request, res: Response) => {
     const startTime = Date.now();

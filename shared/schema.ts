@@ -1444,6 +1444,98 @@ export type InsertSignalClosure = z.infer<typeof insertSignalClosureSchema>;
 export type InsertWeeklyScorecard = z.infer<typeof insertWeeklyScorecardSchema>;
 
 // ========================
+// 8-LAYER CONFLUENCE SCORING SYSTEM
+// ========================
+
+// Individual layer analysis schema
+export const confluenceLayerSchema = z.object({
+  name: z.string(),
+  score: z.number().min(0).max(100), // 0-100% scoring instead of binary
+  weight: z.number().min(0).max(1), // Layer weight (0-1)
+  signal: z.enum(['BUY', 'SELL', 'HOLD']),
+  confidence: z.number().min(0).max(100),
+  details: z.object({
+    trend: z.enum(['bullish', 'bearish', 'neutral']).optional(),
+    strength: z.enum(['weak', 'moderate', 'strong']).optional(),
+    key_metrics: z.record(z.union([z.string(), z.number()])).optional(),
+    notes: z.string().optional(),
+  }).optional(),
+});
+
+// 8-layer confluence analysis result
+export const confluenceAnalysisSchema = z.object({
+  symbol: z.string(),
+  overall_score: z.number().min(0).max(100),
+  signal: z.enum(['BUY', 'SELL', 'HOLD']),
+  confluence: z.enum(['STRONG', 'WEAK', 'NEUTRAL']),
+  layers_passed: z.array(z.string()),
+  layers: z.object({
+    smc: confluenceLayerSchema, // Smart Money Concepts - 20%
+    cvd: confluenceLayerSchema, // Cumulative Volume Delta - 15%
+    momentum: confluenceLayerSchema, // RSI/EMA/MACD - 15%
+    market_structure: confluenceLayerSchema, // Market Structure - 10%
+    open_interest: confluenceLayerSchema, // Open Interest - 15%
+    funding_rate: confluenceLayerSchema, // Funding Rate - 10%
+    institutional_flow: confluenceLayerSchema, // Institutional Flow - 10%
+    fibonacci: confluenceLayerSchema, // Fibonacci & Key Levels - 5%
+  }),
+  risk_level: z.enum(['low', 'medium', 'high']),
+  recommendation: z.string(),
+  timeframe: z.string(),
+  timestamp: z.string(),
+});
+
+// Multi-coin confluence screening request
+export const confluenceScreeningRequestSchema = z.object({
+  symbols: z.array(z.string()).min(1).max(20).default(['BTC', 'ETH', 'SOL']),
+  timeframe: z.enum(['5m', '15m', '30m', '1h', '4h', '1d']).default('15m'),
+  include_details: z.boolean().default(false), // Whether to include detailed layer analysis
+});
+
+// Multi-coin confluence screening response
+export const confluenceScreeningResponseSchema = z.object({
+  results: z.record(z.string(), confluenceAnalysisSchema), // Symbol -> Analysis mapping
+  summary: z.object({
+    total_analyzed: z.number(),
+    strong_buy: z.number(),
+    strong_sell: z.number(),
+    weak_signals: z.number(),
+    hold_signals: z.number(),
+    top_picks: z.array(z.object({
+      symbol: z.string(),
+      score: z.number(),
+      signal: z.string(),
+      confluence: z.string(),
+    })).max(5),
+  }),
+  metadata: z.object({
+    processing_time_ms: z.number(),
+    timestamp: z.string(),
+    timeframe: z.string(),
+    api_version: z.string().default('2.0'),
+  }),
+});
+
+// Layer weight configuration schema
+export const layerWeightsSchema = z.object({
+  smc: z.number().default(0.20), // Smart Money Concepts - 20%
+  cvd: z.number().default(0.15), // CVD - 15%
+  momentum: z.number().default(0.15), // Momentum indicators - 15%
+  market_structure: z.number().default(0.10), // Market Structure - 10%
+  open_interest: z.number().default(0.15), // Open Interest - 15%
+  funding_rate: z.number().default(0.10), // Funding Rate - 10%
+  institutional_flow: z.number().default(0.10), // Institutional Flow - 10%
+  fibonacci: z.number().default(0.05), // Fibonacci & Key Levels - 5%
+});
+
+// TypeScript types for 8-layer confluence system
+export type ConfluenceLayer = z.infer<typeof confluenceLayerSchema>;
+export type ConfluenceAnalysis = z.infer<typeof confluenceAnalysisSchema>;
+export type ConfluenceScreeningRequest = z.infer<typeof confluenceScreeningRequestSchema>;
+export type ConfluenceScreeningResponse = z.infer<typeof confluenceScreeningResponseSchema>;
+export type LayerWeights = z.infer<typeof layerWeightsSchema>;
+
+// ========================
 // FEEDBACK & LEARNING SYSTEM SCHEMAS
 // ========================
 

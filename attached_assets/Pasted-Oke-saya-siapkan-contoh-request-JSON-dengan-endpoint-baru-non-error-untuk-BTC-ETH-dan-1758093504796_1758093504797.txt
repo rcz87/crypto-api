@@ -1,0 +1,92 @@
+Oke, saya siapkan **contoh request JSON** dengan endpoint **baru (non-error)** untuk **BTC, ETH, dan SOL**. Semua contoh ini sudah disesuaikan agar tidak kena error (tidak pakai Legacy endpoint).
+
+---
+
+### 🔹 1. **Complete Market Analysis**
+
+```json
+{
+  "pair": "BTC"
+}
+```
+
+➡️ Endpoint: `getCompleteAnalysis`
+📌 Ganti `"BTC"` dengan `"ETH"` atau `"SOL"` untuk analisis lengkap tiap coin.
+
+---
+
+### 🔹 2. **Smart Money Concepts (SMC)**
+
+```json
+{
+  "pair": "ETH"
+}
+```
+
+➡️ Endpoint: `getSmartMoneyConcepts`
+📌 Menampilkan **order block, FVG, liquidity sweep, BOS/CHOCH** untuk ETH. Bisa dipakai juga untuk BTC & SOL.
+
+---
+
+### 🔹 3. **Cumulative Volume Delta (CVD)**
+
+```json
+{
+  "pair": "SOL"
+}
+```
+
+➡️ Endpoint: `getCVDAnalysis`
+📌 Menunjukkan **accumulation vs distribution**, whale flow, breakout probability.
+
+---
+
+### 🔹 4. **Funding Rate**
+
+```json
+{
+  "pair": "BTC",
+  "limit": 100
+}
+```
+
+➡️ Endpoint: `getFundingRates`
+📌 Mengambil **data funding rate BTC** terbaru. Bisa diganti `"ETH"` atau `"SOL"`.
+
+---
+
+### 🔹 5. **Open Interest**
+
+```json
+{
+  "pair": "ETH",
+  "limit": 50
+}
+```
+
+➡️ Endpoint: `getOpenInterest`
+📌 Memberikan **open interest ETH**, termasuk perubahan 24 jam. Bisa juga untuk BTC & SOL.
+
+---
+
+### 🔹 6. **Enhanced AI Signal (Trading Setup)**
+
+```json
+{
+  "symbol": "SOL-USDT-SWAP"
+}
+```
+
+➡️ Endpoint: `getEnhancedAISignal`
+📌 Memberikan rekomendasi **long/short/neutral** dengan entry, stop-loss, dan take-profit level.
+
+---
+
+📌 **Tips Implementasi:**
+
+* Kalau mau **multi-coin screening** (BTC, ETH, SOL sekaligus), gunakan `/api/screener/screen` tapi **batch ≤15 coin sekali request** untuk hindari error.
+* Untuk **regime detection**, jalankan per-coin (misalnya `BINANCE_SPOT_BTC_USDT`) agar tidak timeout.
+
+---
+
+Mau saya gabungkan contoh di atas jadi **satu payload multi-coin screening (BTC, ETH, SOL)** yang langsung kasih sinyal **BUY/SELL/HOLD**? Itu akan lebih praktis kalau Anda butuh screening cepat.
