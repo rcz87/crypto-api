@@ -1726,6 +1726,68 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
+  // Multi-pair Open Interest endpoint - supports all 65 coins (BASIC VERSION)
+  app.get('/api/:pair/open-interest', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          supported_format: 'btc, eth, sol, ada, etc.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const tradingSymbol = validation.symbol;
+      const openInterestData = await okxService.getOpenInterest(tradingSymbol);
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const validated = openInterestSchema.parse(openInterestData);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Multi-pair open interest request completed',
+        details: `GET /api/${pair}/open-interest - ${responseTime}ms - 200 OK`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/open-interest:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Multi-pair open interest request failed',
+        details: `GET /api/${pair}/open-interest - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // Multi-pair Volume History endpoint - supports all 65 coins
   app.get('/api/:pair/volume-history', async (req: Request, res: Response) => {
     const startTime = Date.now();
