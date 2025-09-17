@@ -10,6 +10,7 @@ import { registerSeoRoutes } from "./routes/seo";
 import { registerSystemRoutes } from "./routes/system";
 import { registerTradingRoutes } from "./routes/trading";
 import { registerGhostRoutes } from "./routes/ghost";
+import { registerGptsRoutes } from "./routes/gpts";
 import { screenerRouter } from "./modules/screener/screener.routes.js";
 import { CVDService } from "./services/cvd";
 import { ConfluenceService } from "./services/confluence";
@@ -76,6 +77,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Ghost order management routes (paper trading system)
   registerGhostRoutes(app);
+  
+  // GPT Actions gateway routes (unified endpoints)
+  registerGptsRoutes(app);
 
   // Note: Enhanced rate limiting is now applied globally in server/index.ts
   

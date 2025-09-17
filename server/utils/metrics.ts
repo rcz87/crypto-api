@@ -279,7 +279,7 @@ class MetricsCollector {
     const now = Date.now();
     const metrics = this.getMetrics();
     
-    // Health checks
+    // Critical service checks
     const restHealthy = this.metrics.okx.restStatus === 'up' && 
                        (now - this.metrics.okx.lastRestCall) < 30000; // 30s threshold
     
@@ -287,25 +287,93 @@ class MetricsCollector {
                      (now - this.metrics.okx.lastWsMessage) < 60000; // 60s threshold for WS
     
     const memoryHealthy = metrics.memory.used < 500; // 500MB threshold
-    const cacheHealthy = parseFloat(metrics.cache.hitRatio) > 30; // 30% hit ratio threshold (more realistic)
-
-    const overall = restHealthy && wsHealthy && memoryHealthy ? 'ok' : 'degraded';
+    
+    // Non-critical service checks
+    const cacheHealthy = parseFloat(metrics.cache.hitRatio) > 30; // 30% hit ratio threshold
+    const coinglassHealthy = this.metrics.coinglass.healthStatus === 'connected';
+    const coinglassCircuitBreakerOpen = this.metrics.coinglass.circuitBreaker.isOpen;
+    
+    // Service categorization
+    const criticalServices = {
+      okx_rest: restHealthy,
+      okx_ws: wsHealthy,
+      memory: memoryHealthy
+    };
+    
+    const nonCriticalServices = {
+      cache: cacheHealthy,
+      coinglass: coinglassHealthy && !coinglassCircuitBreakerOpen
+    };
+    
+    // Determine overall status
+    const criticalDown = !restHealthy || !wsHealthy || !memoryHealthy;
+    const nonCriticalDegraded = !cacheHealthy || !coinglassHealthy || coinglassCircuitBreakerOpen;
+    
+    let overall: 'ok' | 'degraded' | 'down';
+    if (criticalDown) {
+      overall = 'down';
+    } else if (nonCriticalDegraded) {
+      overall = 'degraded';
+    } else {
+      overall = 'ok';
+    }
 
     return {
       status: overall,
       uptime: metrics.uptime,
       memory: metrics.memory,
+      services: {
+        critical: {
+          okx_rest: {
+            status: restHealthy ? 'up' : 'down',
+            last_call_ms_ago: now - this.metrics.okx.lastRestCall,
+            threshold_ms: 30000
+          },
+          okx_ws: {
+            status: wsHealthy ? 'up' : 'down',
+            last_message_ms_ago: now - this.metrics.okx.lastWsMessage,
+            threshold_ms: 60000
+          },
+          memory: {
+            status: memoryHealthy ? 'ok' : 'high',
+            used_mb: metrics.memory.used,
+            threshold_mb: 500
+          }
+        },
+        non_critical: {
+          cache: {
+            status: cacheHealthy ? 'healthy' : 'degraded',
+            hit_ratio: metrics.cache.hitRatio,
+            threshold_percent: 30
+          },
+          coinglass: {
+            status: coinglassHealthy ? 'connected' : 'degraded',
+            health_status: this.metrics.coinglass.healthStatus,
+            circuit_breaker_open: coinglassCircuitBreakerOpen,
+            error_rate: this.getCoinglassErrorRate(),
+            avg_latency_ms: this.metrics.coinglass.avgLatency
+          }
+        }
+      },
+      // Legacy components format for backward compatibility
       components: {
         okx_rest: restHealthy ? 'up' : 'down',
         okx_ws: wsHealthy ? 'up' : 'down',
         cache: cacheHealthy ? 'healthy' : 'degraded',
-        memory: memoryHealthy ? 'ok' : 'high'
+        memory: memoryHealthy ? 'ok' : 'high',
+        coinglass: coinglassHealthy ? 'connected' : 'degraded'
       },
       cache: {
         size: metrics.cache.size,
         hits: metrics.cache.hits,
         misses: metrics.cache.misses,
         hitRatio: metrics.cache.hitRatio
+      },
+      reasoning: {
+        critical_services_healthy: !criticalDown,
+        non_critical_services_degraded: nonCriticalDegraded,
+        status_explanation: criticalDown ? 'Critical services down' : 
+                           nonCriticalDegraded ? 'Non-critical services degraded' : 'All services healthy'
       },
       timestamp: new Date().toISOString()
     };

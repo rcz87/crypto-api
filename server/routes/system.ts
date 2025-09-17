@@ -13,16 +13,38 @@ import fetch from 'node-fetch';
  * Includes health checks, metrics, and system logs
  */
 export function registerSystemRoutes(app: Express): void {
-  // Simple health check endpoint - critical for monitoring
+  // Enhanced health check endpoint - institutional grade monitoring with proper service categorization
   app.get('/healthz', async (req: Request, res: Response) => {
     try {
       const health = metricsCollector.getHealthStatus();
-      const statusCode = health.status === 'ok' ? 200 : 503;
-      res.status(statusCode).json(health);
+      
+      // Status mapping: ok → 200, degraded → 200, down → 503
+      // Only critical service failures should return 503
+      const statusCode = health.status === 'down' ? 503 : 200;
+      
+      // Enhanced response with proper categorization
+      const response = {
+        status: health.status,
+        message: health.reasoning.status_explanation,
+        uptime: health.uptime,
+        services: {
+          critical: health.services.critical,
+          non_critical: health.services.non_critical
+        },
+        summary: {
+          critical_services_healthy: health.reasoning.critical_services_healthy,
+          non_critical_services_degraded: health.reasoning.non_critical_services_degraded,
+          overall_availability: health.status === 'down' ? 'unavailable' : 'available'
+        },
+        timestamp: health.timestamp
+      };
+      
+      res.status(statusCode).json(response);
     } catch (error) {
       res.status(500).json({
         status: 'error',
         message: 'Health check failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
       });
     }
@@ -228,71 +250,46 @@ export function registerSystemRoutes(app: Express): void {
         }
 
         // Re-fetch updated metrics that include circuit breaker state
-        metrics = metricsCollector.getMetrics();
+        const baseMetrics = metricsCollector.getMetrics();
 
-        // Preserve enhanced coinglass metrics format and add Python service data
-        // DO NOT overwrite the enhanced format - preserve all fields from metrics collector
-        if (metrics.coinglass) {
-          // Add Python service metrics to the existing enhanced format
-          metrics.coinglass.python_service = pythonMetrics ? {
+        // Create enhanced metrics object with proper typing
+        const enhancedCoinglass = {
+          ...baseMetrics.coinglass,
+          // Add Python service metrics as additional property
+          python_service: pythonMetrics ? {
             available: true,
-            response_time_ms: pythonMetrics.response_time_ms || null,
+            response_time_ms: (pythonMetrics as any).response_time_ms || null,
             metrics: pythonMetrics
           } : {
             available: false,
             reason: 'Service unavailable or timeout'
-          };
-          
+          },
           // Add legacy format under separate key for backward compatibility
-          metrics.coinglass.legacy_format = {
-            health: metrics.coinglass.healthStatus,
-            has_key: metrics.coinglass.hasKey,
+          legacy_format: {
+            health: baseMetrics.coinglass.healthStatus,
+            has_key: baseMetrics.coinglass.hasKey,
             requests: {
-              total: metrics.coinglass.requests,
-              errors: metrics.coinglass.errors,
-              error_rate: metrics.coinglass.errorRate
+              total: baseMetrics.coinglass.requests,
+              errors: baseMetrics.coinglass.errors,
+              error_rate: baseMetrics.coinglass.errorRate
             },
             performance: {
-              avg_latency_ms: metrics.coinglass.avgLatency,
-              last_health_check_ms_ago: metrics.coinglass.lastHealthCheckMs
+              avg_latency_ms: baseMetrics.coinglass.avgLatency,
+              last_health_check_ms_ago: baseMetrics.coinglass.lastHealthCheckMs
             },
             circuit_breaker: {
-              failures: metrics.coinglass.circuitBreaker?.failures || 0,
-              is_open: metrics.coinglass.circuitBreaker?.isOpen || false,
-              last_failure: metrics.coinglass.circuitBreaker?.lastFailure || null
+              failures: baseMetrics.coinglass.circuitBreaker?.failures || 0,
+              is_open: baseMetrics.coinglass.circuitBreaker?.isOpen || false,
+              last_failure: baseMetrics.coinglass.circuitBreaker?.lastFailure || null
             }
-          };
-        } else {
-          // Fallback if coinglass metrics not available
-          metrics.coinglass = {
-            // Enhanced format fields
-            requestCount: 0,
-            avgResponseTime: 0,
-            errorRate: 0,
-            lastHealthStatus: 'disconnected',
-            hasApiKey: false,
-            circuitBreaker: { failures: 0, isOpen: false, lastFailure: null },
-            // Backward compatibility fields
-            requests: 0,
-            errors: 0,
-            avgLatency: 0,
-            healthStatus: 'disconnected',
-            hasKey: false,
-            lastHealthCheck: 0,
-            lastHealthCheckMs: -1,
-            errorRatePercent: '0.00%',
-            // Python service data
-            python_service: { available: false, reason: 'Metrics collector not initialized' },
-            // Legacy format
-            legacy_format: {
-              health: 'disconnected',
-              has_key: false,
-              requests: { total: 0, errors: 0, error_rate: 0 },
-              performance: { avg_latency_ms: 0, last_health_check_ms_ago: -1 },
-              circuit_breaker: { failures: 0, is_open: false, last_failure: null }
-            }
-          };
-        }
+          }
+        };
+
+        // Construct final metrics with enhanced coinglass data
+        metrics = {
+          ...baseMetrics,
+          coinglass: enhancedCoinglass
+        };
 
       } catch (error) {
         console.warn('Failed to enhance CoinGlass metrics:', error instanceof Error ? error.message : 'Unknown error');
