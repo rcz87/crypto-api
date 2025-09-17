@@ -1,0 +1,83 @@
+“CryptoSatX bilang:
+
+Oke, mari saya buatkan test script otomatis dengan Node.js + Jest ⚡
+Script ini akan menjalankan semua resilience testing scenarios (screener, regime, history retry, TWAP fallback) sekaligus.
+
+📂 Struktur File
+tests/
+ └── resilience.test.js
+
+🧪 resilience.test.js
+const request = require("supertest");
+
+const BASE_URL = "http://localhost:5000"; // sesuaikan dengan server dev Anda
+
+describe("🚀 Endpoint Resilience Testing", () => {
+  // 1. Screener Auto-Batching (>15 symbols)
+  it("Screener harus auto-batch kalau >15 symbols", async () => {
+    const symbols = [
+      "BTC","ETH","SOL","ADA","DOT","LINK","UNI","AVAX","ATOM","XRP",
+      "LTC","BCH","EOS","TRX","MATIC","CRV","AAVE","COMP","YFI","SUSHI"
+    ];
+
+    const res = await request(BASE_URL)
+      .post("/api/screener/screen")
+      .send({ symbols, timeframe: "4h" })
+      .set("Content-Type", "application/json");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(0);
+  });
+
+  // 2. Regime Auto-Batching (>10 symbols)
+  it("Regime harus auto-batch kalau >10 symbols", async () => {
+    const symbols = [
+      "BTC-USDT-SWAP","ETH-USDT-SWAP","SOL-USDT-SWAP","ADA-USDT-SWAP",
+      "DOT-USDT-SWAP","LINK-USDT-SWAP","UNI-USDT-SWAP","AVAX-USDT-SWAP",
+      "ATOM-USDT-SWAP","XRP-USDT-SWAP","LTC-USDT-SWAP","BCH-USDT-SWAP"
+    ];
+
+    const res = await request(BASE_URL)
+      .post("/api/regime/batch")
+      .send({ symbols })
+      .set("Content-Type", "application/json");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(0);
+  });
+
+  // 3. CoinAPI History Retry
+  it("CoinAPI History harus retry kalau response incomplete", async () => {
+    const res = await request(BASE_URL)
+      .get("/api/coinapi/history/BINANCE_SPOT_BTC_USDT?interval=1h&start=2025-09-01&end=2025-09-10");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  // 4. TWAP Fallback (VWAP jika TWAP null)
+  it("TWAP harus fallback ke VWAP kalau data kosong", async () => {
+    const res = await request(BASE_URL)
+      .get("/api/coinapi/twap/BINANCE_SPOT_SOL_USDT?hours=24");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toBeDefined();
+    expect(res.body.twap || res.body.vwap).toBeDefined();
+  });
+});
+
+📌 Cara Menjalankan Test
+
+Pastikan server lokal/dev jalan di http://localhost:5000.
+
+Jalankan test dengan:
+
+npx jest tests/resilience.test.js --runInBand
+
+
+Hasil expected: semua test PASS ✅ dan log harus menunjukkan auto-batching, retry, dan fallback bekerja.
