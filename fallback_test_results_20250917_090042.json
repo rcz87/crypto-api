@@ -1,0 +1,242 @@
+{
+  "test_suite": "comprehensive_fallback_testing",
+  "start_time": "2025-09-17T09:00:42+00:00",
+  "end_time": "2025-09-17T09:01:51+00:00",
+  "total_tests": 31,
+  "passed_tests": 0,
+  "failed_tests": 31,
+  "test_categories": {
+    "screener_batching": [
+      {
+        "test_name": "Screener_15_symbols_no_batching",
+        "status": "FAILED",
+        "response_time_ms": 2735,
+        "details": "HTTP 2735 - 15 symbols failed",
+        "timestamp": "2025-09-17T09:00:45+00:00"
+      },
+      {
+        "test_name": "Screener_25_symbols_auto_batching",
+        "status": "FAILED",
+        "response_time_ms": 2626,
+        "details": "HTTP 2626 - 25 symbols failed",
+        "timestamp": "2025-09-17T09:00:48+00:00"
+      },
+      {
+        "test_name": "Screener_30_symbols_max_batching",
+        "status": "FAILED",
+        "response_time_ms": 2869,
+        "details": "HTTP 2869 - 30 symbols failed",
+        "timestamp": "2025-09-17T09:00:51+00:00"
+      },
+      {
+        "test_name": "Screener_50_symbols_max_limit",
+        "status": "FAILED",
+        "response_time_ms": 2809,
+        "details": "HTTP 2809 - 50 symbols failed",
+        "timestamp": "2025-09-17T09:00:54+00:00"
+      }
+    ],
+    "regime_batching": [
+      {
+        "test_name": "Regime_endpoint_discovery",
+        "status": "FAILED",
+        "response_time_ms": 0,
+        "details": "Endpoint /api/regime/batch not found (HTTP 1082)",
+        "timestamp": "2025-09-17T09:00:55+00:00"
+      }
+    ],
+    "coinapi_retry": [
+      {
+        "test_name": "CoinAPI_history_BINANCE_SPOT_BTC_USDT_short",
+        "status": "FAILED",
+        "response_time_ms": 257,
+        "details": "HTTP 257 - Short history failed",
+        "timestamp": "2025-09-17T09:00:56+00:00"
+      },
+      {
+        "test_name": "CoinAPI_history_BINANCE_SPOT_BTC_USDT_long",
+        "status": "FAILED",
+        "response_time_ms": 341,
+        "details": "HTTP 341 - Long history failed",
+        "timestamp": "2025-09-17T09:00:57+00:00"
+      },
+      {
+        "test_name": "CoinAPI_history_BINANCE_SPOT_ETH_USDT_short",
+        "status": "FAILED",
+        "response_time_ms": 256,
+        "details": "HTTP 256 - Short history failed",
+        "timestamp": "2025-09-17T09:00:57+00:00"
+      },
+      {
+        "test_name": "CoinAPI_history_BINANCE_SPOT_ETH_USDT_long",
+        "status": "FAILED",
+        "response_time_ms": 324,
+        "details": "HTTP 324 - Long history failed",
+        "timestamp": "2025-09-17T09:00:58+00:00"
+      },
+      {
+        "test_name": "CoinAPI_history_BINANCE_SPOT_SOL_USDT_short",
+        "status": "FAILED",
+        "response_time_ms": 272,
+        "details": "HTTP 272 - Short history failed",
+        "timestamp": "2025-09-17T09:00:58+00:00"
+      },
+      {
+        "test_name": "CoinAPI_history_BINANCE_SPOT_SOL_USDT_long",
+        "status": "FAILED",
+        "response_time_ms": 324,
+        "details": "HTTP 324 - Long history failed",
+        "timestamp": "2025-09-17T09:00:59+00:00"
+      },
+      {
+        "test_name": "CoinAPI_invalid_symbol_retry",
+        "status": "FAILED",
+        "response_time_ms": 506,
+        "details": "HTTP 506 - Invalid symbol not handled properly",
+        "timestamp": "2025-09-17T09:01:00+00:00"
+      }
+    ],
+    "twap_vwap_fallback": [
+      {
+        "test_name": "TWAP_BINANCE_SPOT_BTC_USDT_24h",
+        "status": "FAILED",
+        "response_time_ms": 244,
+        "details": "HTTP 244 - TWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:00+00:00"
+      },
+      {
+        "test_name": "VWAP_BINANCE_SPOT_BTC_USDT_24h",
+        "status": "FAILED",
+        "response_time_ms": 232,
+        "details": "HTTP 232 - VWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:01+00:00"
+      },
+      {
+        "test_name": "TWAP_BINANCE_SPOT_BTC_USDT_48h",
+        "status": "FAILED",
+        "response_time_ms": 236,
+        "details": "HTTP 236 - TWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:02+00:00"
+      },
+      {
+        "test_name": "VWAP_BINANCE_SPOT_BTC_USDT_48h",
+        "status": "FAILED",
+        "response_time_ms": 301,
+        "details": "HTTP 301 - VWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:02+00:00"
+      },
+      {
+        "test_name": "TWAP_BINANCE_SPOT_BTC_USDT_72h",
+        "status": "FAILED",
+        "response_time_ms": 879,
+        "details": "HTTP 879 - TWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:05+00:00"
+      },
+      {
+        "test_name": "VWAP_BINANCE_SPOT_BTC_USDT_72h",
+        "status": "FAILED",
+        "response_time_ms": 995,
+        "details": "HTTP 995 - VWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:06+00:00"
+      },
+      {
+        "test_name": "TWAP_BINANCE_SPOT_ETH_USDT_24h",
+        "status": "FAILED",
+        "response_time_ms": 212,
+        "details": "HTTP 212 - TWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:07+00:00"
+      },
+      {
+        "test_name": "VWAP_BINANCE_SPOT_ETH_USDT_24h",
+        "status": "FAILED",
+        "response_time_ms": 243,
+        "details": "HTTP 243 - VWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:07+00:00"
+      },
+      {
+        "test_name": "TWAP_BINANCE_SPOT_ETH_USDT_48h",
+        "status": "FAILED",
+        "response_time_ms": 21029,
+        "details": "HTTP 21029 - TWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:30+00:00"
+      },
+      {
+        "test_name": "VWAP_BINANCE_SPOT_ETH_USDT_48h",
+        "status": "FAILED",
+        "response_time_ms": 1778,
+        "details": "HTTP 1778 - VWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:32+00:00"
+      },
+      {
+        "test_name": "TWAP_BINANCE_SPOT_ETH_USDT_72h",
+        "status": "FAILED",
+        "response_time_ms": 1180,
+        "details": "HTTP 1180 - TWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:34+00:00"
+      },
+      {
+        "test_name": "VWAP_BINANCE_SPOT_ETH_USDT_72h",
+        "status": "FAILED",
+        "response_time_ms": 900,
+        "details": "HTTP 900 - VWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:35+00:00"
+      },
+      {
+        "test_name": "TWAP_BINANCE_SPOT_SOL_USDT_24h",
+        "status": "FAILED",
+        "response_time_ms": 438,
+        "details": "HTTP 438 - TWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:37+00:00"
+      },
+      {
+        "test_name": "VWAP_BINANCE_SPOT_SOL_USDT_24h",
+        "status": "FAILED",
+        "response_time_ms": 242,
+        "details": "HTTP 242 - VWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:37+00:00"
+      },
+      {
+        "test_name": "TWAP_BINANCE_SPOT_SOL_USDT_48h",
+        "status": "FAILED",
+        "response_time_ms": 1730,
+        "details": "HTTP 1730 - TWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:40+00:00"
+      },
+      {
+        "test_name": "VWAP_BINANCE_SPOT_SOL_USDT_48h",
+        "status": "FAILED",
+        "response_time_ms": 2416,
+        "details": "HTTP 2416 - VWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:43+00:00"
+      },
+      {
+        "test_name": "TWAP_BINANCE_SPOT_SOL_USDT_72h",
+        "status": "FAILED",
+        "response_time_ms": 2026,
+        "details": "HTTP 2026 - TWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:46+00:00"
+      },
+      {
+        "test_name": "VWAP_BINANCE_SPOT_SOL_USDT_72h",
+        "status": "FAILED",
+        "response_time_ms": 2702,
+        "details": "HTTP 2702 - VWAP calculation failed",
+        "timestamp": "2025-09-17T09:01:49+00:00"
+      },
+      {
+        "test_name": "TWAP_invalid_symbol_fallback",
+        "status": "FAILED",
+        "response_time_ms": 1232,
+        "details": "HTTP 1232 - Invalid symbol fallback failed",
+        "timestamp": "2025-09-17T09:01:51+00:00"
+      }
+    ]
+  },
+  "performance_metrics": {
+    "average_response_time": 0,
+    "total_processing_time": 0,
+    "timeout_errors": 0,
+    "fallback_usage": 0
+  },
+  "summary": "Test suite completed with 0/31 tests passed (0% pass rate). 31 tests failed. "
+}

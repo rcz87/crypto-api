@@ -1,0 +1,3 @@
+Fallback Strategy Testing Results - Wed Sep 17 09:05:49 AM UTC 2025
+=============================================
+[SCREENER_BATCHING] Testing auto-batching with various symbol counts
