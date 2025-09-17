@@ -213,6 +213,12 @@ export class CoinAPIService {
   
   // Request timing tracking (alternative to axios metadata)
   private requestTimings = new Map<string, number>();
+  
+  // Circuit breaker for per-symbol failure tracking
+  private symbolFailures = new Map<string, { count: number; lastFailure: number; disabled: boolean }>();
+  private circuitBreakerThreshold = 3; // Fail 3 times before circuit opens
+  private circuitBreakerResetTime = 300000; // 5 minutes before retry
+  private circuitBreakerCooldownTime = 60000; // 1 minute cool-down after each failure
 
   constructor() {
     this.apiKey = process.env.COINAPI_KEY || '';
@@ -288,11 +294,92 @@ export class CoinAPIService {
         this.updateLatencyHistory(latency);
         this.updateErrorCount();
         
+        // Track circuit breaker failures for symbol-specific errors
+        this.trackCircuitBreakerError(error);
+        
         console.error('🚨 CoinAPI Error:', error.response?.data || error.message);
         
         return Promise.reject(error);
       }
     );
+  }
+
+  /**
+   * Circuit breaker: Track failures per symbol and disable problematic symbols
+   */
+  private trackCircuitBreakerError(error: any): void {
+    const url = error.config?.url || '';
+    
+    // Extract symbol from URL for tracking
+    const symbolMatch = url.match(/\/ohlcv\/([^/]+)\/history|quotes\/([^?]+)|exchangerate\/([^/]+)/);
+    if (!symbolMatch) return;
+    
+    const symbol = symbolMatch[1] || symbolMatch[2] || symbolMatch[3];
+    if (!symbol) return;
+    
+    // Only track 400-level errors that indicate invalid symbols
+    if (error.response?.status >= 400 && error.response?.status < 500) {
+      this.recordSymbolFailure(decodeURIComponent(symbol));
+    }
+  }
+  
+  /**
+   * Record a failure for a specific symbol
+   */
+  private recordSymbolFailure(symbol: string): void {
+    const now = Date.now();
+    const existing = this.symbolFailures.get(symbol);
+    
+    if (existing) {
+      existing.count++;
+      existing.lastFailure = now;
+      
+      // Open circuit if threshold exceeded
+      if (existing.count >= this.circuitBreakerThreshold) {
+        existing.disabled = true;
+        console.warn(`🚫 [CoinAPI] Circuit breaker OPENED for symbol ${symbol} (${existing.count} failures)`);
+      }
+    } else {
+      this.symbolFailures.set(symbol, {
+        count: 1,
+        lastFailure: now,
+        disabled: false
+      });
+    }
+  }
+  
+  /**
+   * Check if a symbol should be skipped due to circuit breaker
+   */
+  private shouldSkipSymbolDueToCircuitBreaker(symbol: string): boolean {
+    const failure = this.symbolFailures.get(symbol);
+    if (!failure || !failure.disabled) return false;
+    
+    const now = Date.now();
+    const timeSinceLastFailure = now - failure.lastFailure;
+    
+    // Reset circuit breaker after reset time
+    if (timeSinceLastFailure > this.circuitBreakerResetTime) {
+      console.log(`🔄 [CoinAPI] Circuit breaker RESET for symbol ${symbol} after ${Math.round(timeSinceLastFailure / 1000)}s`);
+      failure.disabled = false;
+      failure.count = 0;
+      return false;
+    }
+    
+    return true;
+  }
+  
+  /**
+   * Check if we're in cooldown period for a symbol
+   */
+  private isSymbolInCooldown(symbol: string): boolean {
+    const failure = this.symbolFailures.get(symbol);
+    if (!failure) return false;
+    
+    const now = Date.now();
+    const timeSinceLastFailure = now - failure.lastFailure;
+    
+    return timeSinceLastFailure < this.circuitBreakerCooldownTime;
   }
 
   // Cache helper method
@@ -488,19 +575,132 @@ export class CoinAPIService {
     };
   }
 
-  private mapOKXCandlesToHistorical(okxCandles: any[], symbolId: string): CoinAPIHistoricalData[] {
-    return okxCandles.map((candle: any[]) => ({
-      time_period_start: new Date(parseInt(candle[0])).toISOString(),
-      time_period_end: new Date(parseInt(candle[0]) + 3600000).toISOString(), // +1 hour
-      time_open: new Date(parseInt(candle[0])).toISOString(),
-      time_close: new Date(parseInt(candle[0]) + 3600000).toISOString(),
-      price_open: parseFloat(candle[1]) || 0,
-      price_high: parseFloat(candle[2]) || 0,
-      price_low: parseFloat(candle[3]) || 0,
-      price_close: parseFloat(candle[4]) || 0,
-      volume_traded: parseFloat(candle[5]) || 0,
-      trades_count: parseInt(candle[6]) || 0
-    }));
+  /**
+   * Robust timestamp parsing utility that handles multiple formats
+   * @param timestamp - Can be string, number, or already a Date object
+   * @returns Valid Date object or null if parsing fails
+   */
+  private parseTimestampSafely(timestamp: any): Date | null {
+    if (!timestamp) return null;
+    
+    let date: Date;
+    
+    try {
+      // Handle different timestamp formats from OKX
+      if (typeof timestamp === 'string') {
+        // Try as milliseconds first
+        const ms = parseInt(timestamp, 10);
+        if (!isNaN(ms)) {
+          date = new Date(ms);
+        } else {
+          // Try as ISO string
+          date = new Date(timestamp);
+        }
+      } else if (typeof timestamp === 'number') {
+        date = new Date(timestamp);
+      } else if (timestamp instanceof Date) {
+        date = timestamp;
+      } else {
+        console.warn(`🚨 [CoinAPI] Unknown timestamp format:`, typeof timestamp, timestamp);
+        return null;
+      }
+      
+      // Validate that the Date is valid
+      if (isNaN(date.getTime())) {
+        console.warn(`🚨 [CoinAPI] Invalid timestamp result:`, timestamp, '->', date);
+        return null;
+      }
+      
+      return date;
+    } catch (error) {
+      console.error(`🚨 [CoinAPI] Timestamp parsing error for ${timestamp}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Calculate period duration in milliseconds based on CoinAPI period format
+   */
+  private getPeriodDurationMs(period: string): number {
+    const periodMap: { [key: string]: number } = {
+      '1MIN': 60000,        // 1 minute
+      '5MIN': 300000,       // 5 minutes
+      '15MIN': 900000,      // 15 minutes
+      '30MIN': 1800000,     // 30 minutes
+      '1HRS': 3600000,      // 1 hour
+      '2HRS': 7200000,      // 2 hours
+      '4HRS': 14400000,     // 4 hours
+      '6HRS': 21600000,     // 6 hours
+      '8HRS': 28800000,     // 8 hours
+      '12HRS': 43200000,    // 12 hours
+      '1DAY': 86400000,     // 1 day
+      '2DAY': 172800000,    // 2 days
+      '3DAY': 259200000,    // 3 days
+      '7DAY': 604800000,    // 7 days
+      '1MTH': 2592000000    // 30 days (approximate)
+    };
+    
+    return periodMap[period] || 3600000; // Default to 1 hour
+  }
+
+  private mapOKXCandlesToHistorical(okxCandles: any[], symbolId: string, period: string = '1HRS'): CoinAPIHistoricalData[] {
+    if (!Array.isArray(okxCandles) || okxCandles.length === 0) {
+      console.warn(`🚨 [CoinAPI] Empty or invalid OKX candles data for ${symbolId}`);
+      return [];
+    }
+
+    const periodDurationMs = this.getPeriodDurationMs(period);
+    const validCandles: CoinAPIHistoricalData[] = [];
+    
+    for (let i = 0; i < okxCandles.length; i++) {
+      const candle = okxCandles[i];
+      
+      if (!Array.isArray(candle) || candle.length < 6) {
+        console.warn(`🚨 [CoinAPI] Invalid candle data at index ${i} for ${symbolId}:`, candle);
+        continue;
+      }
+      
+      const openTime = this.parseTimestampSafely(candle[0]);
+      if (!openTime) {
+        console.warn(`🚨 [CoinAPI] Failed to parse timestamp for candle ${i}:`, candle[0]);
+        continue;
+      }
+      
+      const closeTime = new Date(openTime.getTime() + periodDurationMs);
+      const openTimeIso = openTime.toISOString();
+      const closeTimeIso = closeTime.toISOString();
+      
+      // Validate numeric values
+      const priceOpen = parseFloat(candle[1]);
+      const priceHigh = parseFloat(candle[2]);
+      const priceLow = parseFloat(candle[3]);
+      const priceClose = parseFloat(candle[4]);
+      const volumeTraded = parseFloat(candle[5]);
+      const tradesCount = parseInt(candle[6], 10);
+      
+      if (isNaN(priceOpen) || isNaN(priceHigh) || isNaN(priceLow) || isNaN(priceClose)) {
+        console.warn(`🚨 [CoinAPI] Invalid price data for candle ${i}:`, {
+          open: priceOpen, high: priceHigh, low: priceLow, close: priceClose
+        });
+        continue;
+      }
+      
+      validCandles.push({
+        time_period_start: openTimeIso,
+        time_period_end: closeTimeIso,
+        time_open: openTimeIso,
+        time_close: closeTimeIso,
+        price_open: priceOpen || 0,
+        price_high: priceHigh || 0,
+        price_low: priceLow || 0,
+        price_close: priceClose || 0,
+        volume_traded: volumeTraded || 0,
+        trades_count: tradesCount || 0
+      });
+    }
+    
+    console.log(`✅ [CoinAPI] Mapped ${validCandles.length}/${okxCandles.length} valid candles for ${symbolId} (${period})`);
+    return validCandles;
   }
 
   private mapOKXExchangeRate(okxTicker: any, assetIdBase: string, assetIdQuote: string): CoinAPIExchangeRate {
@@ -514,6 +714,7 @@ export class CoinAPIService {
 
   /**
    * Enhanced Data quality validation helper with critical checks
+   * Now includes timestamp and date validation for historical data
    */
   private validateDataQuality(data: any, dataType: string): DataQuality {
     const errors: string[] = [];
@@ -523,6 +724,12 @@ export class CoinAPIService {
       // Common validations
       if (!data) {
         errors.push('Data is null or undefined');
+        isValid = false;
+      }
+      
+      // Additional null/undefined checks
+      if (data === null || data === undefined) {
+        errors.push('Data is explicitly null or undefined');
         isValid = false;
       }
       
@@ -552,16 +759,54 @@ export class CoinAPIService {
           
         case 'historical':
           if (Array.isArray(data)) {
+            if (data.length === 0) {
+              errors.push('Empty historical data array');
+              isValid = false;
+            }
+            
             data.forEach((candle, index) => {
+              // Validate required fields exist
+              if (!candle || typeof candle !== 'object') {
+                errors.push(`Invalid candle data at index ${index}`);
+                isValid = false;
+                return;
+              }
+              
+              // Validate timestamp fields for date parsing issues
+              const timeFields = ['time_period_start', 'time_period_end', 'time_open', 'time_close'];
+              timeFields.forEach(field => {
+                if (candle[field]) {
+                  const date = new Date(candle[field]);
+                  if (isNaN(date.getTime())) {
+                    errors.push(`Invalid timestamp ${field} at index ${index}: ${candle[field]}`);
+                    isValid = false;
+                  }
+                }
+              });
+              
+              // Validate price data
               if (candle.price_close <= 0 || isNaN(candle.price_close)) {
-                errors.push(`Invalid close price at index ${index}`);
+                errors.push(`Invalid close price at index ${index}: ${candle.price_close}`);
                 isValid = false;
               }
+              if (candle.price_open <= 0 || isNaN(candle.price_open)) {
+                errors.push(`Invalid open price at index ${index}: ${candle.price_open}`);
+                isValid = false;
+              }
+              if (candle.price_high < candle.price_low) {
+                errors.push(`High price lower than low price at index ${index}`);
+                isValid = false;
+              }
+              
+              // Validate volume data
               if (candle.volume_traded < 0) {
-                errors.push(`Negative volume at index ${index}`);
+                errors.push(`Negative volume at index ${index}: ${candle.volume_traded}`);
                 isValid = false;
               }
             });
+          } else {
+            errors.push('Historical data is not an array');
+            isValid = false;
           }
           break;
           
@@ -650,30 +895,45 @@ export class CoinAPIService {
     fn: () => Promise<T>,
     okxFallbackFn?: () => Promise<T>,
     cacheKey?: string,
-    dataType: string = 'generic'
+    dataType: string = 'generic',
+    symbolForCircuitBreaker?: string
   ): Promise<CachedDataWithQuality<T>> {
-    const healthStatus = await this.healthCheck();
-    
-    // Try main CoinAPI function if healthy or degraded
-    if (healthStatus.status === 'healthy' || healthStatus.status === 'degraded') {
-      try {
-        const data = await fn();
-        const quality = this.validateDataQuality(data, dataType);
-        
-        // Cache good data for fallback
-        if (cacheKey && quality.is_valid) {
-          this.setLastGoodCache(cacheKey, data, quality);
+    // Circuit breaker: Skip CoinAPI if symbol is problematic
+    let skipCoinAPI = false;
+    if (symbolForCircuitBreaker) {
+      if (this.shouldSkipSymbolDueToCircuitBreaker(symbolForCircuitBreaker)) {
+        console.log(`🚫 [CoinAPI] Circuit breaker ACTIVE for ${symbolForCircuitBreaker}, skipping to OKX fallback`);
+        skipCoinAPI = true;
+      } else if (this.isSymbolInCooldown(symbolForCircuitBreaker)) {
+        console.log(`⏳ [CoinAPI] Symbol ${symbolForCircuitBreaker} in cooldown, skipping to OKX fallback`);
+        skipCoinAPI = true;
+      }
+    }
+
+    if (!skipCoinAPI) {
+      const healthStatus = await this.healthCheck();
+      
+      // Try main CoinAPI function if healthy or degraded
+      if (healthStatus.status === 'healthy' || healthStatus.status === 'degraded') {
+        try {
+          const data = await fn();
+          const quality = this.validateDataQuality(data, dataType);
+          
+          // Cache good data for fallback
+          if (cacheKey && quality.is_valid) {
+            this.setLastGoodCache(cacheKey, data, quality);
+          }
+          
+          console.log(`✅ CoinAPI success: ${dataType} data retrieved (${quality.quality})`);
+          return {
+            data,
+            quality,
+            timestamp: new Date().toISOString(),
+            source: 'api'
+          };
+        } catch (error) {
+          console.warn(`🚨 CoinAPI main function failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-        
-        console.log(`✅ CoinAPI success: ${dataType} data retrieved (${quality.quality})`);
-        return {
-          data,
-          quality,
-          timestamp: new Date().toISOString(),
-          source: 'api'
-        };
-      } catch (error) {
-        console.warn(`🚨 CoinAPI main function failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
     
@@ -781,7 +1041,8 @@ export class CoinAPIService {
           return this.mapOKXTickerToCoinAPI(okxTicker, symbolId);
         },
         lastGoodKey,
-        'quote'
+        'quote',
+        symbolId
       );
       
       return {
@@ -793,21 +1054,89 @@ export class CoinAPIService {
   }
 
   /**
-   * Helper function to convert CoinAPI symbol format to OKX format
+   * Enhanced symbol mapping: Convert CoinAPI symbol formats to OKX format
+   * Handles multiple CoinAPI naming conventions robustly
    */
   private convertSymbolToOKX(symbolId: string): string {
-    // Extract asset from various symbol formats
-    // BINANCE_SPOT_SOL_USDT -> SOL-USDT-SWAP
-    // COINBASE_SPOT_BTC_USD -> BTC-USDT-SWAP
-    const parts = symbolId.split('_');
-    if (parts.length >= 4) {
-      const asset = parts[2]; // SOL, BTC, etc.
-      const quote = parts[3] === 'USD' ? 'USDT' : parts[3]; // Convert USD to USDT for OKX
-      return `${asset}-${quote}-SWAP`;
+    if (!symbolId || typeof symbolId !== 'string') {
+      console.warn(`🚨 [CoinAPI] Invalid symbol ID:`, symbolId);
+      return 'SOL-USDT-SWAP'; // Safe default
     }
+
+    try {
+      // Already in OKX format (e.g., SOL-USDT-SWAP)
+      if (symbolId.match(/^[A-Z]+-[A-Z]+-SWAP$/)) {
+        return symbolId;
+      }
+      
+      // CoinAPI exchange-specific formats:
+      // BINANCE_SPOT_SOL_USDT, COINBASE_SPOT_BTC_USD, etc.
+      const exchangeParts = symbolId.split('_');
+      if (exchangeParts.length >= 4) {
+        const [exchange, type, base, quote] = exchangeParts;
+        
+        // Validate parts
+        if (!base || !quote) {
+          console.warn(`🚨 [CoinAPI] Invalid symbol parts for ${symbolId}:`, exchangeParts);
+          return 'SOL-USDT-SWAP';
+        }
+        
+        // Normalize quote currency (USD -> USDT for OKX)
+        const normalizedQuote = quote === 'USD' ? 'USDT' : quote;
+        return `${base}-${normalizedQuote}-SWAP`;
+      }
+      
+      // Simple pair format: SOL/USDT, BTC/USD, etc.
+      if (symbolId.includes('/')) {
+        const [base, quote] = symbolId.split('/');
+        if (base && quote) {
+          const normalizedQuote = quote === 'USD' ? 'USDT' : quote;
+          return `${base}-${normalizedQuote}-SWAP`;
+        }
+      }
+      
+      // Dash-separated format: SOL-USDT, BTC-USD, etc.
+      if (symbolId.includes('-') && !symbolId.includes('SWAP')) {
+        const parts = symbolId.split('-');
+        if (parts.length >= 2) {
+          const base = parts[0];
+          const quote = parts[1] === 'USD' ? 'USDT' : parts[1];
+          return `${base}-${quote}-SWAP`;
+        }
+      }
+      
+      // Asset-only format: SOL, BTC, ETH, etc.
+      if (symbolId.match(/^[A-Z]{2,6}$/)) {
+        return `${symbolId}-USDT-SWAP`;
+      }
+      
+      // Fallback for unknown formats
+      console.warn(`🚨 [CoinAPI] Unknown symbol format: ${symbolId}, using default`);
+      return 'SOL-USDT-SWAP';
+      
+    } catch (error) {
+      console.error(`🚨 [CoinAPI] Error converting symbol ${symbolId}:`, error);
+      return 'SOL-USDT-SWAP'; // Safe fallback
+    }
+  }
+  
+  /**
+   * Validate if a symbol ID looks valid for CoinAPI
+   */
+  private isValidCoinAPISymbol(symbolId: string): boolean {
+    if (!symbolId || typeof symbolId !== 'string') return false;
     
-    // Fallback: assume it's already in correct format or default to SOL-USDT-SWAP
-    return symbolId.includes('-') ? symbolId : 'SOL-USDT-SWAP';
+    // Valid patterns for CoinAPI symbols:
+    // 1. Exchange format: BINANCE_SPOT_SOL_USDT
+    // 2. Simple format: SOL/USDT, BTC-USD
+    // 3. Asset only: SOL, BTC
+    const validPatterns = [
+      /^[A-Z]+_[A-Z]+_[A-Z]{2,6}_[A-Z]{3,6}$/, // Exchange format
+      /^[A-Z]{2,6}[\/\-][A-Z]{3,6}$/,           // Pair format  
+      /^[A-Z]{2,6}$/                            // Asset only
+    ];
+    
+    return validPatterns.some(pattern => pattern.test(symbolId));
   }
 
   /**
@@ -862,7 +1191,8 @@ export class CoinAPIService {
           return this.mapOKXExchangeRate(okxTicker, assetIdBase, assetIdQuote);
         },
         lastGoodKey,
-        'rate'
+        'rate',
+        `${assetIdBase}/${assetIdQuote}`
       );
       
       return {
@@ -1153,14 +1483,15 @@ export class CoinAPIService {
             const okxCandles = await this.okxService.getCandles(okxSymbol, okxPeriod, limit);
             
             // Map OKX candles to CoinAPI historical format
-            return this.mapOKXCandlesToHistorical(okxCandles, symbolId);
+            return this.mapOKXCandlesToHistorical(okxCandles, symbolId, period);
           } catch (error) {
             console.warn(`🚨 OKX historical fallback failed:`, error instanceof Error ? error.message : 'Unknown error');
             throw new Error('OKX historical fallback exhausted');
           }
         },
         lastGoodKey,
-        'historical'
+        'historical',
+        symbolId
       );
       
       return {
