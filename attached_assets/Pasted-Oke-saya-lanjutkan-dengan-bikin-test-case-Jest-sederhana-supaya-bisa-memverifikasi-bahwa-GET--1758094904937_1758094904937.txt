@@ -1,0 +1,86 @@
+Oke, saya lanjutkan dengan bikin **test case Jest sederhana** supaya bisa memverifikasi bahwa GET & POST `/trading` memberikan hasil yang sama persis.
+
+---
+
+## 🧪 Test Case Jest untuk `/trading`
+
+Buat file baru:
+`tests/tradingRoutes.test.ts`
+
+```ts
+import request from "supertest";
+import express from "express";
+import tradingRoutes from "../server/routes/trading";
+
+// Mock service global
+beforeAll(() => {
+  (global as any).tradingService = {
+    getSignal: jest.fn().mockResolvedValue({
+      symbol: "BTC",
+      timeframe: "15m",
+      signal: "BUY",
+      confidence: 85
+    })
+  };
+});
+
+const app = express();
+app.use(express.json());
+app.use("/", tradingRoutes);
+
+describe("Trading Routes", () => {
+  it("GET /trading harus balikan hasil yang benar", async () => {
+    const res = await request(app)
+      .get("/trading")
+      .query({ symbol: "BTC", timeframe: "15m" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      symbol: "BTC",
+      signal: "BUY",
+      confidence: 85
+    });
+  });
+
+  it("POST /trading harus balikan hasil yang sama seperti GET", async () => {
+    const resPost = await request(app)
+      .post("/trading")
+      .send({ symbol: "BTC", timeframe: "15m" });
+
+    const resGet = await request(app)
+      .get("/trading")
+      .query({ symbol: "BTC", timeframe: "15m" });
+
+    expect(resPost.status).toBe(200);
+    expect(resGet.status).toBe(200);
+    expect(resPost.body).toEqual(resGet.body);
+  });
+
+  it("Kalau symbol kosong harus balikan error 400", async () => {
+    const res = await request(app).get("/trading");
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty("error");
+  });
+});
+```
+
+---
+
+### 📌 Penjelasan
+
+1. **Mock service** → `tradingService.getSignal` dimock supaya tidak panggil API asli.
+2. **Test GET** → cek kalau hasilnya sesuai format.
+3. **Test POST vs GET** → pastikan hasil sama persis.
+4. **Test error** → kalau `symbol` kosong, harus `400`.
+
+---
+
+⚡ Jalankan test dengan:
+
+```bash
+npm run test
+```
+
+---
+
+Mau saya tambahkan juga **GitHub Action workflow** supaya test ini otomatis jalan setiap kali ada push/PR?

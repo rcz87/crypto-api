@@ -32,30 +32,137 @@ import { EventEmitter } from 'events';
 // Increase EventEmitter maxListeners to prevent memory leak warnings
 EventEmitter.defaultMaxListeners = 15;
 
+// Circuit breaker for service failures
+class ConfluenceCircuitBreaker {
+  private failureCount = 0;
+  private lastFailureTime = 0;
+  private readonly FAILURE_THRESHOLD = 3;
+  private readonly RESET_TIMEOUT = 60000; // 1 minute
+
+  isOpen(): boolean {
+    if (this.failureCount >= this.FAILURE_THRESHOLD) {
+      if (Date.now() - this.lastFailureTime > this.RESET_TIMEOUT) {
+        this.reset();
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  recordFailure(): void {
+    this.failureCount++;
+    this.lastFailureTime = Date.now();
+  }
+
+  recordSuccess(): void {
+    this.failureCount = Math.max(0, this.failureCount - 1);
+  }
+
+  reset(): void {
+    this.failureCount = 0;
+    this.lastFailureTime = 0;
+  }
+
+  getStats(): { failureCount: number; isOpen: boolean; lastFailureTime: number } {
+    return {
+      failureCount: this.failureCount,
+      isOpen: this.isOpen(),
+      lastFailureTime: this.lastFailureTime
+    };
+  }
+}
+
+const confluenceCircuitBreaker = new ConfluenceCircuitBreaker();
+
+/**
+ * Enhanced input validation for confluence screening
+ */
+function validateConfluenceInput(requestData: any): { isValid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  // Validate symbols array
+  if (!Array.isArray(requestData.symbols)) {
+    errors.push('symbols must be an array');
+  } else {
+    if (requestData.symbols.length === 0) {
+      errors.push('symbols array cannot be empty');
+    }
+    if (requestData.symbols.length > 20) {
+      errors.push('maximum 20 symbols allowed');
+    }
+    // Validate each symbol format
+    for (const symbol of requestData.symbols) {
+      if (typeof symbol !== 'string' || !/^[A-Z0-9]{2,10}$/.test(symbol)) {
+        errors.push(`invalid symbol format: ${symbol}`);
+      }
+    }
+  }
+
+  // Validate timeframe
+  const validTimeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '1d'];
+  if (!validTimeframes.includes(requestData.timeframe)) {
+    errors.push(`invalid timeframe: ${requestData.timeframe}. Valid options: ${validTimeframes.join(', ')}`);
+  }
+
+  // Validate include_details
+  if (typeof requestData.include_details !== 'boolean') {
+    errors.push('include_details must be a boolean');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
 /**
  * Shared confluence screening logic for both GET and POST endpoints
  * Extracts common logic to prevent recursion and improve maintainability
+ * Enhanced with circuit breaker, timeout handling, and comprehensive error handling
  */
 async function performConfluenceScreening(requestData: any): Promise<any> {
   const startTime = Date.now();
+  const REQUEST_TIMEOUT = 30000; // 30 seconds timeout
   
   try {
-    // Initialize service dependencies
-    const smcService = new (await import('../services/smc.js')).SMCService(okxService);
-    const cvdService = new CVDService(okxService);
-    const technicalService = new TechnicalIndicatorsService();
-    const confluenceService = new ConfluenceService();
-    
-    // Initialize the 8-layer confluence service
-    const eightLayerService = new EightLayerConfluenceService(
-      smcService,
-      cvdService,
-      technicalService,
-      confluenceService
-    );
+    // Check circuit breaker
+    if (confluenceCircuitBreaker.isOpen()) {
+      throw new Error('Service temporarily unavailable due to repeated failures. Please try again later.');
+    }
 
-    // Perform multi-symbol confluence screening
-    const screeningResult = await eightLayerService.screenMultipleSymbols(requestData);
+    // Enhanced input validation
+    const validation = validateConfluenceInput(requestData);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
+    }
+
+    // Create timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout - analysis taking too long')), REQUEST_TIMEOUT);
+    });
+
+    // Initialize service dependencies
+    const servicesPromise = (async () => {
+      const smcService = new (await import('../services/smc.js')).SMCService(okxService);
+      const cvdService = new CVDService(okxService);
+      const technicalService = new TechnicalIndicatorsService();
+      const confluenceService = new ConfluenceService();
+      
+      // Initialize the 8-layer confluence service
+      const eightLayerService = new EightLayerConfluenceService(
+        smcService,
+        cvdService,
+        technicalService,
+        confluenceService
+      );
+
+      // Perform multi-symbol confluence screening
+      return await eightLayerService.screenMultipleSymbols(requestData);
+    })();
+
+    // Race between analysis and timeout
+    const screeningResult = await Promise.race([servicesPromise, timeoutPromise]);
     
     // Transform to match user-requested output format
     const formattedResults: Record<string, any> = {};
@@ -96,6 +203,9 @@ async function performConfluenceScreening(requestData: any): Promise<any> {
     // Update system metrics
     await storage.updateMetrics(processingTime);
     
+    // Record success in circuit breaker
+    confluenceCircuitBreaker.recordSuccess();
+    
     // Log successful request
     await storage.addLog({
       level: 'info',
@@ -113,7 +223,8 @@ async function performConfluenceScreening(requestData: any): Promise<any> {
         timeframe: requestData.timeframe,
         api_version: '2.0',
         symbols_requested: requestData.symbols.length,
-        include_details: requestData.include_details
+        include_details: requestData.include_details,
+        circuit_breaker_stats: confluenceCircuitBreaker.getStats()
       }
     };
     
@@ -124,24 +235,60 @@ async function performConfluenceScreening(requestData: any): Promise<any> {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorName = error instanceof Error ? error.name : 'Error';
     
+    // Record failure in circuit breaker (unless it's a validation error)
+    if (!errorMessage.includes('Validation failed')) {
+      confluenceCircuitBreaker.recordFailure();
+    }
+    
     console.error(`[ConfluenceScreening] ${errorName}: ${errorMessage}`);
     
-    // Log error with details
+    // Categorize error types for better handling
+    let errorCategory = 'internal_error';
+    let statusCode = 500;
+    let userMessage = 'The 8-layer confluence screening system encountered an error. Please try again.';
+    
+    if (errorMessage.includes('Validation failed')) {
+      errorCategory = 'validation_error';
+      statusCode = 400;
+      userMessage = 'Invalid request parameters. Please check your input and try again.';
+    } else if (errorMessage.includes('timeout')) {
+      errorCategory = 'timeout_error';
+      statusCode = 408;
+      userMessage = 'Request timeout. The analysis is taking too long, please try again with fewer symbols.';
+    } else if (errorMessage.includes('Service temporarily unavailable')) {
+      errorCategory = 'service_unavailable';
+      statusCode = 503;
+      userMessage = errorMessage; // Use the circuit breaker message directly
+    } else if (errorMessage.includes('rate limit') || errorMessage.includes('quota')) {
+      errorCategory = 'rate_limit_error';
+      statusCode = 429;
+      userMessage = 'Rate limit exceeded. Please wait before making another request.';
+    }
+    
+    // Log error with enhanced details
     await storage.addLog({
       level: 'error',
       message: '8-Layer Confluence Screening failed',
-      details: `Confluence screening - ${processingTime}ms - ${errorMessage}`
+      details: `Confluence screening - ${processingTime}ms - ${errorCategory} - ${errorMessage}`
     });
 
-    // Return error object instead of throwing
+    // Return categorized error object
     return {
       success: false,
-      error: 'Internal server error during confluence analysis',
-      message: 'The 8-layer confluence screening system encountered an error. Please try again.',
+      error: userMessage,
+      error_category: errorCategory,
       processing_time_ms: processingTime,
       timestamp: new Date().toISOString(),
-      errorType: errorName,
-      errorDetails: errorMessage
+      circuit_breaker_stats: confluenceCircuitBreaker.getStats(),
+      statusCode,
+      // Include error details only in development
+      ...(process.env.NODE_ENV === 'development' && {
+        debug: {
+          errorType: errorName,
+          errorDetails: errorMessage,
+          stack: error instanceof Error ? error.stack : undefined
+        }
+      })
     };
   }
 }

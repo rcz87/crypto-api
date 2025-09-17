@@ -126,8 +126,10 @@ export class MemStorage implements IStorage {
   async addLog(insertLog: InsertSystemLogs): Promise<SystemLogs> {
     const id = randomUUID();
     const log: SystemLogs = {
-      ...insertLog,
       id,
+      level: insertLog.level,
+      message: insertLog.message,
+      details: insertLog.details ?? null,
       timestamp: new Date(),
     };
     
@@ -156,8 +158,13 @@ export class MemStorage implements IStorage {
   async addFeedback(insertFeedback: InsertUserFeedback): Promise<UserFeedback> {
     const id = randomUUID();
     const feedback: UserFeedback = {
-      ...insertFeedback,
       id,
+      ref_id: insertFeedback.ref_id,
+      user_id: insertFeedback.user_id ?? null,
+      signal_type: insertFeedback.signal_type,
+      rating: insertFeedback.rating,
+      response_time_seconds: insertFeedback.response_time_seconds ?? null,
+      metadata: insertFeedback.metadata ?? null,
       timestamp: new Date(),
     };
     
@@ -230,8 +237,14 @@ export class MemStorage implements IStorage {
     const existingPattern = this.patterns.get(insertPattern.pattern_name);
     
     const pattern: PatternLearning = {
-      ...insertPattern,
       id: existingPattern?.id || randomUUID(),
+      pattern_name: insertPattern.pattern_name,
+      pattern_type: insertPattern.pattern_type,
+      base_weight: insertPattern.base_weight ?? null,
+      current_weight: insertPattern.current_weight ?? null,
+      min_confidence: insertPattern.min_confidence ?? null,
+      feedback_stats: insertPattern.feedback_stats ?? null,
+      performance_history: insertPattern.performance_history ?? null,
       last_adjustment: new Date(),
       created_at: existingPattern?.created_at || new Date(),
     };
@@ -248,8 +261,15 @@ export class MemStorage implements IStorage {
   async addSignalQuality(insertQuality: InsertSignalQualityMetrics): Promise<SignalQualityMetrics> {
     const id = randomUUID();
     const quality: SignalQualityMetrics = {
-      ...insertQuality,
       id,
+      ref_id: insertQuality.ref_id,
+      signal_type: insertQuality.signal_type,
+      patterns_used: insertQuality.patterns_used ?? null,
+      confidence_score: insertQuality.confidence_score,
+      adjusted_weights: insertQuality.adjusted_weights ?? null,
+      feedback_received: insertQuality.feedback_received ?? null,
+      final_rating: insertQuality.final_rating ?? null,
+      learning_impact: insertQuality.learning_impact ?? null,
       created_at: new Date(),
     };
     

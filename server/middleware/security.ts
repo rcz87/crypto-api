@@ -27,6 +27,11 @@ const RATE_LIMIT_TIERS: Record<string, RateLimitConfig> = {
     windowMs: 60 * 1000, // 1 minute
     message: 'Rate limit exceeded. Maximum 5 AI analysis requests per minute.',
   },
+  confluence_screening: {
+    requests: 3,
+    windowMs: 60 * 1000, // 1 minute
+    message: 'Rate limit exceeded. Maximum 3 confluence screening requests per minute. This endpoint performs intensive multi-layer analysis.',
+  },
   auth: {
     requests: 5,
     windowMs: 60 * 1000, // 1 minute
@@ -327,7 +332,12 @@ function isExemptRoute(path: string): boolean {
 
 // Determine rate limit tier based on request path
 function getRateLimitTier(path: string): string {
-  // AI and analysis endpoints - strictest limits
+  // Confluence screening endpoints - most restrictive (3 req/min)
+  if (path.includes('/screening/confluence')) {
+    return 'confluence_screening';
+  }
+  
+  // Other AI and analysis endpoints - strict limits (5 req/min)
   if (path.includes('/ai') || path.includes('/signal') || path.includes('/screener') || path.includes('/analysis')) {
     return 'ai_analysis';
   }
@@ -365,6 +375,13 @@ export function enhancedRateLimit(req: Request, res: Response, next: NextFunctio
     if (process.env.NODE_ENV === 'development') {
       console.debug(`[RATE_LIMIT] Exempting loopback IP: ${clientIP} for ${path}`);
     }
+    // Still add rate limit headers for testing/consistency
+    res.set({
+      'X-RateLimit-Limit': config.requests.toString(),
+      'X-RateLimit-Remaining': config.requests.toString(),
+      'X-RateLimit-Reset': new Date(Date.now() + config.windowMs).toISOString(),
+      'X-RateLimit-Tier': tier
+    });
     return next();
   }
   

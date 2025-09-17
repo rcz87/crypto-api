@@ -294,7 +294,7 @@ export class CVDService {
   /**
    * Calculate Volume Delta Bars from candles and trades
    */
-  private calculateVolumeDeltaBars(
+  public calculateVolumeDeltaBars(
     candles: CandleData[], 
     trades: RecentTradeData[], 
     timeframe: string
@@ -461,7 +461,7 @@ export class CVDService {
   /**
    * Detect Price-CVD Divergences using advanced algorithms
    */
-  private detectDivergences(
+  public detectDivergences(
     candles: CandleData[], 
     cvdHistory: VolumeDeltaBar[]
   ): { activeDivergences: CVDDivergence[], recentDivergences: CVDDivergence[] } {
@@ -924,7 +924,7 @@ export class CVDService {
   /**
    * ADVANCED Smart Money Detection - Institutional Grade Multi-Pattern Analysis
    */
-  private detectSmartMoneySignals(cvdHistory: VolumeDeltaBar[], absorptionPatterns: AbsorptionPattern[], flowAnalysis: FlowAnalysis) {
+  public detectSmartMoneySignals(cvdHistory: VolumeDeltaBar[], absorptionPatterns: AbsorptionPattern[], flowAnalysis: FlowAnalysis) {
     const recentBars = cvdHistory.slice(-20);
     const extendedBars = cvdHistory.slice(-50); // Longer history for patterns
     
