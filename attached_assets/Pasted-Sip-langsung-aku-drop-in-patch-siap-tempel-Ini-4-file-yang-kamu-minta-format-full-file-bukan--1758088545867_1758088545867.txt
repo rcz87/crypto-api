@@ -1,0 +1,192 @@
+Sip, langsung aku drop-in patch siap tempel. Ini 4 file yang kamu minta—format **full file** (bukan cuplikan) biar gampang copy–paste atau buat PR.
+
+---
+
+### `apps/api/src/utils/jsonOrText.ts`
+
+```ts
+// utils/jsonOrText.ts
+export async function jsonOrText(r: Response) {
+  const ct = r.headers.get("content-type") || "";
+  const raw = await r.text();
+
+  const s = raw.trimStart();
+  const looksHTML = s.startsWith("<!DOCTYPE") || s.startsWith("<html");
+  const looksJSON = ct.includes("application/json") || /^[\[{]/.test(s);
+
+  if (looksHTML && !looksJSON) {
+    const snippet = raw.slice(0, 200).replace(/\s+/g, " ");
+    const err = new Error(`Expected JSON but got HTML (${r.status}). Snippet: ${snippet}`);
+    (err as any).status = r.status;
+    throw err;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error(`Invalid JSON (${r.status}). Head: ${raw.slice(0, 120)}`);
+  }
+}
+```
+
+---
+
+### `apps/api/src/clients/institutionalBias.ts`
+
+```ts
+// clients/institutionalBias.ts
+import fetch from "node-fetch";
+import { jsonOrText } from "../utils/jsonOrText";
+
+const API_BASE = process.env.API_BASE ?? "http://127.0.0.1:5000";           // Node
+const PY_BASE  = process.env.COINGLASS_PROXY_BASE ?? "http://127.0.0.1:8000"; // Python
+
+// Pilih salah satu target via ENV: "node" | "python" (default: node)
+const BIAS_TARGET = (process.env.BIAS_TARGET ?? "node").toLowerCase();
+
+/** Ambil bias institusional untuk symbol tertentu. Return harus JSON. */
+export async function fetchInstitutionalBias(symbol: string) {
+  const base = BIAS_TARGET === "python" ? PY_BASE : API_BASE;
+  // Pastikan ABSOLUTE URL (jangan relative)
+  const url =
+    BIAS_TARGET === "python"
+      ? `${base}/institutional/bias?symbol=${encodeURIComponent(symbol)}`
+      : `${base}/gpts/institutional/bias?symbol=${encodeURIComponent(symbol)}`;
+
+  const r = await fetch(url, {
+    headers: { Accept: "application/json" },
+    // Jangan pakai credentials/cookies untuk menghindari kena SPA fallback
+  });
+
+  if (!r.ok) {
+    const body = await r.text();
+    throw new Error(`Bias API ${r.status}: ${body.slice(0, 160)}`);
+  }
+  return jsonOrText(r);
+}
+```
+
+---
+
+### `apps/api/src/schedulers/institutionalBias.ts`
+
+```ts
+// schedulers/institutionalBias.ts
+import { fetchInstitutionalBias } from "../clients/institutionalBias";
+import { tryConsume } from "../rate/rateBudget"; // asumsi modul ini sudah ada di project-mu
+import { setTimeout as sleep } from "timers/promises";
+
+const SYMBOL = process.env.BIAS_SYMBOL ?? "SOL-USDT-SWAP";
+const BASE_INTERVAL_MS = Number(process.env.BIAS_INTERVAL_MS ?? 5 * 60_000);
+
+let consecutiveFails = 0;
+let backoffMs = 0;
+
+function nextDelay() {
+  const base =
+    consecutiveFails === 0 ? BASE_INTERVAL_MS :
+    consecutiveFails === 1 ? Math.max(10_000, BASE_INTERVAL_MS / 2) :
+    consecutiveFails === 2 ? Math.max(20_000, BASE_INTERVAL_MS) :
+    Math.min(120_000, BASE_INTERVAL_MS * 2);
+
+  const jitter = 5_000 + Math.floor(Math.random() * 10_000);
+  backoffMs = base - BASE_INTERVAL_MS + jitter; // info saja
+  return BASE_INTERVAL_MS + jitter;             // interval dasar + jitter
+}
+
+export async function startInstitutionalBiasScheduler() {
+  // small randomized initial delay
+  await sleep(3_000 + Math.floor(Math.random() * 5_000));
+
+  // loop tanpa blocking server
+  (async function loop() {
+    try {
+      console.log("⚡ [InstitutionalBias] Executing task");
+      // budget-aware: konsumsi dulu; kalau tak cukup, skip rapi
+      const ok = tryConsume?.("coinglass:scheduler", 3);
+      if (ok === false) {
+        console.warn("⏭️  [InstitutionalBias] Skipped due to budget limit");
+      } else {
+        const data = await fetchInstitutionalBias(SYMBOL);
+        // TODO: proses data → alert/telemetry
+        // console.log("✅ [InstitutionalBias] result:", data);
+        consecutiveFails = 0;
+      }
+    } catch (e: any) {
+      const msg = String(e?.message || e);
+      console.error("❌ [InstitutionalBias] Task failed:", msg);
+      consecutiveFails = Math.min(10, consecutiveFails + 1);
+    } finally {
+      const delay = nextDelay();
+      console.log(
+        `⏰ [InstitutionalBias] Next run in ${Math.round(delay / 1000)}s ` +
+        `(fails=${consecutiveFails})`
+      );
+      await sleep(delay);
+      loop();
+    }
+  })();
+}
+```
+
+> Catatan: kalau modul `tryConsume` beda jalur atau namanya, ganti import-nya. Kalau belum ada, bisa sementara di-stub dengan fungsi yang selalu `true`.
+
+---
+
+### `apps/api/src/routes/gpts.ts`  (shim Node → Python)
+
+```ts
+// routes/gpts.ts
+import { Router } from "express";
+import fetch from "node-fetch";
+
+export const gptsRouter = Router();
+
+const PY = process.env.COINGLASS_PROXY_BASE ?? "http://127.0.0.1:8000";
+
+/** Shim: /gpts/unified/symbols → Python /symbols (JSON) */
+gptsRouter.get("/gpts/unified/symbols", async (_req, res) => {
+  const r = await fetch(`${PY}/symbols`, { headers: { Accept: "application/json" } });
+  const body = await r.text();
+  res.status(r.status).type(r.headers.get("content-type") || "application/json").send(body);
+});
+
+/** Shim: /gpts/institutional/bias → Python /institutional/bias?symbol=... (JSON) */
+gptsRouter.get("/gpts/institutional/bias", async (req, res) => {
+  const symbol = req.query.symbol as string;
+  if (!symbol) return res.status(400).json({ error: "symbol is required" });
+
+  const url = `${PY}/institutional/bias?symbol=${encodeURIComponent(symbol)}`;
+  const r = await fetch(url, { headers: { Accept: "application/json" } });
+  const body = await r.text();
+  res.status(r.status).type(r.headers.get("content-type") || "application/json").send(body);
+});
+```
+
+**Wiring router (kalau belum):**
+
+```ts
+// apps/api/src/server/index.ts
+import { gptsRouter } from "../routes/gpts";
+...
+app.use(gptsRouter);
+```
+
+---
+
+## ENV yang perlu dicek
+
+* `COINGLASS_PROXY_BASE=http://127.0.0.1:8000`
+* `API_BASE=http://127.0.0.1:5000` (kalau scheduler mengarah ke Node)
+* `BIAS_TARGET=node` (atau `python` bila mau hit langsung FastAPI)
+* `BIAS_INTERVAL_MS=300000` (opsional)
+* `BIAS_SYMBOL=SOL-USDT-SWAP` (opsional)
+
+Done. Dengan ini:
+
+* Scheduler **selalu** pakai **absolute URL** → nggak nyasar ke Vite/HTML
+* Guard **jsonOrText** bikin error **jelas** kalau backend balas HTML
+* Shim route `/gpts/*` di Node mengarah ke Python yang **JSON**
+* Backoff + jitter tetap jalan, budget-aware tetap aktif
+
+Kalau mau aku tambahkan **unit test kecil** untuk `jsonOrText()` dan smoke-test scheduler (mock fetch), bilang aja. Semua patch ini tetap align dengan playbook Replit/Phase-1 yang kita set.&#x20;

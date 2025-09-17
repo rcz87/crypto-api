@@ -50,7 +50,9 @@ class MetricsCollector {
     http: { count: 0, p95: 0, errors: 0 },
     cache: { hits: 0, misses: 0, size: 0 },
     ws: { reconnects: 0, activeClients: 0, bufferedAmount: 0 },
-    okx: { restStatus: 'down', wsStatus: 'down', lastRestCall: 0, lastWsMessage: 0 },
+    // STARTUP GRACE PERIOD FIX: Initialize OKX services to 'degraded' instead of 'down'
+    // This prevents false positive 503 responses during system startup/warmup
+    okx: { restStatus: 'degraded', wsStatus: 'degraded', lastRestCall: 0, lastWsMessage: 0 },
     security: { rateLimitHits: 0, validationFailures: 0, suspiciousRequests: 0, blockedIPs: 0, lastSecurityEvent: 0 },
     coinglass: { 
       requests: 0, 
@@ -74,6 +76,17 @@ class MetricsCollector {
   
   private readonly maxSamples = 100;
   private startTime = Date.now();
+  
+  // STARTUP GRACE PERIOD: 5-minute window for service initialization
+  private readonly STARTUP_GRACE_PERIOD_MS = 5 * 60 * 1000; // 5 minutes
+  
+  /**
+   * Check if system is still within startup/warmup period
+   * During this time, uninitialized services should be treated as 'degraded' not 'down'
+   */
+  private isWithinStartupGracePeriod(): boolean {
+    return (Date.now() - this.startTime) < this.STARTUP_GRACE_PERIOD_MS;
+  }
 
   // HTTP metrics
   recordHttpRequest(duration: number, isError: boolean = false) {
@@ -215,6 +228,38 @@ class MetricsCollector {
     this.metrics.coinglass.circuitBreaker.lastFailure = lastFailure;
   }
 
+  /**
+   * STARTUP GRACE PERIOD FIX: Enhanced OKX REST service health evaluation
+   * Properly handles uninitialized services during warmup period
+   */
+  private evaluateOkxRestHealth(currentTime: number, isWarmup: boolean): boolean {
+    const { restStatus, lastRestCall } = this.metrics.okx;
+    
+    // During warmup: treat uninitialized (timestamp = 0) as degraded, not down
+    if (isWarmup && lastRestCall === 0) {
+      return true; // Consider as 'not failing' during warmup
+    }
+    
+    // After warmup: normal health check logic
+    return restStatus === 'up' && (currentTime - lastRestCall) < 30000; // 30s threshold
+  }
+
+  /**
+   * STARTUP GRACE PERIOD FIX: Enhanced OKX WebSocket service health evaluation
+   * Properly handles uninitialized services during warmup period
+   */
+  private evaluateOkxWsHealth(currentTime: number, isWarmup: boolean): boolean {
+    const { wsStatus, lastWsMessage } = this.metrics.okx;
+    
+    // During warmup: treat uninitialized (timestamp = 0) as degraded, not down
+    if (isWarmup && lastWsMessage === 0) {
+      return true; // Consider as 'not failing' during warmup
+    }
+    
+    // After warmup: normal health check logic
+    return wsStatus === 'up' && (currentTime - lastWsMessage) < 60000; // 60s threshold for WS
+  }
+
   getMetrics() {
     const uptime = Math.floor((Date.now() - this.startTime) / 1000);
     const cacheHitRatio = this.metrics.cache.hits + this.metrics.cache.misses > 0 
@@ -278,13 +323,12 @@ class MetricsCollector {
   getHealthStatus() {
     const now = Date.now();
     const metrics = this.getMetrics();
+    const isWarmup = this.isWithinStartupGracePeriod();
     
-    // Critical service checks
-    const restHealthy = this.metrics.okx.restStatus === 'up' && 
-                       (now - this.metrics.okx.lastRestCall) < 30000; // 30s threshold
-    
-    const wsHealthy = this.metrics.okx.wsStatus === 'up' && 
-                     (now - this.metrics.okx.lastWsMessage) < 60000; // 60s threshold for WS
+    // STARTUP GRACE PERIOD FIX: Enhanced critical service checks with warmup handling
+    // During warmup (first 5 minutes), treat uninitialized services as degraded, not down
+    const restHealthy = this.evaluateOkxRestHealth(now, isWarmup);
+    const wsHealthy = this.evaluateOkxWsHealth(now, isWarmup);
     
     const memoryHealthy = metrics.memory.used < 500; // 500MB threshold
     
@@ -305,15 +349,17 @@ class MetricsCollector {
       coinglass: coinglassHealthy && !coinglassCircuitBreakerOpen
     };
     
-    // Determine overall status
-    const criticalDown = !restHealthy || !wsHealthy || !memoryHealthy;
+    // STARTUP GRACE PERIOD FIX: Enhanced overall status determination
+    // Only consider services truly 'down' if they are actively failing after warmup
+    const criticalDown = (!restHealthy || !wsHealthy || !memoryHealthy) && !isWarmup;
     const nonCriticalDegraded = !cacheHealthy || !coinglassHealthy || coinglassCircuitBreakerOpen;
+    const duringWarmup = isWarmup && (!restHealthy || !wsHealthy);
     
     let overall: 'ok' | 'degraded' | 'down';
     if (criticalDown) {
-      overall = 'down';
-    } else if (nonCriticalDegraded) {
-      overall = 'degraded';
+      overall = 'down';  // Only during confirmed failures after warmup
+    } else if (nonCriticalDegraded || duringWarmup) {
+      overall = 'degraded';  // Include warmup period as degraded
     } else {
       overall = 'ok';
     }
@@ -372,7 +418,10 @@ class MetricsCollector {
       reasoning: {
         critical_services_healthy: !criticalDown,
         non_critical_services_degraded: nonCriticalDegraded,
+        startup_grace_period_active: isWarmup,
+        warmup_time_remaining_ms: isWarmup ? (this.STARTUP_GRACE_PERIOD_MS - (now - this.startTime)) : 0,
         status_explanation: criticalDown ? 'Critical services down' : 
+                           duringWarmup ? `System warming up (${Math.ceil((this.STARTUP_GRACE_PERIOD_MS - (now - this.startTime)) / 1000)}s remaining)` :
                            nonCriticalDegraded ? 'Non-critical services degraded' : 'All services healthy'
       },
       timestamp: new Date().toISOString()

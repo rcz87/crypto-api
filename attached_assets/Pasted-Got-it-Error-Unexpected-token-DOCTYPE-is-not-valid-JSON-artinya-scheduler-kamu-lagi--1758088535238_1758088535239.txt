@@ -1,0 +1,163 @@
+Got it. Error `Unexpected token '<', "<!DOCTYPE "... is not valid JSON` artinya scheduler kamu lagi **kena HTML** (bukan JSON). Biasanya ini terjadi karena:
+
+* **Salah target URL/host/port** → request nyasar ke **frontend Vite** (SPA fallback kirim `index.html`), bukan ke API Python/Node.
+* Atau **path 404** → server balas HTML error page.
+* Atau **proxy** mengarahkan ke origin salah.
+
+Dari log kamu, rate-limit loopback sudah aman, OKX & Python sehat. Jadi ini hampir pasti **routing**.
+
+Berikut fix yang langsung ngeberesin:
+
+---
+
+# 1) Pastikan scheduler pakai base URL yang benar (bukan origin frontend)
+
+Tetapkan **BASE URL eksplisit** ke Python/Node (bukan relative):
+
+```ts
+// apps/api/src/clients/institutionalBias.ts
+const PY_BASE = process.env.COINGLASS_PROXY_BASE ?? "http://127.0.0.1:8000"; // Python
+const API_BASE = process.env.API_BASE ?? "http://127.0.0.1:5000";           // Node (kalau endpoint di Node)
+```
+
+Di scheduler, jangan pernah pakai `fetch('/gpts/...')` (relative) — itu bisa ke Vite. Gunakan absolute:
+
+```ts
+// contoh kalau task memanggil Python
+const url = `${PY_BASE}/institutional/bias?symbol=SOL-USDT-SWAP`;
+// atau kalau endpoint-nya di Node
+const url = `${API_BASE}/gpts/institutional/bias?symbol=SOL-USDT-SWAP`;
+```
+
+> Cek ENV kamu di Replit: set `COINGLASS_PROXY_BASE=http://127.0.0.1:8000` dan (jika perlu) `API_BASE=http://127.0.0.1:5000`.
+
+---
+
+# 2) Guard JSON vs HTML: util aman yang nggak “meledak”
+
+Ganti semua `await r.json()` menjadi util berikut supaya ketahuan ketika kebablasan ke HTML:
+
+```ts
+// apps/api/src/utils/jsonOrText.ts
+export async function jsonOrText(r: Response) {
+  const ct = r.headers.get("content-type") || "";
+  const raw = await r.text();
+
+  const looksHTML = raw.trimStart().startsWith("<!DOCTYPE") || raw.trimStart().startsWith("<html");
+  const looksJSON = ct.includes("application/json") || /^[\[{]/.test(raw.trimStart());
+
+  if (looksHTML && !looksJSON) {
+    const snippet = raw.slice(0, 200).replace(/\s+/g, " ");
+    const err = new Error(`Expected JSON but got HTML (${r.status}). Snippet: ${snippet}`);
+    (err as any).status = r.status;
+    throw err;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    throw new Error(`Invalid JSON (${r.status}). Head: ${raw.slice(0, 120)}`);
+  }
+}
+```
+
+Pakainya:
+
+```ts
+import { jsonOrText } from "../utils/jsonOrText";
+
+export async function biasGet(url: string, init?: RequestInit) {
+  const r = await fetch(url, { ...init, headers: { Accept: "application/json", ...(init?.headers||{}) } });
+  if (!r.ok) {
+    const body = await r.text();
+    throw new Error(`Bias API ${r.status}: ${body.slice(0, 160)}`);
+  }
+  return jsonOrText(r);
+}
+```
+
+Scheduler:
+
+```ts
+// apps/api/src/schedulers/institutionalBias.ts
+try {
+  const data = await biasGet(`${API_BASE}/gpts/institutional/bias?symbol=SOL-USDT-SWAP`);
+  // ...process
+} catch (e:any) {
+  // e.message akan berisi “Expected JSON but got HTML...” kalau salah route
+  handleBackoff(e);
+}
+```
+
+---
+
+# 3) Pastikan route-nya ada (hindari 404 HTML)
+
+Log sebelumnya sempat 404 di Python untuk `/gpts/unified/symbols`. Dua opsi:
+
+* **Shim di Node**:
+
+  ```ts
+  // apps/api/src/routes/gpts.ts
+  gptsRouter.get("/gpts/unified/symbols", async (_req, res) => {
+    const r = await fetch(`${process.env.COINGLASS_PROXY_BASE}/symbols`);
+    res.status(r.status).type(r.headers.get("content-type")||"application/json").send(await r.text());
+  });
+  ```
+* **Atau** buat route yang benar di Python. Yang penting: pastikan scheduler memanggil **path yang ada**.
+
+Cek cepat (manual):
+
+```
+curl -i http://127.0.0.1:8000/health
+curl -i http://127.0.0.1:8000/institutional/bias?symbol=SOL-USDT-SWAP
+curl -i http://127.0.0.1:5000/gpts/institutional/bias?symbol=SOL-USDT-SWAP
+```
+
+Kalau salah satu balas HTML (`<!DOCTYPE html>`), berarti itu **bukan** endpoint JSON.
+
+---
+
+# 4) Tetapkan Accept & Content-Type di Python (biar konsisten JSON)
+
+Di sisi Python (FastAPI), pastikan semua handler bias mengembalikan JSON:
+
+```py
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+
+router = APIRouter()
+
+@router.get("/institutional/bias")
+def institutional_bias(symbol: str):
+    # ... compute
+    return JSONResponse(
+        content={"symbol": symbol, "bias": "neutral", "score": 0.52},
+        media_type="application/json"
+    )
+```
+
+---
+
+# 5) Jaga backoff yang sudah jalan
+
+Backoff-mu kelihatan naik: 17s → 22s → 33s → 50s (good). Dengan perbaikan URL & JSON guard, error akan hilang; backoff otomatis turun lagi. Pastikan juga **budget-aware** (skip kalau budget tidak cukup) seperti patch sebelumnya.
+
+---
+
+# 6) Quick sanity checklist
+
+* [ ] ENV `COINGLASS_PROXY_BASE` & (`API_BASE` jika perlu) **di-set**.
+* [ ] Semua call scheduler pakai **absolute URL** (nggak ada `/gpts/...` relative).
+* [ ] `jsonOrText()` terpasang → kalau salah route, error jadi JELAS (snippet HTML).
+* [ ] `curl` ke endpoint target mengembalikan JSON, bukan HTML.
+* [ ] Log “Unexpected token ‘<’ …” **hilang**; kalau masih ada, print `url` yang dipakai scheduler untuk memastikan targetnya.
+
+Kalau kamu mau, aku siapin diffs untuk:
+
+* `utils/jsonOrText.ts`
+* `clients/institutionalBias.ts`
+* `schedulers/institutionalBias.ts`
+* `routes/gpts.ts` (shim opsional)
+
+Semua tetap konsisten sama blueprint dan prinsip **non-invasive** yang kita tuangkan di playbook Replit.&#x20;
