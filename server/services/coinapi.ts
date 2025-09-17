@@ -1845,7 +1845,52 @@ export class CoinAPIService {
   }
 
   /**
-   * Calculate TWAP (Time Weighted Average Price) from historical data
+   * Validate TWAP calculation results
+   * Returns true if TWAP data is complete and valid
+   */
+  private validateTWAPData(twapResult: any, symbolId: string, expectedHours: number): boolean {
+    // Check if result exists and has all required fields
+    if (!twapResult || typeof twapResult !== 'object') {
+      console.warn(`[TWAP Validation] ${symbolId}: No result object`);
+      return false;
+    }
+    
+    // Check for missing or invalid TWAP value
+    if (!twapResult.twap || twapResult.twap <= 0 || !isFinite(twapResult.twap)) {
+      console.warn(`[TWAP Validation] ${symbolId}: Invalid TWAP value:`, twapResult.twap);
+      return false;
+    }
+    
+    // Check if we have sufficient data points (at least 50% of expected hours)
+    const minimumDataPoints = Math.max(1, Math.floor(expectedHours * 0.5));
+    if (!twapResult.data_points || twapResult.data_points < minimumDataPoints) {
+      console.warn(`[TWAP Validation] ${symbolId}: Insufficient data points: ${twapResult.data_points} < ${minimumDataPoints}`);
+      return false;
+    }
+    
+    // Check if time range makes sense
+    if (!twapResult.time_start || !twapResult.time_end) {
+      console.warn(`[TWAP Validation] ${symbolId}: Missing time range`);
+      return false;
+    }
+    
+    const startTime = new Date(twapResult.time_start);
+    const endTime = new Date(twapResult.time_end);
+    const actualHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+    
+    // Allow some tolerance (e.g., at least 80% of expected period)
+    if (actualHours < expectedHours * 0.8) {
+      console.warn(`[TWAP Validation] ${symbolId}: Insufficient time range: ${actualHours}h < ${expectedHours * 0.8}h`);
+      return false;
+    }
+    
+    console.log(`[TWAP Validation] ${symbolId}: Valid TWAP data - value: ${twapResult.twap}, points: ${twapResult.data_points}, hours: ${actualHours}`);
+    return true;
+  }
+
+  /**
+   * Calculate TWAP (Time Weighted Average Price) from historical data with VWAP fallback
+   * Automatically falls back to VWAP calculation if TWAP data is incomplete or invalid
    */
   async calculateTWAP(symbolId: string, hours: number = 24): Promise<{
     twap: number;
@@ -1853,44 +1898,196 @@ export class CoinAPIService {
     data_points: number;
     time_start: string;
     time_end: string;
+    fallback_used?: 'vwap' | 'multi_ticker';
+    fallback_reason?: string;
+    data_source: 'twap' | 'vwap_fallback' | 'multi_ticker_fallback';
   }> {
     const cacheKey = this.getCacheKey('twap', { symbolId, hours });
     
     return cache.getSingleFlight(cacheKey, async () => {
+      const startTime = Date.now();
+      
       try {
+        // Step 1: Attempt primary TWAP calculation
+        console.log(`[TWAP] Starting calculation for ${symbolId} (${hours}h period)`);
+        
         const timeEnd = new Date().toISOString();
         const timeStart = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
         
-        const historicalData = await this.getHistoricalData(symbolId, '1HRS', timeStart, timeEnd);
+        let historicalData;
+        try {
+          historicalData = await this.getHistoricalData(symbolId, '1HRS', timeStart, timeEnd);
+        } catch (error) {
+          console.warn(`[TWAP] Failed to get historical data for ${symbolId}:`, error instanceof Error ? error.message : 'Unknown error');
+          // Immediate fallback to VWAP if we can't get historical data
+          return await this.performVWAPFallback(symbolId, hours, 'historical_data_unavailable');
+        }
         
-        if (historicalData.data.length === 0) {
-          throw new Error('No historical data available for TWAP calculation');
+        if (!historicalData || !historicalData.data || historicalData.data.length === 0) {
+          console.warn(`[TWAP] No historical data available for ${symbolId}`);
+          return await this.performVWAPFallback(symbolId, hours, 'no_historical_data');
         }
 
         // Calculate TWAP = Sum(Price * Volume) / Sum(Volume)
         let totalValue = 0;
         let totalVolume = 0;
+        let validCandles = 0;
         
         historicalData.data.forEach((candle: CoinAPIHistoricalData) => {
-          const avgPrice = (candle.price_high + candle.price_low + candle.price_close) / 3;
-          totalValue += avgPrice * candle.volume_traded;
-          totalVolume += candle.volume_traded;
+          // Validate candle data
+          if (candle && candle.price_high && candle.price_low && candle.price_close && candle.volume_traded) {
+            const avgPrice = (candle.price_high + candle.price_low + candle.price_close) / 3;
+            if (avgPrice > 0 && candle.volume_traded > 0) {
+              totalValue += avgPrice * candle.volume_traded;
+              totalVolume += candle.volume_traded;
+              validCandles++;
+            }
+          }
         });
 
         const twap = totalVolume > 0 ? totalValue / totalVolume : 0;
-
-        return {
+        
+        const twapResult = {
           twap,
           period_hours: hours,
-          data_points: historicalData.data.length,
+          data_points: validCandles,
           time_start: timeStart,
           time_end: timeEnd,
+          data_source: 'twap' as const
         };
+        
+        // Step 2: Validate TWAP result
+        if (this.validateTWAPData(twapResult, symbolId, hours)) {
+          const processingTime = Date.now() - startTime;
+          console.log(`[TWAP] ✅ Valid TWAP calculated for ${symbolId}: ${twap} (${validCandles} points, ${processingTime}ms)`);
+          return twapResult;
+        }
+        
+        // Step 3: TWAP validation failed, fallback to VWAP
+        console.warn(`[TWAP] ❌ TWAP validation failed for ${symbolId}, attempting VWAP fallback`);
+        return await this.performVWAPFallback(symbolId, hours, 'twap_validation_failed');
+        
       } catch (error) {
-        console.error(`Error calculating TWAP for ${symbolId}:`, error instanceof Error ? error.message : 'Unknown error');
-        throw new Error(`Failed to calculate TWAP for ${symbolId}`);
+        const processingTime = Date.now() - startTime;
+        console.error(`[TWAP] ❌ Error calculating TWAP for ${symbolId} (${processingTime}ms):`, error instanceof Error ? error.message : 'Unknown error');
+        
+        // Step 4: Error occurred, attempt fallback
+        try {
+          return await this.performVWAPFallback(symbolId, hours, 'twap_calculation_error');
+        } catch (fallbackError) {
+          console.error(`[TWAP] ❌ Both TWAP and fallback failed for ${symbolId}:`, fallbackError instanceof Error ? fallbackError.message : 'Unknown error');
+          throw new Error(`Failed to calculate TWAP for ${symbolId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       }
     }, TTL_CONFIG.TICKER);
+  }
+  
+  /**
+   * Perform VWAP fallback when TWAP calculation fails or returns invalid data
+   */
+  private async performVWAPFallback(symbolId: string, hours: number, reason: string): Promise<{
+    twap: number;
+    period_hours: number;
+    data_points: number;
+    time_start: string;
+    time_end: string;
+    fallback_used: 'vwap' | 'multi_ticker';
+    fallback_reason: string;
+    data_source: 'vwap_fallback' | 'multi_ticker_fallback';
+  }> {
+    const fallbackStartTime = Date.now();
+    
+    console.log(`[TWAP] 🔄 Initiating VWAP fallback for ${symbolId}. Reason: ${reason}`);
+    
+    try {
+      // Step 1: Try direct VWAP calculation
+      const vwapResult = await this.calculateVWAP(symbolId, hours);
+      
+      // Validate VWAP result
+      if (vwapResult && vwapResult.vwap && vwapResult.vwap > 0 && vwapResult.data_points > 0) {
+        const processingTime = Date.now() - fallbackStartTime;
+        console.log(`[TWAP] ✅ VWAP fallback successful for ${symbolId}: ${vwapResult.vwap} (${vwapResult.data_points} points, ${processingTime}ms)`);
+        
+        return {
+          twap: vwapResult.vwap, // Return as 'twap' to maintain API consistency
+          period_hours: vwapResult.period_hours,
+          data_points: vwapResult.data_points,
+          time_start: vwapResult.time_start,
+          time_end: vwapResult.time_end,
+          fallback_used: 'vwap',
+          fallback_reason: reason,
+          data_source: 'vwap_fallback'
+        };
+      }
+      
+      console.warn(`[TWAP] ⚠️ VWAP fallback returned invalid data for ${symbolId}`, vwapResult);
+      
+    } catch (vwapError) {
+      console.warn(`[TWAP] ⚠️ VWAP fallback failed for ${symbolId}:`, vwapError instanceof Error ? vwapError.message : 'Unknown error');
+    }
+    
+    // Step 2: Try multi-ticker fallback as last resort
+    console.log(`[TWAP] 🔄 Attempting multi-ticker fallback for ${symbolId}`);
+    
+    try {
+      // Extract asset from symbolId (e.g., BINANCE_SPOT_SOL_USDT -> SOL)
+      const asset = this.extractAssetFromSymbolId(symbolId);
+      const multiTickerData = await this.getMultiExchangeTicker(asset);
+      
+      if (multiTickerData && multiTickerData.tickers && multiTickerData.tickers.length > 0) {
+        // Calculate simple average price from multi-ticker data
+        const validPrices = multiTickerData.tickers
+          .map(ticker => parseFloat(ticker.price))
+          .filter(price => price > 0 && isFinite(price));
+          
+        if (validPrices.length > 0) {
+          const averagePrice = validPrices.reduce((sum, price) => sum + price, 0) / validPrices.length;
+          const processingTime = Date.now() - fallbackStartTime;
+          
+          console.log(`[TWAP] ✅ Multi-ticker fallback successful for ${symbolId}: ${averagePrice} (${validPrices.length} tickers, ${processingTime}ms)`);
+          
+          return {
+            twap: averagePrice,
+            period_hours: hours,
+            data_points: validPrices.length,
+            time_start: new Date(Date.now() - hours * 60 * 60 * 1000).toISOString(),
+            time_end: new Date().toISOString(),
+            fallback_used: 'multi_ticker',
+            fallback_reason: reason,
+            data_source: 'multi_ticker_fallback'
+          };
+        }
+      }
+      
+      console.error(`[TWAP] ❌ Multi-ticker fallback failed for ${symbolId}: no valid price data`);
+      
+    } catch (multiTickerError) {
+      console.error(`[TWAP] ❌ Multi-ticker fallback error for ${symbolId}:`, multiTickerError instanceof Error ? multiTickerError.message : 'Unknown error');
+    }
+    
+    // All fallback methods failed
+    const processingTime = Date.now() - fallbackStartTime;
+    throw new Error(`All TWAP fallback methods exhausted for ${symbolId} after ${processingTime}ms. Original reason: ${reason}`);
+  }
+  
+  /**
+   * Extract asset symbol from CoinAPI symbolId format
+   * Examples: BINANCE_SPOT_SOL_USDT -> SOL, COINBASE_SPOT_BTC_USD -> BTC
+   */
+  private extractAssetFromSymbolId(symbolId: string): string {
+    const parts = symbolId.split('_');
+    if (parts.length >= 3) {
+      return parts[2]; // Third part is typically the asset (BINANCE_SPOT_SOL_USDT)
+    }
+    // Fallback: try to extract asset from the symbolId itself
+    if (symbolId.includes('SOL')) return 'SOL';
+    if (symbolId.includes('BTC')) return 'BTC';
+    if (symbolId.includes('ETH')) return 'ETH';
+    if (symbolId.includes('ADA')) return 'ADA';
+    
+    // Default fallback
+    console.warn(`[TWAP] Could not extract asset from symbolId: ${symbolId}, defaulting to SOL`);
+    return 'SOL';
   }
 
   /**

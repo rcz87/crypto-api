@@ -3656,8 +3656,11 @@ export function registerTradingRoutes(app: Express): void {
   });
 
   /**
-   * Calculate TWAP for a symbol
+   * Calculate TWAP for a symbol with VWAP fallback
    * Example: /api/coinapi/twap/BINANCE_SPOT_SOL_USDT?hours=24
+   * 
+   * Enhanced with automatic fallback to VWAP calculation when TWAP data is incomplete
+   * Provides transparent fallback ensuring consistent data availability
    */
   app.get('/api/coinapi/twap/:symbolId', async (req: Request, res: Response) => {
     const startTime = Date.now();
@@ -3666,29 +3669,98 @@ export function registerTradingRoutes(app: Express): void {
       const { symbolId } = req.params;
       const { hours = '24' } = req.query;
       
-      const twap = await coinAPIService.calculateTWAP(symbolId, parseInt(hours as string));
+      console.log(`[TWAP Endpoint] Initiating TWAP calculation for ${symbolId} (${hours}h period)`);
+      
+      const twapResult = await coinAPIService.calculateTWAP(symbolId, parseInt(hours as string));
       const responseTime = Date.now() - startTime;
       
-      res.json({
+      // Build comprehensive response with fallback metadata
+      const response: any = {
         success: true,
         data: {
           symbol_id: symbolId,
-          ...twap
+          twap: twapResult.twap,
+          period_hours: twapResult.period_hours,
+          data_points: twapResult.data_points,
+          time_start: twapResult.time_start,
+          time_end: twapResult.time_end,
+          data_source: twapResult.data_source
         },
         metadata: {
           source: 'CoinAPI',
-          response_time_ms: responseTime
+          response_time_ms: responseTime,
+          calculation_method: twapResult.data_source === 'twap' ? 'primary_twap' : 'fallback',
+          ...(twapResult.fallback_used && {
+            fallback: {
+              used: twapResult.fallback_used,
+              reason: twapResult.fallback_reason,
+              original_method: 'twap'
+            }
+          })
         },
         timestamp: new Date().toISOString(),
+      };
+      
+      // Log successful request with fallback details
+      const logLevel = twapResult.fallback_used ? 'warn' : 'info';
+      const logMessage = twapResult.fallback_used 
+        ? `TWAP calculation with ${twapResult.fallback_used} fallback completed`
+        : 'TWAP calculation completed successfully';
+      const logDetails = twapResult.fallback_used
+        ? `GET /api/coinapi/twap/${symbolId} - ${responseTime}ms - 200 OK (FALLBACK: ${twapResult.fallback_used}) - Reason: ${twapResult.fallback_reason} - Value: ${twapResult.twap} - Points: ${twapResult.data_points}`
+        : `GET /api/coinapi/twap/${symbolId} - ${responseTime}ms - 200 OK - Value: ${twapResult.twap} - Points: ${twapResult.data_points}`;
+      
+      await storage.addLog({
+        level: logLevel,
+        message: logMessage,
+        details: logDetails,
       });
+      
+      console.log(`[TWAP Endpoint] ✅ ${logMessage} for ${symbolId}: ${twapResult.twap} (${twapResult.data_points} points, ${responseTime}ms)`);
+      
+      res.json(response);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
-      console.error('Error in /api/coinapi/twap:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Internal server error';
       
-      res.status(500).json({
+      console.error(`[TWAP Endpoint] ❌ Error calculating TWAP for ${req.params.symbolId}:`, errorMessage);
+      
+      // Enhanced error logging
+      await storage.addLog({
+        level: 'error',
+        message: 'TWAP calculation request failed',
+        details: `GET /api/coinapi/twap/${req.params.symbolId} - ${responseTime}ms - 500 ERROR - ${errorMessage}`,
+      });
+      
+      // Categorize error types for better client handling
+      let statusCode = 500;
+      let errorCategory = 'internal_error';
+      
+      if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+        statusCode = 404;
+        errorCategory = 'symbol_not_found';
+      } else if (errorMessage.includes('timeout')) {
+        statusCode = 408;
+        errorCategory = 'timeout_error';
+      } else if (errorMessage.includes('rate limit') || errorMessage.includes('quota')) {
+        statusCode = 429;
+        errorCategory = 'rate_limit_error';
+      } else if (errorMessage.includes('fallback methods exhausted')) {
+        statusCode = 503;
+        errorCategory = 'service_unavailable';
+      }
+      
+      res.status(statusCode).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Internal server error',
+        error: errorMessage,
+        error_category: errorCategory,
+        metadata: {
+          source: 'CoinAPI',
+          response_time_ms: responseTime,
+          attempted_fallback: true,
+          fallback_status: 'failed'
+        },
         timestamp: new Date().toISOString(),
       });
     }
