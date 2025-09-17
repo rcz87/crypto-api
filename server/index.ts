@@ -47,6 +47,9 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import { spawn } from "child_process";
 import fetch from "node-fetch";
 
+// Import metrics collector early for proxy middleware
+import { metricsCollector } from "./utils/metrics";
+
 const PY_BASE = process.env.PY_BASE || "http://127.0.0.1:8000";
 
 // 🛡️ GUARD RAILS - Rate Limiting for Python API
@@ -129,24 +132,15 @@ app.use("/api/sol/complete", cacheMiddleware(500)); // 500ms micro-cache
 app.use("/api/btc/complete", cacheMiddleware(500)); // 500ms micro-cache
 
 // 🚀 PROXY MIDDLEWARE WITH CIRCUIT BREAKER
-interface CircuitBreakerState {
-  failures: number;
-  lastFailure: number | null;
-  isOpen: boolean;
-}
-let circuitBreaker: CircuitBreakerState = { failures: 0, lastFailure: null, isOpen: false };
-
-// Helper function to access circuit breaker state for metrics
-export function getCoinglassCircuitBreakerState(): CircuitBreakerState {
-  return { ...circuitBreaker };
-}
+import { coinglassCircuitBreaker } from "./utils/circuitBreaker";
 
 // 🛡️ PRE-PROXY CIRCUIT BREAKER MIDDLEWARE - Check before proxy
 app.use("/coinglass", (req, res, next) => {
-  if (circuitBreaker.isOpen) {
+  if (coinglassCircuitBreaker.isCircuitOpen()) {
+    const state = coinglassCircuitBreaker.getState();
     return res.status(503).json({
       error: "CoinGlass service temporarily unavailable - circuit breaker is open",
-      circuitBreaker: { failures: circuitBreaker.failures, isOpen: circuitBreaker.isOpen },
+      circuitBreaker: { failures: state.failures, isOpen: state.isOpen },
       retryAfter: "60 seconds"
     });
   }
@@ -166,30 +160,29 @@ app.use("/coinglass", createProxyMiddleware({
     // Track request duration and error
     const duration = (req as any).startTime ? Date.now() - (req as any).startTime : 0;
     
-    // Import and record metrics
-    import('./utils/metrics.js').then(({ metricsCollector }) => {
-      metricsCollector.recordCoinglassRequest(duration, true);
-    }).catch(() => {/* Ignore import errors */});
-    
     // Circuit breaker logic
-    circuitBreaker.failures++;
-    circuitBreaker.lastFailure = Date.now();
+    coinglassCircuitBreaker.recordFailure();
+    const state = coinglassCircuitBreaker.getState();
     
-    if (circuitBreaker.failures >= 5) {
-      circuitBreaker.isOpen = true;
-      log(`🔴 Circuit breaker OPEN - ${circuitBreaker.failures} consecutive failures`);
+    // Record metrics directly (import already loaded at top)
+    metricsCollector.recordCoinglassRequest(duration, true);
+    // Sync circuit breaker state with metrics
+    metricsCollector.updateCoinglassCircuitBreaker(state.failures, state.isOpen, state.lastFailure);
+    
+    if (state.isOpen) {
+      log(`🔴 Circuit breaker OPEN - ${state.failures} consecutive failures`);
     }
     
-    log(`[PY PROXY ERROR] ${err.message} (failures: ${circuitBreaker.failures})`);
+    log(`[PY PROXY ERROR] ${err.message} (failures: ${state.failures})`);
     
     if (!res.headersSent) {
-      const status = circuitBreaker.isOpen ? 503 : 502;
+      const status = state.isOpen ? 503 : 502;
       res.statusCode = status;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ 
-        error: circuitBreaker.isOpen ? "Service temporarily unavailable" : "CoinGlass service unavailable", 
+        error: state.isOpen ? "Service temporarily unavailable" : "CoinGlass service unavailable", 
         details: err.message,
-        circuitBreaker: { failures: circuitBreaker.failures, isOpen: circuitBreaker.isOpen }
+        circuitBreaker: { failures: state.failures, isOpen: state.isOpen }
       }));
     }
   },
@@ -198,30 +191,34 @@ app.use("/coinglass", createProxyMiddleware({
     const duration = (req as any).startTime ? Date.now() - (req as any).startTime : 0;
     const isError = proxyRes.statusCode ? proxyRes.statusCode >= 400 : false;
     
-    // Import and record metrics
-    import('./utils/metrics.js').then(({ metricsCollector }) => {
-      metricsCollector.recordCoinglassRequest(duration, isError);
-    }).catch(() => {/* Ignore import errors */});
-    
-    // Reset circuit breaker on successful response
-    if (proxyRes.statusCode && proxyRes.statusCode < 400) {
-      if (circuitBreaker.failures > 0) {
+    // Circuit breaker logic
+    if (!isError) {
+      const hadFailures = coinglassCircuitBreaker.getState().failures > 0;
+      coinglassCircuitBreaker.recordSuccess();
+      if (hadFailures) {
         log(`✅ Circuit breaker RESET - service recovered`);
       }
-      circuitBreaker.failures = 0;
-      circuitBreaker.isOpen = false;
     }
+    
+    const state = coinglassCircuitBreaker.getState();
+    
+    // Record metrics directly (import already loaded at top)
+    metricsCollector.recordCoinglassRequest(duration, isError);
+    // Sync circuit breaker state with metrics
+    metricsCollector.updateCoinglassCircuitBreaker(state.failures, state.isOpen, state.lastFailure);
+    
+    // Log proxy activity for debugging
+    log(`[CG PROXY] ${req.url} - ${proxyRes.statusCode} (${duration}ms)`);
   }
 } as Options));
 
 // Auto-reset circuit breaker after 1 minute
 setInterval(() => {
-  if (circuitBreaker.isOpen && circuitBreaker.lastFailure) {
-    const timeSinceFailure = Date.now() - circuitBreaker.lastFailure;
-    if (timeSinceFailure > 60000) {
-      circuitBreaker.isOpen = false;
-      log(`🔄 Circuit breaker auto-reset after 60 seconds`);
-    }
+  if (coinglassCircuitBreaker.checkAutoReset()) {
+    log(`🔄 Circuit breaker auto-reset after 60 seconds`);
+    // Sync with metrics collector
+    const state = coinglassCircuitBreaker.getState();
+    metricsCollector.updateCoinglassCircuitBreaker(state.failures, state.isOpen, state.lastFailure);
   }
 }, 30000);
 
@@ -309,9 +306,6 @@ const startPythonService = () => {
 startPythonService();
 
 // Observability will be initialized after routes registration
-
-// Import metrics collector
-import { metricsCollector } from "./utils/metrics";
 
 // Import enhanced security middleware
 import { enhancedRateLimit, InputSanitizer, getEnhancedSecurityMetrics } from "./middleware/security";

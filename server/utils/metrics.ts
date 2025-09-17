@@ -1,4 +1,6 @@
 // Performance metrics collection
+type CoinGlassHealth = "connected" | "degraded" | "disconnected";
+
 interface Metrics {
   http: {
     count: number;
@@ -33,7 +35,7 @@ interface Metrics {
     errors: number;
     avgLatency: number;
     lastHealthCheck: number;
-    healthStatus: 'connected' | 'error' | 'unknown';
+    healthStatus: CoinGlassHealth;
     hasKey: boolean;
     circuitBreaker: {
       failures: number;
@@ -55,14 +57,21 @@ class MetricsCollector {
       errors: 0, 
       avgLatency: 0, 
       lastHealthCheck: 0, 
-      healthStatus: 'unknown', 
-      hasKey: false,
+      healthStatus: 'disconnected', 
+      hasKey: !!process.env.CG_API_KEY || !!process.env.COINGLASS_API_KEY,
       circuitBreaker: { failures: 0, isOpen: false, lastFailure: null }
     }
   };
 
   private responseTimes: number[] = [];
-  private coinglassResponseTimes: number[] = [];
+  
+  // Enhanced CoinGlass metrics with EMA and rolling window
+  private coinglassAvgRt = 0; // EMA for avgLatency
+  private readonly coinglassAlpha = 0.15; // EMA smoothing factor
+  private readonly coinglassWindow = 200; // Rolling window for error rate
+  private coinglassErrorBuffer: (0 | 1)[] = []; // Ring buffer for errors
+  private coinglassBufferIndex = 0;
+  
   private readonly maxSamples = 100;
   private startTime = Date.now();
 
@@ -141,27 +150,63 @@ class MetricsCollector {
     this.metrics.security.blockedIPs = count;
   }
 
-  // CoinGlass metrics
+  // Enhanced CoinGlass metrics with EMA and rolling window
   recordCoinglassRequest(duration: number, isError: boolean = false) {
     this.metrics.coinglass.requests++;
-    if (isError) this.metrics.coinglass.errors++;
     
-    this.coinglassResponseTimes.push(duration);
-    if (this.coinglassResponseTimes.length > this.maxSamples) {
-      this.coinglassResponseTimes.shift();
+    // Update EMA for avgLatency (smooth and efficient)
+    if (this.coinglassAvgRt === 0) {
+      this.coinglassAvgRt = duration;
+    } else {
+      this.coinglassAvgRt = this.coinglassAvgRt + this.coinglassAlpha * (duration - this.coinglassAvgRt);
+    }
+    this.metrics.coinglass.avgLatency = Math.round(this.coinglassAvgRt);
+    
+    // Update rolling window for error rate calculation
+    if (this.coinglassErrorBuffer.length < this.coinglassWindow) {
+      this.coinglassErrorBuffer.push(isError ? 1 : 0);
+    } else {
+      this.coinglassErrorBuffer[this.coinglassBufferIndex] = isError ? 1 : 0;
+      this.coinglassBufferIndex = (this.coinglassBufferIndex + 1) % this.coinglassWindow;
     }
     
-    // Calculate average latency
-    if (this.coinglassResponseTimes.length > 0) {
-      const sum = this.coinglassResponseTimes.reduce((a, b) => a + b, 0);
-      this.metrics.coinglass.avgLatency = Math.round(sum / this.coinglassResponseTimes.length);
+    if (isError) {
+      this.metrics.coinglass.errors++;
+    }
+    
+    // Update health status based on error rate
+    this.updateCoinglassHealth();
+  }
+  
+  // Calculate error rate from rolling window
+  private getCoinglassErrorRate(): number {
+    if (this.coinglassErrorBuffer.length === 0) return 0;
+    const sum = this.coinglassErrorBuffer.reduce((a: number, b: 0 | 1) => a + b, 0);
+    return sum / this.coinglassErrorBuffer.length;
+  }
+  
+  // Update health status based on error rate thresholds
+  private updateCoinglassHealth() {
+    const errorRate = this.getCoinglassErrorRate();
+    // Only update health if we have actual requests
+    if (this.metrics.coinglass.requests > 0) {
+      if (errorRate > 0.5) {
+        this.metrics.coinglass.healthStatus = 'disconnected';
+      } else if (errorRate > 0.2) {
+        this.metrics.coinglass.healthStatus = 'degraded';
+      } else {
+        this.metrics.coinglass.healthStatus = 'connected';
+      }
+    } else {
+      // No requests yet - status should be connected if API key available
+      this.metrics.coinglass.healthStatus = this.metrics.coinglass.hasKey ? 'connected' : 'disconnected';
     }
   }
 
-  updateCoinglassHealthCheck(status: 'connected' | 'error', hasKey: boolean = false) {
-    this.metrics.coinglass.healthStatus = status;
+  updateCoinglassHealthCheck(hasKey: boolean = false) {
     this.metrics.coinglass.hasKey = hasKey;
     this.metrics.coinglass.lastHealthCheck = Date.now();
+    // Health status is now calculated automatically from error rate
   }
 
   updateCoinglassCircuitBreaker(failures: number, isOpen: boolean, lastFailure: number | null) {
@@ -204,13 +249,28 @@ class MetricsCollector {
           Date.now() - this.metrics.security.lastSecurityEvent < 300000 ? 'recent_activity' : 'quiet' : 'no_events'
       },
       coinglass: {
-        ...this.metrics.coinglass,
-        errorRate: this.metrics.coinglass.requests > 0 
-          ? ((this.metrics.coinglass.errors / this.metrics.coinglass.requests) * 100).toFixed(2) + '%'
-          : '0.00%',
+        requestCount: this.metrics.coinglass.requests,
+        avgResponseTime: this.metrics.coinglass.avgLatency,
+        errorRate: Number(this.getCoinglassErrorRate().toFixed(4)),
+        lastHealthStatus: this.metrics.coinglass.healthStatus,
+        hasApiKey: this.metrics.coinglass.hasKey,
+        circuitBreaker: {
+          failures: this.metrics.coinglass.circuitBreaker.failures,
+          isOpen: this.metrics.coinglass.circuitBreaker.isOpen,
+          lastFailure: this.metrics.coinglass.circuitBreaker.lastFailure ? 
+            new Date(this.metrics.coinglass.circuitBreaker.lastFailure).toISOString() : null
+        },
+        // Backward compatibility fields
+        requests: this.metrics.coinglass.requests,
+        errors: this.metrics.coinglass.errors,
+        avgLatency: this.metrics.coinglass.avgLatency,
+        healthStatus: this.metrics.coinglass.healthStatus,
+        hasKey: this.metrics.coinglass.hasKey,
+        lastHealthCheck: this.metrics.coinglass.lastHealthCheck,
         lastHealthCheckMs: this.metrics.coinglass.lastHealthCheck > 0 
           ? Date.now() - this.metrics.coinglass.lastHealthCheck 
-          : -1
+          : -1,
+        errorRatePercent: (this.getCoinglassErrorRate() * 100).toFixed(2) + '%'
       }
     };
   }

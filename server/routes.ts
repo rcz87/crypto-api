@@ -768,12 +768,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      // Default behavior: return metrics
-      const metrics = await storage.getLatestMetrics();
+      // Default behavior: return proper metrics using metricsCollector  
+      const isProduction = process.env.NODE_ENV === 'production';
+      
+      // Get basic metrics for all environments
+      let metrics = metricsCollector.getMetrics();
+      
+      // Add security metrics with production safety
+      try {
+        const { getEnhancedSecurityMetrics } = await import('./middleware/security');
+        const securityMetrics = getEnhancedSecurityMetrics();
+        
+        if (isProduction) {
+          // Production: Only include aggregate security stats, no detailed info
+          metrics = {
+            ...metrics,
+            security: {
+              securityHealth: 'operational',
+              rateLimitHits: securityMetrics.security?.totalRateLimitHits || 0,
+              suspiciousRequests: securityMetrics.security?.totalSuspiciousRequests || 0,
+              validationFailures: securityMetrics.security?.totalValidationFailures || 0,
+              blockedIPs: securityMetrics.security?.activelyBlockedIPs || 0,
+              lastSecurityEvent: securityMetrics.security?.lastSecurityEvent || 0,
+            }
+          };
+        } else {
+          // Development: Full security metrics for debugging
+          metrics = {
+            ...metrics,
+            security: {
+              securityHealth: 'operational',
+              rateLimitHits: securityMetrics.security?.totalRateLimitHits || 0,
+              suspiciousRequests: securityMetrics.security?.totalSuspiciousRequests || 0,
+              validationFailures: securityMetrics.security?.totalValidationFailures || 0,
+              blockedIPs: securityMetrics.security?.activelyBlockedIPs || 0,
+              lastSecurityEvent: securityMetrics.security?.lastSecurityEvent || 0,
+            }
+          };
+        }
+      } catch {
+        // Fallback: basic metrics only if security middleware unavailable
+        console.warn('Security middleware unavailable, returning basic metrics only');
+      }
+
+      // Enhance CoinGlass metrics with aggregated data
+      try {
+        // Try to get circuit breaker state from server/index.ts
+        const { getCoinglassCircuitBreakerState } = await import('./index.js');
+        const circuitBreakerState = getCoinglassCircuitBreakerState();
+        
+        // Update metrics collector with circuit breaker state
+        if (circuitBreakerState) {
+          metricsCollector.updateCoinglassCircuitBreaker(
+            circuitBreakerState.failures,
+            circuitBreakerState.isOpen,
+            circuitBreakerState.lastFailure
+          );
+        }
+
+        // Re-fetch updated metrics that include circuit breaker state
+        metrics = metricsCollector.getMetrics();
+
+      } catch (error) {
+        console.warn('Failed to enhance CoinGlass metrics:', error instanceof Error ? error.message : 'Unknown error');
+        // Keep basic CoinGlass metrics from collector
+      }
+      
       res.json({
         success: true,
         data: metrics,
         timestamp: new Date().toISOString(),
+        environment: isProduction ? 'production' : 'development'
       });
     } catch (error) {
       console.error('Error fetching metrics:', error);

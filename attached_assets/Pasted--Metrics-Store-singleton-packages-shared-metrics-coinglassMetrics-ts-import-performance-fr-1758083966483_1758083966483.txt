@@ -1,0 +1,339 @@
+) Metrics Store (singleton)
+// packages/shared/metrics/coinglassMetrics.ts
+import { performance } from "node:perf_hooks";
+
+type Health = "connected" | "degraded" | "disconnected";
+
+export type CoinGlassMetricsSnapshot = {
+  requestCount: number;
+  avgResponseTime: number; // ms (EMA)
+  errorRate: number;       // 0..1 over rolling window
+  lastHealthStatus: Health;
+  hasApiKey: boolean;
+  circuitBreaker: {
+    failures: number;
+    isOpen: boolean;
+    lastFailure: string | null; // ISO
+  };
+};
+
+class CoinGlassMetrics {
+  // counters
+  private requests = 0;
+  private errors = 0;
+
+  // Exponential moving average for latency (smooth & cheap)
+  private avgRt = 0; // ms
+  private readonly alpha = 0.15; // EMA smoothing factor
+
+  // rolling error calc (cheap ring buffer)
+  private readonly window = 200; // last N calls
+  private buf: (0 | 1)[] = [];
+  private idx = 0;
+
+  // health + cb
+  private health: Health = "disconnected";
+  private hasKey = !!process.env.COINGLASS_API_KEY;
+  private cbState = { failures: 0, isOpen: false, lastFailure: null as string | null };
+
+  startTimer() {
+    const t0 = performance.now();
+    return () => {
+      const dt = performance.now() - t0;
+      // EMA
+      this.avgRt = this.avgRt === 0 ? dt : this.avgRt + this.alpha * (dt - this.avgRt);
+      return dt;
+    };
+  }
+
+  markRequest() {
+    this.requests++;
+    // ring buffer init
+    if (this.buf.length < this.window) this.buf.push(0);
+  }
+
+  markSuccess() {
+    if (this.buf.length === 0) this.buf.push(0);
+    this.buf[this.idx] = 0;
+    this.idx = (this.idx + 1) % this.window;
+    if (this.errors > 0) this.errors--;
+    this.updateHealth();
+  }
+
+  markError(errTimeISO?: string) {
+    this.errors++;
+    if (this.buf.length === 0) this.buf.push(1);
+    this.buf[this.idx] = 1;
+    this.idx = (this.idx + 1) % this.window;
+    this.cbState.lastFailure = errTimeISO ?? new Date().toISOString();
+    this.updateHealth();
+  }
+
+  setHasKey(v: boolean) { this.hasKey = v; }
+
+  setCircuitOpen(open: boolean) {
+    this.cbState.isOpen = open;
+    if (!open) this.cbState.failures = 0;
+  }
+
+  incCircuitFailure() {
+    this.cbState.failures++;
+  }
+
+  private updateHealth() {
+    // simple heuristic: errorRate > 0.2 = degraded, >0.5 = disconnected
+    const er = this.errorRate();
+    if (er > 0.5) this.health = "disconnected";
+    else if (er > 0.2) this.health = "degraded";
+    else this.health = "connected";
+  }
+
+  private errorRate() {
+    if (this.buf.length === 0) return 0;
+    const sum = this.buf.reduce((a, b) => a + b, 0);
+    return sum / this.buf.length;
+  }
+
+  snapshot(): CoinGlassMetricsSnapshot {
+    return {
+      requestCount: this.requests,
+      avgResponseTime: Math.round(this.avgRt),
+      errorRate: Number(this.errorRate().toFixed(4)),
+      lastHealthStatus: this.health,
+      hasApiKey: this.hasKey,
+      circuitBreaker: {
+        failures: this.cbState.failures,
+        isOpen: this.cbState.isOpen,
+        lastFailure: this.cbState.lastFailure,
+      },
+    };
+  }
+}
+
+export const coinglassMetrics = new CoinGlassMetrics();
+
+2) Circuit Breaker ringan (tanpa lib eksternal)
+// packages/shared/services/circuitBreaker.ts
+import { coinglassMetrics } from "../metrics/coinglassMetrics";
+
+export type CBOptions = {
+  failureThreshold: number; // consecutive failures to open
+  halfOpenAfterMs: number;  // cooldown
+};
+
+export class CircuitBreaker {
+  private failures = 0;
+  private state: "CLOSED" | "OPEN" | "HALF_OPEN" = "CLOSED";
+  private nextAttemptAt = 0;
+
+  constructor(private opts: CBOptions) {}
+
+  isAllowed(): boolean {
+    const now = Date.now();
+    if (this.state === "OPEN" && now >= this.nextAttemptAt) {
+      this.state = "HALF_OPEN";
+      coinglassMetrics.setCircuitOpen(true);
+      return true; // allow one test request
+    }
+    return this.state !== "OPEN";
+  }
+
+  onSuccess() {
+    this.failures = 0;
+    if (this.state !== "CLOSED") {
+      this.state = "CLOSED";
+      coinglassMetrics.setCircuitOpen(false);
+    }
+  }
+
+  onFailure() {
+    this.failures++;
+    coinglassMetrics.incCircuitFailure();
+
+    if (this.failures >= this.opts.failureThreshold) {
+      this.state = "OPEN";
+      this.nextAttemptAt = Date.now() + this.opts.halfOpenAfterMs;
+      coinglassMetrics.setCircuitOpen(true);
+    }
+  }
+}
+
+export const coinglassBreaker = new CircuitBreaker({
+  failureThreshold: 3,
+  halfOpenAfterMs: 30_000, // 30s cooldown
+});
+
+3) Proxy middleware untuk CoinGlass
+
+Ngehitung request, latency, error
+
+Integrasi circuit-breaker
+
+Tetap me-return error upstream (tidak swallow)
+
+// apps/api/src/middlewares/coinglassProxy.ts
+import type { Request, Response, NextFunction } from "express";
+import fetch from "node-fetch";
+import { coinglassMetrics } from "@shared/metrics/coinglassMetrics";
+import { coinglassBreaker } from "@shared/services/circuitBreaker";
+
+const BASE = process.env.COINGLASS_PROXY_BASE ?? "http://127.0.0.1:8000"; // python proxy kamu
+const KEY  = process.env.COINGLASS_API_KEY ?? "";
+
+export async function coinglassProxy(req: Request, res: Response, next: NextFunction) {
+  try {
+    coinglassMetrics.setHasKey(!!KEY);
+
+    if (!coinglassBreaker.isAllowed()) {
+      coinglassMetrics.markError();
+      return res.status(503).json({ error: "coinglass: circuit open" });
+    }
+
+    coinglassMetrics.markRequest();
+    const stop = coinglassMetrics.startTimer();
+
+    // contoh: forward /py/* → python proxy seperti yang sudah ada di logmu
+    const targetPath = req.originalUrl.replace(/^\/py\//, "/");
+    const url = `${BASE}${targetPath}`;
+
+    const upstream = await fetch(url, {
+      method: req.method,
+      headers: {
+        "Content-Type": req.get("Content-Type") || "application/json",
+        "X-Forwarded-For": req.ip,
+        "Authorization": `Bearer ${KEY}`,
+      },
+      body: ["POST", "PUT", "PATCH"].includes(req.method) ? JSON.stringify(req.body) : undefined,
+      timeout: 20_000,
+    });
+
+    const text = await upstream.text();
+    const contentType = upstream.headers.get("content-type") || "application/json";
+
+    // sukses vs error
+    if (upstream.ok) {
+      coinglassMetrics.markSuccess();
+      coinglassBreaker.onSuccess();
+      stop();
+      res.setHeader("Content-Type", contentType);
+      return res.status(upstream.status).send(text);
+    } else {
+      coinglassMetrics.markError(new Date().toISOString());
+      coinglassBreaker.onFailure();
+      stop();
+      res.setHeader("Content-Type", contentType);
+      return res.status(upstream.status).send(text);
+    }
+  } catch (e) {
+    coinglassMetrics.markError(new Date().toISOString());
+    coinglassBreaker.onFailure();
+    return next(e);
+  }
+}
+
+
+Wiring di server:
+
+// apps/api/src/server/index.ts
+import express from "express";
+import { coinglassProxy } from "../middlewares/coinglassProxy";
+
+export function createServer() {
+  const app = express();
+  app.use(express.json());
+
+  // ...middlewares lain: CORS, rate-limit, logger
+
+  // mount proxy (contoh route): semua /py/* diarahkan ke proxy python CoinGlass
+  app.use("/py", coinglassProxy);
+
+  // ...routes lain
+  return app;
+}
+
+4) Update /api/metrics (backward-compatible)
+
+Endpoint tetap return { data: { ...existing } }
+
+Kita cukup merge field coinglass baru
+
+Tidak mengubah kunci lama sama sekali
+
+// apps/api/src/routes/metrics.ts
+import type { Request, Response } from "express";
+import { Router } from "express";
+import { coinglassMetrics } from "@shared/metrics/coinglassMetrics";
+
+export const metricsRouter = Router();
+
+metricsRouter.get("/metrics", async (_req: Request, res: Response) => {
+  // Ambil metrics existing dari service lama kamu.
+  // Misal sudah disiapkan function getExistingMetrics():
+  const existing = await getExistingMetrics(); 
+  // existing.data = { cache, http, memory, okx, security, uptime, ws, ... }
+
+  const snapshot = coinglassMetrics.snapshot();
+
+  const payload = {
+    data: {
+      ...existing.data,
+      coinglass: snapshot,
+    },
+  };
+
+  return res.json(payload);
+});
+
+// Dummy, ganti dengan implementasi kamu
+async function getExistingMetrics() {
+  return {
+    data: {
+      cache: { hit: 0, miss: 0 },
+      http: { rps: 0.0 },
+      memory: { rss: 0 },
+      okx: { ws: "connected" },
+      security: { rateLimit:{ enabled:true } },
+      uptime: { seconds: process.uptime() },
+      ws: { clients: 1 },
+    },
+  };
+}
+
+
+Contoh output (sesuai spesifikasi kamu):
+
+{
+  "data": {
+    "...": {},
+    "coinglass": {
+      "requestCount": 1247,
+      "avgResponseTime": 3,
+      "errorRate": 0.02,
+      "lastHealthStatus": "connected",
+      "hasApiKey": true,
+      "circuitBreaker": {
+        "failures": 0,
+        "isOpen": false,
+        "lastFailure": null
+      }
+    }
+  }
+}
+
+Catatan Implementasi & QA
+
+Backward Compatibility: kita hanya menambah data.coinglass, tidak rename/menghapus field lama. Graph/Frontend lama tetap aman.
+
+Health Mapping:
+
+errorRate ≤ 0.2 → connected
+
+0.2 < errorRate ≤ 0.5 → degraded
+
+> 0.5 → disconnected
+
+Circuit Breaker: buka setelah 3 kegagalan beruntun, cooldown 30s, half-open akan coba 1 request. Param bisa kamu atur via env.
+
+AvgResponseTime: EMA (stabil, low-noise) supaya grafik tidak terlalu berombak saat trafik rendah.
+
+Prometheus (opsional): kalau kamu butuh /metrics Prom format, gampang ditambahin (prom-client) tanpa mengubah JSON di atas.

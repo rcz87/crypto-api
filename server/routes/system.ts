@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from 'express';
-import { metricsCollector } from '../utils/metrics.js';
+import { metricsCollector } from '../utils/metrics';
+import { coinglassCircuitBreaker } from '../utils/circuitBreaker';
 import { okxService } from '../services/okx.js';
 import { storage } from '../storage.js';
 import { healthCheckSchema } from '../../shared/schema.js';
@@ -185,18 +186,15 @@ export function registerSystemRoutes(app: Express): void {
 
       // Enhance CoinGlass metrics with aggregated data
       try {
-        // Try to get circuit breaker state from server/index.ts
-        const { getCoinglassCircuitBreakerState } = await import('../index.js');
-        const circuitBreakerState = getCoinglassCircuitBreakerState();
+        // Get circuit breaker state from singleton (no circular import)
+        const circuitBreakerState = coinglassCircuitBreaker.getState();
         
         // Update metrics collector with circuit breaker state
-        if (circuitBreakerState) {
-          metricsCollector.updateCoinglassCircuitBreaker(
-            circuitBreakerState.failures,
-            circuitBreakerState.isOpen,
-            circuitBreakerState.lastFailure
-          );
-        }
+        metricsCollector.updateCoinglassCircuitBreaker(
+          circuitBreakerState.failures,
+          circuitBreakerState.isOpen,
+          circuitBreakerState.lastFailure
+        );
 
         // Try to fetch Python service metrics with timeout
         let pythonMetrics = null;
@@ -215,7 +213,14 @@ export function registerSystemRoutes(app: Express): void {
           clearTimeout(timeoutId);
           
           if (pythonResponse.ok) {
-            pythonMetrics = await pythonResponse.json();
+            const contentType = pythonResponse.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+              pythonMetrics = await pythonResponse.json();
+            } else {
+              // Python service might return Prometheus format - skip parsing
+              console.warn('CoinGlass Python service returned non-JSON metrics format');
+              pythonMetrics = { format: 'prometheus', available: true };
+            }
           }
         } catch (error) {
           // Python service metrics unavailable - continue with local metrics
@@ -225,33 +230,69 @@ export function registerSystemRoutes(app: Express): void {
         // Re-fetch updated metrics that include circuit breaker state
         metrics = metricsCollector.getMetrics();
 
-        // Transform CoinGlass metrics to match expected output format
-        metrics.coinglass = {
-          health: metrics.coinglass.healthStatus,
-          has_key: metrics.coinglass.hasKey,
-          requests: {
-            total: metrics.coinglass.requests,
-            errors: metrics.coinglass.errors,
-            error_rate: parseFloat(metrics.coinglass.errorRate.replace('%', '')) / 100
-          },
-          performance: {
-            avg_latency_ms: metrics.coinglass.avgLatency,
-            last_health_check_ms_ago: metrics.coinglass.lastHealthCheckMs
-          },
-          circuit_breaker: {
-            failures: metrics.coinglass.circuitBreaker.failures,
-            is_open: metrics.coinglass.circuitBreaker.isOpen,
-            last_failure: metrics.coinglass.circuitBreaker.lastFailure
-          },
-          python_service: pythonMetrics ? {
+        // Preserve enhanced coinglass metrics format and add Python service data
+        // DO NOT overwrite the enhanced format - preserve all fields from metrics collector
+        if (metrics.coinglass) {
+          // Add Python service metrics to the existing enhanced format
+          metrics.coinglass.python_service = pythonMetrics ? {
             available: true,
             response_time_ms: pythonMetrics.response_time_ms || null,
             metrics: pythonMetrics
           } : {
             available: false,
             reason: 'Service unavailable or timeout'
-          }
-        };
+          };
+          
+          // Add legacy format under separate key for backward compatibility
+          metrics.coinglass.legacy_format = {
+            health: metrics.coinglass.healthStatus,
+            has_key: metrics.coinglass.hasKey,
+            requests: {
+              total: metrics.coinglass.requests,
+              errors: metrics.coinglass.errors,
+              error_rate: metrics.coinglass.errorRate
+            },
+            performance: {
+              avg_latency_ms: metrics.coinglass.avgLatency,
+              last_health_check_ms_ago: metrics.coinglass.lastHealthCheckMs
+            },
+            circuit_breaker: {
+              failures: metrics.coinglass.circuitBreaker?.failures || 0,
+              is_open: metrics.coinglass.circuitBreaker?.isOpen || false,
+              last_failure: metrics.coinglass.circuitBreaker?.lastFailure || null
+            }
+          };
+        } else {
+          // Fallback if coinglass metrics not available
+          metrics.coinglass = {
+            // Enhanced format fields
+            requestCount: 0,
+            avgResponseTime: 0,
+            errorRate: 0,
+            lastHealthStatus: 'disconnected',
+            hasApiKey: false,
+            circuitBreaker: { failures: 0, isOpen: false, lastFailure: null },
+            // Backward compatibility fields
+            requests: 0,
+            errors: 0,
+            avgLatency: 0,
+            healthStatus: 'disconnected',
+            hasKey: false,
+            lastHealthCheck: 0,
+            lastHealthCheckMs: -1,
+            errorRatePercent: '0.00%',
+            // Python service data
+            python_service: { available: false, reason: 'Metrics collector not initialized' },
+            // Legacy format
+            legacy_format: {
+              health: 'disconnected',
+              has_key: false,
+              requests: { total: 0, errors: 0, error_rate: 0 },
+              performance: { avg_latency_ms: 0, last_health_check_ms_ago: -1 },
+              circuit_breaker: { failures: 0, is_open: false, last_failure: null }
+            }
+          };
+        }
 
       } catch (error) {
         console.warn('Failed to enhance CoinGlass metrics:', error instanceof Error ? error.message : 'Unknown error');
