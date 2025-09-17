@@ -81,3 +81,23 @@ export async function getText(path: string) {
   }
   return r.text();
 }
+
+export async function debugListPathsLike(...patterns: string[]) {
+  try {
+    const res = await fetch(`${PY_BASE}/openapi.json`);
+    if (!res.ok) { 
+      console.warn(`[Discovery] openapi.json HTTP ${res.status}`); 
+      return; 
+    }
+    const spec = (await res.json()) as OpenApiDoc;
+    const paths = Object.keys(spec.paths ?? {});
+    patterns.forEach(pat => {
+      const rx = new RegExp(pat, 'i');
+      const hits = paths.filter(p => rx.test(p));
+      console.log(`[Discovery] Matches /${pat}/i → ${hits.length}`);
+      hits.slice(0, 100).forEach(h => console.log(`  - ${h}`));
+    });
+  } catch (e: any) {
+    console.warn(`[Discovery] list paths failed: ${e.message}`);
+  }
+}

@@ -1,5 +1,10 @@
 import { getApiMap, getJson } from '../services/discovery';
 import { normalizeSymbol } from '../utils/symbol';
+import { fetchSpotOrderbookBinance } from '../shims/spotOrderbookShim';
+import { track404 } from '../services/route404Tracker';
+
+const FEAT = (name: string) =>
+  (process.env[`FEATURE_${name}`] ?? 'on').toLowerCase() !== 'off';
 
 export async function getSpotOrderbook(
   symbol: string,
@@ -21,10 +26,25 @@ export async function getSpotOrderbook(
     try {
       return await getJson(url);
     } catch (e: any) {
-      if (e.status !== 404) throw e;
-      lastErr = e;
+      if (e.status === 404) { 
+        track404('spot_ob'); 
+        lastErr = e; 
+        continue; 
+      }
+      throw e;
     }
   }
+
+  // SHIM fallback (optional)
+  if (FEAT('SPOT_OB_SHIM')) {
+    try {
+      const shim = await fetchSpotOrderbookBinance(spot, depth);
+      return shim; // shape agreed upon (see documentation below)
+    } catch (e: any) {
+      // fall through to structured error
+    }
+  }
+
   const err: any = new Error('SPOT_OB_NOT_AVAILABLE');
   err.cause = lastErr;
   throw err;

@@ -1,0 +1,399 @@
+Gaskeun. Ini **patch final** yang kamu minta — sudah include:
+
+* Auto-`debugListPathsLike()` ketika **404 jenis sama ≥3x** (debounced, no spam).
+* **Feature flags SHIM** (`FEATURE_SPOT_OB_SHIM`, `FEATURE_HEATMAP_SHIM`).
+* **Dokumentasi tipe data** supaya downstream scorer/renderer kompatibel.
+
+# TL;DR
+
+* 404 beruntun? Kita **auto-scan OpenAPI** & log kandidat path yang relevan.
+* Shim **ON/OFF** via ENV. Saat rute Python ready, discovery **auto-switch** ke native.
+* Downstream dijamin **shape stabil**.
+
+---
+
+## 1) Route 404 Tracker (baru)
+
+```ts
+// ================================================
+// FILE: src/services/route404Tracker.ts
+// ================================================
+import { debugListPathsLike } from './discovery';
+
+type Cat = 'heatmap' | 'spot_ob';
+const THRESHOLD = Number(process.env.ROUTE_404_THRESHOLD ?? 3);
+const WINDOW_MS = Number(process.env.ROUTE_404_WINDOW_MS ?? 60_000);
+
+const buckets: Record<Cat, number[]> = { heatmap: [], spot_ob: [] };
+let lastScanAt: Record<Cat, number> = { heatmap: 0, spot_ob: 0 };
+const SCAN_COOLDOWN_MS = 120_000; // cegah spam scan
+
+export function track404(cat: Cat) {
+  const now = Date.now();
+  const arr = buckets[cat];
+
+  // buang yang kadaluarsa
+  while (arr.length && now - arr[0] > WINDOW_MS) arr.shift();
+  arr.push(now);
+
+  if (arr.length >= THRESHOLD && now - lastScanAt[cat] > SCAN_COOLDOWN_MS) {
+    lastScanAt[cat] = now;
+    // async, jangan block request
+    setTimeout(() => {
+      if (cat === 'heatmap') {
+        console.warn('[404-Tracker] heatmap 404≥THRESHOLD → scanning OpenAPI for candidates...');
+        debugListPathsLike('heatmap', 'liquidation', 'liquidations', 'map');
+      } else if (cat === 'spot_ob') {
+        console.warn('[404-Tracker] spot_ob 404≥THRESHOLD → scanning OpenAPI for candidates...');
+        debugListPathsLike('orderbook', 'spot', 'depth', 'book');
+      }
+    }, 0);
+  }
+}
+```
+
+---
+
+## 2) Discovery helper (minor update)
+
+```ts
+// ================================================
+// FILE: src/services/discovery.ts  (UPDATED)
+// ================================================
+const PY_BASE = process.env.PY_BASE_URL ?? 'http://127.0.0.1:8000';
+type OpenApiDoc = { paths?: Record<string, any> };
+
+let _cache: { at: number; map: Record<string, string> } | null = null;
+
+export async function getApiMap(): Promise<Record<string, string>> {
+  const now = Date.now();
+  if (_cache && now - _cache.at < 10 * 60 * 1000) return _cache.map;
+
+  let spec: OpenApiDoc = {};
+  try {
+    const res = await fetch(`${PY_BASE}/openapi.json`);
+    if (res.ok) spec = await res.json();
+  } catch (_) {}
+
+  const paths = Object.keys(spec.paths ?? {});
+  const map: Record<string, string> = {
+    heatmap:
+      paths.find((p) => /liquidation.*heatmap/i.test(p)) ||
+      paths.find((p) => /liquidations.*heatmap/i.test(p)) ||
+      '',
+    spot_ob:
+      paths.find((p) => /spot.*orderbook/i.test(p)) ||
+      paths.find((p) => /orderbook.*spot/i.test(p)) ||
+      '',
+    bias:
+      paths.find((p) => /institutional.*bias/i.test(p)) || '/institutional/bias',
+    whale_alerts:
+      paths.find((p) => /whale.*alerts/i.test(p)) || '/advanced/whale/alerts',
+    etf_flows:
+      paths.find((p) => /etf.*flows/i.test(p)) || '/advanced/etf/flows',
+  };
+
+  _cache = { at: now, map };
+  return map;
+}
+
+export function pyUrl(path: string) {
+  const p = path.startsWith('/') ? path : `/${path}`;
+  return `${PY_BASE}${p}`;
+}
+
+export async function getJson(path: string) {
+  const r = await fetch(pyUrl(path));
+  if (!r.ok) {
+    const e: any = new Error(`HTTP ${r.status}: ${r.statusText}`);
+    e.status = r.status; e.url = path; throw e;
+  }
+  return r.json();
+}
+
+export async function debugListPathsLike(...patterns: string[]) {
+  try {
+    const res = await fetch(`${PY_BASE}/openapi.json`);
+    if (!res.ok) { console.warn(`[Discovery] openapi.json HTTP ${res.status}`); return; }
+    const spec = (await res.json()) as OpenApiDoc;
+    const paths = Object.keys(spec.paths ?? {});
+    patterns.forEach(pat => {
+      const rx = new RegExp(pat, 'i');
+      const hits = paths.filter(p => rx.test(p));
+      console.log(`[Discovery] Matches /${pat}/i → ${hits.length}`);
+      hits.slice(0, 100).forEach(h => console.log(`  - ${h}`));
+    });
+  } catch (e: any) {
+    console.warn(`[Discovery] list paths failed: ${e.message}`);
+  }
+}
+```
+
+---
+
+## 3) Feature flags SHIM (ENV)
+
+```env
+# .env (tambahan)
+FEATURE_SPOT_OB_SHIM=on
+FEATURE_HEATMAP_SHIM=on
+
+ROUTE_404_THRESHOLD=3
+ROUTE_404_WINDOW_MS=60000
+```
+
+---
+
+## 4) Spot Orderbook client + SHIM + 404 tracker
+
+```ts
+// ================================================
+// FILE: src/clients/spotOrderbook.ts  (UPDATED)
+// ================================================
+import { getApiMap, getJson } from '../services/discovery';
+import { normalizeSymbol } from '../utils/symbol';
+import { fetchSpotOrderbookBinance } from '../shims/spotOrderbookShim';
+import { track404 } from '../services/route404Tracker';
+
+const FEAT = (name: string) =>
+  (process.env[`FEATURE_${name}`] ?? 'on').toLowerCase() !== 'off';
+
+export async function getSpotOrderbook(
+  symbol: string,
+  exchange = 'binance',
+  depth = 50
+) {
+  const map = await getApiMap();
+  const base = map['spot_ob'] || '/advanced/spot/orderbook';
+  const spot = normalizeSymbol(symbol, 'spot');
+
+  const candidates = [
+    `${base}?symbol=${spot}&exchange=${exchange}&depth=${depth}`,
+    `${base}/${exchange}/${spot}?depth=${depth}`,
+    `${base}/${spot}?ex=${exchange}&limit=${depth}`,
+  ];
+
+  let lastErr: any;
+  for (const url of candidates) {
+    try {
+      return await getJson(url);
+    } catch (e: any) {
+      if (e.status === 404) { track404('spot_ob'); lastErr = e; continue; }
+      throw e;
+    }
+  }
+
+  // SHIM fallback (optional)
+  if (FEAT('SPOT_OB_SHIM')) {
+    try {
+      const shim = await fetchSpotOrderbookBinance(spot, depth);
+      return shim; // shape disepakati (lihat dokumentasi di bawah)
+    } catch (e: any) {
+      // fall through to structured error
+    }
+  }
+
+  const err: any = new Error('SPOT_OB_NOT_AVAILABLE');
+  err.cause = lastErr;
+  throw err;
+}
+```
+
+**Shim file (baru):**
+
+```ts
+// ================================================
+// FILE: src/shims/spotOrderbookShim.ts  (NEW)
+// ================================================
+type DepthSide = Array<{ price: number; qty: number }>;
+export type SpotOB = { bids: DepthSide; asks: DepthSide; ts: number; source: string };
+
+export async function fetchSpotOrderbookBinance(
+  symbol = 'SOLUSDT',
+  limit = 50
+): Promise(SpotOB) {
+  const url = `https://api.binance.com/api/v3/depth?symbol=${symbol}&limit=${limit}`;
+  const r = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!r.ok) throw new Error(`BINANCE_DEPTH_${r.status}`);
+  const j = await r.json();
+  const toSide = (arr: any[]) => arr.map(([p, q]) => ({ price: +p, qty: +q }));
+  return {
+    bids: toSide(j.bids),
+    asks: toSide(j.asks),
+    ts: Date.now(),
+    source: 'shim-binance',
+  };
+}
+```
+
+---
+
+## 5) Heatmap client + SHIM + 404 tracker
+
+```ts
+// ================================================
+// FILE: src/clients/heatmap.ts  (UPDATED)
+// ================================================
+import { getApiMap, getJson } from '../services/discovery';
+import { normalizeSymbol } from '../utils/symbol';
+import { heatmapApproxSOL } from '../shims/heatmapShim';
+import { track404 } from '../services/route404Tracker';
+
+const FEAT = (name: string) =>
+  (process.env[`FEATURE_${name}`] ?? 'on').toLowerCase() !== 'off';
+
+export type HeatmapTF = '5m' | '15m' | '1h' | '4h' | '1d';
+
+export async function getHeatmap(symbol: string, timeframe: HeatmapTF = '1h') {
+  const map = await getApiMap();
+  const base = map['heatmap'] || '/advanced/liquidation/heatmap';
+  const sym = normalizeSymbol(symbol, 'derivatives');
+
+  const candidates = [
+    `${base}?symbol=${encodeURIComponent(sym)}&timeframe=${timeframe}`,
+    `${base}/${encodeURIComponent(sym)}?timeframe=${timeframe}`,
+    `${base}?asset=${encodeURIComponent(sym)}&tf=${timeframe}`,
+  ];
+
+  let lastErr: any;
+  for (const url of candidates) {
+    try { return await getJson(url); }
+    catch (e: any) {
+      if (e.status === 404) { track404('heatmap'); lastErr = e; continue; }
+      throw e;
+    }
+  }
+
+  // SHIM fallback (optional)
+  if (FEAT('HEATMAP_SHIM')) {
+    try {
+      const shim = await heatmapApproxSOL(timeframe);
+      return shim; // shape disepakati (lihat dokumentasi di bawah)
+    } catch (e: any) {}
+  }
+
+  const err: any = new Error('HEATMAP_NOT_AVAILABLE');
+  err.cause = lastErr; throw err;
+}
+```
+
+**Shim file (baru):**
+
+```ts
+// ================================================
+// FILE: src/shims/heatmapShim.ts  (NEW)
+// ================================================
+export type HeatmapPoint = { price: number; score: number };
+export type HeatmapData = { tf: string; points: HeatmapPoint[]; source: string };
+
+async function fetchMarkPxOKX(instId='SOL-USDT-SWAP'): Promise<number> {
+  try {
+    const r = await fetch(`https://www.okx.com/api/v5/public/mark-price?instType=SWAP&instId=${instId}`);
+    const j = await r.json();
+    const d = j?.data?.[0];
+    return +d.markPx;
+  } catch (_) { return NaN; }
+}
+
+export async function heatmapApproxSOL(tf='1h'): Promise<HeatmapData> {
+  const markPx = await fetchMarkPxOKX('SOL-USDT-SWAP');
+  const base = Number.isFinite(markPx) ? markPx : 200;
+
+  const bands = 40; // ±10% total (0.5% step)
+  const span = 0.10;
+  const pts: HeatmapPoint[] = [];
+  for (let i = -bands/2; i <= bands/2; i++) {
+    const pct = (i / (bands/2)) * span;
+    const price = base * (1 + pct);
+    const roundBonus = (price % 5 < 0.25 || price % 5 > 4.75) ? 1.2 : 1.0;
+    const centerBias = Math.max(0, 1 - Math.abs(pct) * 0.7);
+    const score = +(centerBias * roundBonus).toFixed(4);
+    pts.push({ price: +price.toFixed(2), score });
+  }
+  return { tf, points: pts, source: 'shim-approx' };
+}
+```
+
+---
+
+## 6) Runner & Scheduler (sudah aman) — **tidak perlu diubah**, tapi kamu bisa tambah label metric untuk membedakan **native vs shim** di downstream (opsional).
+
+Contoh (opsional) setelah `getSpotOrderbook`/`getHeatmap`:
+
+```ts
+// setelah dapat data, tandai context.source kalau ada
+context.spotOB_source = context.spotOB?.source ?? 'native';
+context.heatmap_source = context.heatmap?.source ?? 'native';
+```
+
+---
+
+## 7) Express proxy (reminder — sekali lagi)
+
+```ts
+// server/index.ts
+import { createProxyMiddleware } from 'http-proxy-middleware';
+
+app.use(
+  '/gpts',
+  createProxyMiddleware({
+    target: process.env.PY_BASE_URL ?? 'http://127.0.0.1:8000',
+    changeOrigin: true,
+    pathRewrite: { '^/gpts': '' },
+  })
+);
+```
+
+---
+
+## 8) Dokumentasi Tipe Data (singkat & tegas)
+
+### 8.1. Spot Orderbook (native atau shim)
+
+```ts
+type DepthSide = Array<{ price: number; qty: number }>;
+type SpotOB = {
+  bids: DepthSide;   // sorted desc by price (garansi dari client)
+  asks: DepthSide;   // sorted asc by price (garansi dari client)
+  ts: number;        // epoch ms
+  source: 'native' | 'shim-binance' | string;
+};
+```
+
+**Garansi client:**
+
+* Menstandardisasi urutan `bids` (desc) & `asks` (asc) jika diperlukan.
+* `source` menandai asal data. Renderer/scorer bisa tampilkan badge “shim”.
+
+### 8.2. Heatmap (native atau shim)
+
+```ts
+type HeatmapPoint = { price: number; score: number }; // score 0..~1.5 (approx)
+type HeatmapData = {
+  tf: '5m'|'15m'|'1h'|'4h'|'1d';
+  points: HeatmapPoint[]; // grid price terurut
+  source: 'native' | 'shim-approx' | string;
+};
+```
+
+**Catatan:**
+
+* **Shim** adalah estimasi berbasis mark price + heuristik level bulat.
+* Downstream boleh:
+
+  * **Hindari entry** di band dengan `score` teratas,
+  * **Alert** saat harga menembus cluster `score` tinggi (potensi stop-run/liquidity sweep).
+
+---
+
+## 9) Checklist validasi (cepat)
+
+* [ ] Jalankan, sengaja panggil heatmap & orderbook yang 404 → lihat **log auto-OpenAPI scan** muncul.
+* [ ] Pastikan sniper **SUCCESS** walau ada 404; lihat `used modules` minimal ada `spot_ob`/`heatmap` dari **shim**.
+* [ ] Lihat `source` di context → `shim-binance` / `shim-approx`.
+* [ ] Ubah ENV `FEATURE_*_SHIM=off` → pastikan kembali ke soft-fail (tanpa shim).
+* [ ] (Opsional) Tambah panel Grafana `rate(sniper_soft_fail_total[5m]) by (module)` dan breakdown `*_source`.
+
+---
+
+Kalau mau, next step aku siapin **snippet Prometheus/Grafana panels** (JSON export) + **badge UI “(shim)”** di renderer agar kamu langsung bisa lihat kapan data asli vs fallback.

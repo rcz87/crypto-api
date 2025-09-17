@@ -1,0 +1,228 @@
+Noted. Soft-fail kamu sudah bekerja (good!), tapi jelas **dua route itu memang nggak ada** di Python build sekarang. Jadi kita sikat dengan 3 langkah praktis: **(A) auto-deteksi rute yang tersedia + logging kandidat**, **(B) auto-fallback ke shim (local impl) biar orderbook & “heatmap” tetap hidup**, **(C) verifikasi cepat**.
+
+# TL;DR
+
+* **404 heatmap & spot OB** = rutenya **memang tidak disediakan** oleh Python saat ini.
+* Tambahkan **route discovery logger** (keluarin daftar path matching “heatmap/orderbook”).
+* Pasang **shim fallback**:
+
+  * Spot OB → tarik langsung REST exchange (mis. Binance) **atau** OKX (kalau kamu mau seragam).
+  * “Heatmap” → fallback ke **liquidation ladder sederhana**: pakai perp index price + funding + OI snapshot (atau minimal “liquidation bands” dari leverage bucket) — sampai rute native tersedia.
+* Semua tetap **graceful**: tidak bikin sniper “unhealthy”.
+
+---
+
+## A) Route Discovery: log apa yang sebenarnya ada
+
+Tambahin helper untuk **menemukan & nge-log** semua path yang mirip “heatmap”/“orderbook”, supaya kamu lihat hitam-di-atas-putih rute yang tersedia.
+
+```ts
+// src/services/discovery.ts (tambahan kecil)
+export async function debugListPathsLike(...patterns: string[]) {
+  try {
+    const res = await fetch(`${PY_BASE}/openapi.json`);
+    if (!res.ok) {
+      console.warn(`[Discovery] openapi.json not available: HTTP ${res.status}`);
+      return;
+    }
+    const spec = (await res.json()) as { paths?: Record<string, any> };
+    const paths = Object.keys(spec.paths ?? {});
+    patterns.forEach(pat => {
+      const rx = new RegExp(pat, 'i');
+      const hits = paths.filter(p => rx.test(p));
+      console.log(`[Discovery] Matches for /${pat}/i → ${hits.length}`);
+      hits.slice(0, 50).forEach(h => console.log(`  - ${h}`));
+    });
+  } catch (e:any) {
+    console.warn(`[Discovery] Failed to list paths: ${e.message}`);
+  }
+}
+```
+
+Panggil sekali saat startup (atau ketika 404 berulang):
+
+```ts
+// server/index.ts (atau bootstrap kamu)
+import { debugListPathsLike } from './services/discovery';
+debugListPathsLike('heatmap', 'liquidation', 'orderbook', 'spot', 'depth');
+```
+
+> Hasilnya akan langsung kasih clue: misal ternyata yang ada itu **`/liquidations/map`** atau **`/spot/depth`** — bukan yang kamu panggil sekarang.
+
+---
+
+## B) Fallback Shims (auto-jalan kalau rute Python tidak ada)
+
+### B.1. Spot Orderbook Shim (public REST; cepat, stabil)
+
+Kalau semua variasi URL 404, jangan mati gaya — **ambil langsung** dari exchange. Contoh **Binance** (gratis, cepat):
+
+```ts
+// src/shims/spotOrderbookShim.ts
+type DepthSide = Array<{ price: number; qty: number }>;
+export type SpotOB = { bids: DepthSide; asks: DepthSide; ts: number; source: string };
+
+export async function fetchSpotOrderbookBinance(symbol = 'SOLUSDT', limit = 50): Promise<SpotOB> {
+  const url = `https://api.binance.com/api/v3/depth?symbol=${symbol}&limit=${limit}`;
+  const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!r.ok) throw new Error(`BINANCE_DEPTH_${r.status}`);
+  const j = await r.json();
+  const toSide = (arr: any[]) => arr.map(([p, q]) => ({ price: +p, qty: +q }));
+  return {
+    bids: toSide(j.bids),
+    asks: toSide(j.asks),
+    ts: Date.now(),
+    source: 'binance',
+  };
+}
+```
+
+Integrasi ke client:
+
+```ts
+// src/clients/spotOrderbook.ts (replace catch block)
+import { fetchSpotOrderbookBinance } from '../shims/spotOrderbookShim';
+
+...
+for (const url of candidates) {
+  try { return await getJson(url); } 
+  catch (e:any) { if (e.status !== 404) throw e; lastErr = e; }
+}
+// Fallback SHIM (tidak bikin run gagal)
+try {
+  const shim = await fetchSpotOrderbookBinance(spot, 50);
+  return shim; // bentuk data konsisten, cukup dokumentasikan di downstream
+} catch (e:any) {
+  const err: any = new Error('SPOT_OB_NOT_AVAILABLE');
+  err.cause = lastErr || e;
+  throw err;
+}
+```
+
+> Mau seragam OKX? Ganti URL ke OKX `/api/v5/market/books?instId=SOL-USDT&sz=50` (butuh header OKX). Binance cukup praktis untuk fallback.
+
+---
+
+### B.2. “Heatmap” Shim (liquidation bands sederhana)
+
+Sambil nunggu rute native, kamu bisa kasih **perkiraan peta likuidasi** yang masih useful buat sniper:
+
+* Ambil **index/mark price** (OKX perp)
+* Ambil **OI + funding** (kamu sudah punya fetcher OKX/Coinglass; kalau tidak, pakai OI terakhir yang ada)
+* Bangun **band price** di grid (mis. setiap 0.5% / 1%), lalu **estimasi konsentrasi likuidasi** dari kombinasi:
+
+  * leverage heuristics (contoh: distribusi 5×–20×)
+  * OI total → bagi ke bucket
+  * funding skew → bias long/short
+
+Contoh minimal (heuristik, cepat jalan):
+
+```ts
+// src/shims/heatmapShim.ts
+export type HeatmapPoint = { price: number; score: number };
+export type HeatmapData = { tf: string; points: HeatmapPoint[]; source: string };
+
+type MarkLike = { markPx: number };
+type OI = { value: number }; // in USD or coin; normalize as needed
+type Funding = { rate: number }; // decimal per 8h
+
+export async function fetchMarkPxOKX(instId='SOL-USDT-SWAP'): Promise<MarkLike> {
+  const r = await fetch(`https://www.okx.com/api/v5/public/mark-price?instType=SWAP&instId=${instId}`);
+  const j = await r.json();
+  const d = j?.data?.[0];
+  if (!d) throw new Error('OKX_MARKPX_EMPTY');
+  return { markPx: +d.markPx };
+}
+
+export async function heatmapApproxSOL(tf='1h'): Promise<HeatmapData> {
+  const { markPx } = await fetchMarkPxOKX('SOL-USDT-SWAP')
+    .catch(() => ({ markPx: NaN }));
+  const base = Number.isFinite(markPx) ? markPx : 200; // fallback aman
+
+  // Heuristik: 40 band dari -10% s/d +10% terhadap mark
+  const bands = 40;
+  const span = 0.10; // ±10%
+  const pts: HeatmapPoint[] = [];
+  for (let i = -bands/2; i <= bands/2; i++) {
+    const pct = (i / (bands/2)) * span; // -10%..+10%
+    const price = base * (1 + pct);
+    // Skor heuristik: puncak di sekitar level bulat & di rentang funding bias
+    const roundBonus = (price % 5 < 0.25 || price % 5 > 4.75) ? 1.2 : 1.0;
+    const centerBias = 1 - Math.abs(pct) * 0.7; // lebih tebal dekat mark
+    const score = Math.max(0, centerBias) * roundBonus;
+    pts.push({ price: +price.toFixed(2), score: +score.toFixed(4) });
+  }
+  return { tf, points: pts, source: 'shim-approx' };
+}
+```
+
+Integrasi ke client heatmap:
+
+```ts
+// src/clients/heatmap.ts (replace final throw)
+import { heatmapApproxSOL } from '../shims/heatmapShim';
+
+...
+for (const url of candidates) {
+  try { return await getJson(url); }
+  catch (e:any) { if (e.status !== 404) throw e; lastErr = e; }
+}
+// Fallback SHIM (approx)
+try {
+  const shim = await heatmapApproxSOL(timeframe);
+  return shim;
+} catch (e:any) {
+  const err: any = new Error('HEATMAP_NOT_AVAILABLE');
+  err.cause = lastErr || e;
+  throw err;
+}
+```
+
+> Ini **bukan** pengganti penuh heatmap likuidasi “asli” (yang butuh posisi/leverage granular). Tapi untuk **sniper timing**: menghindari entry di band “tebal” + alert di break band — **sudah sangat membantu** dibanding blank.
+
+---
+
+## C) Verifikasi Cepat (1 menit)
+
+1. **List paths**:
+
+   * Lihat output `Matches for /heatmap/`, `…/orderbook/`.
+   * Kalau kosong → fix di Python nanti; untuk sekarang **shim akan takeover**.
+2. **Run sniper**: harus `SUCCESS` walau ada soft-fail (ETF circuit open).
+3. **Lihat log modules used**: minimal `whale` + `spot_ob` (dari shim) + `heatmap` (shim).
+4. **Prometheus**:
+
+   * `rate(sniper_soft_fail_total[5m]) by (module)` harus turun untuk `spot_ob` & `heatmap` setelah shim aktif.
+5. **Telegram**: dipastikan **tidak** spam alert selama masih ada ≥1 modul sukses.
+
+---
+
+## Bonus: toggle shim via FEATURE flags
+
+Biar fleksibel di production:
+
+```
+FEATURE_SPOT_OB_SHIM=on
+FEATURE_HEATMAP_SHIM=on
+```
+
+Lalu cek di clients sebelum pakai shim:
+
+```ts
+const SHIM = (name:string)=> (process.env[`FEATURE_${name}_SHIM`]??'on').toLowerCase()!=='off';
+...
+if (SHIM('SPOT_OB')) { /* pakai shim saat 404 */ }
+```
+
+---
+
+## Pendapat Keras (biar tajam)
+
+* **Jangan biarkan data premium (ETF/Heatmap pro) jadi single point of failure**. Shim minimal + discovery sudah cukup supaya pipeline **tetap ngasih sinyal**.
+* Begitu Python rute aslinya ready, discovery akan **auto-switch** dan shim **otomatis idle**. Zero-downtime, zero drama.
+
+Kalau setuju, aku bisa kirim **patch final** yang sudah include:
+
+* `debugListPathsLike()` dipanggil otomatis kalau ada 3x 404 beruntun pada kategori yang sama,
+* `FEATURE_*_SHIM` flags,
+* dokumentasi singkat tipe data shim supaya downstream (scorer/renderer) tetap kompatibel.
