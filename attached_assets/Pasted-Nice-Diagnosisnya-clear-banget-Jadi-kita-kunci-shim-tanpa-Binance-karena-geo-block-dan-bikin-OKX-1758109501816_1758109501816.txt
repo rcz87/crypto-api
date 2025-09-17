@@ -1,0 +1,177 @@
+Nice. Diagnosisnya clear banget. Jadi kita kunci shim tanpa Binance (karena geo-block) dan bikin OKX-first, Bybit-second. Plus, kita tambahkan geo-block detector biar nggak coba-coba Binance lagi selama 24 jam.
+
+TL;DR
+
+OKX spot orderbook jadi fallback utama ✅
+
+Bybit spot orderbook jadi fallback kedua ✅
+
+Binance otomatis dinonaktifkan 24 jam saat terdeteksi geo-block ❌
+
+Sinyal sniper tetap stabil; tidak ada dependency ke provider yang diblok wilayah.
+
+Patch Cepat (siap tempel)
+1) Provider flags (ENV)
+FEATURE_SPOT_OB_SHIM=on
+PROVIDERS_SPOT_OB=okx,bybit   # urutan preferensi; binance di-skip
+GEO_COOLDOWN_HOURS=24
+
+2) Shim Orderbook: OKX → Bybit (tanpa Binance)
+// src/shims/spotOrderbookShim.ts  (REPLACE)
+import { robustFetch } from '../net/fetchHelper';
+
+type DepthSide = Array<{ price: number; qty: number }>;
+export type SpotOB = { bids: DepthSide; asks: DepthSide; ts: number; source: string };
+
+function sortBook(bids: DepthSide, asks: DepthSide): {bids:DepthSide, asks:DepthSide} {
+  return {
+    bids: bids.slice().sort((a,b)=> b.price - a.price),
+    asks: asks.slice().sort((a,b)=> a.price - b.price),
+  };
+}
+
+/** OKX spot depth — instId contoh: 'SOL-USDT' */
+async function fetchOKXDepth(instId='SOL-USDT', sz=50): Promise<SpotOB> {
+  const url = `https://www.okx.com/api/v5/market/books?instId=${instId}&sz=${sz}`;
+  const r = await robustFetch(url, { label: 'okx_books' });
+  const j = await r.json();
+  const d = j?.data?.[0];
+  if (!d) throw new Error('OKX_BOOKS_EMPTY');
+  const toSide = (arr: any[]) => arr.map(([p, q]: [string,string]) => ({ price: +p, qty: +q }));
+  const { bids, asks } = sortBook(toSide(d.bids), toSide(d.asks));
+  return { bids, asks, ts: Date.now(), source: 'shim-okx' };
+}
+
+/** Bybit spot depth — symbol contoh: 'SOLUSDT' */
+async function fetchBybitDepth(symbol='SOLUSDT', limit=50): Promise<SpotOB> {
+  const url = `https://api.bybit.com/v5/market/orderbook?category=spot&symbol=${symbol}&limit=${limit}`;
+  const r = await robustFetch(url, { label: 'bybit_depth' });
+  const j = await r.json();
+  const l = j?.result?.list?.[0];
+  if (!l) throw new Error('BYBIT_BOOKS_EMPTY');
+  const toSide = (arr: any[]) => arr.map(([p, q]: [string,string]) => ({ price: +p, qty: +q }));
+  const { bids, asks } = sortBook(toSide(l.b), toSide(l.a));
+  return { bids, asks, ts: Date.now(), source: 'shim-bybit' };
+}
+
+/** Orkestrator: OKX → Bybit */
+export async function fetchSpotOrderbookShim(instId='SOL-USDT', symbol='SOLUSDT', depth=50): Promise<SpotOB> {
+  // Prioritas dari ENV, default okx,bybit
+  const providers = (process.env.PROVIDERS_SPOT_OB ?? 'okx,bybit')
+    .split(',').map(s => s.trim().toLowerCase());
+
+  const tries: Array<() => Promise<SpotOB>> = [];
+  for (const p of providers) {
+    if (p === 'okx') tries.push(() => fetchOKXDepth(instId, depth));
+    if (p === 'bybit') tries.push(() => fetchBybitDepth(symbol, depth));
+    // sengaja tidak menambahkan binance di sini (geo-block)
+  }
+
+  const errors: string[] = [];
+  for (const fn of tries) {
+    try {
+      const res = await fn();
+      console.log(`[SPOT_OB] using shim: ${res.source}`);
+      return res;
+    } catch (e: any) {
+      errors.push(e?.message || String(e));
+    }
+  }
+  const err: any = new Error('SPOT_OB_SHIM_FAILED');
+  err.providers = providers; err.errors = errors;
+  throw err;
+}
+
+3) Client Orderbook: mapping OKX spot instId
+// src/clients/spotOrderbook.ts  (UPDATE kecil)
+import { getApiMap, getJson } from '../services/discovery';
+import { normalizeSymbol } from '../utils/symbol';
+import { fetchSpotOrderbookShim } from '../shims/spotOrderbookShim';
+import { track404 } from '../services/route404Tracker';
+
+const FEAT = (name: string) => (process.env[`FEATURE_${name}`] ?? 'on').toLowerCase() !== 'off';
+
+export async function getSpotOrderbook(symbol: string, exchange='binance', depth=50) {
+  const map = await getApiMap();
+  const base = map['spot_ob'] || '/advanced/spot/orderbook';
+
+  const spot = normalizeSymbol(symbol, 'spot');         // 'SOLUSDT'
+  const instId = `${spot.replace('USDT','')}-USDT`;     // 'SOL-USDT' untuk OKX
+
+  const candidates = [
+    `${base}?symbol=${spot}&exchange=${exchange}&depth=${depth}`,
+    `${base}/${exchange}/${spot}?depth=${depth}`,
+    `${base}/${spot}?ex=${exchange}&limit=${depth}`,
+  ];
+
+  let lastErr: any;
+  for (const url of candidates) {
+    try { return await getJson(url); }
+    catch (e: any) {
+      if (e.status === 404) { track404('spot_ob'); lastErr = e; continue; }
+      // 402/429/5xx dll — jangan buang, coba shim
+      lastErr = e; break;
+    }
+  }
+
+  if (FEAT('SPOT_OB_SHIM')) {
+    return await fetchSpotOrderbookShim(instId, spot, depth);
+  }
+
+  const err: any = new Error('SPOT_OB_NOT_AVAILABLE');
+  err.cause = lastErr; throw err;
+}
+
+4) Detector Geo-block Binance (matikan 24 jam, kalau masih kepake)
+
+Kalau di tempat lain kamu masih ada path yang menyentuh Binance (mis. legacy code), tambahkan guard ini:
+
+// src/net/binanceGuard.ts
+let until = 0; // epoch ms
+
+export function binanceBlocked() {
+  return Date.now() < until;
+}
+
+export function markBinanceBlocked(hours= Number(process.env.GEO_COOLDOWN_HOURS ?? 24)) {
+  until = Date.now() + hours*60*60*1000;
+}
+
+export function detectGeoBlockBinance(body: any) {
+  if (!body) return false;
+  const msg = (typeof body === 'string' ? body : (body.msg || body.message || '')).toLowerCase();
+  if (msg.includes('restricted location') || msg.includes('eligibility')) {
+    markBinanceBlocked();
+    return true;
+  }
+  return false;
+}
+
+
+Contoh pemakaian (jika masih ada call ke Binance):
+
+// wherever you still touch binance
+import { binanceBlocked, detectGeoBlockBinance } from '../net/binanceGuard';
+...
+if (binanceBlocked()) throw new Error('BINANCE_GEO_BLOCKED_COOLDOWN');
+const r = await robustFetch(url, { label: 'binance_depth' });
+const j = await r.json();
+if (detectGeoBlockBinance(j)) throw new Error('BINANCE_GEO_BLOCKED_DETECTED');
+
+Sanity Check (30 detik)
+
+ curl -s "https://www.okx.com/api/v5/market/books?instId=SOL-USDT&sz=5" → 200
+
+ curl -s "https://api.bybit.com/v5/market/orderbook?category=spot&symbol=SOLUSDT&limit=5" → 200
+
+ Jalankan sniper → log: [SPOT_OB] using shim: shim-okx (atau shim-bybit kalau OKX bermasalah).
+
+ sniper_soft_fail_total{module="spot_ob"} turun signifikan.
+
+Rekomendasi Lanjutan (opsional tapi mantap)
+
+Provider Pooling: rotasi provider (okx → bybit → coinapi) pakai weighted round-robin + jitter.
+
+Regional Egress: pakai 1 endpoint egress (Cloudflare Tunnel/Worker) untuk akses Binance kalau memang perlu (legal compliance kamu tanggung sendiri ya).
+
+TTL adaptif: kalau probeExternals() lambat, naikkan TTL cache sementara (mis. OB 5 menit) agar UI tetap smooth.

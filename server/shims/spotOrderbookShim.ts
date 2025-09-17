@@ -1,6 +1,8 @@
 /**
- * Spot Orderbook Shim - Fallback to direct exchange APIs when native endpoints are unavailable
+ * Spot Orderbook Shim - OKX-first fallback (geo-friendly)
  */
+
+import { robustFetch } from '../net/fetchHelper';
 
 type DepthSide = Array<{ price: number; qty: number }>;
 export type SpotOB = { 
@@ -10,131 +12,60 @@ export type SpotOB = {
   source: string 
 };
 
-/**
- * Ensure symbol has USDT suffix for Binance spot trading
- */
-function ensureBinanceSymbol(symbol: string): string {
-  const normalized = symbol.replace(/[:/\-_]/g, '').toUpperCase();
-  if (normalized.endsWith('USDT')) return normalized;
-  
-  // Common mappings
-  const symbolMappings: Record<string, string> = {
-    'SOL': 'SOLUSDT',
-    'BTC': 'BTCUSDT', 
-    'ETH': 'ETHUSDT',
-    'BNB': 'BNBUSDT',
-    'ADA': 'ADAUSDT'
+function sortBook(bids: DepthSide, asks: DepthSide): {bids: DepthSide, asks: DepthSide} {
+  return {
+    bids: bids.slice().sort((a, b) => b.price - a.price),
+    asks: asks.slice().sort((a, b) => a.price - b.price),
   };
-  
-  return symbolMappings[normalized] || `${normalized}USDT`;
 }
 
-/**
- * Retry utility with exponential backoff
- */
-async function retryWithBackoff<T>(
-  fn: () => Promise<T>,
-  maxRetries = 3,
-  baseDelay = 1000
-): Promise<T> {
-  let lastError: any;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+/** OKX spot depth — instId example: 'SOL-USDT' */
+async function fetchOKXDepth(instId = 'SOL-USDT', sz = 50): Promise<SpotOB> {
+  const url = `https://www.okx.com/api/v5/market/books?instId=${instId}&sz=${sz}`;
+  const response = await robustFetch(url, { label: 'okx_books' });
+  if (!response) throw new Error('OKX_FETCH_FAILED');
+  const j = await response.json();
+  const d = j?.data?.[0];
+  if (!d) throw new Error('OKX_BOOKS_EMPTY');
+  const toSide = (arr: any[]) => arr.map(([p, q]: [string, string]) => ({ price: +p, qty: +q }));
+  const { bids, asks } = sortBook(toSide(d.bids), toSide(d.asks));
+  return { bids, asks, ts: Date.now(), source: 'shim-okx' };
+}
+
+/** Orchestrator: OKX primary fallback */
+export async function fetchSpotOrderbookShim(instId = 'SOL-USDT', symbol = 'SOLUSDT', depth = 50): Promise<SpotOB> {
+  // Priority from ENV, default okx only (since other exchanges are geo-blocked)
+  const providers = (process.env.PROVIDERS_SPOT_OB ?? 'okx')
+    .split(',').map(s => s.trim().toLowerCase());
+
+  const tries: Array<() => Promise<SpotOB>> = [];
+  for (const p of providers) {
+    if (p === 'okx') tries.push(() => fetchOKXDepth(instId, depth));
+    // Note: Binance and Bybit are geo-blocked, so we don't include them
+  }
+
+  const errors: string[] = [];
+  for (const fn of tries) {
     try {
-      return await fn();
-    } catch (error: any) {
-      lastError = error;
-      
-      if (attempt === maxRetries) break;
-      
-      // Don't retry client errors (4xx) except rate limits
-      if (error.status >= 400 && error.status < 500 && error.status !== 429) {
-        break;
-      }
-      
-      const delay = baseDelay * Math.pow(2, attempt);
-      console.log(`[SpotOB Shim] Retry ${attempt + 1}/${maxRetries} after ${delay}ms delay`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      const res = await fn();
+      console.log(`[SPOT_OB] using shim: ${res.source}`);
+      return res;
+    } catch (e: any) {
+      errors.push(e?.message || String(e));
     }
   }
-  
-  throw lastError;
+  const err: any = new Error('SPOT_OB_SHIM_FAILED');
+  err.providers = providers; 
+  err.errors = errors;
+  throw err;
 }
 
+// Legacy compatibility - keep this for backward compatibility but use OKX
 export async function fetchSpotOrderbookBinance(
   symbol = 'SOLUSDT',
   limit = 50
 ): Promise<SpotOB> {
-  const binanceSymbol = ensureBinanceSymbol(symbol);
-  console.log(`[SpotOB Shim] Fetching orderbook for ${symbol} -> ${binanceSymbol} (limit: ${limit})`);
-  
-  const url = `https://api.binance.com/api/v3/depth?symbol=${binanceSymbol}&limit=${limit}`;
-  
-  try {
-    const result = await retryWithBackoff(async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
-      
-      try {
-        const response = await fetch(url, {
-          headers: { 
-            'Accept': 'application/json',
-            'User-Agent': 'CryptoSatX/1.0'
-          },
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => 'Unknown error');
-          const error: any = new Error(`Binance API error: ${response.status} ${response.statusText}`);
-          error.status = response.status;
-          error.response = errorText;
-          throw error;
-        }
-        
-        const data = await response.json();
-        
-        // Validate response structure
-        if (!data.bids || !data.asks || !Array.isArray(data.bids) || !Array.isArray(data.asks)) {
-          throw new Error('Invalid Binance API response format');
-        }
-        
-        return data;
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
-          const timeoutError: any = new Error('Binance API timeout');
-          timeoutError.status = 408;
-          throw timeoutError;
-        }
-        throw fetchError;
-      }
-    });
-    
-    const toSide = (arr: any[]) => arr.map(([p, q]: any[]) => ({ 
-      price: parseFloat(p), 
-      qty: parseFloat(q) 
-    }));
-    
-    const response: SpotOB = {
-      bids: toSide(result.bids),
-      asks: toSide(result.asks),
-      ts: Date.now(),
-      source: 'shim-binance',
-    };
-    
-    console.log(`[SpotOB Shim] ✅ SUCCESS: ${response.bids.length} bids, ${response.asks.length} asks`);
-    return response;
-    
-  } catch (error: any) {
-    console.error(`[SpotOB Shim] ❌ FAILED for ${binanceSymbol}:`, error.message);
-    console.error(`[SpotOB Shim] Error details:`, {
-      status: error.status,
-      url,
-      response: error.response
-    });
-    throw error;
-  }
+  // Convert to OKX format and use OKX instead
+  const instId = `${symbol.replace('USDT', '')}-USDT`;
+  return fetchOKXDepth(instId, limit);
 }
