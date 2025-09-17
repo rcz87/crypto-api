@@ -1,0 +1,181 @@
+Oke gas. Error `Unexpected token '<' ... is not valid JSON` masih muncul karena request scheduler **masih mendarat di HTML** (biasanya SPA fallback dari Vite/Static). Ada 3 biang utama:
+
+1. **Urutan router**: catch-all static/SPA berada **sebelum** router API → request `/gpts/...` dibalas `index.html`.
+2. **Target URL**: scheduler masih pakai **relative URL** / base yang salah.
+3. **Fallback SPA dev-server**: Vite dev intercept path API saat dev.
+
+Di bawah ini patch langsung untuk bikin **tidak mungkin** jatuh ke HTML lagi + tambah auto-fallback kalau masih kejadian.
+
+---
+
+# A) Pastikan **router order**: API dulu, baru static/SPA
+
+**Letakkan router API (gptsRouter & lainnya) sebelum static**. Catch-all `app.get('*')` HARUS paling terakhir.
+
+```ts
+// apps/api/src/server/index.ts
+import express from "express";
+import path from "node:path";
+import { gptsRouter } from "../routes/gpts";
+import { metricsRouter } from "../routes/metrics";
+import { healthRouter } from "../routes/healthz";
+import { coinglassProxy } from "../middlewares/coinglassProxy";
+
+export function createServer() {
+  const app = express();
+  app.set("trust proxy", true);
+  app.use(express.json());
+
+  // 1) API & proxy FIRST
+  app.use("/py", coinglassProxy);   // proxy Python (prom-text OK)
+  app.use(gptsRouter);
+  app.use(metricsRouter);
+  app.use(healthRouter);
+  // ... router API lain di sini
+
+  // 2) Static files (opsional saat prod)
+  if (process.env.NODE_ENV === "production") {
+    const dist = path.join(process.cwd(), "apps", "web", "dist");
+    app.use(express.static(dist));
+    // 3) SPA catch-all TERAKHIR!
+    app.get("*", (_req, res) => {
+      res.sendFile(path.join(dist, "index.html"));
+    });
+  }
+
+  return app;
+}
+```
+
+> Intinya: **router API** harus DIPASANG lebih dulu. Kalau tidak, request `/gpts/institutional/bias` bisa ketangkep SPA catch-all dan dibalas `<!DOCTYPE html>`.
+
+---
+
+# B) Pastikan scheduler **SELALU** pakai **absolute URL** (bukan relative)
+
+Kamu sudah taruh `clients/institutionalBias.ts`, mantap. Double check ENV dan target:
+
+```env
+# .env
+COINGLASS_PROXY_BASE=http://127.0.0.1:8000
+API_BASE=http://127.0.0.1:5000
+BIAS_TARGET=node   # atau "python" kalau mau hit FastAPI langsung
+```
+
+Scheduler jangan pernah `fetch('/gpts/...')`. Harus melalui `fetchInstitutionalBias()` yang sudah memaksa absolute URL.
+
+---
+
+# C) Guard ekstra: kalau masih dapat HTML, **fallback** ke target lain (Node → Python)
+
+Tambahkan retry 1x ke base lain jika deteksi HTML. Ini ngebunuh kasus salah routing residual.
+
+```ts
+// apps/api/src/clients/institutionalBias.ts
+import fetch from "node-fetch";
+import { jsonOrText } from "../utils/jsonOrText";
+
+const API_BASE = process.env.API_BASE ?? "http://127.0.0.1:5000";
+const PY_BASE  = process.env.COINGLASS_PROXY_BASE ?? "http://127.0.0.1:8000";
+const BIAS_TARGET = (process.env.BIAS_TARGET ?? "node").toLowerCase();
+
+async function getOnce(base: string, symbol: string) {
+  const url = base === PY_BASE
+    ? `${PY_BASE}/institutional/bias?symbol=${encodeURIComponent(symbol)}`
+    : `${API_BASE}/gpts/institutional/bias?symbol=${encodeURIComponent(symbol)}`;
+
+  const r = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!r.ok) {
+    const body = await r.text();
+    throw new Error(`Bias API ${r.status}: ${body.slice(0, 160)}`);
+  }
+  return jsonOrText(r); // akan meledak kalau HTML
+}
+
+export async function fetchInstitutionalBias(symbol: string) {
+  const primary = BIAS_TARGET === "python" ? PY_BASE : API_BASE;
+  const backup  = BIAS_TARGET === "python" ? API_BASE : PY_BASE;
+
+  try {
+    return await getOnce(primary, symbol);
+  } catch (e: any) {
+    const msg = String(e?.message || e);
+    // Fallback hanya bila jelas HTML
+    if (msg.includes("Expected JSON but got HTML")) {
+      console.warn("[BiasClient] Primary returned HTML, retrying with backup base…");
+      return await getOnce(backup, symbol);
+    }
+    throw e;
+  }
+}
+```
+
+---
+
+# D) Shim Node → Python tetap ada (untuk endpoint `/gpts/*`)
+
+Pastikan file ini ter-register sebelum static (lihat langkah A):
+
+```ts
+// apps/api/src/routes/gpts.ts
+import { Router } from "express";
+import fetch from "node-fetch";
+
+export const gptsRouter = Router();
+const PY = process.env.COINGLASS_PROXY_BASE ?? "http://127.0.0.1:8000";
+
+gptsRouter.get("/gpts/unified/symbols", async (_req, res) => {
+  const r = await fetch(`${PY}/symbols`, { headers: { Accept: "application/json" } });
+  const body = await r.text();
+  res.status(r.status).type(r.headers.get("content-type") || "application/json").send(body);
+});
+
+gptsRouter.get("/gpts/institutional/bias", async (req, res) => {
+  const symbol = req.query.symbol as string;
+  if (!symbol) return res.status(400).json({ error: "symbol is required" });
+  const url = `${PY}/institutional/bias?symbol=${encodeURIComponent(symbol)}`;
+  const r = await fetch(url, { headers: { Accept: "application/json" } });
+  const body = await r.text();
+  res.status(r.status).type(r.headers.get("content-type") || "application/json").send(body);
+});
+```
+
+---
+
+# E) Sanity test cepat (pakai curl)
+
+```bash
+# 1) FastAPI JSON?
+curl -i "http://127.0.0.1:8000/institutional/bias?symbol=SOL-USDT-SWAP"
+
+# 2) Node shim JSON?
+curl -i "http://127.0.0.1:5000/gpts/institutional/bias?symbol=SOL-USDT-SWAP"
+
+# 3) Pastikan bukan HTML:
+# should NOT start with <!DOCTYPE or <html
+```
+
+Kalau salah satu dari dua di atas balas HTML, berarti masih ada:
+
+* urutan router salah, atau
+* service target salah path.
+
+---
+
+# F) Perkuat log diagnosa (sementara)
+
+Di scheduler, sebelum `fetchInstitutionalBias`, log **base yang dipakai**:
+
+```ts
+console.log(`[InstitutionalBias] target=${process.env.BIAS_TARGET} apiBase=${process.env.API_BASE} pyBase=${process.env.COINGLASS_PROXY_BASE}`);
+```
+
+Ketika error, `jsonOrText` sudah memberi snippet HTML—jadi cepat ketahuan itu `index.html`/SPA atau error page lain.
+
+---
+
+# G) Kenapa ini inline sama blueprint?
+
+Patch ini tetap selaras dengan blueprint Phase-1 (non-invasive add-on, observability, dan hardening routing). Fokusnya: memastikan **scheduler tidak pernah terjebak HTML** baik di dev (Vite) maupun prod (SPA fallback).&#x20;
+
+Kalau kamu butuh, aku bisa bikinin **PR diff** langsung untuk 3 file (server index re-order, clients + scheduler fallback) biar tinggal merge.

@@ -4,8 +4,9 @@
  */
 
 import fetch from "node-fetch";
+import { fetchInstitutionalBias } from "../clients/institutionalBias.js";
 
-const PY_BASE = process.env.PY_BASE || "http://localhost:5000/py";
+const PY_BASE = process.env.PY_BASE || "http://localhost:8000";
 const TG_URL = process.env.TELEGRAM_WEBHOOK_URL;
 
 /**
@@ -16,15 +17,15 @@ export async function runInstitutionalBiasAlert() {
   try {
     console.log("🔍 Running Institutional Bias Analysis...");
     
-    // Parallel fetch of all required data
-    const [whaleData, etfData, sentimentData] = await Promise.all([
-      fetchWithRetry(`${PY_BASE}/advanced/whale/alerts?symbol=BTC`),
-      fetchWithRetry(`${PY_BASE}/advanced/etf/flows?asset=BTC`),
-      fetchWithRetry(`${PY_BASE}/advanced/market/sentiment`)
-    ]);
+    // Use the new institutional bias client with fallback
+    const biasData = await fetchInstitutionalBias("BTC");
+    
+    // Extract data from the unified response
+    const whaleEvents = biasData?.whale_data?.events || [];
+    const etfData = biasData?.etf_data || {};
+    const sentimentData = biasData?.sentiment_data || {};
 
     // Analyze whale activity
-    const whaleEvents = whaleData?.events || [];
     const whaleBuyLarge = whaleEvents.some(event => 
       event.side === "buy" && 
       (event.usd_size || 0) >= 1_000_000

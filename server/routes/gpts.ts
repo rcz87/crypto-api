@@ -170,6 +170,79 @@ export function registerGptsRoutes(app: Express): void {
     }
   });
 
+  // Institutional Bias endpoint - gateway to Python institutional bias service
+  app.get('/gpts/institutional/bias', async (req: Request, res: Response) => {
+    try {
+      const symbol = req.query.symbol as string;
+      
+      if (!symbol) {
+        return res.status(400).json({
+          success: false,
+          error: 'symbol parameter is required',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      console.log(`[GPTs Gateway] Fetching institutional bias for ${symbol}`);
+
+      // Forward request to Python service
+      const response = await fetch(`${PY_BASE}/institutional/bias?symbol=${encodeURIComponent(symbol)}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'GPTs-Gateway-Node'
+        },
+        timeout: 15000
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn(`[GPTs Gateway] institutional bias for ${symbol} failed: ${response.status} - ${errorText}`);
+        
+        return res.status(response.status).json({
+          success: false,
+          error: `Institutional bias data unavailable for ${symbol}`,
+          details: errorText,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Check content type before parsing
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error(`[GPTs Gateway] Expected JSON but got ${contentType}. Response: ${text.substring(0, 200)}...`);
+        
+        return res.status(502).json({
+          success: false,
+          error: 'Invalid response format from Python service',
+          details: `Expected JSON but got ${contentType}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      const data = await response.json();
+      
+      res.json({
+        success: true,
+        symbol: symbol,
+        data: data,
+        timestamp: new Date().toISOString(),
+        source: 'coinglass_python_institutional_bias'
+      });
+
+    } catch (error) {
+      console.error(`[GPTs Gateway] institutional bias error for ${req.query.symbol}:`, error);
+      
+      res.status(502).json({
+        success: false,
+        error: 'Gateway error - Institutional bias service unavailable',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // Health check specific to GPTs gateway
   app.get('/gpts/health', async (req: Request, res: Response) => {
     try {
