@@ -1886,7 +1886,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader('Content-Type', 'application/x-yaml');
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      const filePath = path.resolve(process.cwd(), 'public/openapi.yaml');
+      const filePath = path.resolve(process.cwd(), 'public/openapi-4.0.1-gpts-compat.yaml');
       const content = fs.readFileSync(filePath, 'utf8');
       res.send(content);
     } catch (error) {
