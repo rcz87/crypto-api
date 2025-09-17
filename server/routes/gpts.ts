@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from 'express';
 import fetch from 'node-fetch';
+import { normalizePerp } from '../utils/symbols.js';
 
 /**
  * Register GPT Actions routes - Gateway shim for unified endpoints
@@ -173,9 +174,9 @@ export function registerGptsRoutes(app: Express): void {
   // Institutional Bias endpoint - gateway to Python institutional bias service
   app.get('/gpts/institutional/bias', async (req: Request, res: Response) => {
     try {
-      const symbol = req.query.symbol as string;
+      const rawSymbol = req.query.symbol as string;
       
-      if (!symbol) {
+      if (!rawSymbol) {
         return res.status(400).json({
           success: false,
           error: 'symbol parameter is required',
@@ -183,7 +184,9 @@ export function registerGptsRoutes(app: Express): void {
         });
       }
 
-      console.log(`[GPTs Gateway] Fetching institutional bias for ${symbol}`);
+      // Normalize symbol to OKX perpetual format
+      const symbol = normalizePerp(rawSymbol);
+      console.log(`[GPTs Gateway] Fetching institutional bias for ${symbol} (normalized from ${rawSymbol})`);
 
       // Forward request to Python service
       const response = await fetch(`${PY_BASE}/institutional/bias?symbol=${encodeURIComponent(symbol)}`, {
@@ -194,6 +197,20 @@ export function registerGptsRoutes(app: Express): void {
         },
         timeout: 15000
       });
+
+      // Handle 404 specifically
+      if (response.status === 404) {
+        const errorText = await response.text();
+        console.warn(`[GPTs Gateway] institutional bias for ${symbol} not found: ${errorText}`);
+        
+        return res.status(404).json({
+          success: false,
+          error: 'Institutional bias data unavailable',
+          symbol: symbol,
+          details: errorText,
+          timestamp: new Date().toISOString()
+        });
+      }
 
       if (!response.ok) {
         const errorText = await response.text();

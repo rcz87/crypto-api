@@ -1,0 +1,209 @@
+Mantap, sekarang HTML-nya sudah kelar. Error terbarumu bukan HTML lagi, tapi:
+
+Bias API 404 ... Institutional bias data unavailable for BTC
+→ Python FastAPI-mu belum punya route/handler institutional/bias untuk symbol BTC (atau format symbol salah). Dari arsitektur awal, fokus SOL-USDT-SWAP dulu. Jadi 404 itu wajar. Kita bikin 3 perbaikan supaya scheduler nggak “merah” lagi dan format symbol selalu benar. (Tetap inline sama playbook Phase-1 kita. )
+
+Berikut patch langsung (drop-in):
+
+1) Normalisasi symbol (BTC → BTC-USDT-SWAP)
+
+Scheduler kamu tadi mengirim symbol=BTC → FastAPI balas 404 (not found). Kita paksa symbol OKX perp default ke BASE-USDT-SWAP kalau user cuma ngirim BASE.
+
+apps/api/src/utils/symbols.ts
+// utils/symbols.ts
+const DEFAULT_QUOTE = "USDT";
+const DEFAULT_INSTR = "SWAP";
+
+/** ex: "btc"  -> "BTC-USDT-SWAP"
+ *    "BTC-USDT" -> "BTC-USDT-SWAP" (lengkapi instr)
+ *    "BTC-USD-SWAP" -> tetap
+ */
+export function normalizePerp(symbol: string) {
+  const s = (symbol || "").toUpperCase().trim();
+
+  // sudah lengkap?
+  if (/-[A-Z]+-(SWAP|PERP|FUTURES)$/.test(s)) return s;
+
+  // "BTC-USDT" -> "BTC-USDT-SWAP"
+  if (/^[A-Z]+-[A-Z]+$/.test(s)) return `${s}-${DEFAULT_INSTR}`;
+
+  // "BTC" -> "BTC-USDT-SWAP"
+  if (/^[A-Z]+$/.test(s)) return `${s}-${DEFAULT_QUOTE}-${DEFAULT_INSTR}`;
+
+  // fallback: biarkan apa adanya
+  return s;
+}
+
+2) Bias client: absolute URL, fallback Node↔Python, 404 jadi “unavailable” (bukan failure)
+apps/api/src/clients/institutionalBias.ts
+import fetch from "node-fetch";
+import { jsonOrText } from "../utils/jsonOrText";
+import { normalizePerp } from "../utils/symbols";
+
+const API_BASE = process.env.API_BASE ?? "http://127.0.0.1:5000";
+const PY_BASE  = process.env.COINGLASS_PROXY_BASE ?? "http://127.0.0.1:8000";
+const BIAS_TARGET = (process.env.BIAS_TARGET ?? "node").toLowerCase() as "node"|"python";
+
+async function getOnce(base: string, symbol: string) {
+  const norm = normalizePerp(symbol);
+  const url = base === PY_BASE
+    ? `${PY_BASE}/institutional/bias?symbol=${encodeURIComponent(norm)}`
+    : `${API_BASE}/gpts/institutional/bias?symbol=${encodeURIComponent(norm)}`;
+
+  const r = await fetch(url, { headers: { Accept: "application/json" } });
+
+  // 404 → treat as unavailable (bukan throw)
+  if (r.status === 404) {
+    const body = await r.text();
+    return {
+      ok: false,
+      status: 404,
+      unavailable: true as const,
+      reason: body.slice(0, 200),
+      symbol: norm,
+    };
+  }
+
+  if (!r.ok) {
+    const body = await r.text();
+    throw new Error(`Bias API ${r.status}: ${body.slice(0,160)}`);
+  }
+  const data = await jsonOrText(r);
+  return { ok: true as const, status: 200, data, symbol: norm };
+}
+
+export async function fetchInstitutionalBias(symbol: string) {
+  const primary = BIAS_TARGET === "python" ? PY_BASE : API_BASE;
+  const backup  = BIAS_TARGET === "python" ? API_BASE : PY_BASE;
+
+  try {
+    const res = await getOnce(primary, symbol);
+    if (!res.ok && res.unavailable) return res; // 404 → tidak error
+    return res;
+  } catch (e: any) {
+    const msg = String(e?.message || e);
+    if (msg.includes("Expected JSON but got HTML")) {
+      // fallback sekali kalau primary balas HTML
+      const res = await getOnce(backup, symbol);
+      if (!res.ok && res.unavailable) return res;
+      return res;
+    }
+    throw e;
+  }
+}
+
+/** Opsional: ambil daftar symbol yang didukung dari Python */
+export async function fetchSupportedSymbols() {
+  const r = await fetch(`${PY_BASE}/symbols`, { headers: { Accept: "application/json" } });
+  if (!r.ok) return [];
+  try {
+    const j = await r.json();
+    return Array.isArray(j) ? j : (j?.symbols ?? []);
+  } catch {
+    return [];
+  }
+}
+
+3) Scheduler: 404 bukan failure, logging jelas, interval tetap sehat
+apps/api/src/schedulers/institutionalBias.ts
+import { fetchInstitutionalBias, fetchSupportedSymbols } from "../clients/institutionalBias";
+import { tryConsume } from "../rate/rateBudget";
+import { setTimeout as sleep } from "timers/promises";
+
+const BASE_INTERVAL_MS = Number(process.env.BIAS_INTERVAL_MS ?? 5 * 60_000);
+const DEFAULT_SYMBOL   = process.env.BIAS_SYMBOL ?? "SOL-USDT-SWAP";
+
+let consecutiveFails = 0;
+
+function nextDelayMs() {
+  const jitter = 5_000 + Math.floor(Math.random()*10_000);
+  const base = BASE_INTERVAL_MS + jitter;
+  return base;
+}
+
+export async function startInstitutionalBiasScheduler() {
+  await sleep(2_000 + Math.floor(Math.random()*3_000));
+
+  (async function loop() {
+    try {
+      const budgetOK = tryConsume?.("coinglass:scheduler", 3);
+      if (budgetOK === false) {
+        console.warn("⏭️  [InstitutionalBias] Skipped (budget)");
+        consecutiveFails = 0; // skip bukan failure
+      } else {
+        // pilih symbol: cek dukungan
+        let symbol = DEFAULT_SYMBOL;
+        const supported = await fetchSupportedSymbols();
+        if (supported.length && !supported.includes(DEFAULT_SYMBOL)) {
+          symbol = supported[0]; // fallback ke symbol pertama yang tersedia
+          console.log(`[InstitutionalBias] Symbol fallback → ${symbol}`);
+        }
+
+        const res = await fetchInstitutionalBias(symbol);
+        if (res && (res as any).unavailable) {
+          // 404 → not failure. Hanya info.
+          console.warn(`ℹ️ [InstitutionalBias] Unavailable for ${res.symbol}. Reason: ${(res as any).reason}`);
+          consecutiveFails = 0;
+        } else {
+          const data = (res as any).data ?? res;
+          // TODO: proses data untuk alert
+          // console.log("✅ [InstitutionalBias] result:", data);
+          consecutiveFails = 0;
+        }
+      }
+    } catch (e:any) {
+      console.error("❌ [InstitutionalBias] Task failed:", String(e?.message || e));
+      consecutiveFails = Math.min(10, consecutiveFails + 1);
+    } finally {
+      const delay = nextDelayMs();
+      console.log(`⏰ [InstitutionalBias] Next run in ~${Math.round(delay/1000)}s (fails=${consecutiveFails})`);
+      await sleep(delay);
+      loop();
+    }
+  })();
+}
+
+
+Dampak: 404 tidak menaikkan consecutiveFails → scheduler tidak jadi “unhealthy” hanya karena symbol belum didukung.
+
+4) Node shim: jelas-banget kalau Python 404
+
+(opsional; kamu sudah punya, tapi versi ini nambah symbol normalize & pesan jelas)
+
+apps/api/src/routes/gpts.ts
+import { Router } from "express";
+import fetch from "node-fetch";
+import { normalizePerp } from "../utils/symbols";
+
+export const gptsRouter = Router();
+const PY = process.env.COINGLASS_PROXY_BASE ?? "http://127.0.0.1:8000";
+
+gptsRouter.get("/gpts/institutional/bias", async (req, res) => {
+  const raw = (req.query.symbol as string) || "";
+  const symbol = normalizePerp(raw);
+  const url = `${PY}/institutional/bias?symbol=${encodeURIComponent(symbol)}`;
+
+  const r = await fetch(url, { headers: { Accept: "application/json" } });
+  const body = await r.text();
+
+  if (r.status === 404) {
+    return res.status(404).json({
+      success: false,
+      error: "Institutional bias data unavailable",
+      symbol,
+      details: body,
+      timestamp: new Date().toISOString()
+    });
+  }
+  res.status(r.status).type(r.headers.get("content-type") || "application/json").send(body);
+});
+
+Kenapa ini menyelesaikan problem?
+
+Tidak ada lagi HTML: API router sudah di-depan static (SPA fallback paling akhir). Client juga selalu pakai absolute URL.
+
+404 tidak mem-PANIC: 404 jadi sinyal “symbol belum tersedia” (normal saat fase SOL-first), bukan failure.
+
+Symbol valid: BTC otomatis jadi BTC-USDT-SWAP. Kalau Python cuma support SOL-USDT-SWAP, scheduler fallback ke supported supaya tetap “hijau”.
+
+Semuanya tetap inline dengan desain Phase-1 non-invasive (notifier & observability) yang sudah kita set.

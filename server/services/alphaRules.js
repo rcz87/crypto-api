@@ -17,10 +17,23 @@ export async function runInstitutionalBiasAlert() {
   try {
     console.log("🔍 Running Institutional Bias Analysis...");
     
-    // Use the new institutional bias client with fallback
-    const biasData = await fetchInstitutionalBias("BTC");
+    // Use the new institutional bias client with fallback and 404 handling
+    const DEFAULT_SYMBOL = process.env.BIAS_SYMBOL || "SOL-USDT-SWAP";
+    const biasResult = await fetchInstitutionalBias(DEFAULT_SYMBOL);
     
-    // Extract data from the unified response
+    // Handle 404 unavailable case
+    if (biasResult && biasResult.unavailable) {
+      console.warn(`ℹ️ [InstitutionalBias] Unavailable for ${biasResult.symbol}. Reason: ${biasResult.reason || 'endpoint not found'}`);
+      return { 
+        bias: "UNAVAILABLE", 
+        triggered: false, 
+        reason: `Institutional bias data not available for ${biasResult.symbol}`,
+        symbol: biasResult.symbol
+      };
+    }
+    
+    // Extract data from successful response
+    const biasData = biasResult.data || {};
     const whaleEvents = biasData?.whale_data?.events || [];
     const etfData = biasData?.etf_data || {};
     const sentimentData = biasData?.sentiment_data || {};

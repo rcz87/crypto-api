@@ -4,36 +4,36 @@
  */
 
 import fetch from "node-fetch";
+import { jsonOrText } from "../utils/jsonOrText.js";
+import { normalizePerp } from "../utils/symbols.js";
 
 const API_BASE = process.env.API_BASE || "http://127.0.0.1:5000";
 const PY_BASE = process.env.PY_BASE || "http://127.0.0.1:8000";
-const BIAS_TARGET = (process.env.BIAS_TARGET || "node").toLowerCase();
+const BIAS_TARGET = (process.env.BIAS_TARGET || "node").toLowerCase() as "node" | "python";
 
-/**
- * Parse JSON response or throw descriptive error for HTML responses
- */
-async function jsonOrText(response: any) {
-  const contentType = response.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    try {
-      return await response.json();
-    } catch (jsonError: any) {
-      throw new Error(`Invalid JSON response: ${jsonError.message}`);
-    }
-  } else {
-    // If response is not JSON, read as text to see what we got
-    const text = await response.text();
-    throw new Error(`Expected JSON but got ${contentType}. Response: ${text.substring(0, 200)}...`);
-  }
-}
+export type BiasOk = { 
+  ok: true; 
+  data: any; 
+  symbol: string; 
+  status: number; 
+};
+
+export type BiasUnavailable = { 
+  ok: false; 
+  unavailable: true; 
+  status: 404; 
+  symbol: string; 
+  reason?: string; 
+};
 
 /**
  * Fetch institutional bias data from a specific base URL
  */
-async function getOnce(base: string, symbol: string) {
+async function getOnce(base: string, symbol: string): Promise<BiasOk | BiasUnavailable> {
+  const norm = normalizePerp(symbol);
   const url = base === PY_BASE
-    ? `${PY_BASE}/institutional/bias?symbol=${encodeURIComponent(symbol)}`
-    : `${API_BASE}/gpts/institutional/bias?symbol=${encodeURIComponent(symbol)}`;
+    ? `${PY_BASE}/institutional/bias?symbol=${encodeURIComponent(norm)}`
+    : `${API_BASE}/gpts/institutional/bias?symbol=${encodeURIComponent(norm)}`;
 
   console.log(`[BiasClient] Fetching from: ${url}`);
 
@@ -45,40 +45,74 @@ async function getOnce(base: string, symbol: string) {
     timeout: 10000
   });
 
+  // 404 → treat as unavailable (bukan throw)
+  if (response.status === 404) {
+    const body = await response.text();
+    return {
+      ok: false,
+      unavailable: true,
+      status: 404,
+      reason: body.slice(0, 200),
+      symbol: norm,
+    };
+  }
+
   if (!response.ok) {
     const body = await response.text();
     throw new Error(`Bias API ${response.status}: ${body.slice(0, 160)}`);
   }
 
-  return jsonOrText(response);
+  const data = await jsonOrText(response);
+  return { 
+    ok: true, 
+    status: response.status, 
+    data, 
+    symbol: norm 
+  };
 }
 
 /**
  * Fetch institutional bias data with automatic fallback
  */
-export async function fetchInstitutionalBias(symbol: string) {
+export async function fetchInstitutionalBias(symbol: string): Promise<BiasOk | BiasUnavailable> {
   const primary = BIAS_TARGET === "python" ? PY_BASE : API_BASE;
   const backup = BIAS_TARGET === "python" ? API_BASE : PY_BASE;
 
   console.log(`[BiasClient] Primary target: ${primary}, Backup: ${backup}`);
 
   try {
-    return await getOnce(primary, symbol);
+    const res = await getOnce(primary, symbol);
+    if (!res.ok && res.unavailable) return res; // 404 → tidak error
+    return res;
   } catch (error: any) {
     const msg = String(error?.message || error);
     
-    // Fallback only if we clearly got HTML instead of JSON
-    if (msg.includes("Expected JSON but got") && (msg.includes("text/html") || msg.includes("<!DOCTYPE"))) {
+    // Fallback sekali kalau primary balas HTML
+    if (msg.includes("Expected JSON but got HTML")) {
       console.warn("[BiasClient] Primary returned HTML, retrying with backup base...");
-      try {
-        return await getOnce(backup, symbol);
-      } catch (backupError: any) {
-        console.error("[BiasClient] Both primary and backup failed");
-        throw new Error(`Both endpoints failed. Primary: ${msg}. Backup: ${backupError.message}`);
-      }
+      const res = await getOnce(backup, symbol);
+      if (!res.ok && res.unavailable) return res;
+      return res;
     }
     
-    // If it's not an HTML response error, don't retry
     throw error;
+  }
+}
+
+/**
+ * Ambil daftar symbol yang didukung dari Python service
+ */
+export async function fetchSupportedSymbols(): Promise<string[]> {
+  try {
+    const response = await fetch(`${PY_BASE}/symbols`, { 
+      headers: { Accept: "application/json" } 
+    });
+    
+    if (!response.ok) return [];
+    
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data?.symbols || []);
+  } catch {
+    return [];
   }
 }

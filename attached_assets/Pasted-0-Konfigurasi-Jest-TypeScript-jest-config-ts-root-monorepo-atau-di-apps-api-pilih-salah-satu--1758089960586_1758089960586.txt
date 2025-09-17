@@ -1,0 +1,211 @@
+0) Konfigurasi Jest (TypeScript)
+
+jest.config.ts (root monorepo atau di apps/api/—pilih salah satu; sesuaikan path module yang kamu pakai)
+
+// jest.config.ts
+import type { Config } from "jest";
+
+const config: Config = {
+  preset: "ts-jest",
+  testEnvironment: "node",
+  roots: ["<rootDir>/apps/api/test"],
+  moduleNameMapper: {
+    "^@utils/(.*)$": "<rootDir>/apps/api/src/utils/$1",
+    "^@clients/(.*)$": "<rootDir>/apps/api/src/clients/$1",
+    "^@schedulers/(.*)$": "<rootDir>/apps/api/src/schedulers/$1",
+  },
+  verbose: true,
+};
+export default config;
+
+
+Tambahkan script & dev deps
+
+# di root project
+npm i -D jest ts-jest @types/jest
+# atau pnpm add -D jest ts-jest @types/jest
+
+
+package.json:
+
+{
+  "scripts": {
+    "test": "jest --runInBand",
+    "test:watch": "jest --watch"
+  }
+}
+
+1) Test normalizePerp()
+
+Lokasi source yang dites: apps/api/src/utils/symbols.ts (sudah kamu punya dari patch sebelumnya).
+
+apps/api/test/symbols.normalizePerp.test.ts
+
+import { normalizePerp } from "@utils/symbols";
+
+describe("normalizePerp()", () => {
+  test("BTC -> BTC-USDT-SWAP", () => {
+    expect(normalizePerp("BTC")).toBe("BTC-USDT-SWAP");
+    expect(normalizePerp("btc")).toBe("BTC-USDT-SWAP");
+  });
+
+  test("BTC-USDT -> lengkapi instr jadi SWAP", () => {
+    expect(normalizePerp("BTC-USDT")).toBe("BTC-USDT-SWAP");
+  });
+
+  test("BTC-USD-SWAP -> tetap", () => {
+    expect(normalizePerp("BTC-USD-SWAP")).toBe("BTC-USD-SWAP");
+  });
+
+  test("Symbol aneh: fallback tidak diubah", () => {
+    expect(normalizePerp("BTC/USDT")).toBe("BTC/USDT"); // tidak diubah
+    expect(normalizePerp("")).toBe("");
+  });
+});
+
+2) Test jsonOrText() (JSON vs HTML vs JSON invalid)
+
+Lokasi source yang dites: apps/api/src/utils/jsonOrText.ts (dari patch sebelumnya).
+
+apps/api/test/utils.jsonOrText.test.ts
+
+// Membuat mock Response minimal (headers.get + text())
+import { jsonOrText } from "@utils/jsonOrText";
+
+function makeResp(body: string, contentType: string, status = 200) {
+  const headers = new Map<string, string>();
+  if (contentType) headers.set("content-type", contentType);
+  return {
+    status,
+    headers: { get: (k: string) => headers.get(k.toLowerCase()) ?? headers.get(k) ?? "" },
+    text: async () => body,
+  } as unknown as Response;
+}
+
+describe("jsonOrText()", () => {
+  test("valid JSON", async () => {
+    const r = makeResp(`{"ok":true,"n":1}`, "application/json");
+    const data = await jsonOrText(r);
+    expect(data).toEqual({ ok: true, n: 1 });
+  });
+
+  test("HTML harus melempar error yang jelas", async () => {
+    const html = "<!DOCTYPE html><html><head></head><body>SPA</body></html>";
+    const r = makeResp(html, "text/html", 200);
+    await expect(jsonOrText(r)).rejects.toThrow("Expected JSON but got HTML (200)");
+  });
+
+  test("Invalid JSON melempar error", async () => {
+    const r = makeResp(`{bad json`, "application/json", 200);
+    await expect(jsonOrText(r)).rejects.toThrow("Invalid JSON (200)");
+  });
+
+  test("Tanpa content-type tapi body mulai dengan '{' -> tetap JSON", async () => {
+    const r = makeResp(`{"x":1}`, "", 200);
+    const data = await jsonOrText(r);
+    expect(data).toEqual({ x: 1 });
+  });
+});
+
+3) Test Scheduler: 404 tidak menambah fail
+
+Daripada ngetes scheduler loop penuh, kita bikin pure function kecil untuk memutuskan apakah “404 unavailable” dianggap failure atau tidak. Masuk akal karena kamu sudah ubah fetchInstitutionalBias() mengembalikan { unavailable: true } untuk 404.
+
+Tambahkan helper kecil (boleh di file baru atau export dari scheduler):
+
+apps/api/src/schedulers/_logic.ts
+
+// Fungsi murni yang mudah di-test
+export type BiasOk = { ok: true; data: any; symbol: string };
+export type BiasUnavailable = { ok?: false; unavailable: true; status: 404; symbol: string; reason?: string };
+export type BiasError = Error;
+
+export function updateFailCounter(prev: number, result: BiasOk | BiasUnavailable | BiasError) {
+  // 404: unavailable -> bukan failure
+  if ((result as any)?.unavailable === true) return 0;
+
+  // Error object -> failure +1
+  if (result instanceof Error) return Math.min(10, prev + 1);
+
+  // OK -> reset
+  if ((result as any)?.ok === true) return 0;
+
+  // default: treat as failure-safe
+  return Math.min(10, prev + 1);
+}
+
+
+apps/api/test/scheduler.failCounter.test.ts
+
+import { updateFailCounter } from "@schedulers/_logic";
+
+describe("Scheduler fail counter updates", () => {
+  test("OK result -> reset ke 0", () => {
+    const next = updateFailCounter(5, { ok: true, data: { a: 1 }, symbol: "SOL-USDT-SWAP" });
+    expect(next).toBe(0);
+  });
+
+  test("404 unavailable -> reset ke 0 (bukan failure)", () => {
+    const next = updateFailCounter(7, { unavailable: true, status: 404, symbol: "BTC-USDT-SWAP" });
+    expect(next).toBe(0);
+  });
+
+  test("Error biasa -> +1", () => {
+    const next = updateFailCounter(2, new Error("Network down"));
+    expect(next).toBe(3);
+  });
+
+  test("Clamp ke 10 maksimum", () => {
+    const next = updateFailCounter(10, new Error("still error"));
+    expect(next).toBe(10);
+  });
+});
+
+
+Kalau kamu ingin benar-benar menguji integrasi scheduler loop, kita bisa inject fetchInstitutionalBias sebagai dependency (DI) dan menjalankan 1 iterasi saja. Tapi untuk cepat & stabil, pure function di atas sudah cukup membuktikan bahwa 404 tidak menaikkan fail count.
+
+4) (Opsional) Test minimal client fallback (Node → Python)
+
+Kalau ingin memastikan fallback saat HTML, kamu bisa memecah fetchInstitutionalBias() jadi 2 bagian dan mem‐mock global.fetch. Contoh ringkas:
+
+apps/api/test/client.bias.fallback.test.ts
+
+import { fetchInstitutionalBias } from "@clients/institutionalBias";
+
+const REAL_FETCH = global.fetch as any;
+
+function resp(status: number, body: string, ct?: string) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (k: string) => (k.toLowerCase()==="content-type" ? (ct ?? "") : "") },
+    text: async () => body,
+  };
+}
+
+beforeAll(() => { (global as any).fetch = jest.fn(); });
+afterAll(() => { (global as any).fetch = REAL_FETCH; });
+
+test("fallback ke backup base jika primary balas HTML", async () => {
+  process.env.BIAS_TARGET = "node";
+  process.env.API_BASE = "http://node:5000";
+  process.env.COINGLASS_PROXY_BASE = "http://py:8000";
+
+  // Primary (Node) balas HTML
+  (global.fetch as any)
+    .mockResolvedValueOnce(resp(200, "<!DOCTYPE html><html>...</html>", "text/html"))
+    // Backup (Python) balas JSON OK
+    .mockResolvedValueOnce(resp(200, JSON.stringify({ ok: true, bias: "neutral" }), "application/json"));
+
+  const res: any = await fetchInstitutionalBias("BTC");
+  expect(res.ok).toBe(true);
+  expect(res.data.bias).toBe("neutral");
+});
+
+Menjalankan test
+npm run test
+# atau
+pnpm test
+
+
+Semua ini tetap sejalan dengan blueprint Phase-1 (non-invasive, observability, gating) yang sudah kita set untuk sistemmu.

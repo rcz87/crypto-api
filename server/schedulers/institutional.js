@@ -7,6 +7,7 @@
 import { runInstitutionalBiasAlert, runSOLSniperAlert } from "../services/alphaRules.js";
 import { checkQuota, consumeQuota, getAllBudgetStatus } from "../services/rateBudget.js";
 import { createInstitutionalScheduler, createSniperScheduler } from "./AdaptiveScheduler.js";
+import { updateFailCounter } from "./_logic.js";
 
 // Adaptive scheduler instances
 let institutionalScheduler = null;
@@ -94,6 +95,18 @@ async function runInstitutionalBiasTask() {
     alertStats.institutional.total++;
     if (alertResult.triggered) {
       alertStats.institutional.triggered++;
+    }
+    
+    // Handle unavailable as info, not error
+    if (alertResult.bias === "UNAVAILABLE") {
+      console.log(`ℹ️ [SCHEDULER] ${alertResult.reason}`);
+      alertStats.institutional.consecutiveFailures = 0; // Reset failures for unavailable
+      return {
+        success: true, // Treat unavailable as success
+        data: alertResult,
+        isRateLimit: false,
+        shouldBackoff: false
+      };
     }
     
     // Check if we got an error from the alert
