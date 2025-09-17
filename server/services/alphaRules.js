@@ -164,7 +164,19 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
       clearTimeout(timeout);
       
       if (response.ok) {
-        return await response.json();
+        // Check if response is actually JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            return await response.json();
+          } catch (jsonError) {
+            throw new Error(`Invalid JSON response from ${url}: ${jsonError.message}`);
+          }
+        } else {
+          // If response is not JSON, read as text to see what we got
+          const text = await response.text();
+          throw new Error(`Expected JSON but got ${contentType || 'unknown content type'}. Response: ${text.substring(0, 200)}...`);
+        }
       }
       
       // Handle specific HTTP errors
