@@ -7,6 +7,7 @@ import { cache, TTL_CONFIG } from '../utils/cache';
 import { metricsCollector } from '../utils/metrics';
 import { getSymbolFor, logSymbolMapping } from '@shared/symbolMapping';
 import { consumeQuota, checkQuota } from '../services/rateBudget';
+import { DataQuality, ValidatedTickerData, CachedDataWithQuality } from './coinapi';
 
 interface CacheEntry<T> {
   data: T;
@@ -31,6 +32,10 @@ export class OKXService {
   // WebSocket status tracking for metrics
   private wsConnected = false;
   private lastWsMessage = 0;
+  
+  // Last-good cache for critical data (30 seconds TTL as specified)
+  private lastGoodCache = new Map<string, CachedDataWithQuality<any>>();
+  private lastGoodCacheTTL = 30000; // 30 seconds
 
   constructor() {
     this.apiKey = process.env.OKX_API_KEY || '';
@@ -77,27 +82,105 @@ export class OKXService {
   private getCacheKey(method: string, params?: any): string {
     return `okx:${method}:${JSON.stringify(params || {})}`;
   }
-
-  async getTicker(symbol: string = 'SOL-USDT-SWAP'): Promise<TickerData> {
-    // Check rate budget before making request
-    const quotaCheck = checkQuota('okx', 'realtime');
-    if (!quotaCheck.available) {
-      throw new Error(`[OKX] Rate limit exceeded for realtime data. Reset in ${Math.ceil(quotaCheck.status.resetIn / 1000)}s`);
+  
+  // Last-good cache helper methods
+  private getLastGoodCacheKey(method: string, params?: any): string {
+    return `okx:lastgood:${method}:${JSON.stringify(params || {})}`;
+  }
+  
+  private setLastGoodCache<T>(key: string, data: T, quality: DataQuality): void {
+    const cachedItem: CachedDataWithQuality<T> = {
+      data,
+      quality,
+      timestamp: new Date().toISOString(),
+      source: 'api'
+    };
+    this.lastGoodCache.set(key, cachedItem);
+    
+    // Cleanup old entries periodically
+    setTimeout(() => {
+      this.cleanupLastGoodCache();
+    }, this.lastGoodCacheTTL);
+  }
+  
+  private getLastGoodCache<T>(key: string): CachedDataWithQuality<T> | null {
+    const cached = this.lastGoodCache.get(key);
+    if (!cached) return null;
+    
+    const age = Date.now() - new Date(cached.timestamp).getTime();
+    if (age > this.lastGoodCacheTTL) {
+      this.lastGoodCache.delete(key);
+      return null;
     }
+    
+    return cached as CachedDataWithQuality<T>;
+  }
+  
+  private cleanupLastGoodCache(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.lastGoodCache.entries()) {
+      const age = now - new Date(entry.timestamp).getTime();
+      if (age > this.lastGoodCacheTTL) {
+        this.lastGoodCache.delete(key);
+      }
+    }
+  }
+  
+  private validateDataQuality(data: any, dataType: string): DataQuality {
+    const errors: string[] = [];
+    let isValid = true;
+    
+    try {
+      if (dataType === 'ticker') {
+        if (!data.symbol || typeof data.symbol !== 'string') {
+          errors.push('Invalid or missing symbol');
+          isValid = false;
+        }
+        if (!data.price || isNaN(parseFloat(data.price)) || parseFloat(data.price) <= 0) {
+          errors.push('Invalid or missing price');
+          isValid = false;
+        }
+        if (!data.volume || isNaN(parseFloat(data.volume))) {
+          errors.push('Invalid or missing volume');
+          isValid = false;
+        }
+      }
+    } catch (error) {
+      errors.push(`Validation error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      isValid = false;
+    }
+    
+    return {
+      is_valid: isValid,
+      quality: isValid ? 'good' : 'bad',
+      validation_errors: errors,
+      timestamp: new Date().toISOString()
+    };
+  }
 
+  async getTicker(symbol: string = 'SOL-USDT-SWAP'): Promise<ValidatedTickerData> {
     // Convert symbol using unified mapping if user-friendly symbol provided
     const userSymbol = symbol.replace('-USDT-SWAP', '').toUpperCase();
     const mappedSymbol = getSymbolFor(userSymbol, 'okx') || symbol;
     logSymbolMapping(userSymbol, 'okx', !!mappedSymbol);
 
     const cacheKey = this.getCacheKey('ticker', { symbol: mappedSymbol });
+    const lastGoodCacheKey = this.getLastGoodCacheKey('ticker', { symbol: mappedSymbol });
     
     return cache.getSingleFlight(cacheKey, async () => {
       try {
+        // Check rate budget before making request
+        const quotaCheck = checkQuota('okx', 'realtime');
+        if (!quotaCheck.available) {
+          console.warn(`[OKX] Rate limit exceeded, attempting last-good cache fallback`);
+          throw new Error(`Rate limit exceeded for realtime data. Reset in ${Math.ceil(quotaCheck.status.resetIn / 1000)}s`);
+        }
+
         // Consume quota before API call
         const consumeResult = consumeQuota('okx', 'realtime');
         if (!consumeResult.success) {
-          throw new Error(`[OKX] Unable to consume rate quota: ${consumeResult.violation?.provider}`);
+          console.warn(`[OKX] Unable to consume rate quota, attempting last-good cache fallback`);
+          throw new Error(`Unable to consume rate quota: ${consumeResult.violation?.provider}`);
         }
 
         metricsCollector.updateOkxRestStatus('up');
@@ -119,12 +202,73 @@ export class OKXService {
           tradingVolume24h: (parseFloat(tickerData.last) * parseFloat(tickerData.vol24h)).toFixed(0), // This is trading volume, not market cap
         };
 
+        // Validate data quality and cache if good
+        const quality = this.validateDataQuality(result, 'ticker');
+        if (quality.is_valid) {
+          this.setLastGoodCache(lastGoodCacheKey, result, quality);
+        }
+
+        const validatedResult: ValidatedTickerData = {
+          ...result,
+          data_quality: quality,
+          source: 'api'
+        };
+
         console.log(`[OKX] Ticker fetched successfully - Rate budget remaining: ${consumeResult.status.remaining}`);
-        return result;
+        return validatedResult;
+        
       } catch (error) {
-        console.error('Error fetching ticker:', error);
+        console.error('[OKX] Error fetching ticker:', error);
         metricsCollector.updateOkxRestStatus('down');
-        throw new Error('Failed to fetch ticker data from OKX');
+        
+        // CRITICAL FIX: Use last-good cache instead of throwing error
+        const lastGoodData = this.getLastGoodCache<TickerData>(lastGoodCacheKey);
+        if (lastGoodData) {
+          console.log(`[OKX] ✅ Using last-good cached data for ${mappedSymbol} - age: ${Math.round((Date.now() - new Date(lastGoodData.timestamp).getTime()) / 1000)}s`);
+          
+          const degradedQuality: DataQuality = {
+            is_valid: true,
+            quality: 'bad',
+            validation_errors: [`API failure fallback: ${error instanceof Error ? error.message : 'Unknown error'}`],
+            timestamp: new Date().toISOString()
+          };
+          
+          return {
+            ...lastGoodData.data,
+            data_quality: degradedQuality,
+            source: 'cache'
+          } as ValidatedTickerData;
+        }
+        
+        // If no cached data available, create minimum viable response with degradation metadata
+        console.error(`[OKX] 🚨 No last-good cache available for ${mappedSymbol}, using degraded fallback`);
+        
+        const fallbackData: TickerData = {
+          symbol: mappedSymbol,
+          price: 'N/A',  // CRITICAL FIX: Never use '0' - indicates unavailable data
+          change24h: 'N/A',
+          high24h: 'N/A',
+          low24h: 'N/A',
+          volume: 'N/A',
+          tradingVolume24h: 'N/A'
+        };
+        
+        const criticalQuality: DataQuality = {
+          is_valid: false,
+          quality: 'bad',
+          validation_errors: [
+            'CRITICAL: No API data available',
+            'CRITICAL: No last-good cache available',
+            `API Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+          ],
+          timestamp: new Date().toISOString()
+        };
+        
+        return {
+          ...fallbackData,
+          data_quality: criticalQuality,
+          source: 'fallback'
+        } as ValidatedTickerData;
       }
     }, TTL_CONFIG.TICKER);
   }

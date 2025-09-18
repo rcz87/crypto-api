@@ -671,15 +671,74 @@ export class CoinAPIService {
     };
   }
 
-  private mapOKXTickerToMultiExchange(okxTicker: any, asset: string): TickerData {
-    return {
+  private mapOKXTickerToMultiExchange(okxTicker: any, asset: string): ValidatedTickerData {
+    // CRITICAL FIX: Never return 0 values, use last-good cache or mark as invalid
+    const isValidPrice = okxTicker.last && !isNaN(parseFloat(okxTicker.last)) && parseFloat(okxTicker.last) > 0;
+    
+    if (!isValidPrice) {
+      console.warn(`[CoinAPI] Invalid OKX ticker data for ${asset}, checking last-good cache...`);
+      
+      // Try to get last-good cached data
+      const lastGoodCacheKey = this.getLastGoodCacheKey('multi_ticker', { asset });
+      const lastGoodData = this.getLastGoodCache<TickerData>(lastGoodCacheKey);
+      
+      if (lastGoodData) {
+        console.log(`[CoinAPI] ✅ Using last-good cached data for OKX ${asset}`);
+        return {
+          ...lastGoodData.data,
+          data_quality: {
+            is_valid: true,
+            quality: 'bad',
+            validation_errors: ['Using cached data due to invalid current data'],
+            timestamp: new Date().toISOString()
+          },
+          source: 'cache'
+        };
+      }
+      
+      // If no cache available, return degraded data with quality indicators
+      console.error(`[CoinAPI] 🚨 No last-good cache available for OKX ${asset}, marking as invalid`);
+      
+      return {
+        symbol: `OKX_SPOT_${asset}_USDT`,
+        price: okxTicker.last || 'N/A',  // Never use '0', use 'N/A' to indicate unavailable data
+        change24h: okxTicker.changeRate ? (parseFloat(okxTicker.changeRate) * 100).toFixed(2) + '%' : 'N/A',
+        high24h: okxTicker.high24h || 'N/A',
+        low24h: okxTicker.low24h || 'N/A',
+        volume: okxTicker.vol24h || 'N/A',
+        tradingVolume24h: okxTicker.volCcy24h || 'N/A',
+        data_quality: {
+          is_valid: false,
+          quality: 'bad',
+          validation_errors: ['Invalid OKX ticker data', 'No cached data available'],
+          timestamp: new Date().toISOString()
+        },
+        source: 'fallback'
+      };
+    }
+    
+    // Valid data - create and cache
+    const tickerData: TickerData = {
       symbol: `OKX_SPOT_${asset}_USDT`,
-      price: okxTicker.last || '0',
+      price: okxTicker.last,
       change24h: okxTicker.changeRate ? (parseFloat(okxTicker.changeRate) * 100).toFixed(2) + '%' : '0%',
       high24h: okxTicker.high24h || '0',
       low24h: okxTicker.low24h || '0',
       volume: okxTicker.vol24h || '0',
       tradingVolume24h: okxTicker.volCcy24h || '0'
+    };
+    
+    // Cache good data
+    const quality = this.validateDataQuality(tickerData, 'ticker');
+    if (quality.is_valid) {
+      const cacheKey = this.getLastGoodCacheKey('multi_ticker', { asset });
+      this.setLastGoodCache(cacheKey, tickerData, quality);
+    }
+    
+    return {
+      ...tickerData,
+      data_quality: quality,
+      source: 'api'
     };
   }
 
@@ -1394,16 +1453,73 @@ export class CoinAPIService {
               const quote = await this.getQuote(symbolId);
               const [exchange, type, base, quote_asset] = symbolId.split('_');
               
-              // Convert to our TickerData format
-              const ticker: TickerData = {
-                symbol: symbolId,
-                price: quote.last_trade?.price?.toString() || '0',
-                change24h: '0%', // CoinAPI doesn't provide 24h change in quotes
-                high24h: '0',
-                low24h: '0',
-                volume: '0',
-                tradingVolume24h: '0',
-              };
+              // CRITICAL FIX: Convert to ValidatedTickerData format with proper fallback
+              const isValidPrice = quote.last_trade?.price && !isNaN(quote.last_trade.price) && quote.last_trade.price > 0;
+              
+              let ticker: ValidatedTickerData;
+              
+              if (!isValidPrice) {
+                console.warn(`[CoinAPI] Invalid quote price for ${symbolId}, checking last-good cache...`);
+                
+                // Try last-good cache
+                const lastGoodCacheKey = this.getLastGoodCacheKey('quote_ticker', { symbolId });
+                const lastGoodData = this.getLastGoodCache<TickerData>(lastGoodCacheKey);
+                
+                if (lastGoodData) {
+                  console.log(`[CoinAPI] ✅ Using last-good cached ticker for ${symbolId}`);
+                  ticker = {
+                    ...lastGoodData.data,
+                    data_quality: {
+                      is_valid: true,
+                      quality: 'bad',
+                      validation_errors: ['Using cached data due to invalid current quote'],
+                      timestamp: new Date().toISOString()
+                    },
+                    source: 'cache'
+                  };
+                } else {
+                  console.error(`[CoinAPI] 🚨 No last-good cache for ${symbolId}, marking as unavailable`);
+                  ticker = {
+                    symbol: symbolId,
+                    price: 'N/A', // Never use '0'
+                    change24h: 'N/A',
+                    high24h: 'N/A',
+                    low24h: 'N/A',
+                    volume: 'N/A',
+                    tradingVolume24h: 'N/A',
+                    data_quality: {
+                      is_valid: false,
+                      quality: 'bad',
+                      validation_errors: ['Invalid quote price', 'No cached data available'],
+                      timestamp: new Date().toISOString()
+                    },
+                    source: 'fallback'
+                  };
+                }
+              } else {
+                // Valid data - create and cache
+                const tickerData: TickerData = {
+                  symbol: symbolId,
+                  price: quote.last_trade.price.toString(),
+                  change24h: '0%', // CoinAPI doesn't provide 24h change in quotes
+                  high24h: '0',
+                  low24h: '0',
+                  volume: '0',
+                  tradingVolume24h: '0',
+                };
+                
+                const quality = this.validateDataQuality(tickerData, 'ticker');
+                if (quality.is_valid) {
+                  const cacheKey = this.getLastGoodCacheKey('quote_ticker', { symbolId });
+                  this.setLastGoodCache(cacheKey, tickerData, quality);
+                }
+                
+                ticker = {
+                  ...tickerData,
+                  data_quality: quality,
+                  source: 'api'
+                };
+              }
               
               return ticker;
             } catch (error) {
@@ -1443,11 +1559,57 @@ export class CoinAPIService {
       const degradation = await this.buildDegradationMetadata(result.source);
       
       // Return enhanced response with validated ticker data and degradation metadata
-      const validatedTickers: ValidatedTickerData[] = result.data.map(ticker => ({
-        ...ticker,
-        data_quality: result.quality,
-        source: result.source
-      }));
+      const validatedTickers: ValidatedTickerData[] = result.data.map(ticker => {
+        // Ensure each ticker has proper validation
+        const isValidPrice = ticker.price && ticker.price !== '0' && ticker.price !== 'N/A' && !isNaN(parseFloat(ticker.price)) && parseFloat(ticker.price) > 0;
+        
+        if (!isValidPrice) {
+          console.warn(`[CoinAPI] Invalid ticker price detected: ${ticker.price} for ${ticker.symbol}`);
+          
+          // Try to get last-good data for this specific ticker
+          const lastGoodCacheKey = this.getLastGoodCacheKey('individual_ticker', { symbol: ticker.symbol });
+          const lastGoodData = this.getLastGoodCache<TickerData>(lastGoodCacheKey);
+          
+          if (lastGoodData) {
+            return {
+              ...lastGoodData.data,
+              data_quality: {
+                is_valid: true,
+                quality: 'bad',
+                validation_errors: ['Using cached data due to invalid current price'],
+                timestamp: new Date().toISOString()
+              },
+              source: 'cache'
+            };
+          }
+          
+          // Mark as degraded if no cache available
+          return {
+            ...ticker,
+            price: 'N/A', // Never use '0'
+            data_quality: {
+              is_valid: false,
+              quality: 'bad',
+              validation_errors: ['Invalid price data', 'No cached fallback available'],
+              timestamp: new Date().toISOString()
+            },
+            source: 'fallback'
+          };
+        }
+        
+        // Valid ticker - cache it
+        const quality = this.validateDataQuality(ticker, 'ticker');
+        if (quality.is_valid) {
+          const cacheKey = this.getLastGoodCacheKey('individual_ticker', { symbol: ticker.symbol });
+          this.setLastGoodCache(cacheKey, ticker, quality);
+        }
+        
+        return {
+          ...ticker,
+          data_quality: quality,
+          source: result.source
+        };
+      });
       
       return {
         tickers: validatedTickers,
