@@ -56,16 +56,13 @@ export class EtfClient {
       return await response.json();
     } catch (error) {
       clearTimeout(timeoutId);
-      throw error;
-    }
-    } catch (e: any) {
-      if (e.message?.includes('402') || (e instanceof Error && e.message.includes('ETF_PAYMENT_REQUIRED'))) {
+      if (error.message?.includes('402') || (error instanceof Error && error.message.includes('ETF_PAYMENT_REQUIRED'))) {
         this.openCircuit();
         const err: any = new Error('ETF_PAYMENT_REQUIRED');
         err.soft = true;
         throw err;
       }
-      throw e;
+      throw error;
     }
   }
 }

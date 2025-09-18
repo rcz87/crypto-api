@@ -85,5 +85,4 @@ export async function getWhaleAlerts(exchange = 'hyperliquid'): Promise<WhaleAle
     throw e;
   }
 }
-}
 
