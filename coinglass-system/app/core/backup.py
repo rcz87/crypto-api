@@ -1,5 +1,6 @@
 import os
 import subprocess
+import shlex
 import boto3
 from datetime import datetime, timedelta
 from typing import Dict, Any, List
@@ -44,18 +45,18 @@ class BackupManager:
             
             pg_dump_cmd = [
                 "pg_dump",
-                "-h", parsed.hostname,
-                "-p", str(parsed.port or 5432),
-                "-U", parsed.username,
-                "-d", parsed.path[1:],  # Remove leading slash
-                "-f", backup_path,
+                "-h", shlex.quote(parsed.hostname or "localhost"),
+                "-p", shlex.quote(str(parsed.port or 5432)),
+                "-U", shlex.quote(parsed.username or "postgres"),
+                "-d", shlex.quote(parsed.path[1:]),  # Remove leading slash
+                "-f", shlex.quote(backup_path),
                 "--verbose",
                 "--no-password"
             ]
             
             # Set password environment variable
             env = os.environ.copy()
-            env["PGPASSWORD"] = parsed.password
+            env["PGPASSWORD"] = parsed.password or ""
             
             # Execute backup
             result = subprocess.run(
@@ -150,16 +151,16 @@ class BackupManager:
             # Create restore command
             psql_cmd = [
                 "psql",
-                "-h", parsed.hostname,
-                "-p", str(parsed.port or 5432),
-                "-U", parsed.username,
-                "-d", parsed.path[1:],
-                "-f", restore_path,
+                "-h", shlex.quote(parsed.hostname or "localhost"),
+                "-p", shlex.quote(str(parsed.port or 5432)),
+                "-U", shlex.quote(parsed.username or "postgres"),
+                "-d", shlex.quote(parsed.path[1:]),
+                "-f", shlex.quote(restore_path),
                 "--verbose"
             ]
             
             env = os.environ.copy()
-            env["PGPASSWORD"] = parsed.password
+            env["PGPASSWORD"] = parsed.password or ""
             
             # Execute restore
             result = subprocess.run(
