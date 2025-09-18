@@ -1,10 +1,21 @@
 {
-  "last_run": "2025-09-18T11:51:20.654Z",
+  "last_run": "2025-09-18T12:00:31.345Z",
   "last_status": "healthy",
   "last_alert_sent": null,
   "alert_count_hour": 0,
   "alert_count_reset": 1758196001067,
   "history": [
+    {
+      "timestamp": "2025-09-18T12:00:27.857Z",
+      "status": "healthy",
+      "summary": {
+        "total_tests": 3,
+        "passed": 3,
+        "warnings": 0,
+        "failures": 0,
+        "avg_response_time": 1653
+      }
+    },
     {
       "timestamp": "2025-09-18T11:51:18.933Z",
       "status": "healthy",
