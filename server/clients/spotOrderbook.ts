@@ -1,6 +1,5 @@
 import { getApiMap, getJson } from '../services/discovery';
 import { normalizeSymbol } from '../utils/symbol';
-import { fetchSpotOrderbookShim } from '../shims/spotOrderbookShim';
 import { track404 } from '../services/route404Tracker';
 
 const FEAT = (name: string) =>
@@ -8,7 +7,6 @@ const FEAT = (name: string) =>
 
 export async function getSpotOrderbook(symbol: string, exchange = 'binance', depth = 50) {
   const spot = normalizeSymbol(symbol, 'spot');         // 'SOLUSDT'
-  const instId = `${spot.replace('USDT', '')}-USDT`;    // 'SOL-USDT' for OKX
 
   // Use unified POST endpoint
   const controller = new AbortController();
@@ -43,21 +41,10 @@ export async function getSpotOrderbook(symbol: string, exchange = 'binance', dep
     }
   } catch (error) {
     clearTimeout(timeoutId);
-    throw error;
-  }
-  catch (e: any) {
-    if (e.message?.includes('404')) {
+    if (error.message?.includes('404')) {
       track404('spot_ob');
     }
-    console.warn('[SpotOrderbook] Primary endpoint failed:', e.message);
+    console.warn('[SpotOrderbook] Unified endpoint failed:', error.message);
+    throw error;
   }
-
-  if (FEAT('SPOT_OB_SHIM')) {
-    console.log(`[SpotOB Client] Attempting OKX shim fallback: ${instId} (${spot})`);
-    return await fetchSpotOrderbookShim(instId, spot, depth);
-  }
-
-  const err: any = new Error('SPOT_OB_NOT_AVAILABLE');
-  err.cause = e; 
-  throw err;
 }

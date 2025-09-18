@@ -1,6 +1,5 @@
 import { getApiMap, getJson } from '../services/discovery';
 import { normalizeSymbol } from '../utils/symbol';
-import { heatmapApproxSOL } from '../shims/heatmapShim';
 import { track404 } from '../services/route404Tracker';
 
 export type HeatmapTF = '5m' | '15m' | '1h' | '4h' | '1d';
@@ -36,7 +35,6 @@ export async function getHeatmap(symbol: string, timeframe: HeatmapTF = '1h') {
     if (!response.ok) {
       if (response.status === 404) {
         track404('heatmap');
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -44,25 +42,10 @@ export async function getHeatmap(symbol: string, timeframe: HeatmapTF = '1h') {
     return await response.json();
   } catch (error) {
     clearTimeout(timeoutId);
-    throw error;
-  }
-  catch (e: any) {
-    if (e.message?.includes('404')) {
+    if (error.message?.includes('404')) {
       track404('heatmap');
     }
-    
-    // SHIM fallback (optional)
-    if (FEAT('HEATMAP_SHIM')) {
-      try {
-        const shim = await heatmapApproxSOL(timeframe);
-        return shim; // shape agreed upon (see documentation below)
-      } catch (shimErr: any) {
-        // fall through to structured error
-      }
-    }
-
-    const err: any = new Error('HEATMAP_NOT_AVAILABLE');
-    err.cause = e; 
-    throw err;
+    console.warn('[Heatmap] Unified endpoint failed:', error.message);
+    throw error;
   }
 }

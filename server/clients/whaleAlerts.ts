@@ -73,62 +73,17 @@ export async function getWhaleAlerts(exchange = 'hyperliquid'): Promise<WhaleAle
         summary: `Found ${alerts.length} whale alerts on ${exchange} exchange`
       };
     } else {
-      console.warn('[WhaleAlerts] Unified endpoint failed, trying fallback shim');
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     } catch (error) {
       clearTimeout(timeoutId);
+      console.warn('[WhaleAlerts] Unified endpoint failed:', error.message);
       throw error;
     }
-  }
-  catch (e: any) {
+  } catch (e: any) {
     console.warn('[WhaleAlerts] Primary endpoint failed:', e.message);
+    throw e;
   }
-
-  // Fallback shim using mock data structure
-  if (FEAT('WHALE_ALERTS_SHIM')) {
-    console.log(`[WhaleAlerts Client] Using fallback shim for ${exchange}`);
-    return await getWhaleAlertsShim(exchange);
-  }
-
-  const err: any = new Error('WHALE_ALERTS_NOT_AVAILABLE');
-  err.cause = e;
-  throw err;
+}
 }
 
-async function getWhaleAlertsShim(exchange: string): Promise<WhaleAlertsResponse> {
-  // Mock whale alerts data for fallback
-  const mockAlerts: WhaleAlert[] = [
-    {
-      exchange: exchange,
-      symbol: 'BTC-USDT',
-      side: 'buy',
-      position_size: 50.0,
-      notional_value: 2500000,
-      timestamp: Date.now(),
-      meta: { confidence: 'high' }
-    },
-    {
-      exchange: exchange,
-      symbol: 'ETH-USDT',
-      side: 'sell',
-      position_size: 800.0,
-      notional_value: 1800000,
-      timestamp: Date.now() - 300000,
-      meta: { confidence: 'medium' }
-    }
-  ];
-
-  return {
-    ok: true,
-    module: 'whale_alerts',
-    alerts: mockAlerts,
-    counts: {
-      total: mockAlerts.length,
-      large_buys: mockAlerts.filter(a => a.side === 'buy').length,
-      large_sells: mockAlerts.filter(a => a.side === 'sell').length
-    },
-    used_sources: ['fallback_shim'],
-    summary: `Fallback whale alerts data for ${exchange} (${mockAlerts.length} alerts)`
-  };
-}

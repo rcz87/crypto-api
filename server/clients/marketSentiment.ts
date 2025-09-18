@@ -98,12 +98,6 @@ export async function getMarketSentiment(symbol?: string): Promise<MarketSentime
     }
   }
 
-  // Fallback shim
-  if (FEAT('MARKET_SENTIMENT_SHIM')) {
-    console.log('[MarketSentiment Client] Using fallback shim');
-    return await getMarketSentimentShim(symbol || 'BTC');
-  }
-
   const err: any = new Error('MARKET_SENTIMENT_NOT_AVAILABLE');
   err.cause = lastErr;
   throw err;
@@ -165,40 +159,3 @@ function generateSentimentDrivers(data: MarketSentimentData): SentimentDriver[] 
   return drivers;
 }
 
-async function getMarketSentimentShim(symbol: string): Promise<MarketSentimentResponse> {
-  // Mock sentiment data for fallback
-  const mockScore = Math.floor(Math.random() * 80) - 40; // -40 to 40 range
-  const mockLabel = getSentimentLabel(mockScore);
-  
-  const mockDrivers: SentimentDriver[] = [
-    {
-      factor: 'price_momentum',
-      impact: Math.floor(Math.random() * 20) - 10,
-      description: '24h price momentum analysis'
-    },
-    {
-      factor: 'trading_volume',
-      impact: Math.floor(Math.random() * 15),
-      description: 'Above-average trading activity'
-    },
-    {
-      factor: 'market_structure',
-      impact: Math.floor(Math.random() * 10) - 5,
-      description: 'Overall market structure analysis'
-    }
-  ];
-
-  return {
-    ok: true,
-    module: 'market_sentiment',
-    symbol: symbol,
-    score: mockScore,
-    label: mockLabel,
-    drivers: mockDrivers,
-    raw: {
-      volume_delta: Math.random() * 1000000000,
-    },
-    used_sources: ['fallback_shim'],
-    summary: `Fallback sentiment analysis for ${symbol}: ${mockLabel} (${mockScore}/100)`
-  };
-}
