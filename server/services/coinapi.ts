@@ -1437,7 +1437,7 @@ export class CoinAPIService {
     const lastGoodKey = this.getLastGoodCacheKey('multi_ticker', { asset });
     
     return cache.getSingleFlight(cacheKey, async () => {
-      const result = await this.safeCoinAPI<TickerData[]>(
+      const result = await this.safeCoinAPI<ValidatedTickerData[]>(
         // Main function
         async () => {
           // Define major exchanges for the asset
@@ -1500,7 +1500,7 @@ export class CoinAPIService {
                 // Valid data - create and cache
                 const tickerData: TickerData = {
                   symbol: symbolId,
-                  price: quote.last_trade.price.toString(),
+                  price: quote.last_trade!.price.toString(),
                   change24h: '0%', // CoinAPI doesn't provide 24h change in quotes
                   high24h: '0',
                   low24h: '0',
@@ -1529,7 +1529,7 @@ export class CoinAPIService {
           });
 
           const results = await Promise.all(promises);
-          return results.filter((ticker): ticker is TickerData => ticker !== null);
+          return results.filter((ticker): ticker is ValidatedTickerData => ticker !== null);
         },
         // PRIORITY 1: OKX secondary fallback for multi-exchange data
         async () => {

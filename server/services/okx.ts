@@ -118,12 +118,12 @@ export class OKXService {
   
   private cleanupLastGoodCache(): void {
     const now = Date.now();
-    for (const [key, entry] of this.lastGoodCache.entries()) {
+    this.lastGoodCache.forEach((entry, key) => {
       const age = now - new Date(entry.timestamp).getTime();
       if (age > this.lastGoodCacheTTL) {
         this.lastGoodCache.delete(key);
       }
-    }
+    });
   }
   
   private validateDataQuality(data: any, dataType: string): DataQuality {
