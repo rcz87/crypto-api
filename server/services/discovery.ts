@@ -25,23 +25,38 @@ export async function getApiMap(): Promise<Record<string, string>> {
     const spec = (await res.json()) as OpenApiDoc;
     const paths = Object.keys(spec.paths ?? {});
 
+    // Helper function to strip template variables from paths
+    const stripTemplateVars = (path: string): string => {
+      return path.replace(/{[^}]+}/g, '').replace(/\/+$/, '');
+    };
+
     const map: Record<string, string> = {
       // heuristik untuk path yang sering beda antar build
       heatmap:
-        paths.find((p) => /liquidation.*heatmap/i.test(p)) ||
-        paths.find((p) => /liquidations.*heatmap/i.test(p)) ||
-        '',
+        stripTemplateVars(
+          paths.find((p) => /liquidation.*heatmap/i.test(p)) ||
+          paths.find((p) => /liquidations.*heatmap/i.test(p)) ||
+          ''
+        ),
       spot_ob:
-        paths.find((p) => /spot.*orderbook/i.test(p)) ||
-        paths.find((p) => /orderbook.*spot/i.test(p)) ||
-        '',
+        stripTemplateVars(
+          paths.find((p) => /spot.*orderbook/i.test(p)) ||
+          paths.find((p) => /orderbook.*spot/i.test(p)) ||
+          ''
+        ),
       bias:
-        paths.find((p) => /institutional.*bias/i.test(p)) ||
-        '/institutional/bias',
+        stripTemplateVars(
+          paths.find((p) => /institutional.*bias/i.test(p)) ||
+          '/institutional/bias'
+        ),
       whale_alerts:
-        paths.find((p) => /whale.*alerts/i.test(p)) || '/advanced/whale/alerts',
+        stripTemplateVars(
+          paths.find((p) => /whale.*alerts/i.test(p)) || '/advanced/whale/alerts'
+        ),
       etf_flows:
-        paths.find((p) => /etf.*flows/i.test(p)) || '/advanced/etf/flows',
+        stripTemplateVars(
+          paths.find((p) => /etf.*flows/i.test(p)) || '/advanced/etf/flows'
+        ),
     };
 
     _cache = { at: now, map };
