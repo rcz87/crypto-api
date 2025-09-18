@@ -11,8 +11,11 @@ export async function getSpotOrderbook(symbol: string, exchange = 'binance', dep
   const instId = `${spot.replace('USDT', '')}-USDT`;    // 'SOL-USDT' for OKX
 
   // Use unified POST endpoint
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  
   try {
-    const response = await fetch(process.env.PY_BASE || 'http://127.0.0.1:8000' + '/gpts/advanced', {
+    const response = await fetch((process.env.PY_BASE || 'http://127.0.0.1:8000') + '/gpts/advanced', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -24,8 +27,11 @@ export async function getSpotOrderbook(symbol: string, exchange = 'binance', dep
           exchange: exchange,
           depth: depth
         }
-      })
+      }),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
 
     if (response.ok) {
       return await response.json();
@@ -35,6 +41,9 @@ export async function getSpotOrderbook(symbol: string, exchange = 'binance', dep
       }
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
   }
   catch (e: any) {
     if (e.message?.includes('404')) {
@@ -49,6 +58,6 @@ export async function getSpotOrderbook(symbol: string, exchange = 'binance', dep
   }
 
   const err: any = new Error('SPOT_OB_NOT_AVAILABLE');
-  err.cause = lastErr; 
+  err.cause = e; 
   throw err;
 }

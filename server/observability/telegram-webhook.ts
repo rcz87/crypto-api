@@ -11,7 +11,7 @@ import { saveGhostOrder } from "../services/okxGhost";
 export const telegramRouter = express.Router();
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const PY_BASE = process.env.PY_BASE || "http://localhost:5000/py";
+const PY_BASE = process.env.PY_BASE || "http://127.0.0.1:8000";
 
 /**
  * 📥 Telegram Webhook Endpoint

@@ -7,7 +7,7 @@
 import { Request, Response } from "express";
 import fetch from "node-fetch";
 
-const PY_BASE = process.env.PY_BASE || "http://localhost:5000/py";
+const PY_BASE = process.env.PY_BASE || "http://127.0.0.1:8000";
 
 /**
  * 🔄 Fetch Unified Endpoint Helper
@@ -65,7 +65,7 @@ export async function getInstitutionalSignal(req: Request, res: Response) {
     const [whaleData, etfData, sentimentData, heatmapData, orderbookData] = await Promise.all([
       fetchUnifiedEndpoint('whale_alerts', { symbol: symbol }),
       fetchUnifiedEndpoint('etf_flows', { asset: 'BTC' }), // ETF flows mainly track BTC
-      fetchWithRetry(`${PY_BASE}/advanced/market/sentiment`), // Keep original if not in unified yet
+      fetchUnifiedEndpoint('market_sentiment', { symbol: symbol }),
       fetchUnifiedEndpoint('liquidation_heatmap', { symbol: symbol, timeframe: '1h' }),
       fetchUnifiedEndpoint('spot_orderbook', { symbol: symbol, exchange: 'binance' })
     ]);

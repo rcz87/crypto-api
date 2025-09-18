@@ -32,7 +32,11 @@ export interface WhaleAlertsResponse {
 export async function getWhaleAlerts(exchange = 'hyperliquid'): Promise<WhaleAlertsResponse> {
   // Use unified POST endpoint
   try {
-    const response = await fetch(process.env.PY_BASE || 'http://127.0.0.1:8000' + '/gpts/advanced', {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    
+    try {
+      const response = await fetch((process.env.PY_BASE || 'http://127.0.0.1:8000') + '/gpts/advanced', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -42,8 +46,11 @@ export async function getWhaleAlerts(exchange = 'hyperliquid'): Promise<WhaleAle
         params: {
           exchange: exchange
         }
-      })
+      }),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
 
     if (response.ok) {
       const rawData = await response.json();
@@ -69,6 +76,10 @@ export async function getWhaleAlerts(exchange = 'hyperliquid'): Promise<WhaleAle
       console.warn('[WhaleAlerts] Unified endpoint failed, trying fallback shim');
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
   }
   catch (e: any) {
     console.warn('[WhaleAlerts] Primary endpoint failed:', e.message);
@@ -81,7 +92,7 @@ export async function getWhaleAlerts(exchange = 'hyperliquid'): Promise<WhaleAle
   }
 
   const err: any = new Error('WHALE_ALERTS_NOT_AVAILABLE');
-  err.cause = lastErr;
+  err.cause = e;
   throw err;
 }
 

@@ -12,8 +12,11 @@ export async function getHeatmap(symbol: string, timeframe: HeatmapTF = '1h') {
   const sym = normalizeSymbol(symbol, 'derivatives');
 
   // Use unified POST endpoint
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  
   try {
-    const response = await fetch(process.env.PY_BASE || 'http://127.0.0.1:8000' + '/gpts/advanced', {
+    const response = await fetch((process.env.PY_BASE || 'http://127.0.0.1:8000') + '/gpts/advanced', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -24,8 +27,11 @@ export async function getHeatmap(symbol: string, timeframe: HeatmapTF = '1h') {
           symbol: sym,
           timeframe: timeframe
         }
-      })
+      }),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -36,6 +42,9 @@ export async function getHeatmap(symbol: string, timeframe: HeatmapTF = '1h') {
     }
 
     return await response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
   }
   catch (e: any) {
     if (e.message?.includes('404')) {

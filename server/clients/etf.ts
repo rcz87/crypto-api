@@ -23,8 +23,11 @@ export class EtfClient {
     }
 
     // Use unified POST endpoint
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    
     try {
-      const response = await fetch(process.env.PY_BASE || 'http://127.0.0.1:8000' + '/gpts/advanced', {
+      const response = await fetch((process.env.PY_BASE || 'http://127.0.0.1:8000') + '/gpts/advanced', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -34,8 +37,11 @@ export class EtfClient {
           params: {
             asset: asset
           }
-        })
+        }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         if (response.status === 402) {
@@ -48,6 +54,10 @@ export class EtfClient {
       }
 
       return await response.json();
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
     } catch (e: any) {
       if (e.message?.includes('402') || (e instanceof Error && e.message.includes('ETF_PAYMENT_REQUIRED'))) {
         this.openCircuit();
