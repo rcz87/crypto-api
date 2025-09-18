@@ -1,0 +1,197 @@
+{
+  "system": {
+    "name": "Enhanced Intelligent Screening System",
+    "version": "1.0.0",
+    "environment": "production",
+    "baseUrl": "http://localhost:5000"
+  },
+  "endpoints": [
+    {
+      "name": "Intelligent Screening",
+      "url": "/api/screen/intelligent",
+      "method": "POST",
+      "timeout": 10000,
+      "critical": true,
+      "testCases": [
+        {
+          "name": "Single Coin - BTC",
+          "body": {
+            "symbols": ["BTC"],
+            "timeframe": "15m",
+            "limit": 100
+          },
+          "expectedFields": ["results", "meta"],
+          "minResponseTime": 0,
+          "maxResponseTime": 5000
+        },
+        {
+          "name": "Multi Coin - BTC, ETH, SOL",
+          "body": {
+            "symbols": ["BTC", "ETH", "SOL"],
+            "timeframe": "1h",
+            "limit": 500
+          },
+          "expectedFields": ["results", "meta"],
+          "minResponseTime": 0,
+          "maxResponseTime": 8000
+        }
+      ]
+    },
+    {
+      "name": "Filtered Screening",
+      "url": "/api/screen/filtered",
+      "method": "POST",
+      "timeout": 15000,
+      "critical": true,
+      "testCases": [
+        {
+          "name": "Single Coin - ETH",
+          "body": {
+            "symbols": ["ETH"],
+            "timeframe": "15m",
+            "limit": 100
+          },
+          "expectedFields": ["data", "meta"],
+          "minResponseTime": 0,
+          "maxResponseTime": 5000
+        },
+        {
+          "name": "Multi Coin - Top 5",
+          "body": {
+            "symbols": ["BTC", "ETH", "SOL", "ADA", "AVAX"],
+            "timeframe": "30m",
+            "limit": 500
+          },
+          "expectedFields": ["data", "meta"],
+          "minResponseTime": 0,
+          "maxResponseTime": 8000
+        }
+      ]
+    },
+    {
+      "name": "Backtest Engine",
+      "url": "/api/backtest/filtered",
+      "method": "POST",
+      "timeout": 30000,
+      "critical": false,
+      "testCases": [
+        {
+          "name": "Short Period Backtest",
+          "body": {
+            "symbols": ["BTC", "ETH"],
+            "timeframe": "1h",
+            "start_date": "2024-01-01",
+            "end_date": "2024-01-31",
+            "initial_balance": 100.0,
+            "use_filters": true
+          },
+          "expectedFields": ["data", "meta"],
+          "minResponseTime": 0,
+          "maxResponseTime": 25000
+        }
+      ]
+    }
+  ],
+  "database": {
+    "enabled": true,
+    "testQuery": "SELECT 1 as test",
+    "timeout": 5000
+  },
+  "system_resources": {
+    "enabled": true,
+    "cpu_threshold": 80,
+    "memory_threshold": 85,
+    "disk_threshold": 90
+  },
+  "thresholds": {
+    "response_time": {
+      "good": 2000,
+      "warning": 5000,
+      "critical": 10000
+    },
+    "success_rate": {
+      "good": 95,
+      "warning": 80,
+      "critical": 50
+    },
+    "availability": {
+      "good": 99,
+      "warning": 95,
+      "critical": 85
+    }
+  },
+  "alerting": {
+    "email": {
+      "enabled": true,
+      "from": "system-monitoring@cryptosatx.com",
+      "recipients": [
+        "admin@cryptosatx.com",
+        "alerts@cryptosatx.com"
+      ],
+      "subject_prefix": "[CryptoSatX Health]",
+      "template": "html_detailed"
+    },
+    "telegram": {
+      "enabled": true,
+      "chat_ids": [],
+      "message_format": "emoji_status",
+      "max_message_length": 4000
+    },
+    "rate_limiting": {
+      "min_interval_seconds": 300,
+      "max_alerts_per_hour": 10,
+      "escalation_delay_minutes": 15,
+      "duplicate_suppression_minutes": 60
+    },
+    "retry_logic": {
+      "max_retries": 3,
+      "backoff_factor": 2,
+      "initial_delay_ms": 1000
+    }
+  },
+  "logging": {
+    "level": "info",
+    "file": "logs/health-monitor.log",
+    "max_file_size": "10MB",
+    "max_files": 5,
+    "json_format": true,
+    "console_output": true,
+    "structured_fields": [
+      "timestamp",
+      "level",
+      "component",
+      "endpoint",
+      "response_time",
+      "status_code",
+      "success",
+      "error_message"
+    ]
+  },
+  "state_management": {
+    "state_file": "logs/health-monitor-state.json",
+    "persist_history": true,
+    "max_history_entries": 1000,
+    "cleanup_interval_hours": 24
+  },
+  "circuit_breaker": {
+    "failure_threshold": 5,
+    "reset_timeout_ms": 60000,
+    "half_open_max_calls": 3
+  },
+  "performance": {
+    "concurrent_checks": 3,
+    "batch_size": 5,
+    "check_interval_seconds": 60,
+    "health_check_timeout": 30000
+  },
+  "maintenance_windows": [
+    {
+      "name": "Daily Maintenance",
+      "start_time": "02:00",
+      "end_time": "02:30",
+      "timezone": "UTC",
+      "days": ["Sunday"],
+      "suppress_alerts": true
+    }
+  ]
+}
