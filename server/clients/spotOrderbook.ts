@@ -7,33 +7,40 @@ const FEAT = (name: string) =>
   (process.env[`FEATURE_${name}`] ?? 'on').toLowerCase() !== 'off';
 
 export async function getSpotOrderbook(symbol: string, exchange = 'binance', depth = 50) {
-  const map = await getApiMap();
-  const base = map['spot_ob'] || '/advanced/spot/orderbook';
-
   const spot = normalizeSymbol(symbol, 'spot');         // 'SOLUSDT'
   const instId = `${spot.replace('USDT', '')}-USDT`;    // 'SOL-USDT' for OKX
 
-  const candidates = [
-    `${base}?symbol=${spot}&exchange=${exchange}&depth=${depth}`,
-    `${base}/${exchange}/${spot}?depth=${depth}`,
-    `${base}/${spot}?ex=${exchange}&limit=${depth}`,
-  ];
+  // Use unified POST endpoint
+  try {
+    const response = await fetch(process.env.PY_BASE || 'http://127.0.0.1:8000' + '/gpts/advanced', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        op: 'spot_orderbook',
+        params: {
+          symbol: spot,
+          exchange: exchange,
+          depth: depth
+        }
+      })
+    });
 
-  let lastErr: any;
-  for (const url of candidates) {
-    try { 
-      return await getJson(url); 
-    }
-    catch (e: any) {
-      if (e.status === 404) { 
-        track404('spot_ob'); 
-        lastErr = e; 
-        continue; 
+    if (response.ok) {
+      return await response.json();
+    } else {
+      if (response.status === 404) {
+        track404('spot_ob');
       }
-      // 402/429/5xx etc — don't skip, try shim
-      lastErr = e; 
-      break;
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+  }
+  catch (e: any) {
+    if (e.message?.includes('404')) {
+      track404('spot_ob');
+    }
+    console.warn('[SpotOrderbook] Primary endpoint failed:', e.message);
   }
 
   if (FEAT('SPOT_OB_SHIM')) {

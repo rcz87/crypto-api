@@ -10,6 +10,39 @@ import fetch from "node-fetch";
 const PY_BASE = process.env.PY_BASE || "http://localhost:5000/py";
 
 /**
+ * 🔄 Fetch Unified Endpoint Helper
+ */
+async function fetchUnifiedEndpoint(operation: string, params: any, timeoutMs: number = 8000): Promise<any> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(`${PY_BASE}/gpts/advanced`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        op: operation,
+        params: params
+      }),
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+/**
  * GET /signal/institutional/{symbol}
  * Aggregates all institutional data into a single recommendation
  */
@@ -27,14 +60,14 @@ export async function getInstitutionalSignal(req: Request, res: Response) {
 
     console.log(`🎯 Generating institutional signal for ${symbol}`);
 
-    // Parallel fetch of all institutional data sources
+    // Parallel fetch of all institutional data sources using unified endpoints
     const startTime = Date.now();
     const [whaleData, etfData, sentimentData, heatmapData, orderbookData] = await Promise.all([
-      fetchWithRetry(`${PY_BASE}/advanced/whale/alerts?symbol=${symbol}`),
-      fetchWithRetry(`${PY_BASE}/advanced/etf/flows?asset=BTC`), // ETF flows mainly track BTC
-      fetchWithRetry(`${PY_BASE}/advanced/market/sentiment`),
-      fetchWithRetry(`${PY_BASE}/advanced/liquidation/heatmap/${symbol}?timeframe=1h`),
-      fetchWithRetry(`${PY_BASE}/advanced/spot/orderbook/${symbol}?exchange=binance`)
+      fetchUnifiedEndpoint('whale_alerts', { symbol: symbol }),
+      fetchUnifiedEndpoint('etf_flows', { asset: 'BTC' }), // ETF flows mainly track BTC
+      fetchWithRetry(`${PY_BASE}/advanced/market/sentiment`), // Keep original if not in unified yet
+      fetchUnifiedEndpoint('liquidation_heatmap', { symbol: symbol, timeframe: '1h' }),
+      fetchUnifiedEndpoint('spot_orderbook', { symbol: symbol, exchange: 'binance' })
     ]);
 
     const fetchTime = Date.now() - startTime;

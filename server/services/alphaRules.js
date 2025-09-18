@@ -10,6 +10,79 @@ const PY_BASE = process.env.PY_BASE || "http://localhost:8000";
 const TG_URL = process.env.TELEGRAM_WEBHOOK_URL;
 
 /**
+ * 🔄 Fetch Unified Endpoint Helper
+ */
+async function fetchUnifiedEndpoint(operation, params, retries = 3) {
+  let lastError = null;
+  
+  for (let i = 0; i < retries; i++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    
+    try {
+      const response = await fetch(`${PY_BASE}/gpts/advanced`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          op: operation,
+          params: params
+        }),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeout);
+      
+      if (response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          return await response.json();
+        } else {
+          const text = await response.text();
+          throw new Error(`Expected JSON but got ${contentType || 'unknown content type'}. Response: ${text.substring(0, 200)}...`);
+        }
+      }
+      
+      // Handle specific HTTP errors with retry logic
+      const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+      error.status = response.status;
+      
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, i + 2) * 1000;
+        console.warn(`⚠️ [Unified API] Rate limit hit for ${operation} (attempt ${i + 1}/${retries}), waiting ${waitTime/1000}s`);
+        
+        if (i === retries - 1) throw error;
+        
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+      
+      if (i === retries - 1) throw error;
+      
+      const waitTime = Math.pow(2, i + 1) * 1000;
+      console.warn(`⚠️ [Unified API] ${operation} failed (attempt ${i + 1}/${retries}), retrying in ${waitTime/1000}s`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      
+    } catch (error) {
+      clearTimeout(timeout);
+      lastError = error;
+      
+      if (i === retries - 1 || error.name === 'AbortError') {
+        throw error;
+      }
+      
+      const waitTime = Math.pow(2, i + 1) * 1000;
+      console.warn(`⚠️ [Unified API] ${operation} error (attempt ${i + 1}/${retries}):`, error.message, `- retrying in ${waitTime/1000}s`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
+}
+
+/**
  * 🎯 Institutional Bias Alert Logic:
  * Whale Buy (≥$1M) + ETF Inflow > 0 + Sentiment ≥ 60 → LONG bias alert
  */
@@ -112,11 +185,11 @@ export async function runSOLSniperAlert() {
     console.log("🎯 Running SOL Sniper Analysis...");
     
     const [btcWhale, solWhale, etfData, solHeatmap, solOrderbook] = await Promise.all([
-      fetchWithRetry(`${PY_BASE}/advanced/whale/alerts?symbol=BTC`),
-      fetchWithRetry(`${PY_BASE}/advanced/whale/alerts?symbol=SOL`),
-      fetchWithRetry(`${PY_BASE}/advanced/etf/flows?asset=BTC`),
-      fetchWithRetry(`${PY_BASE}/advanced/liquidation/heatmap/SOL?timeframe=1h`),
-      fetchWithRetry(`${PY_BASE}/advanced/spot/orderbook/SOL?exchange=binance`)
+      fetchUnifiedEndpoint('whale_alerts', { symbol: 'BTC' }),
+      fetchUnifiedEndpoint('whale_alerts', { symbol: 'SOL' }),
+      fetchUnifiedEndpoint('etf_flows', { asset: 'BTC' }),
+      fetchUnifiedEndpoint('liquidation_heatmap', { symbol: 'SOL', timeframe: '1h' }),
+      fetchUnifiedEndpoint('spot_orderbook', { symbol: 'SOL', exchange: 'binance' })
     ]);
 
     const hasBTCWhaleBuy = (btcWhale?.events || []).some(e => e.side === "buy" && e.usd_size >= 1_000_000);

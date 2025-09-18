@@ -9,42 +9,51 @@ const FEAT = (name: string) =>
   (process.env[`FEATURE_${name}`] ?? 'on').toLowerCase() !== 'off';
 
 export async function getHeatmap(symbol: string, timeframe: HeatmapTF = '1h') {
-  const map = await getApiMap();
-  const base = map['heatmap'] || '/advanced/liquidation/heatmap';
   const sym = normalizeSymbol(symbol, 'derivatives');
 
-  const candidates = [
-    `${base}?symbol=${encodeURIComponent(sym)}&timeframe=${timeframe}`,
-    `${base}/${encodeURIComponent(sym)}?timeframe=${timeframe}`,
-    `${base}?asset=${encodeURIComponent(sym)}&tf=${timeframe}`,
-  ];
+  // Use unified POST endpoint
+  try {
+    const response = await fetch(process.env.PY_BASE || 'http://127.0.0.1:8000' + '/gpts/advanced', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        op: 'liquidation_heatmap',
+        params: {
+          symbol: sym,
+          timeframe: timeframe
+        }
+      })
+    });
 
-  let lastErr: any;
-  for (const url of candidates) {
-    try { 
-      return await getJson(url); 
-    }
-    catch (e: any) {
-      if (e.status === 404) { 
-        track404('heatmap'); 
-        lastErr = e; 
-        continue; 
+    if (!response.ok) {
+      if (response.status === 404) {
+        track404('heatmap');
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      throw e;
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-  }
 
-  // SHIM fallback (optional)
-  if (FEAT('HEATMAP_SHIM')) {
-    try {
-      const shim = await heatmapApproxSOL(timeframe);
-      return shim; // shape agreed upon (see documentation below)
-    } catch (e: any) {
-      // fall through to structured error
+    return await response.json();
+  }
+  catch (e: any) {
+    if (e.message?.includes('404')) {
+      track404('heatmap');
     }
-  }
+    
+    // SHIM fallback (optional)
+    if (FEAT('HEATMAP_SHIM')) {
+      try {
+        const shim = await heatmapApproxSOL(timeframe);
+        return shim; // shape agreed upon (see documentation below)
+      } catch (shimErr: any) {
+        // fall through to structured error
+      }
+    }
 
-  const err: any = new Error('HEATMAP_NOT_AVAILABLE');
-  err.cause = lastErr; 
-  throw err;
+    const err: any = new Error('HEATMAP_NOT_AVAILABLE');
+    err.cause = e; 
+    throw err;
+  }
 }

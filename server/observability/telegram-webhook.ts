@@ -111,7 +111,19 @@ async function handleCallbackQuery(callbackQuery: any) {
  */
 async function handleHeatmapRequest(symbol: string, ref: string): Promise<string> {
   try {
-    const response = await fetch(`${PY_BASE}/advanced/liquidation/heatmap/${symbol}?timeframe=1h`);
+    const response = await fetch(`${PY_BASE}/gpts/advanced`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        op: 'liquidation_heatmap',
+        params: {
+          symbol: symbol,
+          timeframe: '1h'
+        }
+      })
+    });
     const data: any = await response.json();
     
     if (!response.ok) {
@@ -150,7 +162,19 @@ async function handleHeatmapRequest(symbol: string, ref: string): Promise<string
  */
 async function handleOrderbookRequest(symbol: string, ref: string): Promise<string> {
   try {
-    const response = await fetch(`${PY_BASE}/advanced/spot/orderbook/${symbol}?exchange=binance`);
+    const response = await fetch(`${PY_BASE}/gpts/advanced`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        op: 'spot_orderbook',
+        params: {
+          symbol: symbol,
+          exchange: 'binance'
+        }
+      })
+    });
     const data: any = await response.json();
     
     if (!response.ok) {

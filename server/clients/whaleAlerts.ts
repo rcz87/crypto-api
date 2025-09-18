@@ -30,19 +30,23 @@ export interface WhaleAlertsResponse {
 }
 
 export async function getWhaleAlerts(exchange = 'hyperliquid'): Promise<WhaleAlertsResponse> {
-  const map = await getApiMap();
-  const base = map['whale_alerts'] || '/advanced/whale/alerts';
+  // Use unified POST endpoint
+  try {
+    const response = await fetch(process.env.PY_BASE || 'http://127.0.0.1:8000' + '/gpts/advanced', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        op: 'whale_alerts',
+        params: {
+          exchange: exchange
+        }
+      })
+    });
 
-  const candidates = [
-    `${base}?exchange=${encodeURIComponent(exchange)}`,
-    `${base}/${encodeURIComponent(exchange)}`,
-    `/advanced/whale/alerts?exchange=${encodeURIComponent(exchange)}`,
-  ];
-
-  let lastErr: any;
-  for (const url of candidates) {
-    try {
-      const rawData = await getJson(url);
+    if (response.ok) {
+      const rawData = await response.json();
       
       // Transform Python response to expected format
       const alerts: WhaleAlert[] = Array.isArray(rawData) ? rawData : (rawData.data || []);
@@ -61,18 +65,13 @@ export async function getWhaleAlerts(exchange = 'hyperliquid'): Promise<WhaleAle
         used_sources: ['coinglass'],
         summary: `Found ${alerts.length} whale alerts on ${exchange} exchange`
       };
+    } else {
+      console.warn('[WhaleAlerts] Unified endpoint failed, trying fallback shim');
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    catch (e: any) {
-      if (e.status === 404) {
-        // Skip 404 tracking for whale_alerts since it's not in track404 Cat enum
-        console.warn('[WhaleAlerts] 404 error - continuing to next candidate');
-        lastErr = e;
-        continue;
-      }
-      // For other errors (402, 429, 5xx), try shim
-      lastErr = e;
-      break;
-    }
+  }
+  catch (e: any) {
+    console.warn('[WhaleAlerts] Primary endpoint failed:', e.message);
   }
 
   // Fallback shim using mock data structure

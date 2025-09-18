@@ -244,16 +244,23 @@ export function registerGptsRoutes(app: Express): void {
         });
       }
 
-      // Forward to Python advanced ticker endpoint
+      // Forward to Python unified endpoint using POST
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
       
-      const response = await fetch(`${PY_BASE}/advanced/ticker/${symbol}`, {
-        method: 'GET',
+      const response = await fetch(`${PY_BASE}/gpts/advanced`, {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'GPTs-Gateway-Node'
         },
+        body: JSON.stringify({
+          op: 'ticker',
+          params: {
+            symbol: symbol
+          }
+        }),
         signal: controller.signal
       });
       

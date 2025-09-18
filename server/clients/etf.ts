@@ -22,16 +22,37 @@ export class EtfClient {
       throw err;
     }
 
-    const map = await getApiMap();
-    const path = `${map['etf_flows'] || '/advanced/etf/flows'}?asset=${asset}`;
-
+    // Use unified POST endpoint
     try {
-      return await getJson(path);
+      const response = await fetch(process.env.PY_BASE || 'http://127.0.0.1:8000' + '/gpts/advanced', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          op: 'etf_flows',
+          params: {
+            asset: asset
+          }
+        })
+      });
+
+      if (!response.ok) {
+        if (response.status === 402) {
+          this.openCircuit();
+          const err: any = new Error('ETF_PAYMENT_REQUIRED');
+          err.soft = true;
+          throw err;
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
     } catch (e: any) {
-      if (e.status === 402) {
+      if (e.message?.includes('402') || (e instanceof Error && e.message.includes('ETF_PAYMENT_REQUIRED'))) {
         this.openCircuit();
         const err: any = new Error('ETF_PAYMENT_REQUIRED');
-        err.soft = true; // soft-fail
+        err.soft = true;
         throw err;
       }
       throw e;

@@ -111,6 +111,39 @@ interface PortfolioMetrics {
 
 const PY_BASE = process.env.PY_BASE || "http://localhost:5000/py";
 
+/**
+ * 🔄 Fetch Unified Endpoint Helper for Ghost Orders
+ */
+async function fetchUnifiedEndpoint(operation: string, params: any, timeoutMs: number = 5000): Promise<any> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(`${PY_BASE}/gpts/advanced`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        op: operation,
+        params: params
+      }),
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeout);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    clearTimeout(timeout);
+    throw error;
+  }
+}
+
 // In-memory storage for ghost orders (in production use Redis/Database)
 const ghostOrders = new Map<string, GhostOrder>();
 const executionLog = new Map<string, any>();
@@ -530,7 +563,7 @@ function startPriceMonitoring() {
       // Update prices for each symbol
       for (const [symbol, orders] of Array.from(symbolGroups.entries())) {
         try {
-          const priceData = await fetchWithTimeout(`${PY_BASE}/advanced/ticker/${symbol}`, 3000);
+          const priceData = await fetchUnifiedEndpoint('ticker', { symbol: symbol }, 3000);
           const currentPrice = priceData?.price ?? priceData?.last;
           
           if (currentPrice) {

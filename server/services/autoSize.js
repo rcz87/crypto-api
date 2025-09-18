@@ -178,9 +178,10 @@ function getETFFlowBoost(etfFlowUSD) {
  */
 async function fetchMarketData(symbol, timeframe) {
   try {
+    // Use unified endpoint for ETF flows, keep technical/atr as is for now
     const [atrData, etfData] = await Promise.all([
-      fetchWithTimeout(`${PY_BASE}/advanced/technical/atr?symbol=${symbol}&timeframe=${timeframe}`, 5000),
-      fetchWithTimeout(`${PY_BASE}/advanced/etf/flows?asset=BTC`, 5000)
+      fetchWithTimeout(`${PY_BASE}/advanced/technical/atr?symbol=${symbol}&timeframe=${timeframe}`, 5000), // Keep original for now
+      fetchUnifiedEndpoint('etf_flows', { asset: 'BTC' })
     ]);
 
     const atrPercent = atrData?.atr_percent ?? 0.8;
@@ -195,12 +196,29 @@ async function fetchMarketData(symbol, timeframe) {
 }
 
 /**
+ * 🔄 Fetch Unified Endpoint Helper
+ */
+async function fetchUnifiedEndpoint(operation, params) {
+  const response = await fetchWithTimeout(`${PY_BASE}/gpts/advanced`, 8000, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      op: operation,
+      params: params
+    })
+  });
+  return response;
+}
+
+/**
  * 🪙 Calculate Contract/Coin Amounts
  */
 async function calculateContractAmount(dollarAmount, symbol) {
   try {
-    // Get current price for symbol
-    const priceData = await fetchWithTimeout(`${PY_BASE}/advanced/ticker/${symbol}`, 5000);
+    // Get current price for symbol using unified endpoint
+    const priceData = await fetchUnifiedEndpoint('ticker', { symbol: symbol });
     const currentPrice = priceData?.price ?? priceData?.last ?? 200; // Fallback price for SOL
 
     const coinAmount = dollarAmount / currentPrice;
@@ -232,12 +250,13 @@ async function calculateContractAmount(dollarAmount, symbol) {
 /**
  * 🔄 Fetch with Timeout
  */
-async function fetchWithTimeout(url, timeoutMs = 5000) {
+async function fetchWithTimeout(url, timeoutMs = 5000, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
+      ...options,
       signal: controller.signal
     });
     
