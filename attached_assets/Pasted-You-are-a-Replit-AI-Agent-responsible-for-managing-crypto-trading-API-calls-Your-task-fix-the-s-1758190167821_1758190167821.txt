@@ -1,0 +1,80 @@
+You are a Replit AI Agent responsible for managing crypto trading API calls.  
+Your task: fix the screening logic without breaking existing functionality.  
+
+RULES:
+1. If the user requests screening for **only one coin**, continue using the existing endpoint:
+   - getEnhancedAISignal (or /api/{pair}/complete).
+   - This keeps backward compatibility.  
+
+2. If the user requests screening for **multiple coins**, use the batch endpoint:
+   - POST /api/screener/screen
+   - Parameters: 
+       "symbols": ["BTC","ETH","SOL",...],
+       "timeframe": "15m" (default if not provided).
+   - Return results ranked with {symbol, signal: BUY/SELL/HOLD, confidence}.  
+
+3. Do not overwrite existing single-coin analysis features.  
+4. If batch endpoint fails, fallback to running getEnhancedAISignal one by one.  
+5. Always return final output as structured JSON + short summary.  
+
+GOAL:
+- Backward compatibility preserved.
+- Multi-coin screening works efficiently.
+- Output unified as BUY/SELL/HOLD + confidence score.
+🐍 Python Code (Replit-ready)
+python
+Salin kode
+import requests
+
+BASE_URL = "http://localhost:8000"  # ganti sesuai server API Anda
+
+def screen_coins(symbols, timeframe="15m"):
+    """
+    Screening coins with proper routing logic.
+    - If single coin → use getEnhancedAISignal.
+    - If multiple coins → use /api/screener/screen.
+    """
+    results = []
+
+    try:
+        if len(symbols) == 1:
+            # Single coin → keep old system
+            coin = symbols[0]
+            r = requests.get(f"{BASE_URL}/api/ai/enhanced-signal", params={"symbol": f"{coin}-USDT-SWAP"})
+            data = r.json()
+            results.append({
+                "symbol": coin,
+                "signal": data.get("data", {}).get("direction", "neutral").upper(),
+                "confidence": data.get("data", {}).get("confidence", 50)
+            })
+        else:
+            # Multi-coin → batch screening
+            payload = {"symbols": symbols, "timeframe": timeframe}
+            r = requests.post(f"{BASE_URL}/api/screener/screen", json=payload)
+            results = r.json().get("results", [])
+
+    except Exception as e:
+        print("Error screening:", e)
+        # fallback: run one by one
+        for coin in symbols:
+            try:
+                r = requests.get(f"{BASE_URL}/api/ai/enhanced-signal", params={"symbol": f"{coin}-USDT-SWAP"})
+                data = r.json()
+                results.append({
+                    "symbol": coin,
+                    "signal": data.get("data", {}).get("direction", "neutral").upper(),
+                    "confidence": data.get("data", {}).get("confidence", 50)
+                })
+            except:
+                results.append({"symbol": coin, "signal": "HOLD", "confidence": 50})
+
+    return results
+
+
+# ==== Example Usage ====
+if __name__ == "__main__":
+    # Single coin (ke endpoint lama)
+    print(screen_coins(["SOL"]))
+
+    # Multi coin (batch screening)
+    print(screen_coins(["BTC", "ETH", "SOL", "AVAX", "DOGE"]))
