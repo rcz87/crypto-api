@@ -1,0 +1,85 @@
+You are a Replit agent helping me fix API integration for my crypto trading app.  
+Currently, the app still calls deprecated endpoints like `/advanced/...`, which causes repeated 404 errors and HTTP 422 issues.  
+I want you to refactor the codebase to use the **unified CoinGlass endpoint**: `/py/gpts/advanced`.
+
+### Tasks:
+1. Search across the project (`./src`, `./server`, `./client`) for all calls to:
+   - /advanced/spot/orderbook
+   - /advanced/liquidation/heatmap
+   - /advanced/ticker
+   - /advanced/options_oi
+   - /advanced/atr
+   - /advanced/market_sentiment
+   - /advanced/whale_alerts
+   - /advanced/whale_positions
+   - /advanced/etf_flows
+   - /advanced/etf_bitcoin
+   - Any other `/advanced/...` endpoints
+
+2. Replace each with a POST request to:
+   `/py/gpts/advanced`
+   using the correct JSON body format:
+   ```json
+   {
+     "op": "<operation_name>",
+     "params": { "symbol": "<ASSET>" }
+   }
+Examples:
+
+Spot Orderbook:
+
+json
+Salin kode
+{"op": "spot_orderbook", "params": {"symbol": "SOL"}}
+Liquidation Heatmap:
+
+json
+Salin kode
+{"op": "liquidation_heatmap", "params": {"symbol": "SOL"}}
+Ticker:
+
+json
+Salin kode
+{"op": "ticker", "params": {"symbol": "BTC"}}
+Fix HTTP 422 errors by ensuring all calls include a params field:
+
+❌ Wrong: {"op": "ticker"}
+
+✅ Correct: {"op": "ticker", "params": {"symbol": "BTC"}}
+
+Remove or disable shim fallbacks (shim-okx, etc.) since they are no longer needed once unified endpoint works.
+
+Test after refactor:
+
+Spot Orderbook must return data with no 404
+
+Liquidation Heatmap must return data with no 422
+
+Enhanced Sniper should run with 0 soft-fails
+
+Show me a summary:
+
+Which files were updated
+
+Which endpoints were replaced
+
+Confirmation that soft-fail errors are gone
+
+Constraints:
+DO NOT touch TensorFlow or AI modules (enhancedAISignalEngine.ts) → keep as-is.
+
+Preserve all trading functionality (ETF, Whale, Orderbook, Sniper AI).
+
+Keep request structure consistent across Node.js and Python files.
+
+Goal:
+Eliminate all 404 and 422 errors
+
+Remove dependency on deprecated /advanced/... endpoints
+
+Use only /py/gpts/advanced with the correct JSON schema
+
+Clean logs and improve performance
+
+yaml
+Salin kode
