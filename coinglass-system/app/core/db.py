@@ -85,10 +85,13 @@ class DatabaseManager:
             raise ValueError(f"Table '{table_name}' is not allowed for optimization")
         
         with engine.begin() as conn:
+            # Use proper identifier quoting for table names in DDL commands
+            from sqlalchemy.sql import quoted_name
+            quoted_table = quoted_name(table_name, quote=True)
             # Analyze table statistics
-            conn.execute(text(f"ANALYZE {table_name}"))
+            conn.execute(text(f"ANALYZE {quoted_table}"))
             # Vacuum table
-            conn.execute(text(f"VACUUM ANALYZE {table_name}"))
+            conn.execute(text(f"VACUUM ANALYZE {quoted_table}"))
     
     @staticmethod
     def get_connection_stats():
