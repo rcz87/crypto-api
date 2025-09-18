@@ -3,8 +3,31 @@ import { getApiBase } from "./env";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    const contentType = res.headers.get('content-type') || '';
+    
+    // Handle HTML error pages (common when servers return error pages instead of JSON)
+    if (contentType.includes('text/html')) {
+      const text = await res.text();
+      
+      // Try to extract meaningful error from HTML
+      let errorMessage = `HTTP ${res.status}`;
+      const titleMatch = text.match(/<title[^>]*>([^<]*)<\/title>/i);
+      if (titleMatch) {
+        errorMessage += `: ${titleMatch[1].trim()}`;
+      } else {
+        errorMessage += ': Server returned HTML error page instead of JSON';
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    // Handle other content types
+    try {
+      const text = (await res.text()) || res.statusText;
+      throw new Error(`${res.status}: ${text}`);
+    } catch (parseError) {
+      throw new Error(`${res.status}: ${res.statusText}`);
+    }
   }
 }
 

@@ -1,5 +1,9 @@
 import os
-from fastapi import FastAPI
+import traceback
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic_settings import BaseSettings, SettingsConfigDict
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
@@ -30,6 +34,71 @@ class Settings(BaseSettings):
 
 settings = Settings()
 app = FastAPI(title="CoinGlass Python Service")
+
+# Global exception handlers to ensure JSON-only responses
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Handle HTTP exceptions and return JSON instead of HTML"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "ok": False,
+            "error": exc.detail,
+            "code": exc.status_code,
+            "path": str(request.url.path),
+            "method": request.method
+        },
+        headers=exc.headers if hasattr(exc, 'headers') else None,
+    )
+
+@app.exception_handler(HTTPException)
+async def fastapi_http_exception_handler(request: Request, exc: HTTPException):
+    """Handle FastAPI HTTP exceptions and return JSON instead of HTML"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "ok": False,
+            "error": exc.detail,
+            "code": exc.status_code,
+            "path": str(request.url.path),
+            "method": request.method
+        },
+        headers=exc.headers if hasattr(exc, 'headers') else None,
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle request validation errors and return JSON instead of HTML"""
+    return JSONResponse(
+        status_code=422,
+        content={
+            "ok": False,
+            "error": "Validation failed",
+            "code": 422,
+            "details": exc.errors(),
+            "path": str(request.url.path),
+            "method": request.method
+        },
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle all other exceptions and return JSON instead of HTML"""
+    # Log the full traceback for debugging
+    print(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
+    print(traceback.format_exc())
+    
+    return JSONResponse(
+        status_code=500,
+        content={
+            "ok": False,
+            "error": "Internal server error",
+            "code": 500,
+            "details": str(exc) if settings.PORT != 80 else "An unexpected error occurred",  # Hide details in production
+            "path": str(request.url.path),
+            "method": request.method
+        },
+    )
 
 # Setup Prometheus metrics BEFORE startup (with graceful fallback)
 if Instrumentator:

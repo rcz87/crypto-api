@@ -436,12 +436,41 @@ app.use((req, res, next) => {
 
   log(`🤖 GPTs Gateway fallback proxy configured: Node.js routes first, then → ${PY_BASE}`);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+  // Global JSON-only error middleware - ensures no HTML responses
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    // Prevent default Express error handler from sending HTML
+    console.error('Global error handler caught:', err);
+    
+    // If response has already been sent, delegate to the default Express error handler
+    if (res.headersSent) {
+      return next(err);
+    }
 
-    res.status(status).json({ message });
-    throw err;
+    // Determine status code
+    const statusCode = err.statusCode || err.status || 500;
+    
+    // Always return JSON error response in the required format
+    res.status(statusCode).json({
+      ok: false,
+      error: err.message || 'Internal server error',
+      code: statusCode,
+      path: req.path,
+      method: req.method,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Handle 404 errors with JSON response (must be after all other routes)
+  app.use((req: Request, res: Response) => {
+    res.status(404).json({
+      ok: false,
+      error: 'Not Found',
+      code: 404,
+      path: req.path,
+      method: req.method,
+      message: `Cannot ${req.method} ${req.path}`,
+      timestamp: new Date().toISOString()
+    });
   });
 
   // Serve OpenAPI schema explicitly BEFORE Vite in both modes
