@@ -1,0 +1,139 @@
+🤖 Prompt AI Agent (Replit) – Backtesting Endpoint
+You are a Replit AI Agent responsible for extending the Intelligent Screening System.  
+Your task: add a new endpoint for historical backtesting of screening signals.  
+
+ENDPOINT SPEC:
+- Path: /api/screen/backtest
+- Method: POST
+- Input:
+  {
+    "symbols": ["BTC","ETH"],   // array of coins
+    "timeframe": "1H",          // default 1H if not provided
+    "start": "2025-01-01",      // historical start date
+    "end": "2025-03-01"         // historical end date
+  }
+
+FUNCTIONALITY:
+1. Fetch OHLCV historical data for each symbol between start & end.
+2. Re-run screening logic (Enhanced AI or Screener) bar-by-bar (simulate past signals).
+3. Simulate trades:
+   - BUY → entry at next candle open, exit after target hit or opposite signal.
+   - SELL → entry at next candle open, exit after target hit or opposite signal.
+   - HOLD → no trade.
+4. Track metrics:
+   - Win rate (%)
+   - Profit factor
+   - Avg return per trade
+   - Max drawdown
+   - Sharpe ratio (optional)
+5. Return results JSON per symbol.
+
+OUTPUT FORMAT:
+{
+  "success": true,
+  "data": {
+    "BTC": {
+      "trades": 42,
+      "win_rate": 0.62,
+      "avg_return": 1.8,
+      "profit_factor": 1.9,
+      "max_drawdown": -8.2,
+      "sharpe_ratio": 1.4
+    },
+    "ETH": {
+      "trades": 37,
+      "win_rate": 0.58,
+      "avg_return": 1.3,
+      "profit_factor": 1.7,
+      "max_drawdown": -10.4,
+      "sharpe_ratio": 1.2
+    }
+  },
+  "summary": "BTC performed better with 62% win rate vs ETH 58%."
+}
+
+GOAL:
+- Allow traders to evaluate historical performance of screening signals.
+- Keep routing logic consistent (single coin → Enhanced AI, multi-coin → screener).
+- Ensure results are normalized across different symbols and timeframes.
+
+🐍 Python Blueprint Code (Backtesting Engine)
+import requests
+import pandas as pd
+from datetime import datetime
+
+BASE_URL = "http://localhost:8000"  # ganti sesuai server API Anda
+
+def fetch_ohlcv(symbol, timeframe, start, end):
+    """Mock fetch OHLCV data. Replace with real data provider (CoinAPI, Binance, etc)."""
+    url = f"{BASE_URL}/api/coinapi/history/{symbol}-USDT-SWAP"
+    params = {"timeframe": timeframe, "start": start, "end": end}
+    r = requests.get(url, params=params)
+    return pd.DataFrame(r.json()["data"])
+
+def simulate_trades(ohlcv, signals):
+    results = []
+    balance = 100.0
+    trades = 0
+    wins = 0
+
+    for i in range(len(ohlcv)-1):
+        sig = signals[i]
+        if sig == "BUY":
+            entry = ohlcv["open"].iloc[i+1]
+            exit_ = ohlcv["close"].iloc[i+1]
+            ret = (exit_ - entry) / entry * 100
+            trades += 1
+            if ret > 0: wins += 1
+            balance *= (1 + ret/100)
+            results.append(ret)
+        elif sig == "SELL":
+            entry = ohlcv["open"].iloc[i+1]
+            exit_ = ohlcv["close"].iloc[i+1]
+            ret = (entry - exit_) / entry * 100
+            trades += 1
+            if ret > 0: wins += 1
+            balance *= (1 + ret/100)
+            results.append(ret)
+
+    if trades == 0:
+        return {"trades": 0, "win_rate": 0, "avg_return": 0, "profit_factor": 0}
+
+    avg_return = sum(results) / trades
+    win_rate = wins / trades
+    profit_factor = sum([r for r in results if r > 0]) / abs(sum([r for r in results if r < 0]) or 1)
+
+    return {
+        "trades": trades,
+        "win_rate": round(win_rate, 2),
+        "avg_return": round(avg_return, 2),
+        "profit_factor": round(profit_factor, 2),
+        "balance_end": round(balance, 2)
+    }
+
+def backtest(symbols, timeframe="1H", start="2025-01-01", end="2025-03-01"):
+    results = {}
+    for sym in symbols:
+        ohlcv = fetch_ohlcv(sym, timeframe, start, end)
+
+        # Placeholder: generate dummy HOLD signals (replace with real screening logic)
+        signals = ["HOLD"] * len(ohlcv)
+
+        stats = simulate_trades(ohlcv, signals)
+        results[sym] = stats
+
+    return {"success": True, "data": results}
+
+
+# ==== Example Run ====
+if __name__ == "__main__":
+    res = backtest(["BTC", "ETH"], "1H", "2025-01-01", "2025-03-01")
+    print(res)
+
+✅ Manfaat
+
+Bisa mengukur akurasi historis screening engine.
+
+Trader/institusi bisa bandingkan performa sinyal per coin.
+
+Basis untuk membuat leaderboard coin (mana paling profitable).
