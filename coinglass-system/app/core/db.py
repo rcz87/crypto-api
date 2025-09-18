@@ -79,6 +79,11 @@ class DatabaseManager:
     @staticmethod
     def optimize_table(table_name: str):
         """Optimize table performance"""
+        # Whitelist of allowed table names for security
+        allowed_tables = {'liquidations', 'funding_rate', 'futures_oi_ohlc'}
+        if table_name not in allowed_tables:
+            raise ValueError(f"Table '{table_name}' is not allowed for optimization")
+        
         with engine.begin() as conn:
             # Analyze table statistics
             conn.execute(text(f"ANALYZE {table_name}"))
