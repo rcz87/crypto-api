@@ -126,79 +126,80 @@ class BatchResponse(BaseModel):
     results: List[OperationResult] = Field(..., description="Array of operation results")
 
 # Operation configurations with endpoint mappings and smart defaults
+# Endpoints without /advanced prefix since router is already mounted under /advanced
 OPERATION_CONFIG = {
     "whale_alerts": {
-        "endpoint": "/advanced/whale/alerts",
+        "endpoint": "/whale/alerts",
         "method": "GET",
         "defaults": {"exchange": "hyperliquid"},
         "query_params": ["exchange"],
         "path_params": []
     },
     "whale_positions": {
-        "endpoint": "/advanced/whale/positions", 
+        "endpoint": "/whale/positions", 
         "method": "GET",
         "defaults": {"exchange": "binance", "symbol": "BTC"},
         "query_params": ["exchange", "symbol"],
         "path_params": []
     },
     "etf_flows": {
-        "endpoint": "/advanced/etf/flows",
+        "endpoint": "/etf/flows",
         "method": "GET", 
         "defaults": {"asset": "BTC", "window": "1d"},
         "query_params": ["asset", "window", "days"],
         "path_params": []
     },
     "etf_bitcoin": {
-        "endpoint": "/advanced/etf/bitcoin",
+        "endpoint": "/etf/bitcoin",
         "method": "GET",
         "defaults": {},
         "query_params": [],
         "path_params": []
     },
     "market_sentiment": {
-        "endpoint": "/advanced/market/sentiment",
+        "endpoint": "/market/sentiment",
         "method": "GET",
         "defaults": {},
         "query_params": [],
         "path_params": []
     },
     "market_coins": {
-        "endpoint": "/advanced/market/coins",
+        "endpoint": "/market/coins",
         "method": "GET",
         "defaults": {"limit": 200},
         "query_params": ["limit"],
         "path_params": []
     },
     "atr": {
-        "endpoint": "/advanced/technical/atr",
+        "endpoint": "/technical/atr",
         "method": "GET",
         "defaults": {"symbol": "BTC", "tf": "1h", "len": 14},
         "query_params": ["symbol", "timeframe", "tf", "len"],
         "path_params": []
     },
     "ticker": {
-        "endpoint": "/advanced/ticker/{symbol}",
+        "endpoint": "/ticker/{symbol}",
         "method": "GET",
         "defaults": {"symbol": "BTC"},
         "query_params": [],
         "path_params": ["symbol"]
     },
     "liquidation_heatmap": {
-        "endpoint": "/api/futures/liquidation/heatmap/model1",
+        "endpoint": "/api/futures/liquidation/coin-history",
         "method": "GET", 
         "defaults": {"exchange": "Binance", "symbol": "BTCUSDT", "range": "3d"},
         "query_params": ["exchange", "symbol", "range"],
         "path_params": []
     },
     "spot_orderbook": {
-        "endpoint": "/advanced/spot/orderbook/{symbol}",
+        "endpoint": "/api/futures/orderbook/ask-bids-history",
         "method": "GET",
         "defaults": {"symbol": "BTC", "exchange": "binance"},
-        "query_params": ["exchange"],
-        "path_params": ["symbol"]
+        "query_params": ["exchange", "symbol"],
+        "path_params": []
     },
     "options_oi": {
-        "endpoint": "/advanced/options/oi/{symbol}",
+        "endpoint": "/options/oi/{symbol}",
         "method": "GET",
         "defaults": {"symbol": "BTC", "window": "1d"},
         "query_params": ["window"],
@@ -249,7 +250,11 @@ async def execute_operation(operation: SingleOperationRequest, base_url: str) ->
     # Make internal HTTP request
     try:
         async with httpx.AsyncClient() as client:
-            url = f"{base_url}{endpoint}"
+            # Safely join base_url and endpoint, avoiding double slashes
+            # Since router is mounted under /advanced, we need to add that prefix back for internal calls
+            if not endpoint.startswith('/'):
+                endpoint = '/' + endpoint
+            url = f"{base_url}/advanced{endpoint}"
             response = await client.request(
                 method=config["method"],
                 url=url,
