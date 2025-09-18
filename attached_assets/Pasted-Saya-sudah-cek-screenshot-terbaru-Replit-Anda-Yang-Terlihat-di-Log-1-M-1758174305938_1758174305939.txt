@@ -1,0 +1,90 @@
+Saya sudah cek screenshot terbaru Replit Anda 👇
+
+---
+
+### 🔎 **Yang Terlihat di Log**
+
+1. **Masih ada 404 Error (orderbook & liquidation heatmap lama)**
+
+   ```
+   GET /advanced/liquidation/heatmap?symbol=SOL-USDT-SWAP&timeframe=1h 404 Not Found
+   GET /advanced/spot/orderbook/SOLUSDTex-binance 404 Not Found
+   ```
+
+   👉 Ini karena Anda **masih panggil endpoint lama (`/advanced/...`)**.
+   Endpoint ini sudah obsolete → harus diganti ke **unified `/py/gpts/advanced`**.
+
+2. **422 Unprocessable Entity**
+
+   ```
+   Soft failures: HTTP 422
+   ```
+
+   👉 Ini muncul karena parameter request tidak sesuai format JSON schema.
+   Misalnya lupa `"params":{"symbol":"SOL"}` di dalam body.
+
+3. **SQLAlchemy Warning**
+
+   ```
+   SQLAlchemy text() vulnerability and fix
+   ```
+
+   👉 Bukan error kritis untuk trading. Ini **best practice warning**: sebaiknya jangan pakai `text()` langsung untuk query, gunakan parameterized query.
+
+4. **CSP & Accessibility Warning di Browser**
+
+   ```
+   Content-Security-Policy directive 'default-src' contains 'unsafe-dynamic'
+   ```
+
+   👉 Ini murni warning di DevTools, **tidak mengganggu backend API**.
+
+---
+
+### ✅ **Apa yang Penting**
+
+* **Analisa trading tidak terganggu.** Data harga, volume, OI, funding tetap bisa diambil.
+* Error 404 & 422 hanya karena Anda masih **panggil endpoint lama**.
+* SQLAlchemy & CSP warning → hanya **security & style issue**, tidak stop eksekusi.
+
+---
+
+### ⚡ **Solusi**
+
+1. **Stop pakai `/advanced/...`**
+
+   * ❌ Salah:
+
+     ```
+     /advanced/spot/orderbook/SOLUSDTex-binance
+     /advanced/liquidation/heatmap?symbol=SOL-USDT-SWAP
+     ```
+   * ✅ Benar (unified):
+
+     ```json
+     {"op":"spot_orderbook","params":{"symbol":"SOL"}}
+     {"op":"liquidation_heatmap","params":{"symbol":"SOL"}}
+     ```
+
+2. **Fix 422** → pastikan body JSON **selalu ada params**.
+   Contoh:
+
+   ```json
+   {"op":"ticker","params":{"symbol":"SOL"}}
+   ```
+
+3. **SQLAlchemy Fix (opsional, untuk security scan)**
+
+   * Jangan pakai `text("SELECT ...")` langsung.
+   * Gunakan:
+
+     ```python
+     from sqlalchemy import text
+     db.execute(text("SELECT * FROM trades WHERE symbol=:symbol"), {"symbol": "SOL"})
+     ```
+
+---
+
+📌 Jadi singkatnya: **analisa tetap jalan**, tapi sistem Anda masih campur **endpoint lama** dengan yang baru. Itu penyebab 404 & 422.
+
+👉 Mau saya tuliskan **contoh template request unified (Node.js + Python)** supaya semua panggilan orderbook, liquidation, whale, dll. langsung konsisten dan error hilang?
