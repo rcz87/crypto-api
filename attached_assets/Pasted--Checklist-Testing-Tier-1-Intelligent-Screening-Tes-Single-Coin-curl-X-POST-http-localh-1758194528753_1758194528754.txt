@@ -1,0 +1,104 @@
+🧪 Checklist Testing
+✅ Tier 1: Intelligent Screening
+
+🔹 Tes Single Coin
+
+curl -X POST http://localhost:8000/api/screen/intelligent \
+  -H "Content-Type: application/json" \
+  -d '{"symbols":["SOL"], "timeframe":"15m"}'
+
+
+➡️ Expected:
+
+{
+  "method_used": "single_coin_ai",
+  "data": {
+    "results": [{"symbol": "SOL", "signal": "HOLD", "confidence": 58}],
+    "summary": "Enhanced AI analysis for SOL"
+  }
+}
+
+
+🔹 Tes Multi Coin
+
+curl -X POST http://localhost:8000/api/screen/intelligent \
+  -H "Content-Type: application/json" \
+  -d '{"symbols":["BTC","ETH","AVAX"], "timeframe":"15m"}'
+
+
+➡️ Expected:
+
+{
+  "method_used": "batch_screening",
+  "data": {
+    "results": [
+      {"symbol":"BTC","signal":"HOLD","confidence":58},
+      {"symbol":"ETH","signal":"HOLD","confidence":57},
+      {"symbol":"AVAX","signal":"BUY","confidence":72}
+    ],
+    "summary": "Batch screening of 3 symbols"
+  }
+}
+
+✅ Tier 2: Advanced Filtering
+
+🔹 Tes Filtering
+
+curl -X POST http://localhost:8000/api/screen/filtered \
+  -H "Content-Type: application/json" \
+  -d '{"symbols":["BTC","ETH","SOL","ADA"], "timeframe":"15m"}'
+
+
+➡️ Expected (contoh):
+
+{
+  "data": {
+    "results": [
+      {"symbol":"AVAX","signal":"STRONG BUY","confidence":80}
+    ],
+    "summary":"4 coins screened → 1 passed filters"
+  }
+}
+
+
+Coin dengan confidence rendah / volume kecil otomatis dihapus.
+
+✅ Tier 3: Backtest Engine
+
+🔹 Tes Backtest Filtered
+
+curl -X POST http://localhost:8000/api/backtest/filtered \
+  -H "Content-Type: application/json" \
+  -d '{"symbols":["BTC","ETH"], "timeframe":"1H", "start":"2025-01-01", "end":"2025-02-01"}'
+
+
+➡️ Expected:
+
+{
+  "BTC": {
+    "trades": 42,
+    "win_rate": 0.62,
+    "avg_return": 1.8,
+    "profit_factor": 1.9,
+    "max_drawdown": -8.2,
+    "sharpe_ratio": 1.4
+  },
+  "ETH": {
+    "trades": 37,
+    "win_rate": 0.58,
+    "avg_return": 1.3,
+    "profit_factor": 1.7,
+    "max_drawdown": -10.4,
+    "sharpe_ratio": 1.2
+  }
+}
+
+📌 Cara Mengetahui Berhasil
+
+Semua endpoint merespons tanpa error (200 OK).
+
+Output sesuai format unified BUY/SELL/HOLD + confidence.
+
+Filtering benar → coin “noise” terbuang.
+
+Backtest hasilkan metrics masuk akal (tidak kosong/0).
