@@ -133,7 +133,7 @@
     },
     "telegram": {
       "enabled": true,
-      "chat_ids": [],
+      "chat_ids": ["5899681906"],
       "message_format": "emoji_status",
       "max_message_length": 4000
     },
