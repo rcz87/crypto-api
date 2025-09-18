@@ -2850,7 +2850,7 @@
         }
       }
     },
-    "/py/gpts/advanced": {
+    "/gpts/unified/advanced": {
       "post": {
         "operationId": "unifiedAdvancedEndpoint",
         "summary": "Unified GPT Actions endpoint for all CoinGlass Premium Intelligence",

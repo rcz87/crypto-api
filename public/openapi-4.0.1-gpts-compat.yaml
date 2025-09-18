@@ -2700,7 +2700,7 @@ paths:
                   timestamp: { type: string, format: date-time }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
-  /py/gpts/advanced:
+  /gpts/unified/advanced:
     post:
       operationId: unifiedAdvancedEndpoint
       summary: Unified GPT Actions endpoint for all CoinGlass Premium Intelligence

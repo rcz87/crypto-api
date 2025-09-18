@@ -180,7 +180,7 @@ async function testScheduler() {
 
 async function testUnifiedSingle() {
   console.log('🎯 Testing unified endpoint (single operation)...');
-  const { response, data, error } = await makeRequest(`${BASE}/py/gpts/advanced`, {
+  const { response, data, error } = await makeRequest(`${BASE}/gpts/unified/advanced`, {
     method: 'POST',
     body: JSON.stringify({"op":"ticker","params":{"symbol":"SOL"}})
   });
@@ -215,7 +215,7 @@ async function testUnifiedSingle() {
 
 async function testUnifiedBatch() {
   console.log('🔄 Testing unified endpoint (batch operations)...');
-  const { response, data, error } = await makeRequest(`${BASE}/py/gpts/advanced`, {
+  const { response, data, error } = await makeRequest(`${BASE}/gpts/unified/advanced`, {
     method: 'POST',
     body: JSON.stringify({
       "ops": [
@@ -300,7 +300,7 @@ async function testRateLimit() {
   
   const requests = [];
   for (let i = 0; i < 22; i++) {
-    requests.push(makeRequest(`${BASE}/py/gpts/advanced`, {
+    requests.push(makeRequest(`${BASE}/gpts/unified/advanced`, {
       method: 'POST',
       body: JSON.stringify({"op":"ticker","params":{"symbol":"SOL"}})
     }));
