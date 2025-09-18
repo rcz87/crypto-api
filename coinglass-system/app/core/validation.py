@@ -79,7 +79,8 @@ class DataExportRequest(BaseModel):
     
     @validator('symbols')
     def symbols_uppercase(cls, v):
-        return [symbol.upper() for symbol in v]
+        # Sanitize each symbol to prevent SQL injection
+        return [sanitize_symbol(symbol) for symbol in v]
 
 class WebhookConfig(BaseModel):
     url: str = Field(..., pattern=r'^https?://.+')

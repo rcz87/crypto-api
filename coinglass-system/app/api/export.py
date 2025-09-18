@@ -72,12 +72,13 @@ async def export_data(
 
 async def export_liquidations(request: DataExportRequest):
     """Export liquidation data"""
-    symbols_str = "','".join(request.symbols)
+    # Create parameterized IN clause
+    symbols_placeholders = ",".join([f":symbol_{i}" for i in range(len(request.symbols))])
     
     query = text(f"""
         SELECT ts, symbol, side, price, qty, exchange, bucket
         FROM liquidations 
-        WHERE symbol IN ('{symbols_str}')
+        WHERE symbol IN ({symbols_placeholders})
         AND ts >= :start_time
         AND ts <= :end_time
         ORDER BY ts DESC
@@ -85,20 +86,27 @@ async def export_liquidations(request: DataExportRequest):
     """)
     
     with engine.begin() as conn:
-        result = conn.execute(query, {
+        # Create parameter dictionary with symbols
+        params = {
             "start_time": request.time_range.start_time,
             "end_time": request.time_range.end_time
-        })
+        }
+        # Add symbol parameters
+        for i, symbol in enumerate(request.symbols):
+            params[f"symbol_{i}"] = symbol
+            
+        result = conn.execute(query, params)
         return [dict(row) for row in result.mappings()]
 
 async def export_funding_rates(request: DataExportRequest):
     """Export funding rate data"""
-    symbols_str = "','".join(request.symbols)
+    # Create parameterized IN clause
+    symbols_placeholders = ",".join([f":symbol_{i}" for i in range(len(request.symbols))])
     
     query = text(f"""
         SELECT ts, symbol, exchange, interval, rate, rate_oi_weighted
         FROM funding_rate 
-        WHERE symbol IN ('{symbols_str}')
+        WHERE symbol IN ({symbols_placeholders})
         AND ts >= :start_time
         AND ts <= :end_time
         ORDER BY ts DESC
@@ -106,20 +114,27 @@ async def export_funding_rates(request: DataExportRequest):
     """)
     
     with engine.begin() as conn:
-        result = conn.execute(query, {
+        # Create parameter dictionary with symbols
+        params = {
             "start_time": request.time_range.start_time,
             "end_time": request.time_range.end_time
-        })
+        }
+        # Add symbol parameters
+        for i, symbol in enumerate(request.symbols):
+            params[f"symbol_{i}"] = symbol
+            
+        result = conn.execute(query, params)
         return [dict(row) for row in result.mappings()]
 
 async def export_oi_data(request: DataExportRequest):
     """Export Open Interest data"""
-    symbols_str = "','".join(request.symbols)
+    # Create parameterized IN clause
+    symbols_placeholders = ",".join([f":symbol_{i}" for i in range(len(request.symbols))])
     
     query = text(f"""
         SELECT ts, symbol, interval, open, high, low, close, oi_value
         FROM futures_oi_ohlc 
-        WHERE symbol IN ('{symbols_str}')
+        WHERE symbol IN ({symbols_placeholders})
         AND ts >= :start_time
         AND ts <= :end_time
         ORDER BY ts DESC
@@ -127,20 +142,27 @@ async def export_oi_data(request: DataExportRequest):
     """)
     
     with engine.begin() as conn:
-        result = conn.execute(query, {
+        # Create parameter dictionary with symbols
+        params = {
             "start_time": request.time_range.start_time,
             "end_time": request.time_range.end_time
-        })
+        }
+        # Add symbol parameters
+        for i, symbol in enumerate(request.symbols):
+            params[f"symbol_{i}"] = symbol
+            
+        result = conn.execute(query, params)
         return [dict(row) for row in result.mappings()]
 
 async def export_heatmap_data(request: DataExportRequest):
     """Export heatmap data"""
-    symbols_str = "','".join(request.symbols)
+    # Create parameterized IN clause
+    symbols_placeholders = ",".join([f":symbol_{i}" for i in range(len(request.symbols))])
     
     query = text(f"""
         SELECT ts_min, symbol, bucket, score, components
         FROM composite_heatmap 
-        WHERE symbol IN ('{symbols_str}')
+        WHERE symbol IN ({symbols_placeholders})
         AND ts_min >= :start_time
         AND ts_min <= :end_time
         ORDER BY ts_min DESC
@@ -148,8 +170,14 @@ async def export_heatmap_data(request: DataExportRequest):
     """)
     
     with engine.begin() as conn:
-        result = conn.execute(query, {
+        # Create parameter dictionary with symbols
+        params = {
             "start_time": request.time_range.start_time,
             "end_time": request.time_range.end_time
-        })
+        }
+        # Add symbol parameters
+        for i, symbol in enumerate(request.symbols):
+            params[f"symbol_{i}"] = symbol
+            
+        result = conn.execute(query, params)
         return [dict(row) for row in result.mappings()]
