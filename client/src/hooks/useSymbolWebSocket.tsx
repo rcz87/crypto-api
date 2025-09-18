@@ -22,8 +22,7 @@ interface SymbolWebSocketState {
 }
 
 const WS_URL = import.meta.env.VITE_WS_URL || 
-  (window.location.protocol === "https:" ? "wss://" : "ws://") + 
-  window.location.host + "/ws";
+  "wss://" + window.location.host + "/ws";
 
 const RECONNECT_INTERVALS = [1000, 2000, 5000, 10000, 30000]; // Progressive backoff
 const MAX_RECONNECT_ATTEMPTS = 5;
