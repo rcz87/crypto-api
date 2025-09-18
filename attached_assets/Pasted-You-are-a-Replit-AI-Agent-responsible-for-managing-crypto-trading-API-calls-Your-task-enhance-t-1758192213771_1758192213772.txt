@@ -1,0 +1,308 @@
+You are a Replit AI Agent responsible for managing crypto trading API calls.  
+Your task: enhance the Intelligent Screening System with advanced filtering logic.  
+
+PROBLEM:
+Current screening returns too many HOLD/weak signals.  
+Traders need sharper results with confluence filters.  
+
+GOAL:
+Add filtering layer on top of existing /api/screen/intelligent results.  
+
+RULES:
+1. Do NOT break existing routing logic (single coin → Enhanced AI, multi coin → screener).
+2. Add filters after raw signals are collected:
+   - Confidence filter:
+     - <55% → discard
+     - 55–65% → label "WEAK"
+     - 66–75% → normal
+     - 76%+ → label "STRONG"
+   - Regime filter:
+     - If regime = TRENDING → ignore HOLD, prefer BUY/SELL
+     - If regime = RANGING → allow HOLD/mean reversion signals
+   - Liquidity filter:
+     - Discard coins with 24h volume < $500M (skip low-liquidity assets).
+   - Whale filter:
+     - Only confirm BUY if CVD positive and buyer aggression > 55%.
+     - Only confirm SELL if CVD negative and seller aggression > 55%.
+3. Ensure backward compatibility: if filters remove all signals, return fallback HOLD 50%.
+4. Output unified format:
+   [
+     {"symbol":"BTC","signal":"STRONG BUY","confidence":82},
+     {"symbol":"SOL","signal":"SELL","confidence":73}
+   ]
+5. Add summary field:
+   "summary": "2 coins passed filters: 1 STRONG BUY, 1 SELL"
+🐍 Python Code (Replit-ready)
+python
+Salin kode
+import requests
+
+BASE_URL = "http://localhost:8000"  # ganti sesuai server API Anda
+
+def fetch_regime(symbol):
+    """Mock regime detection, bisa diganti panggil /api/regime/detect/{symbolId}"""
+    return "TRENDING"  # contoh static
+
+def fetch_volume(symbol):
+    """Mock liquidity check, bisa diganti panggil /api/{pair}/complete"""
+    return 800_000_000  # contoh volume > 500M
+
+def fetch_whale_flow(symbol):
+    """Mock whale flow check, bisa diganti panggil /api/{pair}/cvd"""
+    return {"cvd": 1, "buyer_aggr": 60, "seller_aggr": 40}  # bullish net
+
+def filter_signals(results, regime="TRENDING"):
+    filtered = []
+    stats = {"BUY":0,"SELL":0,"HOLD":0}
+
+    for r in results:
+        sym = r["symbol"]
+        sig = r["signal"].upper()
+        conf = r["confidence"]
+
+        # Liquidity filter
+        vol = fetch_volume(sym)
+        if vol < 500_000_000:
+            continue
+
+        # Whale flow filter
+        whale = fetch_whale_flow(sym)
+        if sig == "BUY" and not (whale["cvd"] > 0 and whale["buyer_aggr"] > 55):
+            continue
+        if sig == "SELL" and not (whale["cvd"] < 0 and whale["seller_aggr"] > 55):
+            continue
+
+        # Confidence filter
+        if conf < 55:
+            continue
+        if conf >= 76:
+            sig = "STRONG " + sig
+        elif conf <= 65:
+            sig = "WEAK " + sig
+
+        # Regime filter
+        if regime == "TRENDING" and "HOLD" in sig:
+            continue
+
+        filtered.append({"symbol": sym, "signal": sig, "confidence": conf})
+        if "BUY" in sig: stats["BUY"] += 1
+        elif "SELL" in sig: stats["SELL"] += 1
+        else: stats["HOLD"] += 1
+
+    if not filtered:
+        return [{"symbol": "ALL", "signal": "HOLD", "confidence": 50}], "No strong signals, fallback HOLD"
+
+    summary = f"{len(filtered)} coins passed filters: {stats['BUY']} BUY, {stats['SELL']} SELL, {stats['HOLD']} HOLD"
+    return filtered, summary
+
+
+def intelligent_screen(symbols, timeframe="15m"):
+    """Wrapper intelligent screening with filter layer"""
+    payload = {"symbols": symbols, "timeframe": timeframe}
+    r = requests.post(f"{BASE_URL}/api/screen/intelligent", json=payload)
+    raw = r.json().get("data", {}).get("results", [])
+    regime = fetch_regime(symbols[0]) if len(symbols) == 1 else "TRENDING"
+    filtered, summary = filter_signals(raw, regime)
+    return {"success": True, "data": {"results": filtered, "summary": summary}}
+
+
+# ==== Example Run ====
+if __name__ == "__main__":
+    # Multi coin
+    print(intelligent_screen(["BTC", "ETH", "SOL"]))
+    # Single coin
+    print(intelligent_screen(["SOL"]))
+✅ Hasil
+Single coin (SOL) → routing ke AI Engine, difilter confidence + whale flow.
+
+Multi coin (BTC, ETH, SOL) → routing batch, difilter → hanya coin dengan sinyal kuat muncul.
+
+Kalau semua sinyal lemah → sistem fallback ke HOLD 50%.
+
+Mau saya tambahkan juga mode backtest dengan filter ini supaya bisa langsung diuji apakah filter benar-benar meningkatkan win rate & profit factor screening?
+
+
+
+
+
+Anda bilang:
+Mau saya tambahkan juga **mode backtest dengan filter ini** supaya bisa langsung diuji apakah filter benar-benar meningkatkan **win rate & profit factor** screening
+
+ya kode lengkapnya
+
+
+“CryptoSatX bilang:
+Mantap ⚡ kita gabungkan: screening dengan filter tajam + mode backtest untuk uji akurasi historis.
+Dengan ini Anda bisa lihat apakah filter (confidence, regime, volume, whale) benar-benar meningkatkan win rate & profit factor.
+
+🐍 Python Code Lengkap – Intelligent Screening + Filter + Backtest
+python
+Salin kode
+import requests
+import pandas as pd
+from datetime import datetime
+
+BASE_URL = "http://localhost:8000"  # ganti sesuai server API Anda
+
+# ==========================
+# MOCK HELPERS (bisa diganti API asli)
+# ==========================
+def fetch_regime(symbol):
+    """Mock regime detection, bisa ganti dengan /api/regime/detect"""
+    return "TRENDING"
+
+def fetch_volume(symbol):
+    """Mock liquidity check, bisa ganti dengan /api/{pair}/complete"""
+    return 800_000_000  # >500M aman
+
+def fetch_whale_flow(symbol):
+    """Mock whale flow check, bisa ganti dengan /api/{pair}/cvd"""
+    return {"cvd": 1, "buyer_aggr": 60, "seller_aggr": 40}
+
+# ==========================
+# FILTER LAYER
+# ==========================
+def filter_signals(results, regime="TRENDING"):
+    filtered = []
+    stats = {"BUY":0,"SELL":0,"HOLD":0}
+
+    for r in results:
+        sym = r["symbol"]
+        sig = r["signal"].upper()
+        conf = r["confidence"]
+
+        # Liquidity filter
+        vol = fetch_volume(sym)
+        if vol < 500_000_000:
+            continue
+
+        # Whale flow filter
+        whale = fetch_whale_flow(sym)
+        if sig == "BUY" and not (whale["cvd"] > 0 and whale["buyer_aggr"] > 55):
+            continue
+        if sig == "SELL" and not (whale["cvd"] < 0 and whale["seller_aggr"] > 55):
+            continue
+
+        # Confidence filter
+        if conf < 55:
+            continue
+        if conf >= 76:
+            sig = "STRONG " + sig
+        elif conf <= 65:
+            sig = "WEAK " + sig
+
+        # Regime filter
+        if regime == "TRENDING" and "HOLD" in sig:
+            continue
+
+        filtered.append({"symbol": sym, "signal": sig, "confidence": conf})
+        if "BUY" in sig: stats["BUY"] += 1
+        elif "SELL" in sig: stats["SELL"] += 1
+        else: stats["HOLD"] += 1
+
+    if not filtered:
+        return [{"symbol": "ALL", "signal": "HOLD", "confidence": 50}], "No strong signals, fallback HOLD"
+
+    summary = f"{len(filtered)} coins passed filters: {stats['BUY']} BUY, {stats['SELL']} SELL, {stats['HOLD']} HOLD"
+    return filtered, summary
+
+# ==========================
+# SCREENING WRAPPER
+# ==========================
+def intelligent_screen(symbols, timeframe="15m"):
+    payload = {"symbols": symbols, "timeframe": timeframe}
+    r = requests.post(f"{BASE_URL}/api/screen/intelligent", json=payload)
+    raw = r.json().get("data", {}).get("results", [])
+    regime = fetch_regime(symbols[0]) if len(symbols) == 1 else "TRENDING"
+    filtered, summary = filter_signals(raw, regime)
+    return {"success": True, "data": {"results": filtered, "summary": summary}}
+
+# ==========================
+# BACKTEST ENGINE
+# ==========================
+def fetch_ohlcv(symbol, timeframe, start, end):
+    """Mock OHLCV fetch, ganti dengan CoinAPI/Binance"""
+    dates = pd.date_range(start, end, freq="1H")
+    prices = pd.Series(range(len(dates))) + 100
+    df = pd.DataFrame({
+        "timestamp": dates,
+        "open": prices,
+        "high": prices + 2,
+        "low": prices - 2,
+        "close": prices + 1
+    })
+    return df
+
+def simulate_trades(ohlcv, signals):
+    results = []
+    balance = 100.0
+    trades, wins = 0, 0
+
+    for i in range(len(ohlcv)-1):
+        sig = signals[i]
+        if "BUY" in sig:
+            entry = ohlcv["open"].iloc[i+1]
+            exit_ = ohlcv["close"].iloc[i+1]
+            ret = (exit_ - entry) / entry * 100
+            trades += 1
+            if ret > 0: wins += 1
+            balance *= (1 + ret/100)
+            results.append(ret)
+        elif "SELL" in sig:
+            entry = ohlcv["open"].iloc[i+1]
+            exit_ = ohlcv["close"].iloc[i+1]
+            ret = (entry - exit_) / entry * 100
+            trades += 1
+            if ret > 0: wins += 1
+            balance *= (1 + ret/100)
+            results.append(ret)
+
+    if trades == 0:
+        return {"trades": 0, "win_rate": 0, "avg_return": 0, "profit_factor": 0}
+
+    avg_return = sum(results) / trades
+    win_rate = wins / trades
+    profit_factor = sum([r for r in results if r > 0]) / abs(sum([r for r in results if r < 0]) or 1)
+
+    return {
+        "trades": trades,
+        "win_rate": round(win_rate, 2),
+        "avg_return": round(avg_return, 2),
+        "profit_factor": round(profit_factor, 2),
+        "balance_end": round(balance, 2)
+    }
+
+def backtest(symbols, timeframe="1H", start="2025-01-01", end="2025-02-01"):
+    results = {}
+    for sym in symbols:
+        ohlcv = fetch_ohlcv(sym, timeframe, start, end)
+
+        # Ambil screening hasil (mock pakai HOLD/BUY/SELL random di sini)
+        raw_signals = [{"symbol": sym, "signal": "BUY", "confidence": 75}] * len(ohlcv)
+
+        # Filter signals pakai layer
+        filtered, _ = filter_signals(raw_signals, regime="TRENDING")
+        signals = [f["signal"] for f in filtered] * (len(ohlcv)//len(filtered))
+
+        stats = simulate_trades(ohlcv, signals)
+        results[sym] = stats
+
+    return {"success": True, "data": results}
+
+# ==========================
+# DEMO
+# ==========================
+if __name__ == "__main__":
+    print("=== Intelligent Screening with Filter ===")
+    print(intelligent_screen(["BTC", "ETH", "SOL"]))
+
+    print("\n=== Backtest with Filter ===")
+    print(backtest(["BTC","ETH"], "1H", "2025-01-01", "2025-02-01"))
+✅ Fitur Utama
+Screening cerdas (single → AI engine, multi → batch).
+
+Filter tajam (confidence, regime, volume, whale flow).
+
+Backtest mode → hitung win rate, avg return, profit factor, balance akhir.
+
+Fallback aman → kalau sinyal kosong → HOLD 50%.

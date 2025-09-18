@@ -156,6 +156,880 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Advanced Filtered Screening Endpoint - 4-Layer Filtering System
+  app.post('/api/screen/filtered', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      // Parse and validate request parameters
+      const symbols = req.body.symbols || ['BTC', 'ETH', 'SOL'];
+      const timeframe = req.body.timeframe || '15m';
+      const limit = req.body.limit || 500;
+      
+      console.log(`🎯 [FilteredScreening] Processing ${symbols.length} symbols with 4-layer filtering`);
+      
+      // Step 1: Get data from existing intelligent screening endpoint
+      const screenerRequest = {
+        symbols: symbols,
+        timeframe: timeframe,
+        limit: limit
+      };
+      
+      // Import and use the screening service (wrapping existing intelligent screening)
+      const { ScreenerService } = await import('../screening-module/backend/screener/screener.service');
+      const screenerService = new ScreenerService();
+      const rawScreeningData = await screenerService.run(screenerRequest);
+      const originalCount = rawScreeningData.results.length;
+      
+      console.log(`📊 [FilteredScreening] Raw screening returned ${rawScreeningData.results.length} results`);
+      
+      // Step 2: Apply 4-layer filtering system using shared function
+      const filteredResults = await applyAdvancedFilters(rawScreeningData.results);
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Fallback handling - if no signals pass filters
+      if (filteredResults.length === 0) {
+        console.log(`🟡 [FilteredScreening] No signals passed filters - returning fallback HOLD`);
+        filteredResults.push({
+          symbol: "ALL",
+          signal: "HOLD", 
+          confidence: 50
+        });
+      }
+      
+      // Generate summary
+      const buyCount = filteredResults.filter(r => r.signal.includes('BUY')).length;
+      const sellCount = filteredResults.filter(r => r.signal.includes('SELL')).length;
+      const holdCount = filteredResults.filter(r => r.signal.includes('HOLD')).length;
+      
+      const summary = `${filteredResults.length} coins passed filters: ${buyCount} BUY, ${sellCount} SELL, ${holdCount} HOLD`;
+      
+      // Log success metrics
+      await storage.addLog({
+        level: 'info',
+        message: 'Advanced filtered screening completed',
+        details: `POST /api/screen/filtered - ${responseTime}ms - Original: ${originalCount}, Filtered: ${filteredResults.length} - ${summary}`,
+      });
+      
+      await storage.updateMetrics(responseTime);
+      
+      res.json({
+        success: true,
+        data: {
+          results: filteredResults,
+          summary: summary,
+          filters_applied: ["confidence", "regime", "liquidity", "whale"],
+          original_count: originalCount,
+          filtered_count: filteredResults.length
+        },
+        meta: {
+          responseTime,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/screen/filtered:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Advanced filtered screening failed',
+        details: `POST /api/screen/filtered - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Comprehensive Backtest Engine for Enhanced Filtering System
+  app.post('/api/backtest/filtered', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      // Parse and validate backtest parameters
+      const {
+        symbols = ['BTC', 'ETH', 'SOL'],
+        timeframe = '1h',
+        start_date = '2024-01-01',
+        end_date = '2024-12-31',
+        initial_balance = 100.0,
+        use_filters = true
+      } = req.body;
+      
+      console.log(`🎯 [Backtest] Starting comprehensive backtest for ${symbols.length} symbols`);
+      console.log(`📊 [Backtest] Parameters: ${timeframe}, ${start_date} to ${end_date}, Balance: ${initial_balance}`);
+      
+      // Validate date range
+      const startDate = new Date(start_date);
+      const endDate = new Date(end_date);
+      
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        throw new Error('Invalid date format. Use YYYY-MM-DD format.');
+      }
+      
+      if (startDate >= endDate) {
+        throw new Error('Start date must be before end date.');
+      }
+      
+      if (endDate > new Date()) {
+        throw new Error('End date cannot be in the future.');
+      }
+      
+      // Calculate required candles based on timeframe
+      const timePeriod = endDate.getTime() - startDate.getTime();
+      const timeframeMs = getTimeframeMs(timeframe);
+      const totalCandles = Math.ceil(timePeriod / timeframeMs);
+      const candlesPerSymbol = Math.min(totalCandles + 200, 2000); // Add buffer for technical indicators, max 2000
+      
+      console.log(`📈 [Backtest] Fetching ${candlesPerSymbol} candles per symbol for ${timeframe} timeframe`);
+      
+      // Run backtests in parallel: filtered vs unfiltered
+      const [filteredResults, unfilteredResults] = await Promise.all([
+        runStrategyBacktest(symbols, timeframe, candlesPerSymbol, initial_balance, true, startDate, endDate),
+        runStrategyBacktest(symbols, timeframe, candlesPerSymbol, initial_balance, false, startDate, endDate)
+      ]);
+      
+      // Calculate improvement metrics
+      const improvement = {
+        win_rate_delta: Math.round((filteredResults.win_rate - unfilteredResults.win_rate) * 10000) / 100,
+        profit_factor_delta: Math.round((filteredResults.profit_factor - unfilteredResults.profit_factor) * 100) / 100,
+        return_delta_percent: Math.round((filteredResults.total_return_percent - unfilteredResults.total_return_percent) * 100) / 100
+      };
+      
+      // Generate summary
+      const summary = `Filtered strategy ${improvement.win_rate_delta >= 0 ? 'improved' : 'decreased'} win rate by ${Math.abs(improvement.win_rate_delta)}%, profit factor by ${Math.abs(improvement.profit_factor_delta)}, total return by ${Math.abs(improvement.return_delta_percent)}%`;
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Log successful completion
+      await storage.addLog({
+        level: 'info',
+        message: 'Comprehensive backtest completed successfully',
+        details: `POST /api/backtest/filtered - ${responseTime}ms - Symbols: ${symbols.length}, Timeframe: ${timeframe}, Period: ${start_date} to ${end_date}`,
+      });
+      
+      await storage.updateMetrics(responseTime);
+      
+      res.json({
+        success: true,
+        data: {
+          backtest_period: `${start_date} to ${end_date}`,
+          symbols_tested: symbols,
+          filtered_results: filteredResults,
+          unfiltered_results: unfilteredResults,
+          improvement,
+          summary
+        },
+        meta: {
+          responseTime,
+          timestamp: new Date().toISOString(),
+          total_candles_processed: symbols.length * candlesPerSymbol
+        }
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      console.error('Error in /api/backtest/filtered:', error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Comprehensive backtest failed',
+        details: `POST /api/backtest/filtered - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Helper Functions for Comprehensive Backtest Engine
+  
+  async function runStrategyBacktest(
+    symbols: string[],
+    timeframe: string,
+    candleLimit: number,
+    initialBalance: number,
+    useFilters: boolean,
+    startDate: Date,
+    endDate: Date
+  ) {
+    console.log(`🔄 [Backtest] Running ${useFilters ? 'filtered' : 'unfiltered'} strategy backtest`);
+    
+    const backtesterModule = await import('../screening-module/backend/perf/backtester');
+    const { runBacktest } = backtesterModule;
+    const { calculateFullMetrics } = await import('../screening-module/backend/perf/metrics');
+    
+    let allTrades: any[] = [];
+    let totalSignals = 0;
+    let tradedSignals = 0;
+    let skippedSignals = 0;
+    
+    // Process symbols in batches to avoid overwhelming the system
+    const batchSize = 3;
+    for (let i = 0; i < symbols.length; i += batchSize) {
+      const batch = symbols.slice(i, i + batchSize);
+      
+      const batchPromises = batch.map(async (symbol) => {
+        try {
+          console.log(`📊 [Backtest] Processing ${symbol} with ${useFilters ? 'filters' : 'no filters'}`);
+          
+          // Fetch historical candles
+          const candles = await fetchHistoricalCandles(symbol, timeframe, candleLimit);
+          
+          if (candles.length < 100) {
+            console.warn(`⚠️  [Backtest] Insufficient data for ${symbol}: ${candles.length} candles`);
+            return { trades: [], signals: { total: 0, traded: 0, skipped: 0 } };
+          }
+          
+          // Filter candles to backtest period
+          const filteredCandles = candles.filter(c => {
+            const candleDate = new Date(parseInt(c.ts));
+            return candleDate >= startDate && candleDate <= endDate;
+          });
+          
+          if (filteredCandles.length < 50) {
+            console.warn(`⚠️  [Backtest] Insufficient data in period for ${symbol}: ${filteredCandles.length} candles`);
+            return { trades: [], signals: { total: 0, traded: 0, skipped: 0 } };
+          }
+          
+          // Create strategy context
+          const context: StrategyContext = {
+            symbol,
+            timeframe,
+            cost: {
+              feeRate: 0.0005, // 0.05% taker fee (OKX standard)
+              slipBps: 8,      // 0.08% slippage
+              spreadBps: 5     // 0.05% spread
+            },
+            risk: {
+              equity: initialBalance,
+              riskPct: 1.0,    // 1% risk per trade
+              atrMult: 1.5,    // 1.5x ATR for stop loss
+              tp1RR: 1.5,      // 1.5:1 first target
+              tp2RR: 2.5       // 2.5:1 second target
+            }
+          };
+          
+          // Create screener function
+          const screenerFunction = createScreenerFunction(symbol, timeframe, useFilters);
+          
+          // Run backtest for this symbol
+          const result = await runBacktest(context, filteredCandles, screenerFunction, {
+            startIndex: 50,
+            warmupPeriod: 30,
+            saveToDb: false,
+            maxTrades: 500
+          });
+          
+          console.log(`✅ [Backtest] ${symbol} completed: ${result.trades.length} trades, Win rate: ${result.stats.winRate}%`);
+          
+          return {
+            trades: result.trades.map(trade => ({
+              ...trade,
+              symbol,
+              pnl: trade.pnl,
+              ts: trade.exit_ts
+            })),
+            signals: {
+              total: result.summary.totalSignals,
+              traded: result.summary.tradedSignals,
+              skipped: result.summary.skippedSignals
+            }
+          };
+          
+        } catch (error) {
+          console.error(`❌ [Backtest] Error processing ${symbol}:`, error);
+          return { trades: [], signals: { total: 0, traded: 0, skipped: 0 } };
+        }
+      });
+      
+      const batchResults = await Promise.all(batchPromises);
+      
+      // Aggregate batch results
+      batchResults.forEach(result => {
+        allTrades.push(...result.trades);
+        totalSignals += result.signals.total;
+        tradedSignals += result.signals.traded;
+        skippedSignals += result.signals.skipped;
+      });
+    }
+    
+    // Calculate comprehensive performance metrics
+    if (allTrades.length === 0) {
+      return {
+        trades_total: 0,
+        win_rate: 0,
+        avg_return_percent: 0,
+        profit_factor: 0,
+        max_drawdown: 0,
+        sharpe_ratio: 0,
+        balance_start: initialBalance,
+        balance_end: initialBalance,
+        total_return_percent: 0,
+        best_trade: 0,
+        worst_trade: 0,
+        avg_trade_duration: '0h',
+        total_signals: totalSignals,
+        traded_signals: tradedSignals,
+        skipped_signals: skippedSignals
+      };
+    }
+    
+    // Convert trades to performance points
+    const perfPoints = allTrades.map(trade => ({
+      ts: trade.ts,
+      pnl: trade.pnl,
+      symbol: trade.symbol
+    }));
+    
+    const metrics = calculateFullMetrics(perfPoints, initialBalance);
+    
+    // Calculate additional metrics
+    const tradePnLs = allTrades.map(t => t.pnl);
+    const bestTrade = Math.max(...tradePnLs);
+    const worstTrade = Math.min(...tradePnLs);
+    
+    // Calculate average trade duration
+    const durations = allTrades.map(t => t.exit_ts - t.entry_ts);
+    const avgDurationMs = durations.reduce((sum, d) => sum + d, 0) / durations.length;
+    const avgDurationHours = avgDurationMs / (1000 * 60 * 60);
+    
+    return {
+      trades_total: metrics.totalTrades,
+      win_rate: metrics.winRate / 100, // Convert percentage to decimal
+      avg_return_percent: metrics.avgTrade / initialBalance * 100,
+      profit_factor: metrics.profitFactor,
+      max_drawdown: -Math.abs(metrics.maxDrawdownPct), // Negative value
+      sharpe_ratio: metrics.sharpeRatio,
+      balance_start: initialBalance,
+      balance_end: initialBalance + metrics.totalReturn,
+      total_return_percent: metrics.totalReturnPct,
+      best_trade: Math.round(bestTrade * 100) / 100,
+      worst_trade: Math.round(worstTrade * 100) / 100,
+      avg_trade_duration: `${Math.round(avgDurationHours * 10) / 10}h`,
+      total_signals: totalSignals,
+      traded_signals: tradedSignals,
+      skipped_signals: skippedSignals
+    };
+  }
+  
+  async function fetchHistoricalCandles(symbol: string, timeframe: string, limit: number): Promise<any[]> {
+    try {
+      const okxSymbol = symbol.includes('-') ? symbol : `${symbol}-USDT-SWAP`;
+      const okxTimeframe = mapTimeframeToOKX(timeframe);
+      
+      console.log(`📈 [Backtest] Fetching ${limit} ${okxTimeframe} candles for ${okxSymbol}`);
+      
+      const candles = await okxService.getCandles(okxSymbol, okxTimeframe, limit);
+      
+      return candles.map(candle => ({
+        ts: parseInt(candle.timestamp),
+        open: parseFloat(candle.open),
+        high: parseFloat(candle.high),
+        low: parseFloat(candle.low),
+        close: parseFloat(candle.close),
+        volume: parseFloat(candle.volume)
+      }));
+      
+    } catch (error) {
+      console.error(`❌ [Backtest] Error fetching candles for ${symbol}:`, error);
+      return [];
+    }
+  }
+  
+  function createScreenerFunction(symbol: string, timeframe: string, useFilters: boolean) {
+    return async (candleWindow: any[]) => {
+      try {
+        if (!useFilters) {
+          // Simple momentum-based signals for unfiltered strategy
+          if (candleWindow.length < 20) return { label: 'HOLD', score: 50, summary: 'Insufficient data' };
+          
+          const recent = candleWindow.slice(-5);
+          const closes = recent.map(c => c.close);
+          const momentum = (closes[4] - closes[0]) / closes[0];
+          
+          if (momentum > 0.02) return { label: 'BUY', score: 75, summary: 'Momentum bullish' };
+          if (momentum < -0.02) return { label: 'SELL', score: 75, summary: 'Momentum bearish' };
+          return { label: 'HOLD', score: 50, summary: 'No clear momentum' };
+        }
+        
+        // Use historical data from candleWindow for deterministic analysis
+        console.log(`📊 [Backtest] Processing ${symbol} with historical data (${candleWindow.length} candles)`);
+        
+        try {
+          // Step 1: Compute historical signals from candleWindow data
+          const historicalSignal = computeHistoricalSignals(symbol, candleWindow, timeframe);
+          
+          if (historicalSignal) {
+            // Step 2: Apply 4-layer advanced filtering with historical data
+            const filteredResults = await applyAdvancedFilters([historicalSignal], candleWindow);
+            
+            if (filteredResults.length > 0) {
+              const result = filteredResults[0]; // Use the filtered result
+              console.log(`✅ [Backtest] ${symbol} passed historical filters: ${result.label} (${result.confidence}%)`);
+              return {
+                label: result.label,
+                score: result.score,
+                confidence: result.confidence,
+                summary: result.summary || 'Historical 4-layer filtering analysis',
+                regime: result.regime,
+                htf: result.htf,
+                mtf: result.mtf
+              };
+            } else {
+              // All signals filtered out by 4-layer system
+              console.log(`🔴 [Backtest] ${symbol} filtered out by historical 4-layer system`);
+              return { label: 'HOLD', score: 50, summary: 'Filtered out by historical advanced filters' };
+            }
+          }
+        } catch (error) {
+          console.warn(`⚠️  [Backtest] Historical analysis error for ${symbol}:`, error);
+        }
+        
+        // Fallback to simple analysis if historical analysis fails
+        return { label: 'HOLD', score: 50, summary: 'Historical analysis unavailable' };
+        
+      } catch (error) {
+        console.error(`❌ [Backtest] Error in screener function for ${symbol}:`, error);
+        return { label: 'HOLD', score: 50, summary: 'Analysis error' };
+      }
+    };
+  }
+  
+  function getTimeframeMs(timeframe: string): number {
+    const timeframeMs: Record<string, number> = {
+      '1m': 60 * 1000,
+      '5m': 5 * 60 * 1000,
+      '15m': 15 * 60 * 1000,
+      '30m': 30 * 60 * 1000,
+      '1h': 60 * 60 * 1000,
+      '4h': 4 * 60 * 60 * 1000,
+      '1d': 24 * 60 * 60 * 1000,
+      '1w': 7 * 24 * 60 * 60 * 1000
+    };
+    return timeframeMs[timeframe] || 60 * 60 * 1000; // Default to 1h
+  }
+  
+  function mapTimeframeToOKX(timeframe: string): string {
+    const mapping: Record<string, string> = {
+      '1m': '1m',
+      '5m': '5m',
+      '15m': '15m',
+      '30m': '30m',
+      '1h': '1H',
+      '4h': '4H',
+      '1d': '1D',
+      '1w': '1W'
+    };
+    return mapping[timeframe] || '1H';
+  }
+
+  // Helper Functions for 4-Layer Filtering System
+  
+  // Compute historical signals from candleWindow data (deterministic)
+  function computeHistoricalSignals(symbol: string, candleWindow: any[], timeframe: string): any {
+    try {
+      if (candleWindow.length < 20) {
+        return null; // Not enough data
+      }
+      
+      console.log(`📊 [HistoricalSignals] Computing signals for ${symbol} from ${candleWindow.length} candles`);
+      
+      // Get recent candles for analysis
+      const recentCandles = candleWindow.slice(-50); // Last 50 candles for analysis
+      const closes = recentCandles.map(c => c.close);
+      const highs = recentCandles.map(c => c.high);
+      const lows = recentCandles.map(c => c.low);
+      const volumes = recentCandles.map(c => c.volume);
+      
+      // Calculate technical indicators from historical data
+      const sma20 = calculateSMA(closes.slice(-20), 20);
+      const sma50 = calculateSMA(closes.slice(-50), 50);
+      const rsi = calculateRSI(closes, 14);
+      const currentPrice = closes[closes.length - 1];
+      const previousPrice = closes[closes.length - 2];
+      
+      // Calculate momentum and trends
+      const shortTermMomentum = (currentPrice - closes[closes.length - 5]) / closes[closes.length - 5];
+      const mediumTermMomentum = (currentPrice - closes[closes.length - 10]) / closes[closes.length - 10];
+      const volumeAvg = volumes.slice(-10).reduce((a, b) => a + b, 0) / 10;
+      const currentVolume = volumes[volumes.length - 1];
+      const volumeRatio = currentVolume / volumeAvg;
+      
+      // Determine signal strength and direction
+      let label = 'HOLD';
+      let confidence = 50;
+      let score = 50;
+      let summary = 'Neutral market conditions';
+      
+      // Bullish conditions
+      if (currentPrice > sma20 && sma20 > sma50 && rsi < 70 && shortTermMomentum > 0.01) {
+        label = 'BUY';
+        confidence = Math.min(95, 60 + (shortTermMomentum * 1000) + (volumeRatio > 1.2 ? 10 : 0));
+        score = confidence;
+        summary = `Bullish: Price above SMAs, RSI ${rsi.toFixed(1)}, momentum ${(shortTermMomentum * 100).toFixed(2)}%`;
+      }
+      // Bearish conditions  
+      else if (currentPrice < sma20 && sma20 < sma50 && rsi > 30 && shortTermMomentum < -0.01) {
+        label = 'SELL';
+        confidence = Math.min(95, 60 + Math.abs(shortTermMomentum * 1000) + (volumeRatio > 1.2 ? 10 : 0));
+        score = confidence;
+        summary = `Bearish: Price below SMAs, RSI ${rsi.toFixed(1)}, momentum ${(shortTermMomentum * 100).toFixed(2)}%`;
+      }
+      // Strong momentum override
+      else if (Math.abs(shortTermMomentum) > 0.03 && volumeRatio > 1.5) {
+        label = shortTermMomentum > 0 ? 'BUY' : 'SELL';
+        confidence = Math.min(90, 70 + Math.abs(shortTermMomentum * 500));
+        score = confidence;
+        summary = `Strong momentum: ${(shortTermMomentum * 100).toFixed(2)}% with high volume`;
+      }
+      
+      // Add regime and timeframe context
+      const regime = confidence > 70 ? 'trending' : 'ranging';
+      const htf = mediumTermMomentum > 0.02 ? 'bullish' : mediumTermMomentum < -0.02 ? 'bearish' : 'neutral';
+      const mtf = shortTermMomentum > 0.01 ? 'bullish' : shortTermMomentum < -0.01 ? 'bearish' : 'neutral';
+      
+      return {
+        symbol,
+        label,
+        confidence: Math.round(confidence),
+        score: Math.round(score),
+        summary,
+        regime,
+        htf,
+        mtf,
+        // Add historical context for filters
+        historicalData: {
+          candles: candleWindow,
+          currentPrice,
+          volume24h: volumes.slice(-24).reduce((a, b) => a + b, 0), // Approximate 24h volume
+          volumeRatio,
+          rsi,
+          momentum: shortTermMomentum
+        }
+      };
+      
+    } catch (error) {
+      console.error(`❌ [HistoricalSignals] Error computing signals for ${symbol}:`, error);
+      return null;
+    }
+  }
+  
+  // Helper function to calculate Simple Moving Average
+  function calculateSMA(prices: number[], period: number): number {
+    if (prices.length < period) return prices[prices.length - 1] || 0;
+    const slice = prices.slice(-period);
+    return slice.reduce((sum, price) => sum + price, 0) / period;
+  }
+  
+  // Helper function to calculate RSI
+  function calculateRSI(prices: number[], period: number = 14): number {
+    if (prices.length < period + 1) return 50; // Default neutral RSI
+    
+    let gains = 0;
+    let losses = 0;
+    
+    for (let i = prices.length - period; i < prices.length; i++) {
+      const change = prices[i] - prices[i - 1];
+      if (change > 0) gains += change;
+      else losses -= change;
+    }
+    
+    const avgGain = gains / period;
+    const avgLoss = losses / period;
+    
+    if (avgLoss === 0) return 100;
+    const rs = avgGain / avgLoss;
+    return 100 - (100 / (1 + rs));
+  }
+  
+  // Shared 4-Layer Advanced Filtering Logic (updated to accept historical data)
+  async function applyAdvancedFilters(rawResults: any[], candleWindow?: any[]): Promise<any[]> {
+    console.log(`🎯 [AdvancedFilters] Processing ${rawResults.length} raw results with 4-layer filtering`);
+    
+    const filteredResults = [];
+    let originalCount = rawResults.length;
+    
+    for (const result of rawResults) {
+      try {
+        // Layer 1: Confidence Filter (<55% discard, 55-65% WEAK, 66-75% normal, 76%+ STRONG)
+        if (result.confidence < 55) {
+          console.log(`🔴 [ConfidenceFilter] Discarding ${result.symbol}: confidence ${result.confidence}% < 55%`);
+          continue;
+        }
+        
+        // Layer 2: Regime Filter (TRENDING vs RANGING logic)
+        const regimeFilterPassed = await applyRegimeFilter(result);
+        if (!regimeFilterPassed) {
+          console.log(`🔴 [RegimeFilter] Filtering out ${result.symbol}: regime mismatch`);
+          continue;
+        }
+        
+        // Layer 3: Liquidity Filter (24h volume > $500M)
+        const liquidityFilterPassed = await applyLiquidityFilter(result.symbol, candleWindow);
+        if (!liquidityFilterPassed) {
+          console.log(`🔴 [LiquidityFilter] Filtering out ${result.symbol}: insufficient volume`);
+          continue;
+        }
+        
+        // Layer 4: Whale Filter (CVD + buyer/seller aggression validation)
+        const whaleFilterPassed = await applyWhaleFilter(result, candleWindow);
+        if (!whaleFilterPassed) {
+          console.log(`🔴 [WhaleFilter] Filtering out ${result.symbol}: whale validation failed`);
+          continue;
+        }
+        
+        // All filters passed - format the result
+        let finalSignal = result.label;
+        
+        // Apply confidence labeling
+        if (result.confidence >= 76) {
+          finalSignal = `STRONG ${result.label}`;
+        } else if (result.confidence >= 55 && result.confidence <= 65) {
+          finalSignal = `WEAK ${result.label}`;
+        }
+        
+        filteredResults.push({
+          symbol: result.symbol,
+          signal: finalSignal,
+          label: result.label, // Keep original label for backtest compatibility
+          confidence: result.confidence,
+          score: result.score,
+          summary: result.summary,
+          regime: result.regime,
+          htf: result.htf,
+          mtf: result.mtf
+        });
+        
+        console.log(`✅ [AdvancedFilters] ${result.symbol} passed all filters: ${finalSignal} (${result.confidence}%)`);
+        
+      } catch (error) {
+        console.warn(`⚠️ [AdvancedFilters] Error processing ${result.symbol}:`, error);
+        // Continue processing other symbols
+      }
+    }
+    
+    // Fallback handling - if no signals pass filters, return empty array (let caller handle)
+    console.log(`📊 [AdvancedFilters] Filtered ${originalCount} → ${filteredResults.length} results`);
+    return filteredResults;
+  }
+  
+  async function applyRegimeFilter(result: any): Promise<boolean> {
+    try {
+      // Import regime detection service - Note: this is a placeholder since actual service may need different parameters
+      console.log(`📊 [RegimeFilter] ${result.symbol} checking regime compatibility with ${result.label} signal`);
+      
+      // For now, use simple regime filtering based on signal characteristics
+      // TODO: Implement full regime detection service integration when available
+      
+      // Basic regime filtering logic:
+      // 1. High confidence signals (>70%) suggest trending conditions
+      // 2. Medium confidence (55-70%) suggests ranging conditions  
+      // 3. HOLD signals are better in ranging markets
+      
+      const confidence = result.confidence || 50;
+      let regimeCompatible = false;
+      let regimeType = 'unknown';
+      let reason = '';
+      
+      if (confidence > 70) {
+        // High confidence suggests trending market
+        regimeType = 'trending';
+        regimeCompatible = result.label !== 'HOLD'; // Prefer directional signals in trending
+        reason = `High confidence (${confidence}%) indicates trending - ${result.label !== 'HOLD' ? 'directional signal preferred' : 'HOLD not ideal'}`;
+      } else if (confidence >= 55) {
+        // Medium confidence suggests ranging market
+        regimeType = 'ranging';
+        regimeCompatible = true; // All signals OK in ranging
+        reason = `Medium confidence (${confidence}%) indicates ranging - all signals acceptable`;
+      } else {
+        // Low confidence - should not pass confidence filter anyway
+        regimeType = 'uncertain';
+        regimeCompatible = false;
+        reason = `Low confidence (${confidence}%) indicates uncertain market`;
+      }
+      
+      console.log(`📊 [RegimeFilter] ${result.symbol} - ${regimeType} regime, ${reason} - ${regimeCompatible ? 'PASS' : 'FAIL'}`);
+      
+      return regimeCompatible;
+      
+    } catch (error) {
+      console.warn(`⚠️ [RegimeFilter] Regime detection failed for ${result.symbol}:`, error);
+      return true; // Default to pass if regime detection fails
+    }
+  }
+  
+  async function applyLiquidityFilter(symbol: string, candleWindow?: any[]): Promise<boolean> {
+    try {
+      // Use historical data if available (backtest mode)
+      if (candleWindow && candleWindow.length > 0) {
+        console.log(`💰 [LiquidityFilter] ${symbol} using historical data (${candleWindow.length} candles)`);
+        
+        // Calculate historical volume from candleWindow
+        const recentCandles = candleWindow.slice(-24); // Last 24 candles for volume estimate
+        const totalVolume = recentCandles.reduce((sum, candle) => sum + candle.volume, 0);
+        const currentPrice = candleWindow[candleWindow.length - 1].close;
+        const volumeUSD = totalVolume * currentPrice;
+        const volume500M = 500_000_000; // $500M threshold
+        
+        const volumeMB = Math.round(volumeUSD / 1_000_000);
+        const passed = volumeUSD >= volume500M;
+        
+        console.log(`💰 [LiquidityFilter] ${symbol} historical volume: $${volumeMB}M (${totalVolume.toFixed(0)} ${symbol} × $${currentPrice.toFixed(2)}) - ${passed ? 'PASS' : 'FAIL'}`);
+        
+        return passed;
+      }
+      
+      // Fallback to live data (real-time mode)
+      console.log(`💰 [LiquidityFilter] ${symbol} using live data`);
+      
+      // Convert symbol to OKX format
+      const okxSymbol = symbol.includes('-') ? symbol : `${symbol.toUpperCase()}-USDT-SWAP`;
+      
+      // Get ticker data for volume check
+      const ticker = await okxService.getTicker(okxSymbol);
+      
+      // Get current price for USD conversion
+      const currentPrice = parseFloat(ticker.last || '0');
+      
+      // Extract 24h trading volume (in base currency) and convert to USD
+      const volumeBase = parseFloat(ticker.tradingVolume24h || '0');
+      const volumeUSD = volumeBase * currentPrice; // Convert base volume to USD value
+      const volume500M = 500_000_000; // $500M threshold
+      
+      const volumeMB = Math.round(volumeUSD / 1_000_000);
+      const passed = volumeUSD >= volume500M;
+      
+      console.log(`💰 [LiquidityFilter] ${symbol} live volume: $${volumeMB}M (${volumeBase.toFixed(0)} ${symbol} × $${currentPrice.toFixed(2)}) - ${passed ? 'PASS' : 'FAIL'}`);
+      
+      return passed;
+      
+    } catch (error) {
+      console.warn(`⚠️ [LiquidityFilter] Volume check failed for ${symbol}:`, error);
+      return false; // Strict: fail if we can't verify volume
+    }
+  }
+  
+  async function applyWhaleFilter(result: any, candleWindow?: any[]): Promise<boolean> {
+    try {
+      // Skip whale filter for HOLD signals
+      if (result.label === 'HOLD') {
+        console.log(`🐋 [WhaleFilter] ${result.symbol} HOLD signal - PASS (no whale validation needed)`);
+        return true;
+      }
+      
+      // Use historical data if available (backtest mode)
+      if (candleWindow && candleWindow.length > 0) {
+        console.log(`🐋 [WhaleFilter] ${result.symbol} using historical data (${candleWindow.length} candles)`);
+        
+        // Calculate historical CVD-like metrics from candleWindow
+        const recentCandles = candleWindow.slice(-20); // Last 20 candles for analysis
+        
+        // Estimate buyer/seller aggression from price action and volume
+        let buyPressure = 0;
+        let sellPressure = 0;
+        let totalVolume = 0;
+        
+        for (const candle of recentCandles) {
+          const bodySize = Math.abs(candle.close - candle.open);
+          const upperWick = candle.high - Math.max(candle.open, candle.close);
+          const lowerWick = Math.min(candle.open, candle.close) - candle.low;
+          
+          if (candle.close > candle.open) {
+            // Bullish candle - more buy pressure
+            buyPressure += candle.volume * (bodySize / (bodySize + upperWick + lowerWick));
+          } else {
+            // Bearish candle - more sell pressure
+            sellPressure += candle.volume * (bodySize / (bodySize + upperWick + lowerWick));
+          }
+          totalVolume += candle.volume;
+        }
+        
+        const buyerAggression = totalVolume > 0 ? (buyPressure / totalVolume) * 100 : 50;
+        const sellerAggression = totalVolume > 0 ? (sellPressure / totalVolume) * 100 : 50;
+        
+        // Simplified CVD calculation from price momentum
+        const priceChange = (recentCandles[recentCandles.length - 1].close - recentCandles[0].close) / recentCandles[0].close;
+        const currentCVD = priceChange * (buyerAggression - sellerAggression);
+        
+        let passed = false;
+        let reason = '';
+        
+        if (result.label === 'BUY') {
+          // BUY confirmed only if: CVD positive AND buyer aggression > 55%
+          const cvdPositive = currentCVD > 0;
+          const strongBuyers = buyerAggression > 55;
+          passed = cvdPositive && strongBuyers;
+          reason = `Historical CVD: ${currentCVD > 0 ? '✅' : '❌'} ${currentCVD.toFixed(4)}, Buyer Aggr: ${strongBuyers ? '✅' : '❌'} ${buyerAggression.toFixed(1)}%`;
+        } else if (result.label === 'SELL') {
+          // SELL confirmed only if: CVD negative AND seller aggression > 55%
+          const cvdNegative = currentCVD < 0;
+          const strongSellers = sellerAggression > 55;
+          passed = cvdNegative && strongSellers;
+          reason = `Historical CVD: ${currentCVD < 0 ? '✅' : '❌'} ${currentCVD.toFixed(4)}, Seller Aggr: ${strongSellers ? '✅' : '❌'} ${sellerAggression.toFixed(1)}%`;
+        } else {
+          passed = true; // Default pass for other signals
+          reason = 'Non-directional signal';
+        }
+        
+        console.log(`🐋 [WhaleFilter] ${result.symbol} ${result.label} (historical) - ${reason} - ${passed ? 'PASS' : 'FAIL'}`);
+        
+        return passed;
+      }
+      
+      // Fallback to live data (real-time mode)
+      console.log(`🐋 [WhaleFilter] ${result.symbol} using live data`);
+      
+      // Get CVD analysis for the symbol
+      const okxSymbol = `${result.symbol}-USDT-SWAP`;
+      const candles = await okxService.getCandles(okxSymbol, '15m', 100);
+      const trades = await okxService.getRecentTrades(okxSymbol);
+      
+      const cvdAnalysis = await sharedCVDService.analyzeCVD(candles, trades, '15m');
+      
+      const currentCVD = parseFloat(cvdAnalysis.currentCVD || '0');
+      const buyerAggression = cvdAnalysis.buyerSellerAggression.buyerAggression.percentage;
+      const sellerAggression = cvdAnalysis.buyerSellerAggression.sellerAggression.percentage;
+      
+      let passed = false;
+      let reason = '';
+      
+      if (result.label === 'BUY') {
+        // BUY confirmed only if: CVD positive AND buyer aggression > 55%
+        const cvdPositive = currentCVD > 0;
+        const strongBuyers = buyerAggression > 55;
+        passed = cvdPositive && strongBuyers;
+        reason = `Live CVD: ${currentCVD > 0 ? '✅' : '❌'} ${currentCVD.toFixed(4)}, Buyer Aggr: ${strongBuyers ? '✅' : '❌'} ${buyerAggression.toFixed(1)}%`;
+      } else if (result.label === 'SELL') {
+        // SELL confirmed only if: CVD negative AND seller aggression > 55%
+        const cvdNegative = currentCVD < 0;
+        const strongSellers = sellerAggression > 55;
+        passed = cvdNegative && strongSellers;
+        reason = `Live CVD: ${currentCVD < 0 ? '✅' : '❌'} ${currentCVD.toFixed(4)}, Seller Aggr: ${strongSellers ? '✅' : '❌'} ${sellerAggression.toFixed(1)}%`;
+      } else {
+        passed = true; // Default pass for other signals
+        reason = 'Non-directional signal';
+      }
+      
+      console.log(`🐋 [WhaleFilter] ${result.symbol} ${result.label} (live) - ${reason} - ${passed ? 'PASS' : 'FAIL'}`);
+      
+      return passed;
+      
+    } catch (error) {
+      console.warn(`⚠️ [WhaleFilter] Whale validation failed for ${result.symbol}:`, error);
+      return false; // Strict: fail if we can't verify whale data
+    }
+  }
+
   // Technical Indicators endpoint - RSI/EMA Professional Analysis (with enhanced validation)
   app.get('/api/sol/technical', async (req: Request, res: Response) => {
     const startTime = Date.now();
