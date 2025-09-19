@@ -2425,6 +2425,171 @@ export class CoinAPIService {
   }
 
   /**
+   * Get comprehensive market sentiment data for Fear & Greed Index calculation
+   */
+  async getMarketSentimentData(assetId: string = 'BTC'): Promise<{
+    asset_data: {
+      symbol: string;
+      price_usd: number;
+      volume_24h_usd: number;
+      price_change_24h_percentage: number;
+      volatility_24h: number;
+    };
+    market_overview: {
+      total_market_cap_usd: number;
+      total_volume_24h_usd: number;
+      bitcoin_dominance_percentage: number;
+      market_cap_change_24h_percentage: number;
+      volume_change_24h_percentage: number;
+    };
+    volume_context: {
+      volume_vs_avg_7d: number;
+      volume_momentum: number;
+      is_above_average: boolean;
+    };
+    data_quality: DataQuality;
+    timestamp: string;
+  }> {
+    const cacheKey = this.getCacheKey('sentiment_data', { assetId });
+    
+    return cache.getSingleFlight(cacheKey, async () => {
+      const timestamp = new Date().toISOString();
+      const errors: string[] = [];
+      
+      try {
+        // Get parallel data sources
+        const [marketOverview, assetData, historicalData] = await Promise.allSettled([
+          this.getMarketOverview(),
+          this.getAsset(assetId),
+          this.getHistoricalData(`BINANCE_SPOT_${assetId}_USDT`, '1DAY', 
+            new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+            new Date().toISOString()
+          )
+        ]);
+        
+        // Extract market overview data
+        let overview;
+        if (marketOverview.status === 'fulfilled') {
+          overview = marketOverview.value;
+        } else {
+          errors.push(`Market overview failed: ${marketOverview.reason}`);
+          // Fallback values
+          overview = {
+            total_market_cap_usd: 2500000000000, // ~$2.5T fallback
+            total_volume_24h_usd: 100000000000, // ~$100B fallback
+            bitcoin_dominance_percentage: 50,
+            market_cap_change_24h_percentage: 0,
+            volume_change_24h_percentage: 0
+          };
+        }
+        
+        // Extract asset data
+        let asset;
+        if (assetData.status === 'fulfilled') {
+          asset = assetData.value;
+        } else {
+          errors.push(`Asset data failed: ${assetData.reason}`);
+          throw new Error(`Failed to get asset data for ${assetId}`);
+        }
+        
+        // Calculate volatility from historical data
+        let volatility24h = 0;
+        let volumeContext = {
+          volume_vs_avg_7d: 1,
+          volume_momentum: 0,
+          is_above_average: false
+        };
+        
+        if (historicalData.status === 'fulfilled' && historicalData.value.data.length > 0) {
+          const candles = historicalData.value.data;
+          
+          // Calculate 24h volatility (standard deviation of price changes)
+          if (candles.length >= 2) {
+            const priceChanges = candles.slice(1).map((candle, i) => 
+              ((candle.price_close - candles[i].price_close) / candles[i].price_close) * 100
+            );
+            
+            const mean = priceChanges.reduce((a, b) => a + b, 0) / priceChanges.length;
+            const variance = priceChanges.reduce((sum, change) => 
+              sum + Math.pow(change - mean, 2), 0) / priceChanges.length;
+            volatility24h = Math.sqrt(variance);
+          }
+          
+          // Calculate volume context (7-day average comparison)
+          if (candles.length >= 7) {
+            const volumes = candles.map(c => c.volume_traded);
+            const avg7d = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+            const currentVolume = asset.volume_1day_usd || 0;
+            
+            volumeContext = {
+              volume_vs_avg_7d: currentVolume / avg7d,
+              volume_momentum: ((currentVolume - avg7d) / avg7d) * 100,
+              is_above_average: currentVolume > avg7d
+            };
+          }
+        } else {
+          errors.push(`Historical data failed: ${historicalData.status === 'rejected' ? historicalData.reason : 'No data'}`);
+        }
+        
+        // Calculate price change (fallback to market overview if asset data insufficient)
+        const priceChange24h = overview.market_cap_change_24h_percentage || 0;
+        
+        const result = {
+          asset_data: {
+            symbol: assetId,
+            price_usd: asset.price_usd || 0,
+            volume_24h_usd: asset.volume_1day_usd || 0,
+            price_change_24h_percentage: priceChange24h,
+            volatility_24h: volatility24h
+          },
+          market_overview: overview,
+          volume_context: volumeContext,
+          data_quality: {
+            is_valid: errors.length === 0,
+            quality: errors.length === 0 ? 'good' as const : 
+                    errors.length <= 1 ? 'unknown' as const : 'bad' as const,
+            validation_errors: errors,
+            timestamp
+          },
+          timestamp
+        };
+        
+        // Store in last-good cache if quality is good
+        if (result.data_quality.quality === 'good') {
+          this.lastGoodCache.set(`sentiment_${assetId}`, {
+            data: result,
+            quality: result.data_quality,
+            timestamp,
+            source: 'api'
+          });
+        }
+        
+        return result;
+        
+      } catch (error) {
+        console.error(`[MarketSentiment] Error fetching sentiment data for ${assetId}:`, error);
+        
+        // Try to return last-good cached data
+        const cachedData = this.lastGoodCache.get(`sentiment_${assetId}`);
+        if (cachedData && (Date.now() - new Date(cachedData.timestamp).getTime()) < this.lastGoodCacheTTL) {
+          console.warn(`[MarketSentiment] Using last-good cache for ${assetId}`);
+          return {
+            ...cachedData.data,
+            data_quality: {
+              is_valid: false,
+              quality: 'bad' as const,
+              validation_errors: [`Using cached data due to API failure: ${error instanceof Error ? error.message : 'Unknown error'}`],
+              timestamp
+            }
+          };
+        }
+        
+        throw error;
+      }
+    }, TTL_CONFIG.TICKER);
+  }
+
+  /**
    * Simple health check for external monitoring
    */
   async simpleHealthCheck(): Promise<{ status: 'up' | 'down'; latency_ms: number }> {
