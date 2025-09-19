@@ -104,14 +104,7 @@ def get_whale_positions(
 
 @router.get("/etf/bitcoin", response_model=List[ETFData])
 def get_bitcoin_etfs():
-    """Get Bitcoin ETF list and status information (Pro+ feature)"""
-    # Feature gate: ETF endpoints require Pro+ tier
-    from app.core.settings import settings
-    if not hasattr(settings, 'CG_TIER') or settings.CG_TIER not in ['pro', 'enterprise']:
-        raise HTTPException(
-            status_code=402, 
-            detail={"code": "feature_locked", "message": "ETF endpoints require Pro+ subscription"}
-        )
+    """Get Bitcoin ETF list and status information with real data"""
     
     try:
         client = CoinglassClient()
@@ -157,45 +150,9 @@ def get_bitcoin_etfs():
         
     except Exception as e:
         logger.error(f"Failed to fetch real ETF data from CoinGlass API: {e}")
-        # Return fallback data only if real API fails
-        fallback_etf_data = [
-            ETFData(
-                ticker="IBIT",
-                name="iShares Bitcoin Trust",
-                aum=15420.5,
-                nav=42500.0,
-                price=42.50,
-                flows_1d=125.5,
-                flows_7d=892.3,
-                flows_30d=3245.7,
-                timestamp="2024-01-15T09:00:00Z"
-            ),
-            ETFData(
-                ticker="FBTC",
-                name="Fidelity Wise Origin Bitcoin Fund",
-                aum=8750.2,
-                nav=42485.0,
-                price=84.97,
-                flows_1d=89.2,
-                flows_7d=654.1,
-                flows_30d=2156.8,
-                timestamp="2024-01-15T09:00:00Z"
-            ),
-            ETFData(
-                ticker="GBTC",
-                name="Grayscale Bitcoin Trust",
-                aum=12340.8,
-                nav=42510.0,
-                price=21.25,
-                flows_1d=-45.3,
-                flows_7d=-234.5,
-                flows_30d=-876.2,
-                timestamp="2024-01-15T09:00:00Z"
-            )
-        ]
-        
-        logger.info(f"⚠️ Using fallback ETF data due to API error: {e}")
-        return fallback_etf_data
+        # CRITICAL: Never return mock data to GPT - return empty array instead
+        logger.info(f"🚫 ETF API unavailable - returning empty array to prevent mock data for GPT analysis")
+        return []
 
 @router.get("/etf/flows", response_model=List[ETFFlowHistory])
 def get_etf_flows_history(
@@ -203,20 +160,45 @@ def get_etf_flows_history(
     window: str = Query("1d", description="Time window"),
     days: int = Query(30, ge=1, le=365, description="Number of days of ETF flow history")
 ):
-    """Get historical Bitcoin/ETH ETF flow data (Pro+ feature)"""
-    # Always return fallback data instead of 402 error to prevent system failures
-    fallback_data = [
-        ETFFlowHistory(
-            date="2024-01-15",
-            ticker="IBIT",
-            net_flow=125.5 if asset.upper() == "BTC" else 89.2,
-            closing_price=42500.0 if asset.upper() == "BTC" else 2650.0,
-            shares_outstanding=1000000
-        )
-    ]
-    
-    logger.info(f"✅ ETF flows endpoint called for {asset} - returning fallback data")
-    return fallback_data
+    """Get historical Bitcoin/ETH ETF flow data with real data integration"""
+    try:
+        # Use real CoinGlass ETF flows data
+        client = CoinglassClient()
+        raw_data = client.etf_flows_history(days)
+        
+        # Validate and transform response from real API
+        etf_flows = []
+        if raw_data and 'data' in raw_data:
+            for record in raw_data['data']:
+                try:
+                    # Filter by asset if specified
+                    if asset.upper() == "BTC" and not record.get('ticker', '').startswith(('IBIT', 'FBTC', 'GBTC', 'ARKB')):
+                        continue
+                    elif asset.upper() == "ETH" and not record.get('ticker', '').startswith(('ETHE', 'ETH')):
+                        continue
+                    
+                    # Map real CoinGlass ETF flows fields to our ETFFlowHistory model
+                    etf_flow = ETFFlowHistory(
+                        date=record.get('date', datetime.now().strftime("%Y-%m-%d")),
+                        ticker=record.get('ticker', ''),
+                        net_flow=float(record.get('net_inflow', record.get('net_flow', 0))),
+                        closing_price=float(record.get('closing_price', record.get('price', 0))),
+                        shares_outstanding=int(record.get('shares_outstanding', record.get('shares', 0)))
+                    )
+                    etf_flows.append(etf_flow)
+                    logger.debug(f"✅ Processed ETF flow: {record.get('ticker', 'Unknown')} - {record.get('date', 'No date')}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Skipped invalid ETF flow record ({record.get('ticker', 'Unknown')}): {e}")
+                    continue
+        
+        logger.info(f"✅ ETF flows endpoint called for {asset} - returning {len(etf_flows)} real flow records from CoinGlass API")
+        return etf_flows
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch real ETF flows data from CoinGlass API: {e}")
+        # CRITICAL: Never return mock data to GPT - return empty array instead
+        logger.info(f"🚫 ETF flows API unavailable for {asset} - returning empty array to prevent mock data for GPT analysis")
+        return []
 
 @router.get("/market/sentiment", response_model=List[MarketSentiment])
 def get_market_sentiment():
