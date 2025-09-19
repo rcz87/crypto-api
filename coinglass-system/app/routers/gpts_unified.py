@@ -192,11 +192,11 @@ OPERATION_CONFIG = {
         "path_params": []
     },
     "spot_orderbook": {
-        "endpoint": "/api/futures/orderbook/ask-bids-history",
+        "endpoint": "/spot/orderbook/{symbol}",
         "method": "GET",
         "defaults": {"symbol": "BTC", "exchange": "binance"},
-        "query_params": ["exchange", "symbol"],
-        "path_params": []
+        "query_params": ["exchange"],
+        "path_params": ["symbol"]
     },
     "options_oi": {
         "endpoint": "/options/oi/{symbol}",
