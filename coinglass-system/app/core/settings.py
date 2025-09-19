@@ -6,6 +6,7 @@ import os
 class Settings(BaseSettings):
     # API Configuration
     CG_API_KEY: str
+    COINAPI_KEY: str = ""  # CoinAPI key for real-time price data
     DB_URL: str = os.getenv("DATABASE_URL", "sqlite:///./coinglass.db")  # Use Replit PostgreSQL
     REDIS_URL: str = "redis://localhost:6379"  # Will be replaced with ReplDB
     TELEGRAM_BOT_TOKEN: str = ""  # Optional

@@ -1,12 +1,15 @@
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
-from typing import List, Optional
-from datetime import datetime, timezone
+from typing import List, Optional, Dict
+from datetime import datetime, timezone, timedelta
 import time
+import asyncio
+import httpx
 from app.core.coinglass_client import CoinglassClient
 from app.core.sniper_engine import SniperTimingEngine
 from app.core.http import HttpError, RateLimitExceeded
 from app.core.logging import logger
+from app.core.settings import settings
 from app.models.schemas import (
     WhaleAlert, WhalePosition, ETFData, ETFFlowHistory, 
     MarketSentiment, LiquidationHeatmapData, SpotOrderbook, 
@@ -15,40 +18,132 @@ from app.models.schemas import (
 
 router = APIRouter(tags=["advanced"])
 
-# Helper functions for whale alerts data quality improvements
+# Real-Time Price Service Implementation
 
-def calculate_notional_value(symbol: str, position_size: float) -> float:
-    """Calculate real notional value from position size and current price"""
+class RealTimePriceService:
+    """Real-time price service dengan caching and circuit breaker"""
+    
+    def __init__(self):
+        self.price_cache: Dict[str, Dict] = {}
+        self.cache_ttl = 60  # 1 minute cache
+        self.circuit_breaker: Dict[str, Dict] = {}
+        
+    async def get_live_price(self, symbol: str) -> Optional[float]:
+        """Get live price dengan multiple fallbacks"""
+        
+        # Check cache first
+        if self._is_cached_valid(symbol):
+            cached_price = self.price_cache[symbol]['price']
+            logger.debug(f"🔄 Using cached price for {symbol}: ${cached_price:,.2f}")
+            return cached_price
+            
+        # Try multiple real price sources
+        price = await self._fetch_from_coinglass(symbol)
+        if not price:
+            price = await self._fetch_from_coinapi(symbol)
+        if not price:
+            price = await self._fetch_from_okx(symbol)
+            
+        # Cache successful result
+        if price:
+            self.price_cache[symbol] = {
+                'price': price,
+                'timestamp': datetime.now(),
+                'source': 'live_api'
+            }
+            logger.info(f"📈 Live price cached for {symbol}: ${price:,.2f}")
+            return price
+            
+        logger.warning(f"⚠️ No price source available for {symbol}")
+        return None
+        
+    async def _fetch_from_coinglass(self, symbol: str) -> Optional[float]:
+        """Fetch dari CoinGlass market sentiment endpoint"""
+        try:
+            client = CoinglassClient()
+            market_data = client.market_sentiment()
+            
+            if market_data and 'data' in market_data:
+                for record in market_data['data']:
+                    if record.get('symbol', '').upper() == symbol.upper():
+                        price = float(record.get('price', 0))
+                        if price > 0:
+                            logger.debug(f"✅ CoinGlass price for {symbol}: ${price:,.2f}")
+                            return price
+        except Exception as e:
+            logger.error(f"❌ CoinGlass price fetch failed for {symbol}: {e}")
+        return None
+        
+    async def _fetch_from_coinapi(self, symbol: str) -> Optional[float]:
+        """Fetch dari CoinAPI"""
+        try:
+            if not settings.COINAPI_KEY:
+                logger.debug(f"🔑 CoinAPI key not configured, skipping {symbol}")
+                return None
+                
+            url = f"https://rest.coinapi.io/v1/exchangerate/{symbol}/USD"
+            headers = {"X-CoinAPI-Key": settings.COINAPI_KEY}
+            
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(url, headers=headers)
+                if response.status_code == 200:
+                    data = response.json()
+                    price = float(data.get('rate', 0))
+                    if price > 0:
+                        logger.debug(f"✅ CoinAPI price for {symbol}: ${price:,.2f}")
+                        return price
+        except Exception as e:
+            logger.error(f"❌ CoinAPI price fetch failed for {symbol}: {e}")
+        return None
+        
+    async def _fetch_from_okx(self, symbol: str) -> Optional[float]:
+        """Fetch dari OKX API (free endpoint)"""
+        try:
+            # Use OKX public API for price data
+            url = f"https://www.okx.com/api/v5/market/ticker?instId={symbol}-USDT"
+            
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(url)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('data') and len(data['data']) > 0:
+                        price = float(data['data'][0].get('last', 0))
+                        if price > 0:
+                            logger.debug(f"✅ OKX price for {symbol}: ${price:,.2f}")
+                            return price
+        except Exception as e:
+            logger.error(f"❌ OKX price fetch failed for {symbol}: {e}")
+        return None
+        
+    def _is_cached_valid(self, symbol: str) -> bool:
+        """Check if cached price is still valid"""
+        if symbol not in self.price_cache:
+            return False
+            
+        cache_time = self.price_cache[symbol]['timestamp']
+        return datetime.now() - cache_time < timedelta(seconds=self.cache_ttl)
+
+# Global price service instance
+price_service = RealTimePriceService()
+
+# Real-time price calculation function
+async def calculate_notional_value_realtime(symbol: str, position_size: float) -> float:
+    """Calculate real notional value using live market prices"""
     try:
-        # Static approximate prices for major symbols (no API calls to avoid timeout)
-        SYMBOL_PRICES = {
-            'BTC': 65000.0,
-            'ETH': 3400.0,
-            'SOL': 140.0,
-            'AVAX': 35.0,
-            'DOGE': 0.38,
-            'ADA': 0.45,
-            'DOT': 7.5,
-            'MATIC': 0.85,
-            'LINK': 22.0,
-            'UNI': 8.5,
-            'NEAR': 6.5,
-            'ATOM': 12.0,
-            'LTC': 95.0,
-            'BCH': 420.0,
-            'XRP': 0.58
-        }
+        # Get live price from real-time service
+        live_price = await price_service.get_live_price(symbol)
         
-        symbol_upper = symbol.upper()
-        if symbol_upper in SYMBOL_PRICES and position_size != 0:
-            price = SYMBOL_PRICES[symbol_upper]
-            notional = abs(position_size) * price
-            logger.info(f"💰 Calculated notional: {abs(position_size)} {symbol} × ${price} = ${notional:,.2f}")
+        if live_price and position_size:
+            notional = abs(position_size) * live_price
+            logger.info(f"💰 Real-time calculation: {symbol} {position_size} * ${live_price:,.2f} = ${notional:,.2f}")
             return notional
-        
+            
+        # Fallback: Use record's notional_value if API provided
+        logger.warning(f"⚠️ Live price unavailable for {symbol}, using fallback")
         return 0.0
+        
     except Exception as e:
-        logger.error(f"Failed to calculate notional value: {e}")
+        logger.error(f"❌ Real-time notional calculation failed for {symbol}: {e}")
         return 0.0
 
 
@@ -62,28 +157,29 @@ def determine_side_from_position(position_size: float) -> str:
         return 'neutral'
 
 @router.get("/whale/alerts", response_model=List[WhaleAlert])
-def get_whale_alerts(
+async def get_whale_alerts(
     exchange: str = Query("hyperliquid", description="Exchange to filter whale alerts")
 ):
-    """Get whale alerts for large positions >$1M"""
+    """Get whale alerts dengan real-time notional value calculation"""
     try:
         client = CoinglassClient()
         raw_data = client.whale_alerts(exchange)
         
-        # Validate and transform response using Pydantic
         whale_alerts = []
         if raw_data and 'data' in raw_data:
             for record in raw_data['data']:
                 try:
-                    # Calculate real notional value
+                    # Calculate real-time notional value
                     symbol = record.get('symbol', '')
                     position_size = float(record.get('position_size', 0))
                     
-                    # Calculate real notional value from position size and current price
-                    notional_value = calculate_notional_value(symbol, position_size)
-                    if notional_value == 0.0 and record.get('notional_value'):
-                        # Fallback to provided notional_value if calculation fails
-                        notional_value = float(record.get('notional_value', 0))
+                    # CRITICAL: Use real-time prices, not static
+                    real_notional_value = await calculate_notional_value_realtime(symbol, position_size)
+                    
+                    # Fallback to API provided notional_value if real-time calculation fails
+                    if real_notional_value == 0.0 and record.get('notional_value'):
+                        real_notional_value = float(record.get('notional_value', 0))
+                        logger.info(f"📊 Using API notional value for {symbol}: ${real_notional_value:,.2f}")
                     
                     # Determine side from position size if not provided or unknown
                     side = record.get('side', 'unknown')
@@ -93,21 +189,21 @@ def get_whale_alerts(
                     # Generate real timestamp if not provided
                     timestamp = record.get('timestamp')
                     if not timestamp:
-                        # Use current UTC time with proper format
                         timestamp = datetime.now(timezone.utc).isoformat()
                     
-                    logger.info(f"🐋 Whale Alert: {symbol} {side} {position_size} = ${notional_value:,.2f} at {timestamp}")
+                    logger.info(f"🐋 Whale Alert: {symbol} {side} {position_size} = ${real_notional_value:,.2f} at {timestamp}")
                     
                     alert = WhaleAlert(
                         exchange=record.get('exchange', exchange),
                         symbol=symbol,
                         side=side,
                         position_size=position_size,
-                        notional_value=notional_value,
+                        notional_value=real_notional_value,  # ← REAL-TIME CALCULATED
                         timestamp=timestamp,
                         meta=record.get('meta', {})
                     )
                     whale_alerts.append(alert)
+                    
                 except Exception as e:
                     logger.warning(f"Skipped invalid whale alert: {e}")
                     continue
@@ -126,10 +222,10 @@ def get_whale_alerts(
             detail={"message": e.message, "error_data": e.response_data}
         )
     except Exception as e:
-        logger.error(f"Unexpected error in whale alerts: {e}")
+        logger.error(f"Whale alerts endpoint error: {e}")
         raise HTTPException(
             status_code=500,
-            detail={"message": "Internal server error", "error": str(e)}
+            detail={"message": "Whale alerts service error"}
         )
 
 @router.get("/whale/positions", response_model=List[WhalePosition])
@@ -1143,3 +1239,51 @@ def get_multi_coin_institutional_bias(symbols: str = "BTC,ETH,SOL,ADA,AVAX"):
             "message": "Multi-coin institutional bias analysis failed",
             "error": str(e)
         })
+
+# Price Service Health Monitoring Endpoint
+@router.get("/system/price-service-health")
+async def check_price_service_health():
+    """Health check untuk real-time price service"""
+    try:
+        # Test major symbols
+        test_symbols = ["BTC", "ETH", "SOL"]
+        results = {}
+        
+        for symbol in test_symbols:
+            price = await price_service.get_live_price(symbol)
+            results[symbol] = {
+                "price": price,
+                "status": "healthy" if price else "unavailable",
+                "cached": price_service._is_cached_valid(symbol),
+                "cache_age_seconds": (
+                    (datetime.now() - price_service.price_cache[symbol]['timestamp']).total_seconds()
+                    if symbol in price_service.price_cache else None
+                )
+            }
+            
+        # Overall service health assessment
+        healthy_sources = len([r for r in results.values() if r["status"] == "healthy"])
+        service_status = (
+            "operational" if healthy_sources >= 2 else
+            "degraded" if healthy_sources >= 1 else
+            "unavailable"
+        )
+            
+        return {
+            "service_status": service_status,
+            "price_sources": results,
+            "cache_stats": {
+                "total_cached_symbols": len(price_service.price_cache),
+                "cache_ttl_seconds": price_service.cache_ttl
+            },
+            "timestamp": datetime.now().isoformat(),
+            "healthy_sources_count": healthy_sources,
+            "fallback_chain": ["CoinGlass", "CoinAPI", "OKX"]
+        }
+    except Exception as e:
+        logger.error(f"Price service health check failed: {e}")
+        return {
+            "service_status": "error", 
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
