@@ -185,11 +185,11 @@ OPERATION_CONFIG = {
         "path_params": ["symbol"]
     },
     "liquidation_heatmap": {
-        "endpoint": "/api/futures/liquidation/coin-history",
+        "endpoint": "/liquidation/coin-history/{symbol}",
         "method": "GET", 
-        "defaults": {"exchange": "Binance", "symbol": "BTCUSDT", "range": "3d"},
-        "query_params": ["exchange", "symbol", "range"],
-        "path_params": []
+        "defaults": {"symbol": "BTC", "interval": "1h"},
+        "query_params": ["interval"],
+        "path_params": ["symbol"]
     },
     "spot_orderbook": {
         "endpoint": "/spot/orderbook/{symbol}",
