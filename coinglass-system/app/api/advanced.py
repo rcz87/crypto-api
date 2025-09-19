@@ -199,7 +199,7 @@ async def get_whale_alerts(
                         side=side,
                         position_size=position_size,
                         notional_value=real_notional_value,  # ← REAL-TIME CALCULATED
-                        timestamp=timestamp,
+                        timestamp=datetime.now(timezone.utc) if not timestamp else (datetime.fromisoformat(timestamp.replace('Z', '+00:00')) if isinstance(timestamp, str) else timestamp),
                         meta=record.get('meta', {})
                     )
                     whale_alerts.append(alert)
@@ -525,7 +525,7 @@ def get_market_sentiment():
                         volume_24h=volume_24h,
                         market_cap=market_cap_usd,
                         dominance=dominance,
-                        timestamp=timestamp
+                        timestamp=current_time if not timestamp else (datetime.fromisoformat(timestamp.replace('Z', '+00:00')) if isinstance(timestamp, str) else timestamp)
                     )
                     sentiment_data.append(sentiment)
                 except Exception as e:
@@ -842,7 +842,7 @@ async def get_spot_orderbook_test(
         exchange=exchange,
         bids=[[100.50, 1.5], [100.49, 2.0]],
         asks=[[100.51, 1.2], [100.52, 1.8]],
-        timestamp=1726651200000
+        timestamp=datetime.now(timezone.utc)
     )
 
 @router.get("/options/oi/{symbol}", response_model=List[OptionsData])
