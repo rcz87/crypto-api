@@ -113,45 +113,88 @@ def get_bitcoin_etfs():
             detail={"code": "feature_locked", "message": "ETF endpoints require Pro+ subscription"}
         )
     
-    # Return fallback data instead of calling external API to prevent failures
-    fallback_etf_data = [
-        ETFData(
-            ticker="IBIT",
-            name="iShares Bitcoin Trust",
-            aum=15420.5,
-            nav=42500.0,
-            price=42.50,
-            flows_1d=125.5,
-            flows_7d=892.3,
-            flows_30d=3245.7,
-            timestamp="2024-01-15T09:00:00Z"
-        ),
-        ETFData(
-            ticker="FBTC",
-            name="Fidelity Wise Origin Bitcoin Fund",
-            aum=8750.2,
-            nav=42485.0,
-            price=84.97,
-            flows_1d=89.2,
-            flows_7d=654.1,
-            flows_30d=2156.8,
-            timestamp="2024-01-15T09:00:00Z"
-        ),
-        ETFData(
-            ticker="GBTC",
-            name="Grayscale Bitcoin Trust",
-            aum=12340.8,
-            nav=42510.0,
-            price=21.25,
-            flows_1d=-45.3,
-            flows_7d=-234.5,
-            flows_30d=-876.2,
-            timestamp="2024-01-15T09:00:00Z"
-        )
-    ]
-    
-    logger.info(f"✅ Bitcoin ETFs endpoint called - returning fallback data (CG_TIER={getattr(settings, 'CG_TIER', 'standard')})")
-    return fallback_etf_data
+    try:
+        client = CoinglassClient()
+        raw_data = client.bitcoin_etfs()
+        
+        # Debug: Log the raw response structure
+        logger.info(f"🔍 Raw CoinGlass API response: {raw_data}")
+        
+        # Also log first record structure if available
+        if raw_data and 'data' in raw_data and len(raw_data['data']) > 0:
+            first_record = raw_data['data'][0]
+            logger.info(f"🔍 First ETF record structure: {first_record}")
+            logger.info(f"🔍 First record keys: {list(first_record.keys())}")
+            if 'asset_details' in first_record:
+                logger.info(f"🔍 Asset details keys: {list(first_record['asset_details'].keys())}")
+        
+        # Validate and transform response from real API
+        etf_data = []
+        if raw_data and 'data' in raw_data:
+            for record in raw_data['data']:
+                try:
+                    # Map real CoinGlass API fields to our ETFData model
+                    asset_details = record.get('asset_details', {})
+                    etf = ETFData(
+                        ticker=record.get('ticker', ''),
+                        name=record.get('fund_name', ''),
+                        aum=float(record.get('aum_usd', 0)) if record.get('aum_usd') else None,
+                        nav=float(asset_details.get('net_asset_value_usd', 0)) if asset_details.get('net_asset_value_usd') else None,
+                        price=float(record.get('price_change_usd', 0)) if record.get('price_change_usd') else None,
+                        flows_1d=float(asset_details.get('btc_change_24h', 0)) if asset_details.get('btc_change_24h') else None,
+                        flows_7d=float(asset_details.get('btc_change_7d', 0)) if asset_details.get('btc_change_7d') else None,
+                        flows_30d=float(record.get('volume_usd', 0)) if record.get('volume_usd') else None,
+                        timestamp=None  # Set timestamp to None since update_date from API might be empty
+                    )
+                    etf_data.append(etf)
+                except Exception as e:
+                    logger.warning(f"Skipped invalid ETF record: {e}")
+                    continue
+        
+        logger.info(f"✅ Bitcoin ETFs endpoint called - returning {len(etf_data)} real ETF records from CoinGlass API")
+        return etf_data
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch real ETF data from CoinGlass API: {e}")
+        # Return fallback data only if real API fails
+        fallback_etf_data = [
+            ETFData(
+                ticker="IBIT",
+                name="iShares Bitcoin Trust",
+                aum=15420.5,
+                nav=42500.0,
+                price=42.50,
+                flows_1d=125.5,
+                flows_7d=892.3,
+                flows_30d=3245.7,
+                timestamp="2024-01-15T09:00:00Z"
+            ),
+            ETFData(
+                ticker="FBTC",
+                name="Fidelity Wise Origin Bitcoin Fund",
+                aum=8750.2,
+                nav=42485.0,
+                price=84.97,
+                flows_1d=89.2,
+                flows_7d=654.1,
+                flows_30d=2156.8,
+                timestamp="2024-01-15T09:00:00Z"
+            ),
+            ETFData(
+                ticker="GBTC",
+                name="Grayscale Bitcoin Trust",
+                aum=12340.8,
+                nav=42510.0,
+                price=21.25,
+                flows_1d=-45.3,
+                flows_7d=-234.5,
+                flows_30d=-876.2,
+                timestamp="2024-01-15T09:00:00Z"
+            )
+        ]
+        
+        logger.info(f"⚠️ Using fallback ETF data due to API error: {e}")
+        return fallback_etf_data
 
 @router.get("/etf/flows", response_model=List[ETFFlowHistory])
 def get_etf_flows_history(

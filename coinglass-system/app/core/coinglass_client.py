@@ -260,8 +260,9 @@ class CoinglassClient:
 
     # === ETF FLOW ENDPOINTS ===
     def bitcoin_etfs(self):
-        """Get Bitcoin ETF list and status information"""
-        url = f"{self.base_url}/api/etf/bitcoin-etfs"
+        """Get Bitcoin ETF list and status information from real CoinGlass API"""
+        # Use real CoinGlass API v4 endpoint with correct URL
+        url = f"{self.base_url}/api/etf/bitcoin/list"
         response = self.http.get(url)
         return response.json()
 
