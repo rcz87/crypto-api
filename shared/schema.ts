@@ -1700,3 +1700,221 @@ export type FeedbackData = z.infer<typeof feedbackSchema>;
 export type PatternLearningData = z.infer<typeof patternLearningSchema>;
 export type WeeklyFeedbackReport = z.infer<typeof weeklyFeedbackReportSchema>;
 
+// ================================
+// UNIFIED SENTIMENT DASHBOARD TYPES
+// ================================
+
+export interface Driver {
+  factor: string;
+  impact: number; // -100 to 100
+  description: string;
+  weight: number; // 0-100 (percentage weight in final score)
+}
+
+export interface Alert {
+  type: 'warning' | 'info' | 'critical';
+  message: string;
+  severity: 'low' | 'medium' | 'high';
+  timestamp: string;
+  source: string;
+}
+
+// Individual data source interfaces
+export interface FearGreedData {
+  score: number; // 0-100 (0=Extreme Fear, 100=Extreme Greed)
+  label: string; // "extreme_fear" | "fear" | "neutral" | "greed" | "extreme_greed"
+  change_24h: number;
+  historical_average: number;
+  components: {
+    market_momentum: number;
+    volume_pressure: number;
+    market_volatility: number;
+    dominance_shifts: number;
+  };
+}
+
+export interface FOMOData {
+  score: number; // 0-100 (100=Extreme FOMO)
+  label: string; // "no_fomo" | "mild_fomo" | "moderate_fomo" | "extreme_fomo"
+  retail_indicators: {
+    volume_spike_24h: number;
+    volume_vs_avg_7d: number;
+    price_velocity: number;
+    market_behavior_score: number;
+    sudden_inflow_detected: boolean;
+  };
+  drivers: Array<{
+    factor: string;
+    impact: number;
+    description: string;
+    severity: 'low' | 'medium' | 'high';
+  }>;
+}
+
+export interface ETFData {
+  net_flows_24h: number; // USD value
+  net_flows_7d: number;
+  dominant_trend: 'inflow' | 'outflow' | 'neutral';
+  institutional_sentiment: 'bullish' | 'bearish' | 'neutral';
+  flow_velocity: number; // rate of change
+  major_flows: Array<{
+    fund_name: string;
+    flow_amount: number;
+    flow_type: 'inflow' | 'outflow';
+  }>;
+}
+
+export interface WhaleData {
+  activity_score: number; // 0-100
+  large_transactions_24h: number;
+  net_whale_sentiment: 'accumulating' | 'distributing' | 'neutral';
+  whale_flow_usd: number;
+  significant_moves: Array<{
+    size_usd: number;
+    direction: 'buy' | 'sell';
+    exchange: string;
+    timestamp: string;
+  }>;
+}
+
+export interface FundingData {
+  current_rate: number;
+  normalized_score: number; // -100 to 100
+  trend: 'increasing' | 'decreasing' | 'stable';
+  extremes: {
+    is_extreme: boolean;
+    level: 'normal' | 'elevated' | 'extreme';
+  };
+  predictive_signals: {
+    squeeze_detected: boolean;
+    reversal_probability: number;
+  };
+}
+
+export interface LiquidationData {
+  liquidation_clusters: Array<{
+    price_level: number;
+    liquidation_amount_usd: number;
+    side: 'long' | 'short';
+  }>;
+  cascade_risk: 'low' | 'medium' | 'high';
+  nearest_cluster_distance: number; // % from current price
+}
+
+export interface LongShortRatioData {
+  current_ratio: number;
+  trend: 'increasing_longs' | 'increasing_shorts' | 'balanced';
+  extremes_detected: boolean;
+  contrarian_signal: boolean;
+}
+
+// Main unified sentiment response interface
+export interface UnifiedSentimentResponse {
+  ok: boolean;
+  symbol: string;
+  timestamp: string;
+  
+  // Core Metrics
+  fear_greed_index: number; // 0-100
+  fomo_score: number; // 0-100
+  confluence_score: number; // 0-100 (weighted combination)
+  
+  // Trading Intelligence
+  trading_signal: "strong_buy" | "buy" | "hold" | "sell" | "strong_sell";
+  risk_level: "low" | "medium" | "high";
+  market_phase: "accumulation" | "distribution" | "markup" | "markdown";
+  
+  // Detailed Breakdown
+  sentiment_breakdown: {
+    fear_greed: FearGreedData;
+    fomo_detection: FOMOData;
+    etf_flows: ETFData;
+    whale_activity: WhaleData;
+    funding_rates: FundingData;
+    liquidation_heatmap?: LiquidationData; // Optional, may not be available for all symbols
+    long_short_ratios?: LongShortRatioData; // Optional
+  };
+  
+  // Actionable Insights
+  key_drivers: Driver[];
+  recommendations: string[];
+  alerts: Alert[];
+  
+  // Data Quality and Metadata
+  data_quality: {
+    completeness_score: number; // 0-100 (percentage of data sources successfully fetched)
+    data_freshness: number; // seconds since oldest data point
+    sources_available: string[];
+    sources_failed: string[];
+    reliability_score: number; // 0-100 based on data consistency
+  };
+  
+  // Performance Metrics
+  processing_time_ms: number;
+  cache_hit: boolean;
+}
+
+// Zod schemas for validation
+export const driverSchema = z.object({
+  factor: z.string(),
+  impact: z.number().min(-100).max(100),
+  description: z.string(),
+  weight: z.number().min(0).max(100),
+});
+
+export const alertSchema = z.object({
+  type: z.enum(['warning', 'info', 'critical']),
+  message: z.string(),
+  severity: z.enum(['low', 'medium', 'high']),
+  timestamp: z.string(),
+  source: z.string(),
+});
+
+export const unifiedSentimentResponseSchema = z.object({
+  ok: z.boolean(),
+  symbol: z.string(),
+  timestamp: z.string(),
+  
+  // Core Metrics
+  fear_greed_index: z.number().min(0).max(100),
+  fomo_score: z.number().min(0).max(100),
+  confluence_score: z.number().min(0).max(100),
+  
+  // Trading Intelligence
+  trading_signal: z.enum(["strong_buy", "buy", "hold", "sell", "strong_sell"]),
+  risk_level: z.enum(["low", "medium", "high"]),
+  market_phase: z.enum(["accumulation", "distribution", "markup", "markdown"]),
+  
+  // Detailed Breakdown
+  sentiment_breakdown: z.object({
+    fear_greed: z.any(), // Complex nested object
+    fomo_detection: z.any(),
+    etf_flows: z.any(),
+    whale_activity: z.any(),
+    funding_rates: z.any(),
+    liquidation_heatmap: z.any().optional(),
+    long_short_ratios: z.any().optional(),
+  }),
+  
+  // Actionable Insights
+  key_drivers: z.array(driverSchema),
+  recommendations: z.array(z.string()),
+  alerts: z.array(alertSchema),
+  
+  // Data Quality and Metadata
+  data_quality: z.object({
+    completeness_score: z.number().min(0).max(100),
+    data_freshness: z.number().min(0),
+    sources_available: z.array(z.string()),
+    sources_failed: z.array(z.string()),
+    reliability_score: z.number().min(0).max(100),
+  }),
+  
+  // Performance Metrics
+  processing_time_ms: z.number().min(0),
+  cache_hit: z.boolean(),
+});
+
+// Type exports for unified sentiment
+export type UnifiedSentiment = z.infer<typeof unifiedSentimentResponseSchema>;
+

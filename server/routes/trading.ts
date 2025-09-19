@@ -29,6 +29,8 @@ import { validateAndFormatPair, getSupportedPairs } from '../utils/pairValidator
 import { calculateTimeToNextCandleClose, getTimeToCloseDescription } from '../utils/timeCalculator.js';
 import { addDeprecationWarning, wrapResponseWithDeprecation } from '../utils/deprecationNotice.js';
 import { EventEmitter } from 'events';
+import { unifiedSentimentService } from '../services/unifiedSentimentService.js';
+import { unifiedSentimentResponseSchema } from '../../shared/schema.js';
 
 // Increase EventEmitter maxListeners to prevent memory leak warnings
 EventEmitter.defaultMaxListeners = 15;
@@ -4779,6 +4781,119 @@ export function registerTradingRoutes(app: Express): void {
           symbol_requested: symbol || 'BTC'
         },
         timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  /**
+   * Unified Sentiment Dashboard - Multi-Source Sentiment Intelligence
+   * Aggregates Fear & Greed Index, FOMO, ETF flows, whale activity, funding rates
+   * Example: GET /api/sentiment/dashboard?symbol=BTC
+   */
+  app.get('/api/sentiment/dashboard', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { symbol } = req.query;
+      const targetSymbol = (symbol as string) || 'BTC';
+      
+      // Input validation
+      if (typeof targetSymbol !== 'string' || targetSymbol.length > 10) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Invalid symbol parameter',
+          details: 'Symbol must be a string with maximum 10 characters',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      const sanitizedSymbol = targetSymbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (!sanitizedSymbol) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Invalid symbol format',
+          details: 'Symbol must contain at least one alphanumeric character',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      console.log(`🎭 [UnifiedSentiment] Starting unified sentiment analysis for ${sanitizedSymbol}`);
+      
+      // Get unified sentiment analysis from service
+      const sentimentData = await unifiedSentimentService.getUnifiedSentiment(sanitizedSymbol);
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful analysis
+      await storage.addLog({
+        level: 'info',
+        message: 'Unified sentiment analysis completed successfully',
+        details: `GET /api/sentiment/dashboard - ${responseTime}ms - Symbol: ${sanitizedSymbol} - Confluence: ${sentimentData.confluence_score} - Signal: ${sentimentData.trading_signal} - Risk: ${sentimentData.risk_level} - Phase: ${sentimentData.market_phase} - Sources: ${sentimentData.data_quality.sources_available.length}/5`,
+      });
+
+      // Validate response against schema (optional, for development)
+      try {
+        unifiedSentimentResponseSchema.parse(sentimentData);
+      } catch (validationError) {
+        console.warn(`[UnifiedSentiment] Schema validation warning:`, validationError);
+        // Continue anyway - don't break the API for schema issues
+      }
+      
+      res.json(sentimentData);
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { symbol } = req.query;
+      console.error(`[UnifiedSentiment] ❌ Unified sentiment analysis failed for ${symbol}:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Unified sentiment analysis failed',
+        details: `GET /api/sentiment/dashboard - ${responseTime}ms - Symbol: ${symbol} - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      // Determine error type and status code
+      const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+      let statusCode = 500;
+      
+      if (errorMessage.includes('Invalid symbol') || errorMessage.includes('not supported')) {
+        statusCode = 400;
+      } else if (errorMessage.includes('timeout') || errorMessage.includes('unavailable')) {
+        statusCode = 503;
+      } else if (errorMessage.includes('rate limit')) {
+        statusCode = 429;
+      }
+      
+      res.status(statusCode).json({
+        ok: false,
+        symbol: (symbol as string)?.toUpperCase() || 'BTC',
+        timestamp: new Date().toISOString(),
+        error: 'Unified sentiment analysis failed',
+        details: errorMessage,
+        fallback_data: {
+          fear_greed_index: 50,
+          fomo_score: 0,
+          confluence_score: 50,
+          trading_signal: 'hold' as const,
+          risk_level: 'medium' as const,
+          market_phase: 'neutral' as const,
+          data_quality: {
+            completeness_score: 0,
+            data_freshness: responseTime,
+            sources_available: [],
+            sources_failed: ['all'],
+            reliability_score: 0
+          }
+        },
+        metadata: {
+          processing_time_ms: responseTime,
+          symbol_requested: symbol || 'BTC',
+          error_code: statusCode,
+          retry_after_seconds: statusCode === 429 ? 60 : statusCode === 503 ? 30 : undefined
+        }
       });
     }
   });
