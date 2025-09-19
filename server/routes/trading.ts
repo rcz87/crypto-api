@@ -4692,4 +4692,94 @@ export function registerTradingRoutes(app: Express): void {
       });
     }
   });
+
+  // ===== MARKET SENTIMENT AND FOMO DETECTION ENDPOINTS =====
+  
+  /**
+   * Market Sentiment Analysis with Retail FOMO Detection
+   * Enhanced Fear & Greed Index with volume spike analysis and social sentiment
+   * Example: GET /api/coinapi/market-sentiment?symbol=BTC
+   */
+  app.get('/api/coinapi/market-sentiment', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { symbol } = req.query;
+      const targetSymbol = (symbol as string) || 'BTC';
+      
+      // Validate symbol format
+      if (typeof targetSymbol !== 'string' || !/^[A-Z0-9]{2,10}$/.test(targetSymbol.toUpperCase())) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid symbol format',
+          details: 'Symbol must be 2-10 alphanumeric characters (e.g., BTC, ETH, SOL)',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      console.log(`🎭 [MarketSentiment] Getting Fear & Greed Index + FOMO analysis for ${targetSymbol.toUpperCase()}`);
+      
+      // Import and call market sentiment service
+      const { getMarketSentiment } = await import('../clients/marketSentiment.js');
+      const sentimentResult = await getMarketSentiment(targetSymbol.toUpperCase());
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Market sentiment analysis completed successfully',
+        details: `GET /api/coinapi/market-sentiment - ${responseTime}ms - Symbol: ${targetSymbol} - Fear&Greed: ${sentimentResult.label} (${sentimentResult.score}) - FOMO: ${sentimentResult.fomo_label} (${sentimentResult.fomo_score})`,
+      });
+      
+      res.json({
+        success: true,
+        data: sentimentResult,
+        metadata: {
+          engine: 'Enhanced Fear & Greed Index',
+          fomo_detection: 'Retail FOMO Algorithm v1.0',
+          data_sources: sentimentResult.used_sources,
+          response_time_ms: responseTime,
+          symbol_analyzed: targetSymbol.toUpperCase()
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { symbol } = req.query;
+      console.error(`Market sentiment error for ${symbol}:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Market sentiment analysis failed',
+        details: `GET /api/coinapi/market-sentiment - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      // Check if it's a specific error we can handle gracefully
+      const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+      let statusCode = 500;
+      
+      if (errorMessage.includes('MARKET_SENTIMENT_NOT_AVAILABLE')) {
+        statusCode = 503;
+      } else if (errorMessage.includes('Invalid symbol') || errorMessage.includes('not found')) {
+        statusCode = 404;
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: 'Market sentiment analysis failed',
+        details: errorMessage,
+        fallback_available: true,
+        metadata: {
+          response_time_ms: responseTime,
+          symbol_requested: symbol || 'BTC'
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
 }
