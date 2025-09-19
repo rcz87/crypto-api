@@ -27,6 +27,7 @@ import EnhancedMTFAnalysis from '@/components/EnhancedMTFAnalysis';
 import { EnhancedAISection } from '@/components/EnhancedAISection';
 import LiveTradingSignals from '@/components/LiveTradingSignals';
 import MultiCoinScreening from '@/components/MultiCoinScreening';
+import { ArbitrageOpportunities } from '@/components/ArbitrageOpportunities';
 
 interface DashboardContentProps {
   activeSection: string;
@@ -117,6 +118,25 @@ export const DashboardContent = ({
                   isLoading={isDataLoading}
                   isLiveStream={wsConnected && !!marketData}
                 />
+              </div>
+            </ErrorBoundary>
+            
+            {/* Arbitrage Opportunities */}
+            <ErrorBoundary>
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <ArbitrageOpportunities />
+              </div>
+            </ErrorBoundary>
+          </div>
+        );
+
+      case 'arbitrage':
+        return (
+          <div className={`space-y-4 md:space-y-6 ${isMobile ? 'px-2' : ''}`}>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 px-2 md:px-0">Arbitrage Opportunities</h2>
+            <ErrorBoundary>
+              <div className={isMobile ? 'px-2 -mx-2' : ''}>
+                <ArbitrageOpportunities />
               </div>
             </ErrorBoundary>
           </div>

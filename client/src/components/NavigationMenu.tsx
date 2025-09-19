@@ -54,6 +54,7 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
         { id: 'overview', label: 'Status Overview', description: 'System health & metrics' },
         { id: 'tradingview', label: 'Chart Utama', description: 'TradingView professional chart' },
         { id: 'realtime', label: 'Data Real-time', description: 'Live market data streaming' },
+        { id: 'arbitrage', label: 'Arbitrage Opportunities', description: 'Cross-exchange profit analysis' },
         { id: 'multi-coin', label: 'Multi-Coin Screening', description: 'Cross-pair analysis' }
       ]
     },
