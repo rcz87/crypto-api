@@ -348,13 +348,19 @@ def get_etf_flows_history(
                     flows_7d = record.get('flows_7d') or 0
                     flows_30d = record.get('flows_30d') or 0
                     
+                    # DEBUG: Log raw data to understand issue
+                    logger.info(f"🔍 DEBUG ETF Flow - Ticker: {record.get('ticker')}, flows_1d: {flows_1d}, flows_7d: {flows_7d}, flows_30d: {flows_30d}")
+                    
                     # Use flows_1d if available, else flows_7d/7, else generate realistic value
                     if flows_1d and flows_1d != 0:
                         net_flow_value = float(flows_1d)
+                        logger.info(f"✅ Using flows_1d: {net_flow_value}")
                     elif flows_7d and flows_7d != 0:
                         net_flow_value = float(flows_7d) / 7  # Daily average from weekly
+                        logger.info(f"✅ Using flows_7d/7: {net_flow_value}")
                     elif flows_30d and flows_30d != 0:
                         net_flow_value = float(flows_30d) / 30  # Daily average from monthly
+                        logger.info(f"✅ Using flows_30d/30: {net_flow_value}")
                     else:
                         # Generate realistic ETF flow based on ticker (millions USD)
                         import random
@@ -366,19 +372,27 @@ def get_etf_flows_history(
                             net_flow_value = random.uniform(-50, 100)  # GBTC can have outflows
                         else:
                             net_flow_value = random.uniform(-20, 80)   # Other ETFs smaller
+                        logger.info(f"🎲 Generated random flow for {record.get('ticker')}: {net_flow_value}")
                     
                     # Fix price mapping: use nav if price is negative or missing
                     price = record.get('price', 0)
                     nav = record.get('nav', 0)
+                    logger.info(f"🔍 DEBUG ETF Price - Ticker: {record.get('ticker')}, price: {price}, nav: {nav}")
+                    
                     if price and price > 0:
                         closing_price_value = float(price)
+                        logger.info(f"✅ Using price: {closing_price_value}")
                     elif nav and nav > 1000:  # NAV is usually in millions, convert to per-share
                         shares = record.get('shares_outstanding', 1000000)
                         closing_price_value = float(nav) / shares if shares > 0 else 30.0
+                        logger.info(f"✅ Using NAV/shares: {closing_price_value} (nav={nav}, shares={shares})")
                     else:
                         # Use realistic Bitcoin ETF price range ($25-45)
                         import random
                         closing_price_value = random.uniform(25.0, 45.0)
+                        logger.info(f"🎲 Generated random price for {record.get('ticker')}: {closing_price_value}")
+                    
+                    logger.info(f"📊 FINAL ETF Values - {record.get('ticker')}: net_flow={net_flow_value}, price={closing_price_value}")
                     
                     etf_flow = ETFFlowHistory(
                         date=record.get('date', datetime.now().strftime("%Y-%m-%d")),
