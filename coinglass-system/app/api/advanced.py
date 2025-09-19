@@ -144,11 +144,12 @@ def get_bitcoin_etfs():
                         flows_1d=float(asset_details.get('btc_change_24h', 0)) if asset_details.get('btc_change_24h') else None,
                         flows_7d=float(asset_details.get('btc_change_7d', 0)) if asset_details.get('btc_change_7d') else None,
                         flows_30d=float(record.get('volume_usd', 0)) if record.get('volume_usd') else None,
-                        timestamp=None  # Set timestamp to None since update_date from API might be empty
+                        timestamp=None  # Always set to None since CoinGlass doesn't provide meaningful timestamps
                     )
                     etf_data.append(etf)
+                    logger.info(f"✅ Successfully processed ETF: {record.get('ticker', 'Unknown')} - {record.get('fund_name', 'Unknown')}")
                 except Exception as e:
-                    logger.warning(f"Skipped invalid ETF record: {e}")
+                    logger.warning(f"⚠️ Skipped invalid ETF record ({record.get('ticker', 'Unknown')}): {e}")
                     continue
         
         logger.info(f"✅ Bitcoin ETFs endpoint called - returning {len(etf_data)} real ETF records from CoinGlass API")
