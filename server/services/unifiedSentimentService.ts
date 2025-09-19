@@ -77,7 +77,7 @@ export class UnifiedSentimentService {
 
     try {
       // Parallel data fetching from all sources with timeout protection
-      const dataSourcePromises = this.fetchAllDataSources(symbol);
+      const dataSourcePromises = await this.fetchAllDataSources(symbol);
       const results = await Promise.allSettled(dataSourcePromises);
       
       // Process results and extract data
