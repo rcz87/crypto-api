@@ -372,35 +372,60 @@ def get_market_sentiment():
         client = CoinglassClient()
         raw_data = client.market_sentiment()
         
+        # Debug logging to see what we're receiving
+        logger.info(f"Market sentiment raw data type: {type(raw_data)}")
+        if raw_data and 'data' in raw_data:
+            logger.info(f"Data length: {len(raw_data['data'])}")
+            if raw_data['data']:
+                logger.info(f"Sample record keys: {list(raw_data['data'][0].keys())}")
+                logger.info(f"Sample BTC record: {[r for r in raw_data['data'] if r.get('symbol') == 'BTC'][:1]}")
+        
         # Validate and transform response
         sentiment_data = []
         if raw_data and 'data' in raw_data:
             for record in raw_data['data']:
                 try:
+                    # Map CoinGlass API fields to our model
+                    # CoinGlass returns: current_price, price_change_percent_24h, etc.
+                    price = float(record.get('current_price', record.get('price', 0)))
+                    change_pct_24h = float(record.get('price_change_percent_24h', record.get('change_percentage_24h', 0)))
+                    change_24h = price * (change_pct_24h / 100) if price > 0 and change_pct_24h != 0 else float(record.get('change_24h', 0))
+                    
+                    # Debug logging for BTC specifically
+                    if record.get('symbol') == 'BTC':
+                        logger.info(f"BTC processing - price: {price}, change_pct_24h: {change_pct_24h}, change_24h: {change_24h}")
+                    
                     sentiment = MarketSentiment(
                         symbol=record.get('symbol', ''),
-                        price=float(record.get('price', 0)),
-                        change_24h=float(record.get('change_24h', 0)),
-                        change_percentage_24h=float(record.get('change_percentage_24h', 0)),
-                        volume_24h=float(record.get('volume_24h', 0)),
-                        market_cap=record.get('market_cap'),
+                        price=price,
+                        change_24h=change_24h,
+                        change_percentage_24h=change_pct_24h,
+                        volume_24h=float(record.get('volume_usd_24h', record.get('volume_24h', 0))),
+                        market_cap=record.get('market_cap_usd', record.get('market_cap')),
                         dominance=record.get('dominance'),
                         timestamp=record.get('timestamp')
                     )
                     sentiment_data.append(sentiment)
                 except Exception as e:
-                    logger.warning(f"Skipped invalid sentiment record: {e}")
+                    logger.error(f"ERROR processing sentiment record for {record.get('symbol', 'Unknown')}: {e}")
+                    logger.error(f"Record data: {record}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
                     continue
         
+        logger.info(f"Returning {len(sentiment_data)} sentiment records")
         return sentiment_data
         
     except RateLimitExceeded as e:
+        logger.error(f"Rate limit exceeded in market sentiment: {e}")
         raise HTTPException(status_code=429, detail={"message": "Rate limit exceeded"})
     except HttpError as e:
         logger.error(f"HTTP error in market sentiment: {e}")
         raise HTTPException(status_code=e.status_code or 500, detail={"message": e.message})
     except Exception as e:
-        logger.error(f"Unexpected error in market sentiment: {e}")
+        logger.error(f"CRITICAL ERROR in market sentiment: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail={"message": "Internal server error"})
 
 @router.get("/market/coins", response_model=SupportedCoinsResponse)
