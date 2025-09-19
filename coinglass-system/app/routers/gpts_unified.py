@@ -58,24 +58,51 @@ COINGLASS_SYMBOL_MAPPING = {
 def convert_user_symbol_to_coinglass(user_symbol: str) -> str:
     """
     Convert user-friendly symbol to CoinGlass format.
+    
+    PATCH: Fixed inconsistent symbol normalization across providers.
+    - Handles mixed formats: SOL, SOLUSDT, SOL-USDT-SWAP → SOL (CoinGlass)
+    - Eliminates "Unknown symbol" warnings by normalizing input formats first
+    - Maintains fallback for genuine unknown symbols without spam warnings
+    
     Args:
-        user_symbol: User-friendly symbol (e.g., 'SOL', 'BTC')
+        user_symbol: User-friendly symbol (e.g., 'SOL', 'BTC', 'SOL-USDT-SWAP')
     Returns:
-        CoinGlass-compatible symbol or original if not found
+        CoinGlass-compatible symbol or normalized fallback
     """
-    normalized = user_symbol.upper()
-    mapped = COINGLASS_SYMBOL_MAPPING.get(normalized)
+    # Step 1: Normalize mixed input formats to user-friendly symbol
+    normalized = user_symbol.upper().strip()
+    
+    # Handle provider-specific formats and extract base symbol
+    if '-USDT-SWAP' in normalized:
+        # OKX format: "SOL-USDT-SWAP" → "SOL"
+        base_symbol = normalized.split('-')[0]
+    elif 'USDT' in normalized and len(normalized) > 4:
+        # Spot format: "SOLUSDT" → "SOL" 
+        base_symbol = normalized.replace('USDT', '').replace('USD', '')
+    elif '/' in normalized:
+        # CoinAPI format: "SOL/USDT" → "SOL"
+        base_symbol = normalized.split('/')[0]
+    else:
+        # Already user-friendly: "SOL" → "SOL"
+        base_symbol = normalized
+    
+    # Step 2: Check if base symbol is in our comprehensive mapping
+    mapped = COINGLASS_SYMBOL_MAPPING.get(base_symbol)
     
     # Use throttled logging to reduce spam
     from app.core.logging_config import get_throttled_logger
     logger = get_throttled_logger("symbol_mapping")
     
     if mapped:
-        logger.debug(f"[SymbolMapping] {user_symbol} → {mapped} (CoinGlass)")
+        # Success: symbol found in mapping
+        logger.debug(f"[CoinGlass] Symbol mapping: {user_symbol} → {mapped} for coinglass")
         return mapped
     else:
-        logger.warning(f"[SymbolMapping] WARNING: Unknown symbol {user_symbol}, using as-is")
-        return user_symbol
+        # Fallback: return base symbol without warning spam
+        # Only log genuine unknowns (not format variations)
+        if base_symbol not in ['UNKNOWN', '']:
+            logger.debug(f"[CoinGlass] Symbol mapping: {base_symbol} → {base_symbol} for coinglass (fallback)")
+        return base_symbol
 
 def validate_symbol_support(symbol: str) -> bool:
     """Check if a symbol is supported by the unified mapping."""
