@@ -32,19 +32,69 @@ export async function getSpotOrderbook(symbol: string, exchange = 'binance', dep
     clearTimeout(timeoutId);
 
     if (response.ok) {
-      return await response.json();
+      // Check Content-Type to handle both JSON and HTML responses
+      const contentType = response.headers.get('Content-Type') || '';
+      if (contentType.includes('application/json')) {
+        return await response.json();
+      } else if (contentType.includes('text/html')) {
+        const htmlText = await response.text();
+        throw new Error(`[SpotOrderbook] Server returned HTML instead of JSON. Response: ${htmlText.substring(0, 300)}...`);
+      } else {
+        // Try JSON as fallback for unknown content types
+        return await response.json();
+      }
     } else {
+      // Handle error responses
       if (response.status === 404) {
         track404('spot_ob');
       }
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      
+      // Check if error response is HTML or JSON to provide better error messages
+      const contentType = response.headers.get('Content-Type') || '';
+      let errorMessage = `[SpotOrderbook] HTTP ${response.status}: ${response.statusText}`;
+      
+      try {
+        if (contentType.includes('text/html')) {
+          const htmlText = await response.text();
+          // Extract useful info from HTML error page
+          const titleMatch = htmlText.match(/<title>(.*?)<\/title>/i);
+          const title = titleMatch ? titleMatch[1] : 'Unknown HTML Error';
+          errorMessage += ` - HTML Error Page: "${title}" (Content: ${htmlText.substring(0, 200)}...)`;
+        } else if (contentType.includes('application/json')) {
+          // Try to get JSON error details
+          const errorData = await response.json();
+          errorMessage += ` - JSON Error: ${JSON.stringify(errorData)}`;
+        } else {
+          // Unknown content type, try to read as text
+          const responseText = await response.text();
+          errorMessage += ` - Response: ${responseText.substring(0, 200)}...`;
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, use the basic message
+        const parseErrorMsg = parseError instanceof Error ? parseError.message : String(parseError);
+        errorMessage += ` (Unable to parse error response: ${parseErrorMsg})`;
+      }
+      
+      throw new Error(errorMessage);
     }
   } catch (error) {
     clearTimeout(timeoutId);
-    if (error.message?.includes('404')) {
+    
+    // Fix TypeScript error by properly typing the error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
+    
+    if (errorMessage.includes('404')) {
       track404('spot_ob');
     }
-    console.warn('[SpotOrderbook] Unified endpoint failed:', error.message);
+    
+    // Enhanced error logging with more context
+    console.warn(`[SpotOrderbook] Request failed for symbol=${symbol}, exchange=${exchange}:`, {
+      error: errorName,
+      message: errorMessage,
+      timestamp: new Date().toISOString()
+    });
+    
     throw error;
   }
 }
