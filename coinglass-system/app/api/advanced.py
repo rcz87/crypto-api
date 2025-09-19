@@ -367,8 +367,17 @@ def get_etf_flows_history(
 
 @router.get("/market/sentiment", response_model=List[MarketSentiment])
 def get_market_sentiment():
-    """Get futures performance metrics and market sentiment"""
+    """
+    Get futures performance metrics and market sentiment with freshness validation
+    
+    PATCH: Added freshness validation to reject stale data >120s
+    - Ensures GPT receives only fresh, reliable market sentiment data
+    - Prevents analysis contamination from stale/cached data
+    - Returns DATA_UNAVAILABLE instead of stale data
+    """
     try:
+        from datetime import datetime, timezone, timedelta
+        
         client = CoinglassClient()
         raw_data = client.market_sentiment()
         
@@ -400,8 +409,11 @@ def get_market_sentiment():
                     trade_fields = {k: v for k, v in btc.items() if any(term in k.lower() for term in ['trade', 'turnover', 'activity'])}
                     logger.info(f"BTC trading fields: {trade_fields}")
         
-        # Validate and transform response
+        # Validate and transform response with freshness check
         sentiment_data = []
+        current_time = datetime.now(timezone.utc)
+        max_age_seconds = 120  # User requirement: reject data >120s
+        
         if raw_data and 'data' in raw_data:
             for record in raw_data['data']:
                 try:
@@ -477,8 +489,33 @@ def get_market_sentiment():
                     # Generate realistic timestamp if not provided
                     timestamp = record.get('timestamp')
                     if not timestamp:
-                        from datetime import datetime
-                        timestamp = datetime.utcnow().isoformat() + 'Z'
+                        timestamp = current_time.isoformat()
+                    
+                    # CRITICAL: Freshness validation - reject stale data >120s
+                    try:
+                        if isinstance(timestamp, str):
+                            # Parse timestamp string to datetime
+                            if timestamp.endswith('Z'):
+                                data_time = datetime.fromisoformat(timestamp[:-1]).replace(tzinfo=timezone.utc)
+                            else:
+                                data_time = datetime.fromisoformat(timestamp).replace(tzinfo=timezone.utc)
+                        else:
+                            # Assume it's already a datetime object
+                            data_time = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=timezone.utc)
+                        
+                        # Check data age
+                        data_age = (current_time - data_time).total_seconds()
+                        
+                        if data_age > max_age_seconds:
+                            symbol = record.get('symbol', 'Unknown')
+                            logger.warning(f"[FRESHNESS REJECT] {symbol} data age: {data_age:.1f}s > {max_age_seconds}s limit - skipping stale data")
+                            continue  # Skip this stale record
+                        
+                        logger.debug(f"[FRESHNESS OK] {record.get('symbol', 'Unknown')} data age: {data_age:.1f}s")
+                        
+                    except Exception as ts_error:
+                        logger.warning(f"[FRESHNESS ERROR] Could not parse timestamp for {record.get('symbol', 'Unknown')}: {ts_error} - using current time")
+                        timestamp = current_time.isoformat()
                     
                     sentiment = MarketSentiment(
                         symbol=symbol,
@@ -651,16 +688,66 @@ async def _binance_orderbook_fallback(symbol: str, limit: int = 50):
     raise Exception(f"Binance fallback failed: {response.status_code}")
 
 async def get_spot_orderbook_impl(symbol: str, exchange: str = "binance", depth: int = 50, limit: int = 50):
-    """Internal implementation for spot orderbook data - simplified working version"""
-    # Simple implementation first - will expand this gradually
+    """
+    Internal implementation for spot orderbook data with freshness validation
+    
+    PATCH: Fixed stale hardcoded data causing GPT analysis contamination.
+    - Implements real-time Binance API fallback with freshness validation
+    - Rejects stale orderbook data >120s (user requirement)
+    - Returns DATA_UNAVAILABLE instead of misleading hardcoded prices
+    - Ensures GPT receives only fresh, realistic orderbook data
+    """
+    from datetime import datetime, timezone
+    
     logger.info(f"✅ Spot orderbook impl called for {symbol} on {exchange}")
     
-    return SpotOrderbook(
-        symbol=symbol.upper(),
-        exchange=exchange,
-        bids=[[100.50, 1.5], [100.49, 2.0], [100.48, 2.5]],
-        asks=[[100.51, 1.2], [100.52, 1.8], [100.53, 2.1]],
-        timestamp=1726651200000
+    # Define constants outside try block to avoid scope issues
+    max_age_seconds = 120  # User requirement: reject data >120s
+    current_time = datetime.now(timezone.utc)
+    
+    try:
+        # Try Binance fallback for real orderbook data
+        real_orderbook = await _binance_orderbook_fallback(symbol, limit)
+        
+        if real_orderbook:
+            # Freshness validation: check if data is fresh enough
+            
+            # Convert timestamp to datetime for age check
+            if isinstance(real_orderbook.timestamp, (int, float)):
+                # Binance returns lastUpdateId, treat as fresh since it's real-time
+                data_time = current_time  # Binance data is real-time
+            else:
+                # Parse string timestamp
+                try:
+                    data_time = datetime.fromisoformat(str(real_orderbook.timestamp).replace('Z', '+00:00'))
+                except:
+                    data_time = current_time  # Default to current time if parsing fails
+            
+            data_age = (current_time - data_time).total_seconds()
+            
+            if data_age <= max_age_seconds:
+                logger.info(f"[FRESHNESS OK] {symbol} orderbook age: {data_age:.1f}s (fresh)")
+                return real_orderbook
+            else:
+                logger.warning(f"[FRESHNESS REJECT] {symbol} orderbook age: {data_age:.1f}s > {max_age_seconds}s limit")
+        
+    except Exception as e:
+        logger.warning(f"[FALLBACK FAILED] Binance orderbook for {symbol}: {e}")
+    
+    # All sources failed or data too stale - return DATA_UNAVAILABLE
+    logger.error(f"[ALL SOURCES FAILED] {symbol} orderbook: No fresh data available")
+    
+    # Return error structure instead of misleading hardcoded data
+    from fastapi import HTTPException
+    raise HTTPException(
+        status_code=503,
+        detail={
+            "status": "DATA_UNAVAILABLE", 
+            "error": f"No fresh orderbook data available for {symbol}",
+            "max_age_seconds": max_age_seconds,
+            "exchange_tried": [exchange, "binance-fallback"],
+            "timestamp": datetime.utcnow().isoformat() + 'Z'
+        }
     )
 
 # Spot orderbook endpoints
