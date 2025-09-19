@@ -117,6 +117,11 @@ app.use("/coinglass/advanced/etf", cacheMiddleware(30000)); // 30s cache
 app.use("/coinglass/advanced/market/sentiment", cacheMiddleware(15000)); // 15s cache
 app.use("/coinglass/advanced/liquidation/heatmap", cacheMiddleware(10000)); // 10s cache
 
+// Add cache for /py/* endpoints (for getCoinGlassTickerData)
+app.use("/py/advanced/ticker", cacheMiddleware(5000)); // 5s cache for ticker data
+app.use("/py/advanced/etf", cacheMiddleware(30000)); // 30s cache
+app.use("/py/advanced/market/sentiment", cacheMiddleware(15000)); // 15s cache
+
 // Add micro-cache for SOL complete endpoint (624ms → faster)
 app.use("/api/sol/complete", cacheMiddleware(500)); // 500ms micro-cache
 app.use("/api/btc/complete", cacheMiddleware(500)); // 500ms micro-cache
@@ -213,6 +218,87 @@ setInterval(() => {
 }, 30000);
 
 log(`🚀 CoinGlass Python proxy configured: /coinglass/* → ${PY_BASE} (with guard rails)`);
+
+// 🔧 ADDITIONAL PROXY FOR /py/* PATTERNS (getCoinGlassTickerData fix)
+// Pre-proxy circuit breaker for /py patterns
+app.use("/py", (req, res, next) => {
+  if (coinglassCircuitBreaker.isCircuitOpen()) {
+    const state = coinglassCircuitBreaker.getState();
+    return res.status(503).json({
+      error: "CoinGlass service temporarily unavailable - circuit breaker is open",
+      circuitBreaker: { failures: state.failures, isOpen: state.isOpen },
+      retryAfter: "60 seconds"
+    });
+  }
+  next();
+});
+
+app.use("/py", createProxyMiddleware({
+  target: PY_BASE,
+  changeOrigin: true,
+  pathRewrite: { "^/py": "" },    // /py/advanced/ticker/BTC -> /advanced/ticker/BTC
+  proxyTimeout: 20000,
+  onProxyReq: (proxyReq: any, req: IncomingMessage, res: ServerResponse) => {
+    // Track request start time
+    (req as any).startTime = Date.now();
+  },
+  onError: (err: Error, req: IncomingMessage, res: ServerResponse) => {
+    // Track request duration and error
+    const duration = (req as any).startTime ? Date.now() - (req as any).startTime : 0;
+    
+    // Circuit breaker logic
+    coinglassCircuitBreaker.recordFailure();
+    const state = coinglassCircuitBreaker.getState();
+    
+    // Record metrics directly (import already loaded at top)
+    metricsCollector.recordCoinglassRequest(duration, true);
+    // Sync circuit breaker state with metrics
+    metricsCollector.updateCoinglassCircuitBreaker(state.failures, state.isOpen, state.lastFailure);
+    
+    if (state.isOpen) {
+      log(`🔴 Circuit breaker OPEN - ${state.failures} consecutive failures`);
+    }
+    
+    log(`[PY PROXY ERROR] ${err.message} (failures: ${state.failures})`);
+    
+    if (!res.headersSent) {
+      const status = state.isOpen ? 503 : 502;
+      res.statusCode = status;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ 
+        error: state.isOpen ? "Service temporarily unavailable" : "CoinGlass service unavailable", 
+        details: err.message,
+        circuitBreaker: { failures: state.failures, isOpen: state.isOpen }
+      }));
+    }
+  },
+  onProxyRes: (proxyRes: IncomingMessage, req: IncomingMessage, res: ServerResponse) => {
+    // Track successful request duration
+    const duration = (req as any).startTime ? Date.now() - (req as any).startTime : 0;
+    const isError = proxyRes.statusCode ? proxyRes.statusCode >= 400 : false;
+    
+    // Circuit breaker logic
+    if (!isError) {
+      const hadFailures = coinglassCircuitBreaker.getState().failures > 0;
+      coinglassCircuitBreaker.recordSuccess();
+      if (hadFailures) {
+        log(`✅ Circuit breaker RESET - service recovered`);
+      }
+    }
+    
+    const state = coinglassCircuitBreaker.getState();
+    
+    // Record metrics directly (import already loaded at top)
+    metricsCollector.recordCoinglassRequest(duration, isError);
+    // Sync circuit breaker state with metrics
+    metricsCollector.updateCoinglassCircuitBreaker(state.failures, state.isOpen, state.lastFailure);
+    
+    // Log proxy activity for debugging
+    log(`[PY PROXY] ${req.url} - ${proxyRes.statusCode} (${duration}ms)`);
+  }
+} as Options));
+
+log(`🚀 Python service proxy configured: /py/* → ${PY_BASE} (getCoinGlassTickerData fix)`);
 
 // Note: GPT proxy middleware moved to after registerRoutes() to ensure Node.js routes get priority
 
