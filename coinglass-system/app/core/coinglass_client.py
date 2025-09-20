@@ -337,9 +337,12 @@ class CoinglassClient:
             for etf_item in etf_data:
                 if isinstance(etf_item, dict):
                     # Map CoinGlass API v4 fields correctly - use flows_1d, flows_7d, flows_30d
+                    from datetime import datetime
+                    current_date = datetime.now().strftime("%Y-%m-%d")
+                    
                     processed_item = {
                         "ticker": etf_item.get("ticker", etf_item.get("fund_name", "Unknown")),
-                        "date": etf_item.get("date", ""),
+                        "date": etf_item.get("date") or current_date,
                         # Use correct v4 API field names 
                         "flows_1d": etf_item.get("flows_1d", etf_item.get("net_inflow_1d", 0)),
                         "flows_7d": etf_item.get("flows_7d", etf_item.get("net_inflow_7d", 0)),
@@ -396,26 +399,33 @@ class CoinglassClient:
         logger.warning("Market sentiment fallback called - returning empty data (no synthetic generation)")
         return {"data": [], "success": False, "error": "Real market sentiment data unavailable, no fallback synthetic data"}
 
-    # === ADVANCED LIQUIDATION ENDPOINTS ===
-    def liquidation_heatmap(self, symbol: str, timeframe: str = "1h"):
-        """Get liquidation heatmap data"""
-        url = f"{self.base_url}/api/futures/liquidation-heatmap"
-        params = {"symbol": symbol, "timeframe": timeframe}
+    # === LIQUIDATION ENDPOINTS (Standard Package Alternative) ===
+    def liquidation_history(self, symbol: str, interval: str = "1h"):
+        """Get liquidation history data - Standard package compatible"""
+        url = f"{self.base_url}/api/futures/liquidation/history"
+        params = {"symbol": symbol, "interval": interval}
+        response = self.http.get(url, params)
+        return response.json()
+    
+    def liquidation_coin_history(self, symbol: str, interval: str = "1h"):
+        """Get liquidation coin history - Standard package compatible"""
+        url = f"{self.base_url}/api/futures/liquidation/coin-history/{symbol}"
+        params = {"interval": interval}
         response = self.http.get(url, params)
         return response.json()
 
-    # === SPOT MARKET ENDPOINTS ===
-    def spot_orderbook(self, symbol: str, exchange: str = "binance"):
-        """Get spot market order book data"""
-        url = f"{self.base_url}/api/spot/orderbook"
-        params = {"symbol": symbol, "exchange": exchange}
+    # === SPOT MARKET ENDPOINTS (Standard Package Alternative) ===
+    def spot_orderbook_history(self, symbol: str, exchange: str = "binance", interval: str = "1h"):
+        """Get spot orderbook history data - Standard package compatible"""
+        url = f"{self.base_url}/api/spot/orderbook-history"
+        params = {"symbol": symbol, "exchange": exchange, "interval": interval}
         response = self.http.get(url, params)
         return response.json()
-
-    # === OPTIONS ENDPOINTS ===
-    def options_oi(self, symbol: str = "BTC"):
-        """Get options open interest data"""
-        url = f"{self.base_url}/api/options/open-interest"
-        params = {"symbol": symbol}
+    
+    # === FUTURES FOCUS (Standard Package Features) ===
+    def top_positions(self, coin: str = "BTC", data_type: str = "open-interest"):
+        """Get top positions by open interest - Standard package"""
+        url = f"{self.base_url}/api/futures/top-positions"
+        params = {"coin": coin, "data_type": data_type}
         response = self.http.get(url, params)
         return response.json()
