@@ -1,0 +1,61 @@
+bukan cuma SOL. Semua coin/pair yang didukung CoinGlass bisa kamu tarik dengan pola yang sama. Kuncinya: ambil dulu daftar pair yang tersedia, lalu pakai parameter coin/pair sesuai endpoint-nya.
+
+TL;DR
+
+Lintas koin & exchange: pakai Supported Exchange & Pairs (futures/spot) untuk lihat apa saja yang tersedia, lalu query per coin/pair. 
+CoinGlass-API
++1
+
+Endpoint analitik utama (funding, OI, taker flow, liquidation) bersifat coin-agnostic—cukup ganti coin/pair → berlaku untuk semua koin yang didukung. Untuk paket Standard, endpoint history kunci ini berstatus No Limit interval. 
+CoinGlass-API
++2
+CoinGlass-API
++2
+
+Pengecualian: fitur “peta/heatmap” & footprint/large orderbook butuh Pro+; untuk Standard gunakan endpoint history-nya. 
+CoinGlass-API
++1
+
+Pola pakai (semua koin)
+
+Listing dukungan (wajib di awal):
+Futures/Derivatives: /api/futures/supported-exchange-pairs • Spot: /api/spot/supported-exchange-pairs. 
+CoinGlass-API
++1
+
+Funding rate (OHLC, per pair): /api/futures/funding-rate/history → ganti pair & exchange. Standard = No Limit interval. 
+CoinGlass-API
+
+Open Interest (OHLC):
+Pair: /api/futures/open-interest/history • Aggregated (lintas exchange): /api/futures/open-interest/aggregated-history. Standard = No Limit. 
+CoinGlass-API
++1
+
+Taker Buy/Sell (aggressor flow):
+Coin-aggregated: /api/futures/aggregated-taker-buy-sell-volume/history • Pair: /api/futures/v2/taker-buy-sell-volume/history. Standard = No Limit. 
+CoinGlass-API
++1
+
+Liquidation:
+Coin-aggregated: /api/futures/liquidation/aggregated-history • Pair: /api/futures/liquidation/history. Standard = No Limit. 
+CoinGlass-API
++1
+
+Screening cepat semua pair:
+Futures: /api/futures/pairs-markets • Spot: /api/spot/pairs-markets. 
+CoinGlass-API
++1
+
+Catatan penting (biar mulus untuk “semua coin”)
+
+Selalu resolve simbol dari Supported Exchange & Pairs sebelum call lainnya (setiap exchange bisa beda format). 
+CoinGlass-API
+
+Kalau data kosong di window 1h/4h (mis. liquidation), itu biasanya karena memang tak ada event—bukan karena paket—coba interval lebih besar. 
+CoinGlass-API
+
+Fitur visual heatmap/map/footprint/large orderbook memerlukan Pro+; di Standard tetap powerful dengan history endpoints di atas. 
+CoinGlass-API
++1
+
+Singkatnya: ya, engine-mu bisa narik data untuk semua koin yang didukung CoinGlass—cukup ganti coin/pair + patuhi resolver simbol & batas paket.
