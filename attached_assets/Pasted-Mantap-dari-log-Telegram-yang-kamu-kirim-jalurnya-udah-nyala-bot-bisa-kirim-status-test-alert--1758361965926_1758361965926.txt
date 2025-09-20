@@ -1,0 +1,85 @@
+Mantap—dari log Telegram yang kamu kirim, jalurnya udah “nyala”: bot bisa kirim status & test alert. Ada dua hal kecil yang perlu dirapihin:
+
+1. **Respons Telegram belum di-parse sebagai Message** (keluar `True`/boolean, bukan objek).
+   Secara resmi, *semua* panggilan Bot API nge-return JSON `{ ok: true, result: { …Message… } }`. Jadi kamu harus ambil `result.message_id` dari JSON—bukan nilai boolean. ([Telegram][1])
+
+2. **Dedup alert** masih kebobolan di jalur test\*\* (kelihatan ada dua “Live alert test”).
+   Telegram nggak ngededup otomatis; kamu yang harus cache fingerprint pesan untuk X menit (mis. 5 menit). ([Telegram][1])
+
+Di bawah ini langkah cepat buat nge-solidin MVP kamu ke level “production crisp”.
+
+---
+
+# TL;DR (aksi 3 poin)
+
+* **Parse message\_id** dari JSON `result` saat `sendMessage`. ([Telegram][1])
+* **Dedup 5 menit** berbasis hash `{coin|interval|signal_type|bucket}`.
+* **(Opsional)** Pakai **webhook** biar respons bot makin instan; *getUpdates* dipakai kalau tanpa webhook, dan harus kelola `offset` supaya nggak dobel. ([Telegram][1])
+
+---
+
+## Fix 1 — Ambil `message_id` (bukan boolean)
+
+**Kenapa:** Bot API jawabannya selalu `{"ok": true, "result": { …Message… }}`. Kamu tinggal baca `result.message_id` (buat audit, update/pin, dsb). ([Telegram][1])
+
+Contoh patch (HTTP murni):
+
+```python
+async def send_telegram_msg(token, chat_id, text, session):
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
+    async with session.post(url, data=payload) as r:
+        data = await r.json()
+        if not data.get("ok"):
+            raise RuntimeError(f"Telegram error: {data}")
+        msg_id = data["result"]["message_id"]   # <- pakai ini
+        return msg_id
+```
+
+Referensi struktur respons Bot API & pola “ok/result”: ([Telegram][1])
+
+---
+
+## Fix 2 — Dedup 5 menit (anti double alert)
+
+* Buat **key**: `f"{coin}|{interval}|{signal}|{round(now/300)}"` → simpan di cache TTL=300s.
+* Kalau key sudah ada → **skip** kirim.
+* Ini juga berlaku untuk pesan status “Started/Stopped” biar nggak spam.
+
+---
+
+## (Opsional) Respons makin cepat dengan Webhook
+
+* **Long polling** `getUpdates` oke buat test; tapi di produksi, **webhook** bikin reaksi bot lebih cepat & hemat loop. Bot API: “setWebhook” untuk URL listener kamu; *ingat*, kalau webhook aktif maka `getUpdates` tidak jalan. ([Telegram][2])
+* Panduan webhook resmi Telegram: persyaratan endpoint HTTPS & perilaku retry. ([Telegram][3])
+
+---
+
+## Sanity test 60 detik
+
+1. **Telegram sendMessage** (harus balik JSON + `message_id`)
+
+   > Bot API selalu mengirim `{ ok: true, result: { … } }`; tampilkan `message_id` di log. ([Telegram][1])
+2. **Trigger 2x alert identik <5 menit** → pastikan *hanya 1* yang terkirim (dedup jalan).
+3. **Status “Started/Stopped”**: kirim sekali saat transisi; tidak berulang.
+
+---
+
+## Bonus tweak kecil
+
+* **reply\_to\_message\_id**: jawab *reply* ke pesan status terakhir biar timeline rapi (opsional, parameter resmi). ([Stack Overflow][4])
+* **Rate limiter**: kalau mau mulus untuk portfolio besar, token-bucket di aiohttp cocok (banyak contoh publik). ([Quentin Pradet][5])
+* **Webhook dev**: butuh URL publik cepat? Banyak tutorial praktis (ngrok/pinggy) untuk test webhook lokal. ([Pinggy][6])
+
+---
+
+# Kesimpulan
+
+Sistemmu **udah production-ready**; tinggal 2 gosokan terakhir: **parse `message_id`** dan **dedup**. Begitu itu dipasang, alur alert Telegram kamu jadi bersih, terukur, dan lebih “retail-ahead”. Mau aku tulis **diff patch** spesifik untuk modul Telegram client dan layer dedup-nya?
+
+[1]: https://core.telegram.org/bots/api "Telegram Bot API"
+[2]: https://core.telegram.org/bots/api?utm_source=chatgpt.com "Telegram Bot API"
+[3]: https://core.telegram.org/bots/webhooks?utm_source=chatgpt.com "Marvin's Marvellous Guide to All Things Webhook - Telegram APIs"
+[4]: https://stackoverflow.com/a/73457669/978501?utm_source=chatgpt.com "How to make Telegram BOT reply to a specific message?"
+[5]: https://quentin.pradet.me/blog/how-do-you-rate-limit-calls-with-aiohttp.html?utm_source=chatgpt.com "How do you rate limit calls with aiohttp?"
+[6]: https://pinggy.io/blog/how_to_set_up_and_test_telegram_bot_webhook/?utm_source=chatgpt.com "How to Set Up and Test Telegram Bot Webhook - Pinggy"

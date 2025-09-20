@@ -58,19 +58,24 @@ class TelegramHTTP:
                 ) as response:
                     
                     if response.status == 200:
-                        result = await response.json()
-                        if result.get('ok'):
-                            logger.info("✅ Telegram message sent successfully")
-                            # Extract message_id from Telegram API response
-                            message_data = result.get('result', {})
+                        data = await response.json()
+                        if data.get('ok'):
+                            # Parse message_id correctly from Bot API JSON response
+                            # Telegram Bot API always returns: {"ok": true, "result": {...Message...}}
+                            message_result = data.get('result', {})
+                            message_id = message_result.get('message_id')
+                            
+                            logger.info(f"✅ Telegram message sent successfully - message_id: {message_id}")
+                            
                             return {
-                                'message_id': message_data.get('message_id'),
-                                'chat_id': message_data.get('chat', {}).get('id'),
-                                'date': message_data.get('date'),
-                                'text': message_data.get('text')
+                                'message_id': message_id,
+                                'chat_id': message_result.get('chat', {}).get('id'),
+                                'date': message_result.get('date'),
+                                'text': message_result.get('text'),
+                                'ok': True
                             }
                         else:
-                            logger.error(f"❌ Telegram API error: {result.get('description', 'Unknown')}")
+                            logger.error(f"❌ Telegram API error: {data.get('description', 'Unknown')}")
                             return None
                     else:
                         error_text = await response.text()

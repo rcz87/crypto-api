@@ -14,6 +14,7 @@ import logging
 
 from .coinglass_async_client import get_async_client
 from .telegram_http import get_telegram_client
+from .alert_dedup import is_duplicate_alert
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -252,8 +253,13 @@ class WhaleDetectionEngine:
         return True
     
     async def send_whale_alert(self, signal: WhaleSignal) -> bool:
-        """Send formatted whale alert ke Telegram"""
+        """Send formatted whale alert ke Telegram dengan 5-minute deduplication"""
         try:
+            # Check for duplicate alerts (5-minute deduplication)
+            if is_duplicate_alert(signal.coin, signal.signal_type, interval="1h"):
+                logger.info(f"🔁 Duplicate alert skipped: {signal.coin} {signal.signal_type} (5min dedup)")
+                return True  # Return True to indicate "handled" (even though skipped)
+            
             # Format alert message
             emoji = "🟢" if signal.signal_type == "accumulation" else "🔴"
             confidence_emoji = "🎯" if signal.confidence == "action" else "👀"
@@ -276,15 +282,15 @@ class WhaleDetectionEngine:
                 alert_text += f"👁️ **Watch**: Monitor validasi di bar berikutnya"
             
             # Send to Telegram
-            success = await self.telegram.send_message(alert_text)
+            result = await self.telegram.send_message(alert_text)
             
-            if success:
-                logger.info(f"✅ Whale alert sent: {signal.coin} {signal.signal_type}")
+            if result and result.get('message_id'):
+                logger.info(f"✅ Whale alert sent: {signal.coin} {signal.signal_type} - message_id: {result['message_id']}")
+                return True
             else:
                 logger.error(f"❌ Failed to send whale alert: {signal.coin}")
+                return False
                 
-            return success
-            
         except Exception as e:
             logger.error(f"❌ Error sending whale alert: {e}")
             return False

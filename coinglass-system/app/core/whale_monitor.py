@@ -14,6 +14,7 @@ import logging
 
 from .whale_detector import get_whale_detector, WhaleSignal
 from .telegram_http import get_telegram_client
+from .alert_dedup import is_duplicate_status
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -64,9 +65,14 @@ class WhaleMonitor:
         logger.info(f"📶 Received signal {signum}, shutting down gracefully...")
         self.running = False
     
-    async def send_monitor_status(self, message: str, is_error: bool = False):
-        """Send monitoring status ke Telegram"""
+    async def send_monitor_status(self, message: str, is_error: bool = False, status_type: str = "general"):
+        """Send monitoring status ke Telegram dengan deduplication"""
         try:
+            # Check for duplicate status messages
+            if is_duplicate_status(status_type):
+                logger.debug(f"🔁 Status '{status_type}' already sent recently (skipped)")
+                return
+                
             await self.telegram.send_monitor_status(message, is_error)
         except Exception as e:
             logger.error(f"Failed to send status update: {e}")
@@ -113,7 +119,7 @@ class WhaleMonitor:
         startup_msg += f"• Coins: {len(self.coins)}\\n"
         startup_msg += f"• Interval: {self.scan_interval}s\\n"
         startup_msg += f"• Mode: Production monitoring"
-        await self.send_monitor_status(startup_msg)
+        await self.send_monitor_status(startup_msg, status_type="started")
         
         try:
             while self.running:
@@ -133,7 +139,7 @@ class WhaleMonitor:
             shutdown_msg += f"• Total scans: {self.scan_count}\\n"
             shutdown_msg += f"• Total signals: {self.total_signals}\\n"
             shutdown_msg += f"• Uptime: {datetime.now().strftime('%H:%M:%S')}"
-            await self.send_monitor_status(shutdown_msg)
+            await self.send_monitor_status(shutdown_msg, status_type="stopped")
             
             logger.info("🛑 Whale monitoring stopped")
     
