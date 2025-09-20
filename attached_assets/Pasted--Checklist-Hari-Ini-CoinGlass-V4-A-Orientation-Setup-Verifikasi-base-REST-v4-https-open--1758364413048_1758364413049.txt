@@ -1,0 +1,95 @@
+✅ Checklist “Hari Ini — CoinGlass V4”
+A. Orientation & Setup
+
+ Verifikasi base REST v4 https://open-api-v4.coinglass.com + header CG-API-KEY. 
+CoinGlass-API
++1
+
+ Verifikasi WebSocket v4 dan pola koneksi wss://open-ws.coinglass.com/ws-api?cg-api-key=.... 
+CoinGlass-API
+
+ Tunjuk “Supported Exchange & Pairs” sebagai source of truth simbol/pair (cache ~1 menit). 
+CoinGlass-API
+
+B. Refactor & Mapping Endpoint (pindah total ke v4)
+
+ Ganti endpoint lama/keliru → v4 endpoints berikut (semua tersedia di Standard, No-Limit utk interval):
+
+Funding OHLC (pair): /api/futures/funding-rate/history. 
+CoinGlass-API
+
+OI Aggregated OHLC (coin): /api/futures/open-interest/aggregated-history. 
+CoinGlass-API
+
+Taker Buy/Sell (coin-aggregated): /api/futures/aggregated-taker-buy-sell-volume/history. 
+CoinGlass-API
+
+Liquidation (coin-aggregated): /api/futures/liquidation/aggregated-history. 
+CoinGlass-API
+
+ETF Flows (BTC): /api/etf/bitcoin/flow-history. 
+CoinGlass-API
+
+ Hilangkan panggilan heatmap/Map yang Pro+; pakai history setara (aggregated/pair). 
+CoinGlass-API
+
+ Benahi symbol resolver: dilarang tebak, wajib tarik dari supported-pairs sebelum query. 
+CoinGlass-API
+
+ Tambah opsi funding vol-weighted (opsional) untuk konteks bias. 
+CoinGlass-API
+
+C. Integritas Data & Patch Kritis
+
+ Hapus data sintetis pada ETF; pakai data asli flow-history. 
+CoinGlass-API
+
+ Ganti path-style yang salah (mis. /coin-history/{symbol}) → query params resmi (mis. .../aggregated-history?coin=SOL). 
+CoinGlass-API
+
+ Normalisasi funding → bps per 8h untuk komparabilitas antar-TF. 
+CoinGlass-API
+
+D. Alerting & Telegram
+
+ Implement Telegram Bot API sendMessage → parse result.message_id (bukan boolean). 
+Telegram
+
+ Tambah dedup 5 menit (anti-spam) & chunking bila > 4096 karakter. 
+GitHub
++1
+
+ Siapkan template pesan Akumulasi/Distribusi/Spike (ready untuk semua coin).
+
+E. WS & Early Heads-Up (opsional sudah siap)
+
+ Mode WS aktif (flag/kerangka): rute ke channel liquidationOrders untuk heads-up real-time; REST dipakai untuk konfirmasi. (Level akses: Standard+). 
+CoinGlass-API
++1
+
+F. Thresholds & Engine
+
+ Rolling percentile p85/p95/p99 per metrik (taker, OI-ROC, funding, liquidation) + floors anti-overfit.
+
+ Confluence logic: ≥2 layer = Watch; ≥3 (≥1 Action) = Action; kill-switch bila spike berlawanan.
+
+G. Multi-Coin Readiness
+
+ Batch smoke 4 endpoint untuk coin watchlist → klasifikasi T1/T2/T3 (futures-ready vs spot-only).
+
+ Generator config per-coin (100 bar) → output <COIN>_native_config.json.
+
+H. Testing & Health Checks
+
+ Smoke REST: funding/OI/taker/liquidation (1h) return 200 + data. 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+ WS connect (ping/keep-alive) tervalidasi secara fungsional. 
+CoinGlass-API
+
+ E2E test suite: env OK, komponen OK, Telegram OK (dengan message_id), engine scanning multi-coin OK.
