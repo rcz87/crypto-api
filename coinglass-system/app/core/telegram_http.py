@@ -8,13 +8,30 @@ import os
 import json
 import asyncio
 import aiohttp
-from typing import Optional, Dict, Any
+import random
+import math
+from typing import Optional, Dict, Any, List
 import logging
 
 logger = logging.getLogger(__name__)
 
+# Telegram Bot API constants
+MSG_LIMIT = 4096  # Official text message limit (UTF-8)
+
+def chunk_text(text: str, limit: int = MSG_LIMIT) -> List[str]:
+    """Potong pesan panjang menjadi <=4096 char per bagian (aman untuk sendMessage)"""
+    if len(text) <= limit:
+        return [text]
+    
+    parts = []
+    i = 0
+    while i < len(text):
+        parts.append(text[i:i+limit])
+        i += limit
+    return parts
+
 class TelegramHTTP:
-    """Lightweight Telegram client menggunakan HTTP requests saja"""
+    """Enhanced Telegram client dengan robust error handling"""
     
     def __init__(self):
         self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -33,76 +50,132 @@ class TelegramHTTP:
         text: str, 
         parse_mode: str = 'Markdown',
         disable_web_page_preview: bool = True,
-        disable_notification: bool = False
+        disable_notification: bool = False,
+        max_retries: int = 3
     ) -> Optional[Dict[str, Any]]:
-        """Send message to Telegram using HTTP API - returns message_id"""
+        """
+        Enhanced send message dengan:
+        - Auto-split kalau >4096 chars
+        - Auto-retry 429 pakai parameters.retry_after  
+        - Clean logging sesuai Bot API spec
+        """
         
         if not self.is_configured():
             logger.debug("📤 Telegram not configured - message skipped")
             return None
         
-        try:
-            payload = {
-                'chat_id': self.chat_id,
-                'text': text,
-                'parse_mode': parse_mode,
-                'disable_web_page_preview': disable_web_page_preview,
-                'disable_notification': disable_notification
-            }
+        # Auto-split kalau terlalu panjang
+        parts = chunk_text(text, MSG_LIMIT)
+        
+        last_result = None
+        async with aiohttp.ClientSession() as session:
             
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{self.base_url}/sendMessage",
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=10)
-                ) as response:
+            for idx, part in enumerate(parts, start=1):
+                payload = {
+                    'chat_id': self.chat_id,
+                    'text': part,
+                    'parse_mode': parse_mode,
+                    'disable_web_page_preview': disable_web_page_preview,
+                    'disable_notification': disable_notification
+                }
+                
+                attempt = 0
+                while attempt <= max_retries:
+                    attempt += 1
                     
-                    # Parse response according to Bot API spec
-                    data = await response.json()
+                    try:
+                        async with session.post(
+                            f"{self.base_url}/sendMessage",
+                            json=payload,
+                            timeout=aiohttp.ClientTimeout(total=20)
+                        ) as response:
+                            
+                            data = await response.json()
+                            
+                            # SUCCESS: Parse Message object
+                            if data.get('ok'):
+                                result = data.get('result', {})
+                                message_id = result.get('message_id', 0)
+                                chat = result.get('chat') or {}
+                                chat_id = chat.get('id')
+                                
+                                # Clean log format
+                                logger.info(f"[TELE] ✅ sent msg_id={message_id} chat={chat_id} "
+                                          f"part={idx}/{len(parts)} len={len(part)}")
+                                
+                                last_result = {
+                                    'ok': True,
+                                    'message_id': message_id,
+                                    'chat_id': chat_id,
+                                    'date': result.get('date'),
+                                    'text': result.get('text') or result.get('caption'),
+                                }
+                                break  # Success, lanjut ke part berikutnya
+                            
+                            # ERROR HANDLING terstruktur
+                            code = data.get('error_code')
+                            desc = (data.get('description') or '').lower()
+                            params = data.get('parameters') or {}
+                            
+                            # 429 Too Many Requests → hormati retry_after
+                            if code == 429 and 'retry_after' in params:
+                                delay = float(params['retry_after']) + random.uniform(0, 0.5)
+                                logger.warning(f"[TELE] ⏳ 429 Too Many Requests — retry_after={delay:.2f}s "
+                                             f"(attempt {attempt}/{max_retries})")
+                                await asyncio.sleep(delay)
+                                continue
+                            
+                            # 400 'message is too long' → fallback split smaller
+                            if code == 400 and 'message is too long' in desc:
+                                logger.warning(f"[TELE] ✂️ 400 Message Too Long — re-splitting smaller chunks")
+                                # Fallback ke chunks lebih kecil
+                                smaller_parts = chunk_text(part, limit=3500)
+                                parts = parts[:idx-1] + smaller_parts + parts[idx:]
+                                break  # Ulang dengan potongan baru
+                            
+                            # 400 'chat not found' atau 403 'blocked' → terminal
+                            if ((code == 400 and 'chat not found' in desc) or 
+                                (code == 403 and 'blocked' in desc)):
+                                logger.error(f"[TELE] 🛑 {code} {desc} — check chat_id/permission; no retry")
+                                return {
+                                    'ok': False,
+                                    'error_code': code,
+                                    'description': data.get('description', 'Unknown'),
+                                    'parameters': params
+                                }
+                            
+                            # 5xx / error lain → exponential backoff
+                            if 500 <= (response.status or 0) < 600 or attempt <= max_retries:
+                                backoff = min(8.0, 0.5 * (2 ** (attempt - 1)))
+                                logger.warning(f"[TELE] 🔁 {code} {desc or response.status} — backoff={backoff:.2f}s "
+                                             f"(attempt {attempt}/{max_retries})")
+                                await asyncio.sleep(backoff)
+                                continue
+                            
+                            # Mentok retry
+                            logger.error(f"[TELE] ❌ failed after {max_retries} retries — code={code} desc={desc}")
+                            return {
+                                'ok': False,
+                                'error_code': code,
+                                'description': data.get('description', 'Max retries exceeded'),
+                                'parameters': params
+                            }
                     
-                    # Handle both success and error responses per Bot API pattern
-                    if not data.get('ok'):
-                        # Error response: {"ok": false, "error_code": 400, "description": "...", "parameters": {...}}
-                        error_code = data.get('error_code', response.status)
-                        description = data.get('description', 'Unknown error')
-                        parameters = data.get('parameters', {})
-                        
-                        # Handle retry_after for rate limiting (429)
-                        if 'retry_after' in parameters:
-                            retry_after = parameters['retry_after']
-                            logger.warning(f"⏳ Telegram rate limited - retry after {retry_after}s")
-                        
-                        logger.error(f"❌ Telegram API error {error_code}: {description}")
-                        
-                        return {
-                            'ok': False,
-                            'error_code': error_code,
-                            'description': description,
-                            'parameters': parameters
-                        }
+                    except asyncio.TimeoutError:
+                        logger.error(f"[TELE] ⏰ timeout (attempt {attempt}/{max_retries})")
+                        if attempt <= max_retries:
+                            await asyncio.sleep(1.0 * attempt)
+                            continue
+                        return None
                     
-                    # Success response: parse Message object from result
-                    result = data.get('result', {})
-                    message_id = result.get('message_id', 0)
-                    chat = result.get('chat') or {}
-                    chat_id = chat.get('id')
-                    
-                    logger.info(f"✅ Telegram message sent successfully - message_id: {message_id}")
-                    
-                    return {
-                        'ok': True,
-                        'message_id': message_id,
-                        'chat_id': chat_id,  # Support negative IDs for groups/supergroups
-                        'date': result.get('date'),
-                        'text': result.get('text') or result.get('caption'),  # Support both text and media captions
-                    }
-                        
-        except asyncio.TimeoutError:
-            logger.error("❌ Telegram request timeout")
-            return None
-        except Exception as e:
-            logger.error(f"❌ Telegram send error: {e}")
-            return None
+                    except Exception as e:
+                        logger.error(f"[TELE] ❌ exception: {e} (attempt {attempt}/{max_retries})")
+                        if attempt <= max_retries:
+                            await asyncio.sleep(1.0 * attempt)
+                            continue
+                        return None
+        
+        return last_result
     
     async def send_whale_alert(
         self,

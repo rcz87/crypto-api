@@ -1,0 +1,145 @@
+sip—langsung aku kasih handler mini + contoh log yang clean. Ini sudah mengikuti format error resmi Telegram: ok:false, error_code, description, dan (kalau 429) parameters.retry_after untuk tunggu otomatis. 
+Telegram
+
+# telegram_client.py
+import asyncio, random, math
+from typing import Optional, Dict
+
+TELEGRAM_API = "https://api.telegram.org/bot{token}/{method}"
+MSG_LIMIT = 4096  # batas resmi panjang text pesan (UTF-8) :contentReference[oaicite:1]{index=1}
+
+def chunk_text(text: str, limit: int = MSG_LIMIT) -> list[str]:
+    """Potong pesan panjang menjadi <=4096 char per bagian (aman untuk sendMessage)."""
+    if len(text) <= limit:
+        return [text]
+    parts = []
+    i = 0
+    while i < len(text):
+        parts.append(text[i:i+limit])
+        i += limit
+    return parts
+
+async def send_message(session, token: str, chat_id: int | str, text: str,
+                       parse_mode: Optional[str] = None,
+                       max_retries: int = 3) -> Optional[int]:
+    """
+    Kirim pesan ke Telegram dengan:
+    - auto-split kalau >4096 chars
+    - auto-retry 429 pakai parameters.retry_after
+    - stop untuk error 'chat not found' / 'bot was blocked'
+    """
+    method = "sendMessage"
+    url = TELEGRAM_API.format(token=token, method=method)
+
+    # 1) Split kalau terlalu panjang (400 → 4096) sesuai batas Bot API
+    #    (telegram akan balas 400 MESSAGE_TOO_LONG bila melebihi). :contentReference[oaicite:2]{index=2}
+    parts = chunk_text(text, MSG_LIMIT)
+
+    last_msg_id = None
+    for idx, part in enumerate(parts, start=1):
+        payload: Dict[str, object] = {
+            "chat_id": chat_id,
+            "text": part
+        }
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
+
+        attempt = 0
+        while attempt <= max_retries:
+            attempt += 1
+            resp = await session.post(url, data=payload, timeout=20)
+            data = await resp.json(content_type=None)
+
+            if data.get("ok"):
+                msg_id = data["result"]["message_id"]  # Message object → message_id
+                # contoh log sukses
+                print(f"[TELE] ✅ sent msg_id={msg_id} chat={chat_id} "
+                      f"part={idx}/{len(parts)} len={len(part)}")
+                last_msg_id = msg_id
+                break  # lanjut ke part berikutnya
+
+            # --- Error handling terstruktur ---
+            code = data.get("error_code")
+            desc = (data.get("description") or "").lower()
+            params = data.get("parameters") or {}
+
+            # 429 Too Many Requests → hormati parameters.retry_after (detik) lalu retry
+            if code == 429 and "retry_after" in params:
+                delay = float(params["retry_after"]) + random.uniform(0, 0.5)
+                print(f"[TELE] ⏳ 429 Too Many Requests — retry_after={delay:.2f}s "
+                      f"(attempt {attempt}/{max_retries})")
+                await asyncio.sleep(delay)  # hormati retry_after dari API :contentReference[oaicite:3]{index=3}
+                continue
+
+            # 400 'message is too long' — sudah kita split; jika masih muncul, kecilkan limit
+            if code == 400 and "message is too long" in desc:
+                print(f"[TELE] ✂️ 400 Message Too Long — re-splitting smaller chunks")
+                parts = chunk_text(part, limit=3500)  # fallback lebih kecil
+                break  # ulang dari potongan baru
+
+            # 400 'chat not found' atau 403 'bot was blocked' → terminal (jangan retry)
+            if (code == 400 and "chat not found" in desc) or (code == 403 and "blocked" in desc):
+                print(f"[TELE] 🛑 {code} {desc} — check chat_id/permission; no retry")
+                return None
+
+            # 5xx / error lain → exponential backoff singkat lalu retry
+            if 500 <= (resp.status or 0) < 600 or attempt <= max_retries:
+                backoff = min(8.0, 0.5 * (2 ** (attempt - 1)))
+                print(f"[TELE] 🔁 {code} {desc or resp.status} — backoff={backoff:.2f}s "
+                      f"(attempt {attempt}/{max_retries})")
+                await asyncio.sleep(backoff)
+                continue
+
+            # Jika mentok retry
+            print(f"[TELE] ❌ failed after {max_retries} retries — code={code} desc={desc}")
+            return None
+
+    return last_msg_id
+
+Kenapa handler ini benar
+
+Struktur respons & parameters: dok resmi menyatakan respons selalu punya ok dan, jika gagal, berisi error_code, description, serta opsional parameters bertipe ResponseParameters (di sinilah retry_after muncul untuk auto-handle 429). 
+Telegram
+
+Batas panjang pesan: teks harus 1–4096 karakter; kalau lebih, Telegram balas 400 message is too long. Karena itu kita split sebelum kirim. 
+Telegram
+
+Makna retry_after: SDK populer pun mengangkat RetryAfter(retry_after) saat flood limit—artinya tunggu sekian detik lalu coba lagi. Handler di atas menghormati nilai tersebut. 
+docs.python-telegram-bot.org
+
+Contoh log “enak dibaca”
+
+Sukses:
+
+[TELE] ✅ sent msg_id=117 chat=5899681906 part=1/1 len=58
+
+
+Rate limit 429 (pakai parameters.retry_after):
+
+[TELE] ⏳ 429 Too Many Requests — retry_after=3.21s (attempt 1/3)
+
+
+Pesan kepanjangan (fallback split):
+
+[TELE] ✂️ 400 Message Too Long — re-splitting smaller chunks
+[TELE] ✅ sent msg_id=118 chat=... part=1/2 len=3500
+[TELE] ✅ sent msg_id=119 chat=... part=2/2 len=1288
+
+
+Chat salah / bot diblokir (terminal):
+
+[TELE] 🛑 400 bad request: chat not found — check chat_id/permission; no retry
+
+
+5xx / unknown error (backoff):
+
+[TELE] 🔁 502 bad gateway — backoff=2.00s (attempt 2/3)
+
+Drop-in tips
+
+Simpan message_id buat audit/edit/delete (reply thread, dsb).
+
+Kalau pakai Markdown/HTML, panjang efektif bisa sedikit beda setelah entity parsing; 4096 tetap batas panduan. 
+Telegram
+
+Untuk broadcast besar, tetap pakai limiter global & jeda (meski handler 429 sudah aman).
