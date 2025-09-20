@@ -1,0 +1,197 @@
+review endpoint yang kamu tampilkan lalu cocokin dengan CoinGlass API v4 yang resmi. Aku kasih mapping, status ketersediaan untuk paket Standard, dan patch saran biar request-mu nggak “nyasar”.
+
+TL;DR
+
+Banyak endpoint custom kamu pakai prefiks /advanced/... (itu router internal kamu). Pastikan mengarah ke v4 resmi: https://open-api-v4.coinglass.com untuk REST dan wss://open-ws.coinglass.com/ws-api?cg-api-key=... untuk WS. 
+CoinGlass-API
++1
+
+Funding Rate / OI history → tersedia di Standard (limit interval berbeda per plan). 
+CoinGlass-API
++1
+
+Liquidation Heatmap/Map (model1/model2) → Pro+ only (bukan Standard). Kalau kamu panggil di Standard wajar gagal (403/404). 
+CoinGlass-API
++2
+CoinGlass-API
++2
+
+ETF Flows ada endpoint resminya; jangan pakai fallback random (itu bikin data “semu”). Gunakan /api/etf/bitcoin/flow-history. 
+CoinGlass-API
+
+Spot orderbook: ada beberapa endpoint, sebagian Standard (aggregated ask/bids), sebagian Pro+ (heatmap / large orderbook). 
+CoinGlass-API
++2
+CoinGlass-API
++2
+
+Audit Cepat: Mapping Endpoint Kamu → Endpoint Resmi + Status Plan
+Endpoint Kamu	Target Endpoint Resmi CoinGlass v4	Status di Standard	Catatan Implementasi
+GET /advanced/market/coins	/api/futures/supported-exchange-pairs	✅ Tersedia (update ±1 menit)	Pakai ini juga untuk validasi simbol sebelum call lain. 
+CoinGlass-API
+
+GET /advanced/funding/rate/{symbol}	/api/futures/funding-rate/history	✅ Tersedia (interval limit per plan)	Kirim pair & exchange yang valid; periksa batas interval (≥30m untuk Startup, Standard no limit). 
+CoinGlass-API
+
+GET /advanced/oi/history/{symbol}	/api/futures/open-interest/history	✅ Tersedia (interval limit per plan)	Pastikan format simbol mengikuti supported-exchange-pairs. 
+CoinGlass-API
++1
+
+GET /advanced/oi/aggregated/{symbol}	/api/futures/open-interest/aggregated-history	✅ Tersedia	Aggregated OI across exchanges. 
+CoinGlass-API
+
+GET /advanced/long-short-ratio/{symbol}	/api/futures/global-long-short-account-ratio/history	✅ Tersedia	Per exchange pair; interval rules sama (limit per plan). 
+CoinGlass-API
+
+GET /advanced/taker-volume/{symbol}	/api/futures/v2/taker-buy-sell-volume/history	✅ Tersedia	Rasio taker buy/sell (pair level). 
+CoinGlass-API
+
+GET /advanced/taker-volume-aggregated/{coin}	/api/futures/aggregated-taker-buy-sell-volume/history	✅ Tersedia	Versi aggregated (coin-level). 
+CoinGlass-API
+
+GET /advanced/liquidation/coin-history/{symbol}	/api/futures/liquidation/history (pair) atau /api/futures/liquidation/aggregated-history (coin)	✅ Tersedia	Pilih pair vs coin aggregated sesuai kebutuhan. 
+CoinGlass-API
++1
+
+GET /advanced/liquidation/heatmap{...}	`/api/futures/liquidation/heatmap/model1	model2`	❌ Tidak tersedia di Standard (Pro+)
+GET /advanced/spot/orderbook{...}	Spot: /api/spot/orderbook/aggregated-ask-bids-history (✅ Standard), /api/spot/orderbook/history (❌ Pro+), /api/spot/orderbook/large-limit-order (❌ Pro+)	Campur	Untuk Standard pakai aggregated ask/bids; heatmap & large orderbook butuh Pro+. 
+CoinGlass-API
++2
+CoinGlass-API
++2
+
+GET /advanced/options/oi/{symbol}	Options: /api/option/info, /api/option/exchange-oi-history	✅ Tersedia	Gunakan info/oi-history; granular per exchange tersedia. 
+CoinGlass-API
++1
+
+GET /advanced/etf/bitcoin, /advanced/etf/flows	/api/etf/bitcoin/flow-history	✅ Tersedia	Jangan pernah randomize flow; gunakan API resmi. 
+CoinGlass-API
+
+GET /advanced/market/sentiment	(gabungan beberapa indeks / rasio)	❓ Tergantung komponen	Jika pakai index khusus, cek plan tiap endpoint (mis. Options/Futures OI Ratio: Startup+). 
+CoinGlass-API
+
+GET /advanced/whale/alerts, .../whale/positions	(tidak ada satu endpoint “whale >$1M”)	❌ Tidak langsung ada	Biasanya disintesis dari Large Orderbook / Liquidation Order / Taker volume → beberapa butuh Standard / Pro+. 
+CoinGlass-API
++1
+6 Temuan Kritikal + Fix Cepat
+
+Liquidation Heatmap/Map
+
+Status: Pro+ only → di Standard akan 403/404.
+
+Fix: ganti ke /api/futures/liquidation/history atau .../aggregated-history untuk membangun “pseudo-heatmap” berbasis level historis + taker flow. 
+CoinGlass-API
++1
+
+ETF Flows “random fallback”
+
+Temuan: code kamu generate nilai acak kalau field flows_1d/7d/30d null. Itu bikin datamu tidak akuntabel.
+
+Fix: ambil langsung /api/etf/bitcoin/flow-history (tersedia semua plan). Jangan pernah sintetis angka. 
+CoinGlass-API
+
+Validasi Simbol
+
+Temuan: ada contoh SOL-USDT-SWAP di log kamu; beberapa endpoint pakai format berbeda.
+
+Fix: selalu resolve dari /api/futures/supported-exchange-pairs lalu gunakan persis symbol & exchange. 
+CoinGlass-API
+
+Interval & Rate Limit
+
+Temuan: beberapa endpoint punya interval limit per plan (mis. funding/OI OHLC); request terlalu granular → 422/400.
+
+Fix: pastikan interval kompatibel dengan Standard (no limit) untuk OI/funding OHLC; kalau gagal, fallback ke 30m/4h sesuai docs. 
+CoinGlass-API
++1
+
+Spot Orderbook
+
+Temuan: heatmap & large orderbook spot adalah Pro+.
+
+Fix: untuk Standard gunakan /api/spot/orderbook/aggregated-ask-bids-history (5s refresh). 
+CoinGlass-API
+
+WS URL & Auth
+
+Pastikan koneksi WS ke:
+wss://open-ws.coinglass.com/ws-api?cg-api-key=<APIKEY> (jangan lupa query param). 
+CoinGlass-API
+
+Patch Contoh (Python FastAPI) — Funding Rate & OI yang “Pasti Jalan”
+
+Funding Rate (OHLC) – v4 resmi
+
+@router.get("/funding/rate/{pair}")
+def get_funding_rate(
+    pair: str,                        # contoh: BTC-USDT
+    exchange: str = Query("OKX"),
+    interval: str = Query("1h")       # Standard: no interval limit; jika error -> fallback 4h
+):
+    url = "https://open-api-v4.coinglass.com/api/futures/funding-rate/history"
+    params = {"pair": pair, "exchange": exchange, "interval": interval}
+    r = httpx.get(url, headers={"CG-API-KEY": COINGLASS_API_KEY}, params=params, timeout=15)
+    if r.status_code == 422 and interval in ("1m","5m","15m","30m"):
+        params["interval"] = "4h"
+        r = httpx.get(url, headers={"CG-API-KEY": COINGLASS_API_KEY}, params=params, timeout=15)
+    r.raise_for_status()
+    return r.json()
+
+
+Sumber interval/endpoint: 
+CoinGlass-API
+
+Open Interest (OHLC) – v4 resmi
+
+@router.get("/oi/history/{pair}")
+def get_oi_history(
+    pair: str,                        # contoh: BTC-USDT
+    exchange: str = Query("OKX"),
+    interval: str = Query("1h")
+):
+    url = "https://open-api-v4.coinglass.com/api/futures/open-interest/history"
+    params = {"pair": pair, "exchange": exchange, "interval": interval}
+    r = httpx.get(url, headers={"CG-API-KEY": COINGLASS_API_KEY}, params=params, timeout=15)
+    if r.status_code == 422:
+        params["interval"] = "4h"
+        r = httpx.get(url, headers={"CG-API-KEY": COINGLASS_API_KEY}, params=params, timeout=15)
+    r.raise_for_status()
+    return r.json()
+
+
+Sumber endpoint: 
+CoinGlass-API
+
+ETF Flows – ganti dari kode random ke API resmi
+
+@router.get("/etf/flows")
+def get_etf_flows_history():
+    url = "https://open-api-v4.coinglass.com/api/etf/bitcoin/flow-history"
+    r = httpx.get(url, headers={"CG-API-KEY": COINGLASS_API_KEY}, timeout=20)
+    r.raise_for_status()
+    return r.json()
+
+
+Sumber endpoint: 
+CoinGlass-API
+
+Checklist Implementasi (cepat & actionable)
+
+ Base URL v4 untuk semua REST call. 
+CoinGlass-API
+
+ Header CG-API-KEY selalu terpasang; WS pakai query ?cg-api-key=.... 
+CoinGlass-API
++1
+
+ Resolver simbol panggil dulu /api/futures/supported-exchange-pairs. 
+CoinGlass-API
+
+ Ganti semua call heatmap/model1/2 ke history jika tetap di Standard. 
+CoinGlass-API
+
+ Hapus semua fallback random di ETF/apa pun. Gunakan endpoint resmi. 
+CoinGlass-API
+
+ Throttle untuk antisipasi 429; exponential backoff. (Plan limit berlaku). Sumber error codes ada di docs auth/usage. 
+CoinGlass-API
