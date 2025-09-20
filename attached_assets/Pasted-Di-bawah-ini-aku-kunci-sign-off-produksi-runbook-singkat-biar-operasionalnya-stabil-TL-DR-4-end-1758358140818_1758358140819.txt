@@ -1,0 +1,69 @@
+Di bawah ini aku kunci sign-off produksi + runbook singkat biar operasionalnya stabil.
+
+TL;DR
+
+4 endpoint inti kamu resmi tersedia di v4 dan Standard = No Limit interval (funding OHLC, OI aggregated, liquidation aggregated, taker buy/sell aggregated). 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+Auth: pakai header CG-API-KEY untuk REST; WS connect via wss://open-ws.coinglass.com/ws-api?cg-api-key=…. 
+CoinGlass-API
++1
+
+Butuh breakdown per-exchange? Ambil dari Liquidation Exchange List (atau filter exchange_list jika endpoint mendukung). 
+CoinGlass-API
+
+Pantau rate limit & kode error (401/404/422/429) pakai panduan resmi. 
+CoinGlass-API
+
+Health-check versi produksi (4 tembakan)
+Layer	Endpoint v4	Status plan
+Funding OHLC	/api/futures/funding-rate/history	Standard – No Limit. 
+CoinGlass-API
+
+OI aggregated OHLC	/api/futures/open-interest/aggregated-history	Standard – No Limit. 
+CoinGlass-API
+
+Liquidation (coin agg)	/api/futures/liquidation/aggregated-history	Standard – No Limit. 
+CoinGlass-API
+
+Taker buy/sell (coin agg)	/api/futures/aggregated-taker-buy-sell-volume/history	Standard – No Limit. 
+CoinGlass-API
+
+(Makro) ETF flows	/api/etf/bitcoin/flow-history	Tersedia semua plan. 
+CoinGlass-API
+Runbook singkat (biar anti-nyangkut)
+
+Resolver simbol sebelum hit endpoint analitik (Supported Exchange & Pairs). 
+CoinGlass-API
+
+Per-exchange detail: gunakan /futures/liquidation/exchange-list untuk breakdown All/Binance/OKX/Bybit. 
+CoinGlass-API
+
+WS untuk low-latency: wss://open-ws.coinglass.com/ws-api?cg-api-key=… (heartbeat & resubscribe). 
+CoinGlass-API
+
+Error/limit: 401 (API key), 404 (resource), 422 (param), 429 (rate limit) → backoff + retry. 
+CoinGlass-API
+
+Quick cURL sanity (copy-paste)
+# Funding (SOL-USDT @ OKX, 1h)
+curl -s 'https://open-api-v4.coinglass.com/api/futures/funding-rate/history?pair=SOL-USDT&exchange=OKX&interval=1h' -H 'CG-API-KEY: <KEY>'
+# OI Aggregated (SOL, 1h)
+curl -s 'https://open-api-v4.coinglass.com/api/futures/open-interest/aggregated-history?coin=SOL&interval=1h' -H 'CG-API-KEY: <KEY>'
+# Liquidation Coin Agg (SOL, 1h)
+curl -s 'https://open-api-v4.coinglass.com/api/futures/liquidation/aggregated-history?coin=SOL&interval=1h' -H 'CG-API-KEY: <KEY>'
+# Taker Buy/Sell Coin Agg (SOL, 1h)
+curl -s 'https://open-api-v4.coinglass.com/api/futures/aggregated-taker-buy-sell-volume/history?coin=SOL&interval=1h' -H 'CG-API-KEY: <KEY>'
+
+
+(Per-exchange breakdown: /api/futures/liquidation/exchange-list?coin=SOL.) 
+CoinGlass-API
+
+Status akhir
+
+Semua kompatibel dengan Standard plan, pipeline real-time udah jalan, dan config SOL-native sudah nempel. Dari sisi aku: SIAP PRODUKSI. Kalau mau, next kita kloning preset ini untuk top-10 coin di watchlist pakai resolver → otomatis generate config per-coin.
