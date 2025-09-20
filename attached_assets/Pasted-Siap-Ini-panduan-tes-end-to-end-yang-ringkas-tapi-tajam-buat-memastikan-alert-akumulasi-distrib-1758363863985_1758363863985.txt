@@ -1,0 +1,126 @@
+Siap. Ini **panduan tes end-to-end** yang ringkas tapi tajam buat memastikan alert akumulasi/distribusi jalan untuk **semua coin yang didukung**—mulai dari smoke test API, uji WebSocket real-time, sampai verifikasi Telegram.
+
+# TL;DR (ceklist cepat)
+
+* [ ] **Env OK**: `CG-API-KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+* [ ] **REST 4 endpoint inti = 200 OK** (Funding, OI Agg, Taker Agg, Liquidation Agg). ([CoinGlass-API][1])
+* [ ] **WS** nyambung ke `wss://open-ws.coinglass.com/ws-api?cg-api-key=...` + subscribe `liquidationOrders`. ([CoinGlass-API][2])
+* [ ] **Telegram** kirim `sendMessage` → terima **`result.message_id`** & dedup 5 menit. ([Telegram][3])
+* [ ] **E2E monitor** (5m/15m/1h) → minimal 1 alert terkirim saat threshold terpenuhi.
+
+---
+
+## 1) Pre-flight (1 menit)
+
+* **Resolve simbol** (hindari 404/empty):
+
+  ```
+  GET https://open-api-v4.coinglass.com/api/futures/supported-exchange-pairs
+  ```
+
+  Pastikan coin di-watchlist memang punya **futures pair** di exchange target. (Endpoint ini tersedia semua plan; cache \~1 menit). ([CoinGlass-API][4])
+
+---
+
+## 2) Smoke test REST (4 endpoint inti)
+
+> Contoh: **SOL (1h)**. Ganti `coin/pair` sesuai kebutuhan. Semua endpoint ini **tersedia di Standard** dan **interval = No Limit** untuk plan Standard.
+> (Expect: HTTP 200 + ada key `data`; boleh kosong kalau market sepi.) ([CoinGlass-API][1])
+
+```bash
+# Funding OHLC (pair)
+curl -s 'https://open-api-v4.coinglass.com/api/futures/funding-rate/history?pair=SOL-USDT&exchange=OKX&interval=1h' \
+  -H "CG-API-KEY: $CG_API_KEY" | head
+# OI Aggregated (coin)
+curl -s 'https://open-api-v4.coinglass.com/api/futures/open-interest/aggregated-history?coin=SOL&interval=1h' \
+  -H "CG-API-KEY: $CG_API_KEY" | head
+# Taker Buy/Sell Aggregated (coin)
+curl -s 'https://open-api-v4.coinglass.com/api/futures/aggregated-taker-buy-sell-volume/history?coin=SOL&interval=1h&exchange_list=OKX,Binance,Bybit' \
+  -H "CG-API-KEY: $CG_API_KEY" | head
+# Liquidation Aggregated (coin)
+curl -s 'https://open-api-v4.coinglass.com/api/futures/liquidation/aggregated-history?coin=SOL&interval=1h' \
+  -H "CG-API-KEY: $CG_API_KEY" | head
+```
+
+**Rujukan resmi endpoint & plan table** (periksa label “Standard: No Limit”): Funding OHLC, OI Aggregated OHLC, Taker Aggregated, Liquidation Aggregated. ([CoinGlass-API][1])
+
+---
+
+## 3) Uji WebSocket (early heads-up)
+
+1. **Connect**:
+
+```
+wss://open-ws.coinglass.com/ws-api?cg-api-key=<YOUR_KEY>
+```
+
+2. **Subscribe** channel **`liquidationOrders`** (tersedia mulai **Standard**): kirim payload subscribe sesuai contoh di docs WS. Pastikan kirim **ping/keep-alive** berkala. ([CoinGlass-API][2])
+
+> Tujuan uji: lihat event likuidasi realtime masuk → engine mem-“heads-up”, lalu **verifikasi** via REST (taker/OI/funding) sebelum alert final.
+
+---
+
+## 4) Tes Telegram (sendMessage + dedup)
+
+* **Kirim pesan uji** (HTTP Bot API) dan **baca `result.message_id`** (bukan boolean):
+
+```bash
+curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+  -d chat_id="$TELEGRAM_CHAT_ID" \
+  --data-urlencode "text=✅ Whale Alert pipeline OK"
+```
+
+Respon resmi sukses: `{"ok":true,"result":{...,"message_id":123,...}}`. Simpan `message_id` untuk audit/edit. ([Telegram][3])
+
+* **Aturan 4096 char**: kalau pesan panjang, pecah jadi beberapa bagian agar tidak kena **400 message is too long**. ([bugs.telegram.org][5])
+* **Rate limit 429**: hormati `parameters.retry_after` detik lalu retry. (Telegran memang mengembalikan nilai ini saat flood limit). ([GitHub][6])
+
+---
+
+## 5) E2E — trigger alert nyata (3 cara)
+
+| Cara                                    | Apa yang dilakukan                                                  | Lulus bila…                                                                                                                                                                                                |
+| --------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. Natural**                          | Jalankan monitor 5m/15m/1h untuk coin volatil (mis. SOL/DOGE/AVAX). | Terkirim 1 alert **Watch/Action** saat `taker_ratio ≥ 1.6` **&** `OI_ROC ≥ +2%` (Akumulasi) **atau** `taker_ratio ≤ 0.6` **&** `OI_ROC ≤ −2%` (Distribusi). Data dari Taker & OI Agg. ([CoinGlass-API][7]) |
+| **B. Turunkan threshold (profil test)** | Sementara set Watch: `taker ≥1.2`, `OI_ROC ≥ +1%`.                  | Alert terkirim dalam 1–2 siklus scan, lalu kembalikan ke nilai produksi.                                                                                                                                   |
+| **C. WS-driven**                        | Tunggu event `liquidationOrders`, lalu verifikasi REST.             | “Heads-up” masuk ≤ detik; alert final setelah konfirmasi confluence. ([CoinGlass-API][8])                                                                                                                  |
+
+---
+
+## 6) Negative tests (biar kebal)
+
+* **API Key salah** → Funding/OI/Taker/Liq balas error; pastikan header `CG-API-KEY` benar. ([CoinGlass-API][9])
+* **Pair salah / coin spot-only** → REST 200 tapi `data: []` (normal); perbaiki via **supported-exchange-pairs**. ([CoinGlass-API][4])
+* **Telegram 400**:
+
+  * `chat not found` → cek `chat_id`/izin bot.
+  * `message is too long` → pecah pesan <4096 char. ([bugs.telegram.org][5])
+* **Telegram 429** → tunggu `retry_after` detik lalu retry (log jelas). ([GitHub][6])
+
+---
+
+## 7) Acceptance criteria (GO/NO-GO)
+
+* 4 REST endpoint inti → **200 OK** & data terbaca (meski kosong saat sepi). ([CoinGlass-API][1])
+* WS `liquidationOrders` connect & receive → **OK** (keep-alive stabil). ([CoinGlass-API][2])
+* Telegram `sendMessage` mengembalikan **`result.message_id`**; dedup 5 menit bekerja. ([Telegram][3])
+* Minimal **1 alert** terkirim pada salah satu coin saat threshold terpenuhi.
+
+---
+
+## Bonus: skrip “matrix PASS/EMPTY” (multi-coin)
+
+* Loop: resolve pair → ping 4 endpoint (1h, 100 bar) → catat **PASS** (ada data) atau **EMPTY** (kosong).
+* Gunakan `exchange_list=OKX,Binance,Bybit` di taker untuk cakupan lebih luas. ([CoinGlass-API][7])
+
+Kalau kamu mau, sebut 5–10 coin prioritas (mis. BTC/ETH/SOL/AVAX/DOGE/LINK). Aku formatkan **perintah uji siap copy-paste** (REST + WS + Telegram) lengkap dengan **kriteria lulus** per coin biar tinggal run dan lihat hasilnya.
+
+[1]: https://docs.coinglass.com/reference/fr-ohlc-histroy?utm_source=chatgpt.com "History (OHLC)"
+[2]: https://docs.coinglass.com/reference/ws-getting-started?utm_source=chatgpt.com "Getting Started"
+[3]: https://core.telegram.org/bots/api?utm_source=chatgpt.com "Telegram Bot API"
+[4]: https://docs.coinglass.com/reference/instruments?utm_source=chatgpt.com "Suported Exchange and Pairs"
+[5]: https://bugs.telegram.org/c/1423?utm_source=chatgpt.com "Increase character limit for messages - Bugs and Suggestions"
+[6]: https://github.com/tdlib/telegram-bot-api/issues/184?utm_source=chatgpt.com "tdlib/telegram-bot-api - Too Many Requests: retry after 2282"
+[7]: https://docs.coinglass.com/reference/aggregated-taker-buysell-volume-history?utm_source=chatgpt.com "Coin Taker Buy/Sell Volume History"
+[8]: https://docs.coinglass.com/reference/ws-liquidation-order?utm_source=chatgpt.com "Liquidation Order"
+[9]: https://docs.coinglass.com/?utm_source=chatgpt.com "CoinGlass-API"
