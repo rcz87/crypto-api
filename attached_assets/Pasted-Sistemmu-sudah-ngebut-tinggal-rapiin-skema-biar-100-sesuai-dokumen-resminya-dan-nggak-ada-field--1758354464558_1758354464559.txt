@@ -1,0 +1,177 @@
+Sistemmu sudah “ngebut”—tinggal rapiin skema biar 100% sesuai dokumen resminya dan nggak ada field “salah kamar”. Ini quick audit & fix-map berbasis docs CoinGlass v4.
+
+TL;DR
+
+/futures/liquidation/aggregated-history (coin-level) itu tersedia di Standard dan memang mengembalikan total long/short per waktu (tanpa exchange breakdown). Format resminya: time, aggregated_long_liquidation_usd, aggregated_short_liquidation_usd. 
+CoinGlass-API
+
+Untuk breakdown per exchange, pakai /futures/liquidation/exchange-list (ada di Standard) — bukan dari aggregated-history. 
+CoinGlass-API
+
+/etf/bitcoin/flow-history mengembalikan time-series dengan timestamp (ms), flow_usd, price_usd, dan etf_flows per ticker. Field seperti shares_outstanding itu bukan milik flow-history; ambil dari /etf/bitcoin/list atau ETF History/NetAssets. 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+1) Liquidation — validasi payload & DTO yang tepat
+
+Yang kamu kirim (contoh expected):
+
+{
+  "timestamp": 1726830000000,
+  "coin": "SOL",
+  "total_liquidations": 1250000.50,
+  "long_liquidations": 800000.25,
+  "short_liquidations": 450000.25,
+  "exchange_breakdown": { "binance": 500000.0, "okx": 750000.50 }
+}
+
+
+Catatan koreksi:
+
+Skema resmi aggregated-history:
+
+{
+  "time": 1658966400000,
+  "aggregated_long_liquidation_usd": 5916885.14,
+  "aggregated_short_liquidation_usd": 12969583.88
+}
+
+
+(Tidak ada coin, total_liquidations, atau exchange_breakdown di endpoint ini.) 
+CoinGlass-API
+
+Kalau butuh exchange breakdown (All, Binance, OKX, dst.), panggil /futures/liquidation/exchange-list?coin=SOL (refresh ~10s). 
+CoinGlass-API
+
+DTO yang disarankan (coin-agg history):
+
+class LiquidationCoinAgg(BaseModel):
+    time: int  # ms epoch
+    aggregated_long_liquidation_usd: float
+    aggregated_short_liquidation_usd: float
+
+
+DTO untuk exchange breakdown (opsional):
+
+class LiquidationExchangeRow(BaseModel):
+    exchange: str
+    liquidation_usd: float
+    long_liquidation_usd: float
+    short_liquidation_usd: float
+
+
+FYI: Pair-level history (/futures/liquidation/history?pair=SOL-USDT&exchange=OKX) juga No Limit di Standard dan fieldnya time, long_liquidation_usd, short_liquidation_usd. 
+CoinGlass-API
+
+Kalau data: [] pada 1h/4h: benar—itu biasanya karena tidak ada event di window tersebut, bukan masalah plan. (Standard = No Limit interval untuk dua endpoint ini.) 
+CoinGlass-API
++1
+
+2) ETF Flows — validasi payload & pemisahan sumber data
+
+Payload kamu (flow-history) menampilkan:
+
+{
+  "date": "2025-09-20",
+  "ticker": "GBTC",
+  "net_flow": 83.15,
+  "closing_price": 35.03,
+  "shares_outstanding": 226050100.0
+}
+
+
+Koreksi penting:
+
+Skema resmi /etf/bitcoin/flow-history:
+
+{
+  "timestamp": 1704931200000,
+  "flow_usd": 655300000,
+  "price_usd": 46663,
+  "etf_flows": [
+    { "etf_ticker": "GBTC", "flow_usd": -95100000 },
+    { "etf_ticker": "IBIT", "flow_usd": 111700000 }
+  ]
+}
+
+
+(Tidak ada shares_outstanding di sini.) 
+CoinGlass-API
+
+shares_outstanding dan metadata lain adanya di /etf/bitcoin/list (status realtime) atau ETF History/NetAssets — bukan di flow-history. 
+CoinGlass-API
++2
+CoinGlass-API
++2
+
+DTO yang disarankan (flow-history):
+
+class ETFFlowHistory(BaseModel):
+    timestamp: int
+    flow_usd: float
+    price_usd: float
+    etf_flows: list[dict]  # [{etf_ticker, flow_usd}]
+
+
+Mapping aman (kalau perlu nama “seragam” di layer analitik):
+
+net_flow := flow_usd
+
+closing_price := price_usd
+
+date boleh kamu derive dari timestamp (store dua-duanya: timestamp_ms & date_utc string).
+
+DTO terpisah untuk status list:
+
+class ETFStatusItem(BaseModel):
+    ticker: str
+    shares_outstanding: float | str
+    asset_details: dict  # termasuk update_date
+    update_timestamp: int
+
+
+(Lihat struktur contoh di halaman “Bitcoin ETF List”.) 
+CoinGlass-API
+
+3) Quick tests (biar yakin semua rapih)
+
+Coin agg (SOL):
+GET /api/futures/liquidation/aggregated-history?coin=SOL&interval=1h → fields: time, aggregated_*_usd. 
+CoinGlass-API
+
+Exchange breakdown (SOL):
+GET /api/futures/liquidation/exchange-list?coin=SOL → ada exchange, liquidation_usd, long_liquidation_usd, short_liquidation_usd. 
+CoinGlass-API
+
+Pair (SOL-USDT @ OKX):
+GET /api/futures/liquidation/history?pair=SOL-USDT&exchange=OKX&interval=1h → time, long_liquidation_usd, short_liquidation_usd. 
+CoinGlass-API
+
+ETF flows:
+GET /api/etf/bitcoin/flow-history → timestamp, flow_usd, price_usd, etf_flows[]. 
+CoinGlass-API
+
+ETF list (status):
+GET /api/etf/bitcoin/list → shares_outstanding, asset_details.update_date, update_timestamp, dst. 
+CoinGlass-API
+
+4) Ringkasannya (checklist siap eksekusi)
+
+ LiquidationCoinAgg: pakai field resmi (time + aggregated_*_usd). 
+CoinGlass-API
+
+ Exchange breakdown: ambil dari exchange-list, bukan aggregated-history. 
+CoinGlass-API
+
+ ETFFlowHistory: gunakan timestamp/flow_usd/price_usd/etf_flows[]. 
+CoinGlass-API
+
+ ETF status fields (incl. shares_outstanding): ambil dari /etf/bitcoin/list / ETF History/NetAssets. 
+CoinGlass-API
++2
+CoinGlass-API
++2

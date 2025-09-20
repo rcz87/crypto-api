@@ -449,11 +449,11 @@ class CoinglassClient:
         return response.json()
 
     def etf_flows_history(self, days: int = 30):
-        """Get ETF flows data using real CoinGlass API v4 endpoints"""
+        """Get ETF flow-history data using CoinGlass API v4 flow-history endpoint"""
         from app.core.logging import logger
         
-        # Use correct CoinGlass v4 ETF endpoint
-        endpoint = "/api/etf/bitcoin/list"
+        # Use correct CoinGlass v4 ETF flow-history endpoint
+        endpoint = "/api/etf/bitcoin/flow-history"
         try:
             url = f"{self.base_url}{endpoint}"
             response = self.http.get(url)
@@ -461,62 +461,56 @@ class CoinglassClient:
             if response.status_code == 200:
                 result = response.json()
                 if result and 'data' in result:
-                    logger.info(f"ETF endpoint successful: {endpoint}")
+                    logger.info(f"ETF flow-history endpoint successful: {endpoint}")
                     # Return real API data with proper field mapping
                     return self._process_real_etf_flows(result)
             else:
-                logger.error(f"ETF endpoint failed with status {response.status_code}")
+                logger.error(f"ETF flow-history endpoint failed with status {response.status_code}")
                 
         except Exception as e:
-            logger.error(f"ETF endpoint {endpoint} failed: {e}")
+            logger.error(f"ETF flow-history endpoint {endpoint} failed: {e}")
             
         # Return empty data if real API fails - NO SYNTHETIC DATA
-        logger.warning("ETF endpoint failed, returning empty data (no synthetic generation)")
-        return {"data": [], "success": False, "error": "Real ETF data unavailable"}
+        logger.warning("ETF flow-history endpoint failed, returning empty data (no synthetic generation)")
+        return {"data": [], "success": False, "error": "Real ETF flow-history data unavailable"}
+    
+    def etf_bitcoin_flows(self):
+        """Get Bitcoin ETF flow-history with CoinGlass API v4 format"""
+        url = f"{self.base_url}/api/etf/bitcoin/flow-history"
+        response = self.http.get(url)
+        raw_data = response.json()
+        
+        # Process with real ETF flow-history data validation
+        return self._process_real_etf_flows(raw_data)
+    
+    def etf_bitcoin_list(self):
+        """Get Bitcoin ETF status list with shares_outstanding data"""
+        url = f"{self.base_url}/api/etf/bitcoin/list"
+        response = self.http.get(url)
+        raw_data = response.json()
+        
+        # Process with ETF status data validation
+        return self._process_etf_status_list(raw_data)
 
     def _process_real_etf_flows(self, data):
-        """Process real ETF flows data from CoinGlass API v4 with correct field mapping"""
+        """Process ETF flow-history data from CoinGlass API v4 - correct format mapping"""
         try:
             if not data or 'data' not in data:
                 return {"data": [], "success": False, "error": "No data in API response"}
             
-            # Extract real ETF data from API response
+            # Extract real ETF flow-history data from API response
             etf_data = data['data']
             processed_flows = []
             
-            for etf_item in etf_data:
-                if isinstance(etf_item, dict):
-                    # Map CoinGlass API v4 fields correctly - use flows_1d, flows_7d, flows_30d
-                    from datetime import datetime
-                    current_date = datetime.now().strftime("%Y-%m-%d")
-                    
-                    # FIX: Handle proper ETF structure from /api/etf/bitcoin/list per CoinGlass docs
-                    asset_details = etf_item.get("asset_details", {})
-                    
-                    # Get timestamp from multiple possible sources per docs
-                    update_timestamp = (
-                        asset_details.get("update_timestamp") or 
-                        asset_details.get("last_quote_time") or
-                        etf_item.get("update_timestamp")
-                    )
-                    
-                    # Get date string properly or fallback to current
-                    update_date = asset_details.get("update_date", "")
-                    if not update_date or update_date.strip() == "":
-                        if update_timestamp:
-                            # Convert ms timestamp to date string
-                            from datetime import datetime
-                            update_date = datetime.fromtimestamp(update_timestamp / 1000).strftime("%Y-%m-%d")
-                        else:
-                            update_date = current_date
-                    
+            for flow_item in etf_data:
+                if isinstance(flow_item, dict):
+                    # Map CoinGlass API v4 flow-history format: timestamp, flow_usd, price_usd, etf_flows[]
                     processed_item = {
-                        "ticker": etf_item.get("ticker", etf_item.get("fund_name", "Unknown")),
-                        "date": update_date,  # Now properly extracted per docs
-                        "net_flow": etf_item.get("net_flow", 0),
-                        "closing_price": etf_item.get("closing_price", etf_item.get("price", 0)),
-                        "shares_outstanding": etf_item.get("shares_outstanding", 0),
-                        "source": "real_api_v4_fixed"
+                        "timestamp": flow_item.get("timestamp", 0),  # Milliseconds timestamp
+                        "flow_usd": flow_item.get("flow_usd", 0),    # Net flow in USD
+                        "price_usd": flow_item.get("price_usd", 0),  # BTC price in USD
+                        "etf_flows": flow_item.get("etf_flows", []), # [{etf_ticker, flow_usd}]
+                        "source": "real_flow_history_v4"
                     }
                     processed_flows.append(processed_item)
             
@@ -524,7 +518,34 @@ class CoinglassClient:
             
         except Exception as e:
             from app.core.logging import logger
-            logger.error(f"Error processing real ETF flows: {e}")
+            logger.error(f"Error processing real ETF flow-history: {e}")
+            return {"data": [], "success": False, "error": f"Processing error: {str(e)}"}
+    
+    def _process_etf_status_list(self, data):
+        """Process ETF status list from /api/etf/bitcoin/list - separate from flow-history"""
+        try:
+            if not data or 'data' not in data:
+                return {"data": [], "success": False, "error": "No status data in API response"}
+            
+            processed_status = []
+            for etf_item in data['data']:
+                if isinstance(etf_item, dict):
+                    asset_details = etf_item.get("asset_details", {})
+                    
+                    processed_item = {
+                        "ticker": etf_item.get("ticker", "Unknown"),
+                        "shares_outstanding": etf_item.get("shares_outstanding", 0),
+                        "asset_details": asset_details,
+                        "update_timestamp": asset_details.get("update_timestamp", 0),
+                        "source": "real_status_list_v4"
+                    }
+                    processed_status.append(processed_item)
+            
+            return {"data": processed_status, "success": True}
+            
+        except Exception as e:
+            from app.core.logging import logger
+            logger.error(f"Error processing ETF status list: {e}")
             return {"data": [], "success": False, "error": f"Processing error: {str(e)}"}
 
     def _get_etf_flows_fallback(self):
@@ -570,12 +591,30 @@ class CoinglassClient:
         return response.json()
     
     def liquidation_coin_history(self, symbol: str, interval: str = "1h"):
-        """Get liquidation coin history using lint-validated endpoint builder"""
+        """Get liquidation coin aggregated history - CoinGlass v4 format"""
         # Use validated endpoint builder (will auto-fix if needed)
         url = self._build_url("/api/futures/liquidation/aggregated-history")
         params = {"coin": symbol, "interval": interval}  # Use 'coin' param per CoinGlass docs
         response = self.http.get(url, params)
         return response.json()
+    
+    def liquidation_exchange_list(self, coin: str, range_period: str = "24h"):
+        """Get liquidation exchange breakdown - CoinGlass v4 format"""
+        url = self._build_url("/api/futures/liquidation/exchange-list")
+        params = {"coin": coin, "range": range_period}
+        response = self.http.get(url, params)
+        return response.json()
+    
+    def liquidation_heatmap(self, symbol: str, interval: str = "1h"):
+        """Liquidation heatmap (fallback to coin-history)"""
+        # Use coin-history as fallback for Standard package
+        return self.liquidation_coin_history(symbol, interval)
+    
+    def options_oi(self, symbol: str, interval: str = "1h"):
+        """Options open interest placeholder (not available in Standard)"""
+        from app.core.logging import logger
+        logger.warning(f"Options OI not available in Standard package for {symbol}")
+        return {"data": [], "message": "Options data not available in Standard package"}
 
     # === SPOT MARKET ENDPOINTS (Standard Package Alternative) ===
     def spot_orderbook_history(self, symbol: str, exchange: str = "binance", interval: str = "1h"):

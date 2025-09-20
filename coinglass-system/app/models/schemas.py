@@ -84,12 +84,11 @@ class ETFStatusItem(BaseModel):
     asset_details: Optional[ETFAssetDetails] = None
 
 class ETFFlowHistory(BaseModel):
-    """Model for /api/etf/bitcoin/flow-history - time-series data"""
+    """Model for /api/etf/bitcoin/flow-history - time-series data (CoinGlass v4 format)"""
     timestamp: int  # Milliseconds timestamp from API
-    ticker: str
-    net_flow: float  # Daily net inflow/outflow in USD
-    closing_price: float
-    shares_outstanding: Optional[float] = None
+    flow_usd: float  # Net flow in USD
+    price_usd: float  # BTC price in USD
+    etf_flows: list[dict]  # [{etf_ticker, flow_usd}]
 
 # Legacy support - keep existing ETFData for backward compatibility
 class ETFData(BaseModel):
@@ -126,13 +125,17 @@ class LiquidationPair(BaseModel):
     value: float  # USD value of liquidation
     
 class LiquidationCoinAgg(BaseModel):
-    """DTO for /api/futures/liquidation/aggregated-history - coin-aggregated data"""
-    timestamp: int  # Milliseconds timestamp
-    coin: str  # e.g., "BTC", "ETH", "SOL"
-    total_liquidations: float  # Total liquidation value across exchanges
-    long_liquidations: float  # Long position liquidations
-    short_liquidations: float  # Short position liquidations
-    exchange_breakdown: Optional[Dict[str, float]] = None  # Per-exchange breakdown
+    """DTO for /api/futures/liquidation/aggregated-history - coin-aggregated data (CoinGlass v4 format)"""
+    time: int  # Milliseconds epoch timestamp
+    aggregated_long_liquidation_usd: float  # Long position liquidations
+    aggregated_short_liquidation_usd: float  # Short position liquidations
+
+class LiquidationExchangeRow(BaseModel):
+    """DTO for /api/futures/liquidation/exchange-list - exchange breakdown data"""
+    exchange: str
+    liquidation_usd: float
+    longLiquidation_usd: float  # Exact field name from API
+    shortLiquidation_usd: float  # Exact field name from API
 
 class LiquidationHeatmapData(BaseModel):
     """Legacy heatmap model - keep for backward compatibility"""

@@ -395,11 +395,10 @@ def get_etf_flows_history(
                     logger.info(f"📊 FINAL ETF Values - {record.get('ticker')}: net_flow={net_flow_value}, price={closing_price_value}")
                     
                     etf_flow = ETFFlowHistory(
-                        date=record.get('date', datetime.now().strftime("%Y-%m-%d")),
-                        ticker=record.get('ticker', ''),
-                        net_flow=float(net_flow_value),
-                        closing_price=float(closing_price_value),
-                        shares_outstanding=int(record.get('shares_outstanding', record.get('shares', 0)))
+                        timestamp=int(record.get('timestamp', int(datetime.now().timestamp() * 1000))),
+                        flow_usd=float(net_flow_value),
+                        price_usd=float(closing_price_value),
+                        etf_flows=record.get('etf_flows', [{"etf_ticker": record.get('ticker', ''), "flow_usd": float(net_flow_value)}])
                     )
                     etf_flows.append(etf_flow)
                     logger.debug(f"✅ Processed ETF flow: {record.get('ticker', 'Unknown')} - {record.get('date', 'No date')}")
