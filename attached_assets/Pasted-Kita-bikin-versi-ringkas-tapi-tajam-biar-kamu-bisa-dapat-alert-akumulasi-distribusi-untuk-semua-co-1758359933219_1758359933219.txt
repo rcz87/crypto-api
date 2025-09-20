@@ -1,0 +1,118 @@
+Kita bikin versi “ringkas tapi tajam” biar kamu bisa dapat alert akumulasi/distribusi untuk semua coin di list tanpa pusing.
+
+TL;DR (jalan paling gampang)
+
+Ambil 2 data inti per coin (1h):
+Taker buy/sell (coin-agg) + Open Interest (coin-agg). Dua ini sudah No-Limit interval di plan Standard. 
+CoinGlass-API
++1
+
+Rule ultra-simple:
+
+Akumulasi kalau taker_ratio ≥ 1.6 dan OI_ROC ≥ +2%.
+
+Distribusi kalau taker_ratio ≤ 0.6 dan OI_ROC ≤ −2% atau Price↓ & OI↑ (short build).
+
+Kirim ke Telegram via Bot API (satu sendMessage). 
+CoinGlass-API
+
+Kalau mau sedikit lebih pro, tambahkan:
+
+Funding OHLC (sentimen leverage, No-Limit di Standard), dan Liquidation coin-agg (ignition momen). Tetap simpel. 
+CoinGlass-API
++1
+
+Mode Ringan (15 menit siap jalan)
+
+Endpoin yang dipakai (semua Standard, No-Limit interval):
+
+Taker (coin-agg): GET /api/futures/aggregated-taker-buy-sell-volume/history?coin=COIN&interval=1h (bisa tambah exchange_list=OKX,Binance,Bybit). 
+CoinGlass-API
+
+OI (coin-agg OHLC): GET /api/futures/open-interest/aggregated-history?coin=COIN&interval=1h. 
+CoinGlass-API
+
+Opsional:
+Funding OHLC (pair): …/funding-rate/history?pair=COIN-USDT&exchange=OKX&interval=1h. 
+CoinGlass-API
+
+Liquidation coin-agg: …/liquidation/aggregated-history?coin=COIN&interval=1h. 
+CoinGlass-API
+
+Resolver simbol (hindari 404/empty):
+GET /api/futures/supported-exchange-pairs → pakai pair resmi (contoh SOL-USDT di OKX). Cache 1 menit. 
+CoinGlass-API
+
+Logic super singkat per coin (pseudocode):
+
+taker_ratio = buy_usd / sell_usd  (dari taker coin-agg 1h)        ← :contentReference[oaicite:8]{index=8}
+oi_roc = (OI_close[t] - OI_close[t-1]) / OI_close[t-1]            ← :contentReference[oaicite:9]{index=9}
+
+if taker_ratio >= 1.6 and oi_roc >= 0.02:        # Akumulasi (Watch/Action)
+    alert("🟢 Whale Accumulation", coin, taker_ratio, oi_roc)
+
+if taker_ratio <= 0.6 and (oi_roc <= -0.02 or (price↓ and oi_roc>0)):  # Distribusi
+    alert("🔴 Distribution Risk", coin, taker_ratio, oi_roc)
+
+
+Kirim Telegram (resmi):
+
+POST https://api.telegram.org/bot<TOKEN>/sendMessage
+  chat_id=<CHAT_ID>
+  text="🟢 Accumulation | SOL | Taker 1.87 | OI +2.3% (1h)"
+
+
+(Ini Bot API resmi; bisa juga pakai webhook setWebhook agar low-latency.) 
+CoinGlass-API
+
+Mode Pro (tetap sederhana, tapi “lebih duluan”)
+
+Tambah WS CoinGlass untuk early ping:
+wss://open-ws.coinglass.com/ws-api?cg-api-key=… → subscribe kanal yang kamu perlukan, kirim ping tiap ±20 detik. Gunakan WS sebagai “heads-up”, lalu konfirmasi dengan REST (taker/OI). 
+CoinGlass-API
+
+Tambahkan funding sebagai filter crowding: funding ekstrem (bps per 8h) bantu bedakan fake-out. (OHLC funding v4, No-Limit di Standard). 
+CoinGlass-API
+
+Tambahkan liquidation coin-agg p95 7D sebagai ignition check (spike sering mendahului move besar). 
+CoinGlass-API
+
+Template alert (siap pakai)
+
+Akumulasi (Watch):
+
+🟢 WHALE ACCUMULATION (Watch)
+Coin: {COIN} (1h)
+• Taker: {ratio}  (≥1.6)
+• OI ROC: {roc}%  (≥+2%)
+• Funding (opt): {bps} bps/8h
+Action: persiapkan entry; validasi 1 bar berikut.
+
+
+Distribusi (Action):
+
+🔴 DISTRIBUTION RISK (Action)
+Coin: {COIN} (1h)
+• Taker: {ratio} (≤0.6)
+• OI ROC: {roc}% (≤−2%) atau Price↓ & OI↑
+• Liquidation: {spike} (opt)
+Action: kurangi eksposur / set proteksi.
+
+Kenapa ini “mudah & cukup”
+
+Semua endpoint di atas tersedia di Standard dan bertanda “No Limit interval” pada halaman masing-masing: taker coin-agg, OI agg, funding OHLC, liquidation coin-agg. Jadi kamu tak perlu trik khusus—tinggal panggil dengan query params yang benar. 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+Autentikasi cuma butuh header CG-API-KEY; WS cukup tambahkan key di query param. 
+CoinGlass-API
++1
+
+Resolver memastikan coin/pair yang kamu scan memang tersedia (hindari 404/empty karena spot-only). 
+CoinGlass-API
+
+Kalau mau langsung eksekusi, pakai Mode Ringan dulu untuk 10–20 coin prioritas (Tier-1/Tier-2), lalu naikkan ke list penuh. Nanti kalau sudah stabil, tinggal upgrade ke Mode Pro (tambah WS + filter funding/liquidation) — tetap simpel, tapi kamu dapat alert lebih cepat dari retai

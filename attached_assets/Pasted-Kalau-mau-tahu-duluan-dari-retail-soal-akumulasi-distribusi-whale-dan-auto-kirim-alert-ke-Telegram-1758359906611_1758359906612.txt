@@ -1,0 +1,149 @@
+Kalau mau “tahu duluan dari retail” soal akumulasi/distribusi whale dan auto-kirim alert ke Telegram, resepnya sederhana tapi disiplin:
+
+TL;DR
+
+Stream data tercepat
+• Order-flow bursa: buka WebSocket CoinGlass (latensi ~real-time) untuk event besar (liquidation, trade burst), lalu lengkapi dengan REST untuk taker buy/sell, OI, funding. 
+CoinGlass-API
++4
+CoinGlass-API
++4
+CoinGlass-API
++4
+
+• On-chain whale: pakai layanan berlabel (Nansen/Arkham/Whale Alert) atau DIY via Solana logsSubscribe / Helius webhook agar “dompet besar → CEX/DEX” terdeteksi seketika. 
+Helius
++5
+Nansen
++5
+Nansen
++5
+
+Rule “lebih cepat dari retail”
+Trigger saat ≥2 sinyal searah muncul sebelum pergerakan harga besar:
+• Taker ratio (agresor) melonjak + OI naik (modal baru) → akumulasi;
+• Inflow on-chain ke CEX + funding + & OI naik → distribusi/tekanan jual;
+• Spike likuidasi sisi lawan → sering jadi ignition move. (Semua tersedia via CoinGlass v4 Standard). 
+CoinGlass-API
++2
+CoinGlass-API
++2
+
+Alert Telegram
+Kirim via Telegram Bot API / webhook (resmi). Formatkan pesan + tingkat keparahan; de-dup 5 menit. 
+Telegram
+
+Arsitektur cepat (siap produksi)
+Layer	Sumber & Endpoint	Kenapa ini “lebih dulu”	Catatan implementasi
+WS order-flow	CoinGlass WS wss://open-ws.coinglass.com/ws-api?cg-api-key=... → channel liquidationOrders	Datang seketika saat order likuidasi besar terjadi	Wajib ping tiap ~20s; format subscribe: {"method":"subscribe","channels":["liquidationOrders"]}. 
+CoinGlass-API
+
+Taker (aggressive flow)	/api/futures/aggregated-taker-buy-sell-volume/history	Rasio agresor buy/sell memimpin arah jangka pendek	Standard = No-Limit interval. Boleh filter exchange dengan exchange_list. 
+CoinGlass-API
+
+Open Interest (modal baru)	/api/futures/open-interest/aggregated-history	OI↑ + harga↑ = akumulasi; OI↑ + harga↓ = short build	Standard = No-Limit interval. 
+CoinGlass-API
+
+Funding (sentimen leverage)	/api/futures/funding-rate/history	Funding ekstrem → posisi pasar condong/siap squeeze	Standard = No-Limit interval. 
+CoinGlass-API
+
+Likuidasi (volatility ignition)	/api/futures/liquidation/aggregated-history & /api/futures/liquidation/history	Spike 1–4 jam sering mendahului impulse/mean reversion	Standard = No-Limit interval. 
+CoinGlass-API
++1
+
+On-chain whale	Nansen Smart Alerts / Arkham Alerts / Whale Alert API atau Solana logsSubscribe / Helius Webhook	Deteksi sebelum menyentuh orderbook (dompet → CEX/DEX)	Nansen/Arkham: label “Smart Money/Entity”; Whale Alert: transfer besar lintas chain; DIY Solana: logsSubscribe / Helius webhook. 
+Helius
++4
+Nansen
++4
+Arkham Codex
++4
+Rule praktis (akumulasi vs distribusi)
+
+Akumulasi (LONG bias) — kirim “Heads-up” kalau:
+① Taker ratio ≥ p95 30D atau ≥ 1.8 & ② OI ROC ≥ p85 60D & ③ Funding ≤ 0 (kontra-konsensus) &/atau ④ masuk on-chain inflow kecil ke DEX LP (bukan CEX). 
+CoinGlass-API
++1
+
+Distribusi (SHORT/exit bias) — kirim “Heads-up” kalau:
+① Taker ratio ≤ 0.6 & ② OI ROC naik saat harga ↓ & ③ Funding positif tinggi &/atau ④ on-chain inflow ke CEX dari dompet besar. 
+CoinGlass-API
+
+Ignition / Risiko squeeze: spike likuidasi short (untuk long entry) atau likuidasi long (untuk short) ≥ p95 7D; konfirmasi 1 bar berikut. 
+CoinGlass-API
+
+Kirim ke Telegram (resmi & simpel)
+
+Buat bot via @BotFather → ambil token.
+
+Dapatkan chat_id (via getUpdates) dan kirim pesan:
+
+curl -X POST "https://api.telegram.org/bot<YOUR_TOKEN>/sendMessage" \
+  -d "chat_id=<CHAT_ID>" \
+  --data-urlencode "text=🚨 Whale Accumulation: SOL | Taker 1.92 | OI +3.1% | Funding -6.0 bps"
+
+
+(Ini Telegram Bot API resmi). Untuk webhook, set di setWebhook (aiogram/python-telegram-bot juga support). 
+Telegram
++2
+freecodecamp.org
++2
+
+Tip latency: pakai WS CoinGlass untuk trigger cepat, lalu REST untuk verifikasi (taker/OI/funding) dalam 1–2 panggilan agar hemat rate-limit. 
+CoinGlass-API
+
+Blueprint “1 jam implement”
+
+WS listener → liquidationOrders (CoinGlass). 
+CoinGlass-API
+
+Poller REST (tiap 1–5 menit):
+aggregated-taker-buy-sell-volume/history, open-interest/aggregated-history, funding-rate/history. 
+CoinGlass-API
++2
+CoinGlass-API
++2
+
+(Opsional) On-chain watcher:
+– Cepat pilih siap pakai: Nansen Smart Alerts / Arkham Alerts (bisa webhook/Telegram). 
+Nansen
++1
+
+– DIY Solana: logsSubscribe (RPC WS) atau Helius Webhook → kirim ke endpoint kamu. 
+Solana
++1
+
+Engine: jalankan rule confluence (≥2 layer = Watch, ≥3 (min 1 Action) = Action).
+
+Notifier: Telegram sendMessage + de-dup 5 menit. 
+Telegram
+
+Contoh alert yang “tajam & nggak spam”
+🟢 WHALE ACCUMULATION (Watch)
+Asset: SOL (1h)
+• Taker ratio: 1.86 (≥ p95)
+• OI ROC: +3.2% (≥ p85)
+• Funding: -5.8 bps/8h
+• Liq spike: none (calm)
+Action: siapkan entry plan; validasi di bar berikut.
+
+🔴 DISTRIBUTION RISK (Action)
+Asset: SOL (1h)
+• Taker ratio: 0.58 (≤ 0.6)
+• OI ROC: +4.9% while Price ↓
+• Funding: +12.3 bps/8h
+• On-chain: inflow whale → CEX (Nansen/Arkham)
+Action: kurangi eksposur / pasang proteksi.
+
+Pro-tip biar “selalu lebih dulu”
+
+Pakai WS untuk sinyal awal (liquidation/trade), REST untuk konfirmasi; ini menurunkan latensi dibanding polling penuh. 
+CoinGlass-API
+
+Aktifkan alert on-chain→CEX inflow via Nansen/Arkham/Whale Alert (label dompet) — ini sering mendahului orderbook. 
+Nansen
++2
+Arkham Codex
++2
+
+Cek Supported Exchange & Pairs agar simbol tepat (minim 404/empty
