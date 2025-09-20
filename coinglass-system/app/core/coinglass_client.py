@@ -142,36 +142,48 @@ class CoinglassClient:
         """Get coin liquidation history with proper symbol formatting"""
         from app.core.logging import logger
         
-        # Clean symbol format for CoinGlass API
+        # PATCH: Enhanced symbol mapping for CoinGlass API v4 compatibility
         clean_symbol = symbol.replace("-USDT-SWAP", "").replace("-SWAP", "").replace("USDT", "")
         if clean_symbol.endswith("-"):
             clean_symbol = clean_symbol[:-1]
         
-        # Try primary liquidation endpoint with clean symbol
+        # PATCH: Try multiple symbol formats for better compatibility
+        symbol_variants = [
+            clean_symbol,               # SOL
+            f"{clean_symbol}USDT",      # SOLUSDT  
+            f"{clean_symbol}-USD",      # SOL-USD
+            f"{clean_symbol}_USD"       # SOL_USD
+        ]
+        
+        # PATCH: Try multiple symbol variants for liquidation endpoints
         url = f"{self.base_url}/api/futures/liquidation/coin-history"
-        params = {"symbol": clean_symbol, "interval": interval}
         
-        try:
-            response = self.http.get(url, params=params)
-            if response.status_code == 200:
-                result = response.json()
-                if result and 'data' in result:
-                    logger.info(f"Liquidation data found for {clean_symbol}")
-                    return result
-        except Exception as e:
-            logger.debug(f"Primary liquidation endpoint failed for {clean_symbol}: {e}")
+        for variant in symbol_variants:
+            params = {"symbol": variant, "interval": interval}
+            
+            try:
+                response = self.http.get(url, params=params)
+                if response.status_code == 200:
+                    result = response.json()
+                    if result and 'data' in result and result['data']:
+                        logger.info(f"✅ Liquidation data found for {variant} (original: {symbol})")
+                        return result
+            except Exception as e:
+                logger.debug(f"Liquidation variant {variant} failed: {e}")
         
-        # Try alternative endpoint
-        try:
-            alt_url = f"{self.base_url}/api/futures/liquidation/history"
-            response = self.http.get(alt_url, params=params)
-            if response.status_code == 200:
-                result = response.json()
-                if result and 'data' in result:
-                    logger.info(f"Using alternative liquidation endpoint for {clean_symbol}")
-                    return result
-        except Exception as e:
-            logger.debug(f"Alternative liquidation endpoint failed for {clean_symbol}: {e}")
+        # Try alternative endpoint with all variants
+        alt_url = f"{self.base_url}/api/futures/liquidation/history"
+        for variant in symbol_variants:
+            params = {"symbol": variant, "interval": interval}
+            try:
+                response = self.http.get(alt_url, params=params)
+                if response.status_code == 200:
+                    result = response.json()
+                    if result and 'data' in result and result['data']:
+                        logger.info(f"✅ Alternative liquidation endpoint worked for {variant}")
+                        return result
+            except Exception as e:
+                logger.debug(f"Alternative liquidation variant {variant} failed: {e}")
         
         # Return empty data instead of causing errors
         logger.warning(f"All liquidation endpoints failed for {clean_symbol}, returning empty data")
@@ -340,9 +352,14 @@ class CoinglassClient:
                     from datetime import datetime
                     current_date = datetime.now().strftime("%Y-%m-%d")
                     
+                    # PATCH: Handle empty/null date fields from CoinGlass API v4
+                    etf_date = etf_item.get("date", "")
+                    if not etf_date or etf_date.strip() == "":
+                        etf_date = current_date
+                    
                     processed_item = {
                         "ticker": etf_item.get("ticker", etf_item.get("fund_name", "Unknown")),
-                        "date": etf_item.get("date") or current_date,
+                        "date": etf_date,
                         # Use correct v4 API field names 
                         "flows_1d": etf_item.get("flows_1d", etf_item.get("net_inflow_1d", 0)),
                         "flows_7d": etf_item.get("flows_7d", etf_item.get("net_inflow_7d", 0)),
