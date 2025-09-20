@@ -37,4 +37,5 @@ dependencies = [
     "apscheduler>=3.11.0",
     "aiolimiter>=1.2.1",
     "backoff>=2.2.1",
+    "websocket-client>=1.8.0",
 ]

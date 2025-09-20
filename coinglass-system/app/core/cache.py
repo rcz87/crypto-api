@@ -168,3 +168,6 @@ class ReplDBCacheManager:
 
 # Create the cache manager instance
 cache = ReplDBCacheManager()
+
+# Alias for compatibility with existing code expecting redis_client
+redis_client = cache
