@@ -65,6 +65,33 @@ class WhalePosition(BaseModel):
     unrealized_pnl: Optional[float] = None
     timestamp: Optional[datetime] = None
 
+# === SEPARATE ETF MODELS BASED ON ENDPOINT STRUCTURE ===
+
+class ETFAssetDetails(BaseModel):
+    """Nested asset details from /api/etf/bitcoin/list"""
+    update_date: Optional[str] = None  # String date from CoinGlass API
+    update_timestamp: Optional[int] = None  # Milliseconds timestamp
+    last_quote_time: Optional[int] = None  # Alternative timestamp
+
+class ETFStatusItem(BaseModel):
+    """Model for /api/etf/bitcoin/list - realtime status"""
+    ticker: str
+    fund_name: str
+    aum: Optional[float] = None  # Assets Under Management
+    nav: Optional[float] = None  # Net Asset Value
+    closing_price: Optional[float] = None
+    shares_outstanding: Optional[float] = None
+    asset_details: Optional[ETFAssetDetails] = None
+
+class ETFFlowHistory(BaseModel):
+    """Model for /api/etf/bitcoin/flow-history - time-series data"""
+    timestamp: int  # Milliseconds timestamp from API
+    ticker: str
+    net_flow: float  # Daily net inflow/outflow in USD
+    closing_price: float
+    shares_outstanding: Optional[float] = None
+
+# Legacy support - keep existing ETFData for backward compatibility
 class ETFData(BaseModel):
     ticker: str
     name: str
@@ -75,13 +102,6 @@ class ETFData(BaseModel):
     flows_7d: Optional[float] = None
     flows_30d: Optional[float] = None
     timestamp: Optional[datetime] = None
-
-class ETFFlowHistory(BaseModel):
-    date: datetime
-    ticker: str
-    net_flow: float  # Daily net inflow/outflow in USD
-    closing_price: float
-    shares_outstanding: Optional[float] = None
 
 class MarketSentiment(BaseModel):
     symbol: str

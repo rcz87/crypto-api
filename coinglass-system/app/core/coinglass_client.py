@@ -352,26 +352,33 @@ class CoinglassClient:
                     from datetime import datetime
                     current_date = datetime.now().strftime("%Y-%m-%d")
                     
-                    # PATCH: Handle empty/null date fields from CoinGlass API v4
-                    etf_date = etf_item.get("date", "")
-                    if not etf_date or etf_date.strip() == "":
-                        etf_date = current_date
+                    # FIX: Handle proper ETF structure from /api/etf/bitcoin/list per CoinGlass docs
+                    asset_details = etf_item.get("asset_details", {})
+                    
+                    # Get timestamp from multiple possible sources per docs
+                    update_timestamp = (
+                        asset_details.get("update_timestamp") or 
+                        asset_details.get("last_quote_time") or
+                        etf_item.get("update_timestamp")
+                    )
+                    
+                    # Get date string properly or fallback to current
+                    update_date = asset_details.get("update_date", "")
+                    if not update_date or update_date.strip() == "":
+                        if update_timestamp:
+                            # Convert ms timestamp to date string
+                            from datetime import datetime
+                            update_date = datetime.fromtimestamp(update_timestamp / 1000).strftime("%Y-%m-%d")
+                        else:
+                            update_date = current_date
                     
                     processed_item = {
                         "ticker": etf_item.get("ticker", etf_item.get("fund_name", "Unknown")),
-                        "date": etf_date,
-                        # Use correct v4 API field names 
-                        "flows_1d": etf_item.get("flows_1d", etf_item.get("net_inflow_1d", 0)),
-                        "flows_7d": etf_item.get("flows_7d", etf_item.get("net_inflow_7d", 0)),
-                        "flows_30d": etf_item.get("flows_30d", etf_item.get("net_inflow_30d", 0)),
-                        # Legacy compatibility fields (for backward compatibility only)
-                        "net_inflow": etf_item.get("flows_1d", etf_item.get("net_inflow_1d", 0)),
-                        "net_flow": etf_item.get("flows_1d", etf_item.get("net_inflow_1d", 0)),
-                        # Additional real fields from API
-                        "price": etf_item.get("price", 0),
-                        "market_value": etf_item.get("market_value", 0),
+                        "date": update_date,  # Now properly extracted per docs
+                        "net_flow": etf_item.get("net_flow", 0),
+                        "closing_price": etf_item.get("closing_price", etf_item.get("price", 0)),
                         "shares_outstanding": etf_item.get("shares_outstanding", 0),
-                        "source": "real_api_v4"
+                        "source": "real_api_v4_fixed"
                     }
                     processed_flows.append(processed_item)
             

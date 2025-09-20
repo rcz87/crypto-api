@@ -1,0 +1,78 @@
+TL;DR
+
+ETF List & Flows: …/api/etf/bitcoin/list (status realtime) dan …/api/etf/bitcoin/flow-history (time-series) valid di Standard. Jangan campur model “list” vs “flows”. 
+CoinGlass-API
++1
+
+Liquidation: Pakai query params, bukan path …/coin-history/{symbol}. Untuk pair: …/api/futures/liquidation/history; untuk agregat coin: …/api/futures/liquidation/aggregated-history. Ada batas interval di plan rendah; Standard = no limit. 
+CoinGlass-API
++1
+
+Simbol: Sumber kebenaran = …/api/futures/supported-exchange-pairs. Resolve dulu, baru tembak endpoint lain. 
+CoinGlass-API
+
+WS: URL benar: wss://open-ws.coinglass.com/ws-api?cg-api-key=… + ping tiap 20s. 
+CoinGlass-API
+
+✅ Validasi solusi kamu vs dokumentasi
+
+ETF
+
+List (status realtime): GET /api/etf/bitcoin/list — tersedia di semua plan (termasuk Standard). Field yang “tanggal” ada di asset_details.update_date (string) + update_timestamp (ms). Tidak ada field top-level date seperti yang kamu validasi sebelumnya—makanya empty-string bikin Pydantic protes. 
+CoinGlass-API
+
+Flows (time-series): GET /api/etf/bitcoin/flow-history — timestamp (ms) + breakdown per ETF. Ini tempatnya kalau butuh flows_1d/7d/30d dalam konteks histori, bukan dari endpoint “list”. 
+CoinGlass-API
+
+Liquidation
+
+Pair level: GET /api/futures/liquidation/history (pakai pair=SOL-USDT + exchange=OKX + interval=…). Standard: No interval limit (batas interval itu berlaku di plan lebih rendah). 
+CoinGlass-API
+
+Coin aggregated: GET /api/futures/liquidation/aggregated-history (pakai query param untuk coin/symbol + interval). Jangan pakai path …/coin-history/SOL — itu memang bikin 404. 
+CoinGlass-API
+
+Bantu discovery: GET /api/futures/liquidation/coin-list berguna buat daftar koin & rolling sums (1h/4h/12h/24h). Tersedia dari Startup+ (jadi Standard aman). 
+CoinGlass-API
+
+🩹 Patch spesifik untuk 2 error kamu
+🔴 ERROR #1 — ETF Date Validation (empty string)
+
+Masalah: Model kamu expect date top-level dari /etf/bitcoin/list, padahal docs tunjukkan tanggal di asset_details.update_date (string) + update_timestamp (ms). 
+CoinGlass-API
+
+Perbaikan yang rapi & aman:
+
+Pisahkan model:
+
+ETFStatusItem ⟶ untuk /bitcoin/list (status realtime, nested asset_details.update_date + update_timestamp).
+
+ETFFlowHistoryItem ⟶ untuk /bitcoin/flow-history (time-series, timestamp ms).
+
+Validator “empty → None”: untuk asset_details.update_date agar "" tidak bikin 422/Unprocessable.
+
+Prefer time akurat: kalau update_date kosong, baca update_timestamp atau last_quote_time (ms) untuk referensi waktu. 
+CoinGlass-API
+
+Kenapa? Karena endpoint “list” dan “flow-history” punya struktur data yang berbeda (status vs time-series). Dengan memisahkan model, kamu mencegah “skema silang” yang bikin validasi salah.
+
+🔴 ERROR #2 — SOL Liquidation 404 (…/coin-history/SOL?interval=1h)
+
+Masalah: Path yang dipakai tidak ada di v4. Endpoints v4 untuk liquidations pakai query params, bukan path dynamic seperti itu.
+
+Pair: …/api/futures/liquidation/history → query pair, exchange, interval.
+
+Coin aggregate: …/api/futures/liquidation/aggregated-history → query coin/symbol + interval.
+
+Interval rule: Standard no limit, tapi kalau kamu fallback 422 ke 4h juga bagus untuk robustness. 
+CoinGlass-API
++1
+
+Fix saran (konsep):
+
+Standardisasi alur:
+symbol_raw → resolve ke pair resmi (via supported-exchange-pairs) → call pair history (atau aggregated coin history) 
+CoinGlass-API
+
+Hapus logic “coba berbagai format simbol” (SOL, SOLUSDT, SOL-USD, …) — ini menyembunyikan bug mapping. Pakai resolver dari endpoint resmi saja. 
+CoinGlass-API
