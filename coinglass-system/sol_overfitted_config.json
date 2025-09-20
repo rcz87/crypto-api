@@ -1,0 +1,119 @@
+{
+  "asset": "SOL",
+  "layers": {
+    "bias": { 
+      "z_watch": 1.0, 
+      "z_action": 2.0, 
+      "abs_watch": 0.25, 
+      "abs_action": 0.60 
+    },
+
+    "funding": {
+      "lookback": "30d",
+      "use_vol_weight": true,
+      "abs_bps_per_8h": { 
+        "watch": 46.4, 
+        "action": 52.3, 
+        "extreme": 54.6 
+      },
+      "floors_bps_per_8h": { 
+        "watch": 5.0, 
+        "action": 10.0 
+      }
+    },
+
+    "taker_ratio": {
+      "lookback": "30d",
+      "hi": { 
+        "watch": 1.678, 
+        "action": 1.800, 
+        "extreme": 1.900 
+      },
+      "lo": { 
+        "watch": 0.700, 
+        "action": 0.550, 
+        "extreme": 0.500 
+      }
+    },
+
+    "oi": {
+      "roc_window": "1h",
+      "roc_pct": { 
+        "watch": 2.13, 
+        "action": 5.00 
+      },
+      "notes": "Action pakai floor 5% agar tidak overfit."
+    },
+
+    "liquidation": {
+      "lookback": "7d",
+      "coin_agg_usd": { 
+        "watch": 3420000, 
+        "action": 3806000, 
+        "extreme": 3961000 
+      },
+      "pair_confirm": { 
+        "enabled": true, 
+        "window_bars": 1 
+      }
+    },
+
+    "etf_flows": {
+      "ma_window": 7,
+      "abs_usd": { 
+        "watch": 4.596e8, 
+        "action": 5.318e8, 
+        "extreme": 5.607e8 
+      },
+      "multiplier_fallback": { 
+        "watch": 1.5, 
+        "action": 3.0 
+      },
+      "notes": "Gunakan percentile jika histori cukup, jika tidak pakai multiplier MA7."
+    }
+  },
+
+  "confluence": { 
+    "watch_min": 2, 
+    "action_min": 3, 
+    "require_one_action": true, 
+    "anti_liq_flip": true 
+  },
+  "cooldown": { 
+    "dedup_min": 5, 
+    "sustain_bars_for_escalation": 3 
+  },
+
+  "percentile_calculations": {
+    "funding_abs_bps_8h": {
+      "source_data": [9.50, 22.85, 30.31, 37.23, 43.46, 55.18],
+      "p85": 46.39,
+      "p95": 52.25,
+      "p99": 54.59
+    },
+    "taker_ratio": {
+      "source_data": [0.924, 1.082, 1.198, 1.614, 1.671, 1.700],
+      "p85": 1.678,
+      "p95": 1.693,
+      "p99": 1.699
+    },
+    "oi_roc_percent": {
+      "source_data": [-1.89, -1.54, -0.47, 0.84, 2.02, 2.47],
+      "p85": 2.13,
+      "p95": 2.36,
+      "p99": 2.45
+    },
+    "liquidation_total_usd": {
+      "source_data": [2110000, 2220000, 2220000, 2910000, 3220000, 4000000],
+      "p85": 3420000,
+      "p95": 3806000,
+      "p99": 3961000
+    },
+    "etf_flows_abs_usd": {
+      "source_data": [123456789, 156789012, 287439202, 298765432, 423567890, 567890123],
+      "p85": 459600000,
+      "p95": 531800000,
+      "p99": 560700000
+    }
+  }
+}
