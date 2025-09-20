@@ -1,0 +1,100 @@
+config SOL-native kamu udah solid. Berikut final review + tweak kecil supaya makin presisi, tetap adaptif, dan 100% selaras dengan endpoint CoinGlass v4.
+
+TL;DR
+
+Angka percentile & floor kamu masuk akal; tinggal dua sentuhan: (a) jaga OI pakai data real dari endpoint OI (bukan synthetic), (b) kasih “auto-tighten” saat volatilitas meledak (dynamic tightening).
+
+Semua layer yang kamu pakai memang tersedia di Standard plan: funding OHLC, OI (pair & aggregated), taker buy/sell (pair & coin), liquidation (coin aggregated & pair), serta ETF flow-history. 
+CoinGlass-API
++6
+CoinGlass-API
++6
+CoinGlass-API
++6
+
+Rolling percentile: pakai rolling.quantile(q) (interpolasi linear) → stabil dan best-practice untuk window 30/60/90 hari. 
+Pandas
+
+Quick audit (✅ = good, ✍️ = saran tweak)
+Layer	Config kamu	Status	Catatan singkat
+Funding	watch 68.38 bps, action 100 bps	✅	Pakai normalisasi per 8h konsisten (good). Konteks: funding per 8 jam lazim sebagai acuan industri. 
+Binance Academy
+
+Taker ratio	hi 1.4/1.8, lo 0.66/0.54	✅	Kamu set lebih ketat dari p95 (bagus untuk noise control). Endpoint pair & coin aggregated ada di Standard. 
+CoinGlass-API
++1
+
+OI ROC	watch 3.15%, action 5.64%	✍️	Pastikan OI real dari /open-interest/(aggregated-)history (bukan synthetic). Keduanya No Limit interval di Standard. 
+CoinGlass-API
++1
+
+Liquidation	p85≈$456k → p99≈$1.36M	✅	Jika 1h & 4h sering kosong, kamu sudah benar fallback → 1D. Endpoint coin aggregated = /futures/liquidation/aggregated-history. 
+CoinGlass-API
+
+ETF flows	p85 $655.3M, p95 $678.9M	✅	Ini overlay makro → wajar tinggi agar jarang “ngegas”. Data dari /etf/bitcoin/flow-history. 
+CoinGlass-API
+Dua tweak kecil (langsung pakai)
+1) OI: wajib real source
+
+Ganti semua input OI dari synthetic ke:
+
+Pair OI OHLC: GET /api/futures/open-interest/history
+
+Aggregated OI OHLC: GET /api/futures/open-interest/aggregated-history
+Dua-duanya tersedia di Standard dan No Limit interval, jadi aman untuk 1h. 
+CoinGlass-API
++1
+
+2) Dynamic tightening (auto ketat saat pasar “panas”)
+
+Saat liquidation now ≥ p95 7D (coin aggregated), naikkan sementara:
+
+taker_ratio.hi.action → +0.05
+
+oi.roc_pct.action → +0.5%
+Reset setelah 3 bar kalau tidak sustain. Data spike pakai /futures/liquidation/aggregated-history; konfirmasi pair pakai /futures/liquidation/history. 
+CoinGlass-API
++1
+
+Patch JSON mini (opsional):
+
+{
+  "dynamic_tightening": {
+    "enable": true,
+    "trigger": {"layer": "liquidation", "quantile": "p95", "window": "7d"},
+    "bump": {"taker_ratio.hi.action": 0.05, "oi.roc_pct.action": 0.5},
+    "decay_bars": 3
+  }
+}
+
+Sanity check hasilmu (green)
+
+Funding 84.92 bps → ACTION vs floor 10 bps ✅ (konversi per 8 jam masuk akal; referensi per-8h umum dipakai di futures). 
+Binance Academy
+
+Taker upper tail 1.4/1.8 & lower 0.66/0.54 → tepat untuk SOL volatil. Endpoint rasio taker (coin/pair) No Limit di Standard. 
+CoinGlass-API
++1
+
+Liquidation p85→p99 USD memisahkan normal vs spike; kosong di 1h bukan isu plan. Gunakan coin aggregated + pair confirm. 
+CoinGlass-API
+
+ETF sebagai filter makro sudah diset tinggi → bagus buat kurangi false-positive. Data time-series dari /etf/bitcoin/flow-history. 
+CoinGlass-API
+
+Rolling percentile engine: kamu sudah pakai pendekatan yang direkomendasikan (rolling quantile). 
+Pandas
+
+Go-live checklist (super singkat)
+
+ OI ganti ke real endpoint (pair & aggregated). 
+CoinGlass-API
++1
+
+ Nyalakan dynamic_tightening saat spike likuidasi. 
+CoinGlass-API
+
+ Pastikan semua request tetap query-param style (bukan path) & header CG-API-KEY on. 
+CoinGlass-API
+
+ Percentile: rolling window sesuai layer; interpolasi linear default
