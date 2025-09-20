@@ -24,7 +24,9 @@ async def main():
     parser.add_argument('--interval', type=int, default=300,
                         help='Scan interval in seconds (default: 300 = 5 minutes)')
     parser.add_argument('--coins', nargs='+', default=['BTC', 'ETH', 'SOL'],
-                        help='Coins to test (test mode only)')
+                        help='Coins to test/monitor')
+    parser.add_argument('--ws', action='store_true',
+                        help='Enable WebSocket monitoring (future feature)')
     parser.add_argument('--telegram-test', action='store_true',
                         help='Test Telegram connection')
     
@@ -63,9 +65,17 @@ async def main():
     
     # Initialize monitor
     try:
-        monitor = WhaleMonitor(scan_interval=args.interval)
-        print(f"\n✅ Whale monitor initialized: {len(monitor.coins)} coins")
-        print(f"📋 Monitoring: {', '.join(monitor.coins[:10])}{'...' if len(monitor.coins) > 10 else ''}")
+        if args.mode in ['test', 'monitor'] and args.coins and args.coins != ['BTC', 'ETH', 'SOL']:
+            # Use custom coin list for test/monitor
+            custom_coins = args.coins
+            monitor = WhaleMonitor(scan_interval=args.interval)
+            monitor.coins = custom_coins  # Override default coins
+            print(f"\n✅ Whale monitor initialized: {len(custom_coins)} custom coins")
+            print(f"📋 Custom monitoring: {', '.join(custom_coins)}")
+        else:
+            monitor = WhaleMonitor(scan_interval=args.interval)
+            print(f"\n✅ Whale monitor initialized: {len(monitor.coins)} coins")
+            print(f"📋 Monitoring: {', '.join(monitor.coins[:10])}{'...' if len(monitor.coins) > 10 else ''}")
         
     except Exception as e:
         print(f"❌ Failed to initialize whale monitor: {e}")
@@ -112,6 +122,8 @@ async def main():
     elif args.mode == 'monitor':
         print(f"\n🚀 Starting continuous monitoring...")
         print(f"⏱️  Scan interval: {args.interval} seconds")
+        if args.ws:
+            print(f"🔌 WebSocket mode: ENABLED (future feature)")
         print(f"🛑 Press Ctrl+C to stop")
         
         try:
