@@ -299,107 +299,74 @@ class CoinglassClient:
         return response.json()
 
     def etf_flows_history(self, days: int = 30):
-        """Get ETF flows data with proper endpoint handling"""
+        """Get ETF flows data using real CoinGlass API v4 endpoints"""
         from app.core.logging import logger
         
-        # Try multiple working endpoints to find valid data
-        endpoints_to_try = [
-            f"/api/etf/bitcoin/list",        # Bitcoin ETF list
-            f"/api/futures/coins-markets"    # Coins markets as fallback
-        ]
-        
-        for endpoint in endpoints_to_try:
-            try:
-                url = f"{self.base_url}{endpoint}"
-                response = self.http.get(url)
-                if response.status_code == 200:
-                    result = response.json()
-                    if result and 'data' in result and result['data']:
-                        # Convert any valid data to ETF flow format
-                        logger.info(f"Using working ETF endpoint: {endpoint}")
-                        return self._convert_to_etf_flows(result, days)
-            except Exception as e:
-                logger.debug(f"ETF endpoint {endpoint} failed: {e}")
-                continue
-        
-        # If all working endpoints fail, use fallback
-        logger.warning("All ETF endpoints failed, using fallback data")
-        return self._get_etf_flows_fallback()
+        # Use correct CoinGlass v4 ETF endpoint
+        endpoint = "/api/etf/bitcoin/list"
+        try:
+            url = f"{self.base_url}{endpoint}"
+            response = self.http.get(url)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result and 'data' in result:
+                    logger.info(f"ETF endpoint successful: {endpoint}")
+                    # Return real API data with proper field mapping
+                    return self._process_real_etf_flows(result)
+            else:
+                logger.error(f"ETF endpoint failed with status {response.status_code}")
+                
+        except Exception as e:
+            logger.error(f"ETF endpoint {endpoint} failed: {e}")
+            
+        # Return empty data if real API fails - NO SYNTHETIC DATA
+        logger.warning("ETF endpoint failed, returning empty data (no synthetic generation)")
+        return {"data": [], "success": False, "error": "Real ETF data unavailable"}
 
-    def _convert_to_etf_flows(self, data, days: int = 30):
-        """Convert API data to ETF flows format"""
+    def _process_real_etf_flows(self, data):
+        """Process real ETF flows data from CoinGlass API v4 with correct field mapping"""
         try:
             if not data or 'data' not in data:
-                return {"data": []}
+                return {"data": [], "success": False, "error": "No data in API response"}
             
-            # If it's already ETF data, return as is
-            if isinstance(data.get('data', []), list) and len(data['data']) > 0:
-                first_item = data['data'][0]
-                if 'ticker' in first_item or 'fund_name' in first_item:
-                    return data
+            # Extract real ETF data from API response
+            etf_data = data['data']
+            processed_flows = []
             
-            # Convert other data to ETF flow format
-            from datetime import datetime, timedelta
-            import random
+            for etf_item in etf_data:
+                if isinstance(etf_item, dict):
+                    # Map CoinGlass API v4 fields correctly - use flows_1d, flows_7d, flows_30d
+                    processed_item = {
+                        "ticker": etf_item.get("ticker", etf_item.get("fund_name", "Unknown")),
+                        "date": etf_item.get("date", ""),
+                        # Use correct v4 API field names 
+                        "flows_1d": etf_item.get("flows_1d", etf_item.get("net_inflow_1d", 0)),
+                        "flows_7d": etf_item.get("flows_7d", etf_item.get("net_inflow_7d", 0)),
+                        "flows_30d": etf_item.get("flows_30d", etf_item.get("net_inflow_30d", 0)),
+                        # Legacy compatibility fields (for backward compatibility only)
+                        "net_inflow": etf_item.get("flows_1d", etf_item.get("net_inflow_1d", 0)),
+                        "net_flow": etf_item.get("flows_1d", etf_item.get("net_inflow_1d", 0)),
+                        # Additional real fields from API
+                        "price": etf_item.get("price", 0),
+                        "market_value": etf_item.get("market_value", 0),
+                        "shares_outstanding": etf_item.get("shares_outstanding", 0),
+                        "source": "real_api_v4"
+                    }
+                    processed_flows.append(processed_item)
             
-            flow_data = []
-            today = datetime.now()
-            etf_tickers = ['IBIT', 'FBTC', 'GBTC', 'ARKB']
+            return {"data": processed_flows, "success": True}
             
-            for i in range(min(days, 7)):
-                date = (today - timedelta(days=i)).strftime("%Y-%m-%d")
-                for ticker in etf_tickers:
-                    flow_data.append({
-                        "date": date,
-                        "ticker": ticker,
-                        "net_inflow": round(random.uniform(-300, 500), 2),
-                        "net_flow": round(random.uniform(-300, 500), 2),
-                        "source": "converted_data"
-                    })
-            
-            return {"data": flow_data}
-            
-        except Exception:
-            return {"data": []}
+        except Exception as e:
+            from app.core.logging import logger
+            logger.error(f"Error processing real ETF flows: {e}")
+            return {"data": [], "success": False, "error": f"Processing error: {str(e)}"}
 
     def _get_etf_flows_fallback(self):
-        """Fallback method to generate realistic ETF flow data from ETF list"""
-        try:
-            # Get current ETF list data
-            etf_list = self.bitcoin_etfs()
-            if not etf_list or 'data' not in etf_list:
-                return {"data": []}
-            
-            # Generate realistic flow data for today's date
-            from datetime import datetime, timedelta
-            import random
-            
-            flow_data = []
-            today = datetime.now()
-            
-            # Create realistic ETF flow entries for major ETFs
-            etf_tickers = ['IBIT', 'FBTC', 'GBTC', 'ARKB', 'BITB', 'BTCO']
-            
-            for i in range(min(7, len(etf_tickers))):  # Last 7 days
-                date = (today - timedelta(days=i)).strftime("%Y-%m-%d")
-                
-                for ticker in etf_tickers[:4]:  # Top 4 ETFs
-                    flow_data.append({
-                        "date": date,
-                        "ticker": ticker,
-                        "net_inflow": round(random.uniform(-500, 800), 2),  # Realistic flow range
-                        "net_flow": round(random.uniform(-500, 800), 2),
-                        "closing_price": round(91000 + random.uniform(-2000, 2000), 2),  # ~Current BTC price
-                        "price": round(91000 + random.uniform(-2000, 2000), 2),
-                        "shares_outstanding": random.randint(800000, 1200000),
-                        "shares": random.randint(800000, 1200000)
-                    })
-            
-            return {"data": flow_data}
-            
-        except Exception:
-            # Last resort: return empty data
-            return {"data": []}
+        """NO FALLBACK - Return empty data if real API fails"""
+        from app.core.logging import logger
+        logger.warning("ETF flows fallback called - returning empty data (no synthetic generation)")
+        return {"data": [], "success": False, "error": "Real ETF data unavailable, no fallback synthetic data"}
 
     # === MACRO SENTIMENT ENDPOINTS ===
 
@@ -424,65 +391,10 @@ class CoinglassClient:
         return self._get_market_sentiment_fallback()
 
     def _get_market_sentiment_fallback(self):
-        """Fallback using real price data from funding rates and other working endpoints"""
-        try:
-            sentiment_data = []
-            
-            # Get real data for major coins using working funding rate endpoint
-            major_coins = ['BTC', 'ETH', 'SOL']
-            
-            for coin in major_coins:
-                try:
-                    # Use funding rate endpoint to get real price data
-                    funding_data = self.funding_rate(coin, "8h", "Binance")
-                    
-                    if funding_data and 'data' in funding_data and len(funding_data['data']) > 0:
-                        latest = funding_data['data'][0]
-                        
-                        # Funding rate data contains rates (0.01% etc), not actual prices
-                        # Use realistic current prices directly
-                        price_defaults = {'BTC': 91000, 'ETH': 3400, 'SOL': 140}
-                        price = price_defaults.get(coin, 100)
-                        
-                        # Add realistic price variation (±2%) to make it more dynamic
-                        import random
-                        price_variance = price * random.uniform(0.98, 1.02)
-                        price = round(price_variance, 2)
-                        
-                        # Calculate realistic change values
-                        import random
-                        change_24h = price * random.uniform(-0.05, 0.05)  # ±5% change
-                        change_percentage_24h = (change_24h / price) * 100
-                        
-                        # Calculate realistic volume and market cap
-                        volume_multipliers = {'BTC': 2e9, 'ETH': 1.5e9, 'SOL': 5e8}
-                        market_cap_multipliers = {'BTC': 1.8e12, 'ETH': 4e11, 'SOL': 6.5e10}
-                        
-                        volume_24h = volume_multipliers.get(coin, 1e8) * random.uniform(0.8, 1.2)
-                        market_cap = market_cap_multipliers.get(coin, 1e10) * random.uniform(0.95, 1.05)
-                        
-                        sentiment_data.append({
-                            'symbol': coin,
-                            'price': round(price, 2),
-                            'change_24h': round(change_24h, 2),
-                            'change_percentage_24h': round(change_percentage_24h, 2),
-                            'volume_24h': round(volume_24h, 2),
-                            'market_cap': round(market_cap, 2),
-                            'dominance': None,
-                            'timestamp': None
-                        })
-                        
-                except Exception as coin_error:
-                    from app.core.logging import logger
-                    logger.warning(f"Failed to get sentiment data for {coin}: {coin_error}")
-                    continue
-            
-            return {"data": sentiment_data}
-            
-        except Exception as e:
-            from app.core.logging import logger
-            logger.error(f"Market sentiment fallback failed: {e}")
-            return {"data": []}
+        """NO FALLBACK - Return empty data if real API fails"""
+        from app.core.logging import logger
+        logger.warning("Market sentiment fallback called - returning empty data (no synthetic generation)")
+        return {"data": [], "success": False, "error": "Real market sentiment data unavailable, no fallback synthetic data"}
 
     # === ADVANCED LIQUIDATION ENDPOINTS ===
     def liquidation_heatmap(self, symbol: str, timeframe: str = "1h"):
