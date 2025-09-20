@@ -137,56 +137,87 @@ class CoinglassClient:
         response = self.http.get(url, params=params)
         return response.json()
 
-    # 5. Liquidation History - Available in Standard
-    def liquidation_history_coin(self, symbol: str, interval: str = "1h"):
-        """Get coin liquidation history with proper symbol formatting"""
+    def _resolve_symbol_with_exchange_pairs(self, symbol: str):
+        """Resolve symbol using /api/futures/supported-exchange-pairs endpoint"""
         from app.core.logging import logger
         
-        # PATCH: Enhanced symbol mapping for CoinGlass API v4 compatibility
+        try:
+            url = f"{self.base_url}/api/futures/supported-exchange-pairs"
+            response = self.http.get(url)
+            
+            if response.status_code == 200:
+                pairs_data = response.json()
+                if pairs_data and 'data' in pairs_data:
+                    # Look for matching symbol in supported pairs
+                    clean_symbol = symbol.replace("-USDT-SWAP", "").replace("-SWAP", "").replace("USDT", "")
+                    if clean_symbol.endswith("-"):
+                        clean_symbol = clean_symbol[:-1]
+                    
+                    for pair_info in pairs_data['data']:
+                        if isinstance(pair_info, dict):
+                            # Check various symbol fields that might exist
+                            for field in ['symbol', 'coin', 'base_currency', 'currency']:
+                                if field in pair_info and pair_info[field] == clean_symbol:
+                                    logger.info(f"Symbol resolved: {symbol} → {clean_symbol} via supported-exchange-pairs")
+                                    return clean_symbol
+                    
+                    logger.debug(f"Symbol {clean_symbol} not found in supported exchange pairs")
+            else:
+                logger.debug(f"Failed to fetch supported-exchange-pairs: {response.status_code}")
+                
+        except Exception as e:
+            logger.debug(f"Symbol resolution failed: {e}")
+        
+        # Fallback to basic cleaning if resolver fails
         clean_symbol = symbol.replace("-USDT-SWAP", "").replace("-SWAP", "").replace("USDT", "")
         if clean_symbol.endswith("-"):
             clean_symbol = clean_symbol[:-1]
+        return clean_symbol
+
+    # 5. Liquidation History - Available in Standard
+    def liquidation_history_coin(self, symbol: str, interval: str = "1h"):
+        """Get coin liquidation history using proper CoinGlass v4 symbol resolution"""
+        from app.core.logging import logger
         
-        # PATCH: Try multiple symbol formats for better compatibility
-        symbol_variants = [
-            clean_symbol,               # SOL
-            f"{clean_symbol}USDT",      # SOLUSDT  
-            f"{clean_symbol}-USD",      # SOL-USD
-            f"{clean_symbol}_USD"       # SOL_USD
-        ]
+        # FIX: Use proper symbol resolver instead of guessing variants
+        resolved_symbol = self._resolve_symbol_with_exchange_pairs(symbol)
         
         # FIX: Use correct CoinGlass v4 aggregated-history endpoint with query params
         url = f"{self.base_url}/api/futures/liquidation/aggregated-history"
+        params = {"coin": resolved_symbol, "interval": interval}  # Use 'coin' param per docs
         
-        for variant in symbol_variants:
-            params = {"coin": variant, "interval": interval}  # Use 'coin' param per docs
-            
-            try:
-                response = self.http.get(url, params=params)
-                if response.status_code == 200:
-                    result = response.json()
-                    if result and 'data' in result and result['data']:
-                        logger.info(f"✅ Liquidation data found for {variant} (original: {symbol})")
+        try:
+            response = self.http.get(url, params=params)
+            if response.status_code == 200:
+                result = response.json()
+                if result and 'data' in result:
+                    if result['data']:  # Has actual data
+                        logger.info(f"✅ Liquidation data found for {resolved_symbol} (original: {symbol})")
                         return result
-            except Exception as e:
-                logger.debug(f"Liquidation variant {variant} failed: {e}")
+                    else:  # Empty data but valid response
+                        logger.info(f"📊 Valid liquidation response for {resolved_symbol}, but data is empty")
+                        return {"data": [], "message": "No liquidation events in this timeframe"}
+            else:
+                logger.debug(f"Liquidation aggregated-history failed: {response.status_code}")
+        except Exception as e:
+            logger.debug(f"Liquidation aggregated-history error: {e}")
         
-        # Try alternative endpoint with all variants
+        # Try alternative pair-level endpoint as fallback
         alt_url = f"{self.base_url}/api/futures/liquidation/history"
-        for variant in symbol_variants:
-            params = {"symbol": variant, "interval": interval}
-            try:
-                response = self.http.get(alt_url, params=params)
-                if response.status_code == 200:
-                    result = response.json()
-                    if result and 'data' in result and result['data']:
-                        logger.info(f"✅ Alternative liquidation endpoint worked for {variant}")
-                        return result
-            except Exception as e:
-                logger.debug(f"Alternative liquidation variant {variant} failed: {e}")
+        alt_params = {"pair": f"{resolved_symbol}-USDT", "interval": interval}
         
-        # Return empty data instead of causing errors
-        logger.warning(f"All liquidation endpoints failed for {clean_symbol}, returning empty data")
+        try:
+            response = self.http.get(alt_url, params=alt_params)
+            if response.status_code == 200:
+                result = response.json()
+                if result and 'data' in result:
+                    logger.info(f"✅ Alternative liquidation endpoint worked for {resolved_symbol}")
+                    return result
+        except Exception as e:
+            logger.debug(f"Alternative liquidation endpoint failed: {e}")
+        
+        # Return meaningful empty data
+        logger.info(f"📊 No liquidation data available for {resolved_symbol} (original: {symbol})")
         return {"data": [], "message": "Liquidation data unavailable"}
     
     def liquidation_history_pair(self, symbol: str, exchange: str = "Binance", interval: str = "1h"):
