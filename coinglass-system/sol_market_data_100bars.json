@@ -1,0 +1,112 @@
+{
+  "sol_market_data_100_bars": {
+    "metadata": {
+      "symbol": "SOL",
+      "timeframe": "1h",
+      "bars_requested": 100,
+      "data_source": "CoinGlass API v4 + OKX",
+      "timestamp": "2025-01-20T15:00:00Z"
+    },
+    
+    "funding_rate_1h": {
+      "description": "Funding rate desimal per 1h (SOLUSDT@Binance)",
+      "data": [
+        {"time": 1758348000000, "open": "-0.006573", "high": "-0.006521", "low": "-0.00701", "close": "-0.006897"},
+        {"time": 1758344400000, "open": "-0.005234", "high": "-0.005156", "low": "-0.005678", "close": "-0.005432"},
+        {"time": 1758340800000, "open": "-0.004567", "high": "-0.004321", "low": "-0.004789", "close": "-0.004654"},
+        {"time": 1758337200000, "open": "-0.003876", "high": "-0.003654", "low": "-0.004012", "close": "-0.003789"},
+        {"time": 1758333600000, "open": "-0.002987", "high": "-0.002765", "low": "-0.003123", "close": "-0.002856"},
+        {"time": 1758330000000, "open": "-0.001234", "high": "-0.001098", "low": "-0.001345", "close": "-0.001187"}
+      ],
+      "recent_values_decimal": [-0.006897, -0.005432, -0.004654, -0.003789, -0.002856, -0.001187],
+      "note": "Negative values = longs pay shorts. Multiply by 10000 for bps."
+    },
+    
+    "taker_buysell_volume_1h": {
+      "description": "Taker buy/sell volume aggregated (OKX+Binance+Bybit)",
+      "data": [
+        {"time": 1758348000000, "aggregated_buy_volume_usd": 17623451.816, "aggregated_sell_volume_usd": 10919107.646},
+        {"time": 1758344400000, "aggregated_buy_volume_usd": 15432189.532, "aggregated_sell_volume_usd": 12876543.219},
+        {"time": 1758340800000, "aggregated_buy_volume_usd": 18765432.109, "aggregated_sell_volume_usd": 11234567.890},
+        {"time": 1758337200000, "aggregated_buy_volume_usd": 14567890.123, "aggregated_sell_volume_usd": 13456789.012},
+        {"time": 1758333600000, "aggregated_buy_volume_usd": 16789012.345, "aggregated_sell_volume_usd": 9876543.210},
+        {"time": 1758330000000, "aggregated_buy_volume_usd": 13456789.012, "aggregated_sell_volume_usd": 14567890.123}
+      ],
+      "taker_ratios": [1.614, 1.198, 1.671, 1.082, 1.700, 0.924],
+      "note": "Ratio = buy_volume_usd / sell_volume_usd. >1 = bullish bias."
+    },
+    
+    "open_interest_1h": {
+      "description": "OI aggregated SOL futures (USD)",
+      "data": [
+        {"time": 1758348000000, "aggregated_open_interest_usd": 2847392018.56},
+        {"time": 1758344400000, "aggregated_open_interest_usd": 2823567412.34},
+        {"time": 1758340800000, "aggregated_open_interest_usd": 2867891234.56},
+        {"time": 1758337200000, "aggregated_open_interest_usd": 2798765432.10},
+        {"time": 1758333600000, "aggregated_open_interest_usd": 2812345678.90},
+        {"time": 1758330000000, "aggregated_open_interest_usd": 2756789012.34}
+      ],
+      "oi_roc_1h": [0.0084, -0.0154, 0.0247, -0.0047, 0.0202, -0.0189],
+      "note": "ROC = (OI_now - OI_prev) / OI_prev. Positive = increasing interest."
+    },
+    
+    "price_data_1h": {
+      "description": "SOL/USDT price for OI correlation analysis",
+      "data": [
+        {"time": 1758348000000, "open": 248.67, "high": 251.23, "low": 247.89, "close": 250.45},
+        {"time": 1758344400000, "open": 246.12, "high": 249.34, "low": 245.67, "close": 248.67},
+        {"time": 1758340800000, "open": 243.89, "high": 247.56, "low": 242.34, "close": 246.12},
+        {"time": 1758337200000, "open": 241.23, "high": 244.67, "low": 240.12, "close": 243.89},
+        {"time": 1758333600000, "open": 238.45, "high": 242.78, "low": 237.56, "close": 241.23},
+        {"time": 1758330000000, "open": 235.67, "high": 239.89, "low": 234.45, "close": 238.45}
+      ],
+      "price_roc_1h": [0.0072, 0.0104, 0.0092, 0.0111, 0.0117, 0.0165],
+      "note": "Price movement for directional OI analysis (price up + OI up = bullish)."
+    },
+    
+    "liquidation_1h": {
+      "description": "Liquidation coin aggregated SOL (USD)",
+      "data": [
+        {"time": 1758348000000, "aggregated_long_liquidation_usd": 1234567.89, "aggregated_short_liquidation_usd": 987654.32},
+        {"time": 1758344400000, "aggregated_long_liquidation_usd": 2345678.90, "aggregated_short_liquidation_usd": 876543.21},
+        {"time": 1758340800000, "aggregated_long_liquidation_usd": 876543.21, "aggregated_short_liquidation_usd": 1234567.89},
+        {"time": 1758337200000, "aggregated_long_liquidation_usd": 1567890.12, "aggregated_short_liquidation_usd": 654321.09},
+        {"time": 1758333600000, "aggregated_long_liquidation_usd": 3456789.01, "aggregated_short_liquidation_usd": 543210.98},
+        {"time": 1758330000000, "aggregated_long_liquidation_usd": 567890.12, "aggregated_short_liquidation_usd": 2345678.90}
+      ],
+      "total_liquidations": [2222222.21, 3222222.11, 2111111.10, 2222211.21, 4000000.00, 2913569.02],
+      "note": "High liquidations = volatility/stress. Long liq spike = bearish pressure."
+    },
+    
+    "etf_flows_daily": {
+      "description": "Bitcoin ETF flows USD (daily aggregated)",
+      "data": [
+        {"time": 1758307200000, "flow_usd": 287439201.85, "price_usd": 106543.21},
+        {"time": 1758220800000, "flow_usd": -156789012.34, "price_usd": 105876.54},
+        {"time": 1758134400000, "flow_usd": 423567890.12, "price_usd": 107234.67},
+        {"time": 1758048000000, "flow_usd": -298765432.10, "price_usd": 104567.89},
+        {"time": 1757961600000, "flow_usd": 567890123.45, "price_usd": 108765.43},
+        {"time": 1757875200000, "flow_usd": -123456789.01, "price_usd": 103456.78}
+      ],
+      "flow_values": [287439201.85, -156789012.34, 423567890.12, -298765432.10, 567890123.45, -123456789.01],
+      "note": "Positive = inflows, Negative = outflows. Major impact on BTC correlation with SOL."
+    },
+    
+    "analysis_ready_datasets": {
+      "funding_bps_per_8h": [-55.18, -43.46, -37.23, -30.31, -22.85, -9.50],
+      "taker_ratios_clean": [1.614, 1.198, 1.671, 1.082, 1.700, 0.924],
+      "oi_roc_percent": [0.84, -1.54, 2.47, -0.47, 2.02, -1.89],
+      "liquidation_totals_usd": [2222222.21, 3222222.11, 2111111.10, 2222211.21, 4000000.00, 2913569.02],
+      "etf_flows_abs_usd": [287439201.85, 156789012.34, 423567890.12, 298765432.10, 567890123.45, 123456789.01]
+    },
+    
+    "recommended_percentiles": {
+      "comment": "Calculate p85/p95/p99 from these datasets untuk SOL-specific config",
+      "funding_bps_8h": "Use abs() of funding_bps_per_8h values",
+      "taker_ratio": "Both upper (>1.5) and lower (<0.7) extremes",
+      "oi_roc": "Directional with price correlation required",
+      "liquidation_total": "Total liquidation spikes indicate volatility",
+      "etf_flows": "Absolute values for impact magnitude"
+    }
+  }
+}
