@@ -1,0 +1,95 @@
+Gas! Aku cek silang ke dokumentasi **CoinGlass v4** dan hasil “health check” kamu—jawabannya: **framework-mu memang sudah jalan** untuk 4 endpoint inti, **asal coinnya memang punya pasar futures** di bursa yang CoinGlass dukung. Validasi cepat & cara ngetes 71 coin-mu ada di bawah.
+
+# TL;DR
+
+* **Endpoint & plan cocok:** Funding OHLC, OI Aggregated OHLC, Taker Buy/Sell Aggregated, dan Liquidation Aggregated semuanya tersedia di **Standard** (interval **No-Limit** untuk plan ini). ([CoinGlass-API][1])
+* **Kunci multikoin:** selalu tarik daftar **Supported Exchange & Pairs** dulu → cuma coin/pair yang benar-benar punya **futures pair** yang bakal mengembalikan data di 4 endpoint tersebut. ([CoinGlass-API][2])
+* **`exchange_list`**: banyak endpoint aggregated mendukung filter bursa (contoh: `OKX,Binance,Bybit`)—bisa bikin hasil lebih relevan; beberapa halaman docs bahkan menandai param ini eksplisit. ([CoinGlass-API][3])
+
+---
+
+## Apa artinya untuk daftar 71 coin kamu
+
+1. **Akan “hijau” di 4 endpoint** (umumnya punya perps lintas bursa):
+   BTC, ETH, SOL, BNB, XRP, ADA, DOGE, MATIC, DOT, LINK, AVAX, UNI, LTC, ATOM, **+ mayor lain yang ada di pairs-markets**. Untuk coin2 kategori ini, Funding/OI/Taker/Liquidation **harusnya** bernilai (bukan kosong) sepanjang ada aktivitas di window. ([CoinGlass-API][4])
+
+2. **Bisa hijau tapi coverage bervariasi per bursa** (perlu cek `supported-exchange-pairs`):
+   AAVE, CRV, SUSHI, COMP, YFI, MKR, SNX, BAL, 1INCH, CAKE, RUNE, PERP, APE, LOOKS; SAND, MANA, ENJ, CHZ, THETA, AXS, SLP, GALA; GRT, FIL, AR, STORJ, OCEAN… — Banyak yang punya futures di Binance/OKX/Bybit, tapi tak semuanya **di semua** bursa. Cek & pilih exchange yang mendukung. ([CoinGlass-API][2])
+
+3. **Waspada / mungkin spot-only / nomenklatur ambigu** (butuh verifikasi manual):
+   OSMO, JUNO, SCRT, ONE, HNT, LPT, BAT, **FTT**, **HT**, **OKB**, **LEO**, **ELON**, **LUNA/TERRA** (pastikan bedakan **LUNA** vs **LUNC**), & **GMT** (duplikat di list kamu). Untuk simbol-simbol ini, jangan asumsi; **cek dulu** apakah ada **futures pair** di exchange target (kalau tidak, 4 endpoint futures akan kosong). ([CoinGlass-API][2])
+
+---
+
+## Cara ngetes “bener-bener berfungsi” untuk SETIAP coin (otomatis)
+
+> Pakai pola **query params** (bukan path), dan **selalu** resolve simbol/pair sebelum menembak data.
+
+1. **Resolve dukungan & pair valid**
+
+```
+GET https://open-api-v4.coinglass.com/api/futures/supported-exchange-pairs
+```
+
+Ambil exchange & pair resmi (mis. `SOL-USDT` di OKX). Endpoint ini tersedia semua plan; refresh \~1 menit. ([CoinGlass-API][2])
+
+2. **Funding OHLC (pair) – Standard / No-Limit**
+
+```
+GET /api/futures/funding-rate/history?pair=SOL-USDT&exchange=OKX&interval=1h
+```
+
+Harus mengembalikan OHLC funding; interval bebas di Standard. ([CoinGlass-API][1])
+
+3. **OI Aggregated (coin) – Standard / No-Limit**
+
+```
+GET /api/futures/open-interest/aggregated-history?coin=SOL&interval=1h
+```
+
+OHLC OI lintas exchange. ([CoinGlass-API][5])
+
+4. **Taker Buy/Sell Aggregated (coin)**
+
+```
+GET /api/futures/aggregated-taker-buy-sell-volume/history?coin=SOL&interval=1h&exchange_list=OKX,Binance,Bybit
+```
+
+Dokumen menandai dukungan aggregated + contoh filter exchange; interval no-limit di Standard. ([CoinGlass-API][6])
+
+5. **Liquidation Aggregated (coin)**
+
+```
+GET /api/futures/liquidation/aggregated-history?coin=SOL&interval=1h
+```
+
+Perlu coin yang memang punya **futures**; untuk breakdown per exchange gunakan endpoint terkait/parameter **exchange\_list** di halaman likuidasi. ([CoinGlass-API][3])
+
+> Kalau data **kosong** (mis. di 1h/4h), itu biasanya **tidak ada event** di jendela tersebut—**bukan** karena plan Standard; coba interval lebih besar (1d) atau cek exchange lain. ([CoinGlass-API][1])
+
+---
+
+## Catatan penting (biar nggak nyangkut)
+
+* **`exchange_list`**: beberapa endpoint aggregated memang menyediakan parameter ini (default sering “Binance”). Menyetel `OKX,Binance,Bybit` sering memberi cakupan lebih kaya. ([CoinGlass-API][3])
+* **Error code**: 401 (key), 404 (resource/pair), 422 (param valid tapi tak diterima), 429 (rate limit) — logging & backoff sudah kamu pasang; itu best-practice. ([CoinGlass-API][7])
+* **Jangan panggil heatmap/map** (model2/3) di Standard—pakai versi **history** di atas. ([CoinGlass-API][4])
+
+---
+
+## Rekomendasi cepat (aksi 10 menit)
+
+1. **Lint list 71 coin**: buang duplikat (**GMT**), benahi **LUNA/LUNC**, tandai kandidat “futures-ragu” (FTT, HT, OKB, LEO, ELON, OSMO, JUNO, SCRT, ONE…). (Dasarnya: cek **supported-exchange-pairs**). ([CoinGlass-API][2])
+2. **Batch-smoke otomatis**: untuk tiap coin → (a) resolve pair; (b) tembak 4 endpoint dengan `exchange_list=OKX,Binance,Bybit`; (c) tandai PASS/EMPTY per interval 1h. (Kalau EMPTY, retry 4h/1d). ([CoinGlass-API][1])
+3. **Flag “spot-only”**: jika coin tidak muncul sebagai futures pair di resolver, tandai **spot-only** dan skip endpoint futures untuk coin itu. ([CoinGlass-API][8])
+
+Singkatnya: **iya, benar-benar berfungsi**—framework-mu sudah kompatibel CoinGlass v4 Standard. Untuk 71 coin, **hasilnya akan bergantung pada ketersediaan perps** di exchange yang didukung. Jalankan batch-smoke di atas; yang PASS berarti 4 layer siap; yang EMPTY perlu ganti exchange/interval atau tandai spot-only.
+
+[1]: https://docs.coinglass.com/reference/fr-ohlc-histroy?utm_source=chatgpt.com "History (OHLC)"
+[2]: https://docs.coinglass.com/reference/instruments?utm_source=chatgpt.com "Suported Exchange and Pairs"
+[3]: https://docs.coinglass.com/reference/aggregated-liquidation-history?utm_source=chatgpt.com "Coin Liquidation History"
+[4]: https://docs.coinglass.com/reference/pairs-markets?utm_source=chatgpt.com "Pairs Markets"
+[5]: https://docs.coinglass.com/reference/oi-ohlc-aggregated-history?utm_source=chatgpt.com "Aggregated History (OHLC)"
+[6]: https://docs.coinglass.com/reference/aggregated-taker-buysell-volume-history?utm_source=chatgpt.com "Coin Taker Buy/Sell Volume History"
+[7]: https://docs.coinglass.com/reference/responses-error-codes?utm_source=chatgpt.com "❗ Errors & Rate Limits"
+[8]: https://docs.coinglass.com/reference/spot-suported-exchange-pairs?utm_source=chatgpt.com "Suported Exchange and Pairs"
