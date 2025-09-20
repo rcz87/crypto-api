@@ -1,0 +1,37 @@
+# Development Dependencies untuk Enhanced Sniper Engine V2
+# Unit testing dan debugging dependencies
+
+# Scheduler untuk background tasks
+apscheduler>=3.10.0
+
+# Rate limiting untuk API calls
+aiolimiter>=1.2.0
+
+# Retry mechanism dengan exponential backoff
+backoff>=2.2.0
+
+# Testing dependencies
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.10.0
+
+# HTTP testing
+httpx>=0.24.0
+responses>=0.23.0
+
+# Database testing
+pytest-postgresql>=4.1.0
+
+# SQLAlchemy dependencies
+sqlalchemy>=2.0.0
+alembic>=1.11.0
+
+# Telegram Bot API (python-telegram-bot alternative)
+python-telegram-bot>=20.0
+
+# WebSocket client untuk CoinGlass
+websockets>=11.0.0
+
+# Additional utilities
+pydantic>=2.0.0
+aiofiles>=23.0.0

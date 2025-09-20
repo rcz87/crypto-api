@@ -32,4 +32,9 @@ dependencies = [
     "pytest>=8.4.2",
     "replit>=4.1.2",
     "aiohttp>=3.12.15",
+    "python-telegram-bot>=22.4",
+    "websockets>=15.0.1",
+    "apscheduler>=3.11.0",
+    "aiolimiter>=1.2.1",
+    "backoff>=2.2.1",
 ]

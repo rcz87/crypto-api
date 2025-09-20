@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 from app.core.settings import settings
 from app.core.logging import logger
+from db.base import Base
 import time
 
 # Enhanced database engine with performance optimizations

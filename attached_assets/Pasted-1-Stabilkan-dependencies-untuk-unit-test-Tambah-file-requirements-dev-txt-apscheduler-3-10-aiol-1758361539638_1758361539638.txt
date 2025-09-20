@@ -1,0 +1,118 @@
+1) Stabilkan dependencies untuk unit test
+
+Tambah file requirements-dev.txt:
+
+apscheduler>=3.10
+aiolimiter>=1.2   # jika limiter dipakai
+backoff>=2.2      # opsional retry
+
+
+Lalu: pip install -r requirements-dev.txt. (APScheduler: pip install apscheduler). 
+apscheduler.readthedocs.io
+
+Atasi Pydantic v2 warnings (ganti @validator → @field_validator):
+
+Pydantic V2 menganjurkan @field_validator; dekorator lama deprecated dan akan dihapus di V3. 
+docs.pydantic.dev
++1
+
+2) Satukan sumber Base (SQLAlchemy)
+
+Sediakan satu sumber kanonik, mis. db/base.py:
+
+from sqlalchemy.orm import DeclarativeBase
+class Base(DeclarativeBase): pass
+
+
+Lalu semua model & test import Base dari sini—hindari membuat Base baru di tempat lain. 
+docs.sqlalchemy.org
++1
+
+3) Perbaiki Telegram client agar mengembalikan message_id
+
+Fakta: sendMessage mengembalikan objek Message, bukan boolean, jika sukses. Ambil result.message_id. 
+Telegram
+
+Patch minimal (HTTP murni):
+
+async def send_telegram_msg(token, chat_id, text, session):
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
+    async with session.post(url, data=payload) as r:
+        data = await r.json()
+        if not data.get("ok"):
+            raise RuntimeError(f"Telegram error: {data}")
+        return data["result"]["message_id"]  # <- ambil message_id
+
+
+(Bot API resmi via HTTP.) 
+Telegram
+
+4) (Opsional) Rate limiter & retry middleware
+
+Untuk membatasi RPS global dan retry 429: gunakan aiolimiter (AsyncLimiter) dan/atau backoff di sekitar aiohttp.ClientSession. 
+Aiolimiter
++1
+
+Gunakan single session + middleware untuk header CG-API-KEY & logging. 
+AIOHTTP
++1
+
+5) WS hookup (ketika siap)
+
+Sambungkan ke CoinGlass WS v4:
+
+wss://open-ws.coinglass.com/ws-api?cg-api-key=<API_KEY>
+
+
+Lalu subscribe channel (mis. liquidationOrders), dan kirim ping berkala. 
+CoinGlass-API
+
+Perintah Uji (ulang 4 tes tadi)
+
+Unit tests
+
+pip install -r requirements-dev.txt
+pytest -q
+
+
+(Expect: 0 error; Pydantic warnings berkurang setelah migrasi.) 
+docs.pydantic.dev
+
+Smoke REST (SOL 1h)
+
+Pastikan base & auth benar: https://open-api-v4.coinglass.com + header CG-API-KEY. 
+CoinGlass-API
++1
+
+Monitor + WS (BTC,ETH,SOL; 5m)
+
+python3 coinglass-system/run_whale_monitor.py --mode monitor --coins BTC ETH SOL --interval 300 --ws
+
+
+(WS flag aktif; siap di-“flip” untuk real subscribe ketika memutuskan.)
+
+Telegram dummy
+
+python3 tools/send_telegram_test.py "✅ Live alert test — Enhanced Sniper V2"
+# verifikasi: tampilkan JSON & pastikan ada result.message_id
+
+
+(Bot API docs: sendMessage → returns Message.) 
+Telegram
+
+Kenapa ini pasti menutup temuanmu
+
+Deps hilang (APScheduler) → di-install sesuai panduan resmi. 
+apscheduler.readthedocs.io
+
+Import Base → satu sumber Base (SQLAlchemy 2.x style) menghapus error schema. 
+docs.sqlalchemy.org
+
+Pydantic warnings → migrasi ke V2 @field_validator sesuai migration guide. 
+docs.pydantic.dev
+
+Telegram boolean → parsing hasil Message dan ambil message_id sesuai Bot API. 
+Telegram
+
+WS ready → URL & auth query CoinGlass v4 sudah benar.

@@ -34,12 +34,12 @@ class TelegramHTTP:
         parse_mode: str = 'Markdown',
         disable_web_page_preview: bool = True,
         disable_notification: bool = False
-    ) -> bool:
-        """Send message to Telegram using HTTP API"""
+    ) -> Optional[Dict[str, Any]]:
+        """Send message to Telegram using HTTP API - returns message_id"""
         
         if not self.is_configured():
             logger.debug("📤 Telegram not configured - message skipped")
-            return False
+            return None
         
         try:
             payload = {
@@ -61,21 +61,28 @@ class TelegramHTTP:
                         result = await response.json()
                         if result.get('ok'):
                             logger.info("✅ Telegram message sent successfully")
-                            return True
+                            # Extract message_id from Telegram API response
+                            message_data = result.get('result', {})
+                            return {
+                                'message_id': message_data.get('message_id'),
+                                'chat_id': message_data.get('chat', {}).get('id'),
+                                'date': message_data.get('date'),
+                                'text': message_data.get('text')
+                            }
                         else:
                             logger.error(f"❌ Telegram API error: {result.get('description', 'Unknown')}")
-                            return False
+                            return None
                     else:
                         error_text = await response.text()
                         logger.error(f"❌ HTTP error {response.status}: {error_text}")
-                        return False
+                        return None
                         
         except asyncio.TimeoutError:
             logger.error("❌ Telegram request timeout")
-            return False
+            return None
         except Exception as e:
             logger.error(f"❌ Telegram send error: {e}")
-            return False
+            return None
     
     async def send_whale_alert(
         self,
