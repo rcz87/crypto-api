@@ -52,6 +52,62 @@ class CoinglassClient:
         """Safe URL builder with v4 compliance validation"""
         validated_path = self._validate_and_fix_endpoint(endpoint_path, symbol)
         return f"{self.base_url}{validated_path}"
+    
+    def _apply_guardrails_with_fallback(self, response_data: dict, endpoint: str, params: dict, original_interval: str = "1h"):
+        """Guardrails: log empty data details and apply interval fallback strategy"""
+        
+        if not response_data or not response_data.get('data'):
+            # GUARDRAILS: Log detailed information about empty response
+            logger.warning(f"🚨 GUARDRAILS: Empty data detected")
+            logger.info(f"📍 Endpoint: {endpoint}")
+            logger.info(f"📋 Params: {params}")
+            logger.info(f"🕒 Interval: {original_interval}")
+            
+            # Extract pair/coin info from params
+            pair_coin = params.get('pair') or params.get('coin') or params.get('symbol', 'unknown')
+            logger.info(f"💱 Pair/Coin: {pair_coin}")
+            
+            # AUTO-FALLBACK: Try higher interval if original was 1h
+            if original_interval == "1h":
+                fallback_interval = "4h"
+                logger.info(f"🔄 AUTO-FALLBACK: Trying {fallback_interval} interval...")
+                
+                # Update params for fallback request
+                fallback_params = params.copy()
+                fallback_params['interval'] = fallback_interval
+                
+                try:
+                    fallback_response = self.http.get(f"{self.base_url}{endpoint}", fallback_params)
+                    if fallback_response.status_code == 200:
+                        fallback_data = fallback_response.json()
+                        if fallback_data and fallback_data.get('data'):
+                            logger.info(f"✅ FALLBACK SUCCESS: Got data with {fallback_interval} interval")
+                            return fallback_data
+                        else:
+                            logger.warning(f"⚠️ FALLBACK FAILED: Still empty data with {fallback_interval}")
+                except Exception as e:
+                    logger.error(f"🚫 FALLBACK ERROR: {e}")
+            
+            elif original_interval == "4h":
+                # Try even higher interval for 4h failures
+                fallback_interval = "1d"
+                logger.info(f"🔄 AUTO-FALLBACK: Trying {fallback_interval} interval...")
+                
+                fallback_params = params.copy()
+                fallback_params['interval'] = fallback_interval
+                
+                try:
+                    fallback_response = self.http.get(f"{self.base_url}{endpoint}", fallback_params)
+                    if fallback_response.status_code == 200:
+                        fallback_data = fallback_response.json()
+                        if fallback_data and fallback_data.get('data'):
+                            logger.info(f"✅ FALLBACK SUCCESS: Got data with {fallback_interval} interval")
+                            return fallback_data
+                except Exception as e:
+                    logger.error(f"🚫 FALLBACK ERROR: {e}")
+        
+        # Return original data if no fallback applied or fallback failed
+        return response_data
 
     # === STANDARD PACKAGE ENDPOINTS (Verified v4) ===
     
@@ -220,47 +276,59 @@ class CoinglassClient:
 
     # 5. Liquidation History - Available in Standard
     def liquidation_history_coin(self, symbol: str, interval: str = "1h"):
-        """Get coin liquidation history using proper CoinGlass v4 symbol resolution"""
+        """Get coin liquidation history with guardrails and auto-fallback"""
         from app.core.logging import logger
         
         # FIX: Use proper symbol resolver instead of guessing variants
         resolved_symbol = self._resolve_symbol_with_exchange_pairs(symbol)
         
         # FIX: Use correct CoinGlass v4 aggregated-history endpoint with query params
-        url = f"{self.base_url}/api/futures/liquidation/aggregated-history"
+        endpoint_path = "/api/futures/liquidation/aggregated-history"
+        url = f"{self.base_url}{endpoint_path}"
         params = {"coin": resolved_symbol, "interval": interval}  # Use 'coin' param per docs
         
         try:
             response = self.http.get(url, params=params)
             if response.status_code == 200:
                 result = response.json()
-                if result and 'data' in result:
-                    if result['data']:  # Has actual data
-                        logger.info(f"✅ Liquidation data found for {resolved_symbol} (original: {symbol})")
-                        return result
-                    else:  # Empty data but valid response
-                        logger.info(f"📊 Valid liquidation response for {resolved_symbol}, but data is empty")
-                        return {"data": [], "message": "No liquidation events in this timeframe"}
+                
+                # APPLY GUARDRAILS: Check for empty data and apply fallback
+                guarded_result = self._apply_guardrails_with_fallback(
+                    result, endpoint_path, params, interval
+                )
+                
+                if guarded_result and guarded_result.get('data'):
+                    logger.info(f"✅ Liquidation data found for {resolved_symbol} (original: {symbol})")
+                    return guarded_result
+                else:
+                    logger.info(f"📊 No liquidation events for {resolved_symbol} after guardrails")
             else:
                 logger.debug(f"Liquidation aggregated-history failed: {response.status_code}")
         except Exception as e:
             logger.debug(f"Liquidation aggregated-history error: {e}")
         
         # Try alternative pair-level endpoint as fallback
-        alt_url = f"{self.base_url}/api/futures/liquidation/history"
+        alt_endpoint = "/api/futures/liquidation/history"
+        alt_url = f"{self.base_url}{alt_endpoint}"
         alt_params = {"pair": f"{resolved_symbol}-USDT", "interval": interval}
         
         try:
             response = self.http.get(alt_url, params=alt_params)
             if response.status_code == 200:
                 result = response.json()
-                if result and 'data' in result:
+                
+                # Apply guardrails to alternative endpoint too
+                guarded_result = self._apply_guardrails_with_fallback(
+                    result, alt_endpoint, alt_params, interval
+                )
+                
+                if guarded_result and guarded_result.get('data'):
                     logger.info(f"✅ Alternative liquidation endpoint worked for {resolved_symbol}")
-                    return result
+                    return guarded_result
         except Exception as e:
             logger.debug(f"Alternative liquidation endpoint failed: {e}")
         
-        # Return meaningful empty data
+        # Return meaningful empty data with guardrails logging
         logger.info(f"📊 No liquidation data available for {resolved_symbol} (original: {symbol})")
         return {"data": [], "message": "Liquidation data unavailable"}
     
@@ -313,12 +381,7 @@ class CoinglassClient:
         response = self.http.get(url, params=params)
         return response.json()
     
-    def spot_orderbook_history(self, symbol: str, exchange: str = "Binance"):
-        """Get spot orderbook history"""
-        url = f"{self.base_url}/api/spot/orderbook/history"
-        params = {"symbol": symbol, "exchange": exchange}
-        response = self.http.get(url, params=params)
-        return response.json()
+    # Removed duplicate spot_orderbook_history method
 
     # 7. Large Limit Orders - Available from Standard
     def large_limit_orders(self, symbol: str, exchange: str = "Binance"):
