@@ -7,7 +7,7 @@ Alert Deduplication System
 import hashlib
 import time
 from typing import Optional, Dict, Any
-from app.core.cache import cache_manager
+from app.core.cache import cache
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ class AlertDeduplicator:
     
     def __init__(self, ttl_seconds: int = 300):  # 5 minutes
         self.ttl_seconds = ttl_seconds
-        self.cache = cache_manager
+        self.cache = cache
         
     def create_fingerprint(
         self, 
