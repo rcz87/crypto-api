@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import List
 import secrets
 import os
@@ -51,8 +52,14 @@ class Settings(BaseSettings):
     BACKUP_RETENTION_DAYS: int = 30
     
     # CoinGlass Tier Configuration
-    CG_TIER: str = "standard"  # Options: standard, pro, enterprise
+    CG_TIER: str = Field(default="standard", description="CoinGlass subscription tier: standard, pro, enterprise")
 
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
+
+    def __init__(self, **kwargs):
+        # Map COINGLASS_API_KEY to CG_API_KEY for backward compatibility if needed
+        if 'COINGLASS_API_KEY' in os.environ and 'CG_API_KEY' not in os.environ:
+            os.environ['CG_API_KEY'] = os.environ['COINGLASS_API_KEY']
+        super().__init__(**kwargs)
 
 settings = Settings()

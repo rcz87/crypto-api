@@ -1,0 +1,284 @@
+TL;DR (aksi cepat)
+
+Ganti semua call ke base REST v4 dan WS v4; pasang header CG-API-KEY. 
+CoinGlass-API
++1
+
+Hapus total data sintetis (ETF flows random) → pakai /api/etf/bitcoin/flow-history. 
+CoinGlass-API
+
+Heatmap likuidasi = Pro+, Standard pakai history (pair/aggregated). 
+CoinGlass-API
++1
+
+Simbol harus di-resolve dari supported-exchange-pairs sebelum request lain. 
+CoinGlass-API
+
+Terapkan fallback interval untuk funding/OI (422 → naikkan interval). 
+CoinGlass-API
++1
+
+0) Matrix “yang boleh” di Paket Standard (inti)
+Kebutuhan	Endpoint v4	Status Standard
+Validasi simbol futures	/api/futures/supported-exchange-pairs	✅ Tersedia (update ±1 menit) 
+CoinGlass-API
+
+Funding rate OHLC	/api/futures/funding-rate/history	✅ Standard, no limit interval (vs plan rendah ada limit) 
+CoinGlass-API
+
+Open interest OHLC	/api/futures/open-interest/history	✅ Standard, no limit interval 
+CoinGlass-API
+
+OI aggregated (lintas exch.)	/api/futures/open-interest/aggregated-history	✅ Standard 
+CoinGlass-API
+
+Likuidasi (pair)	/api/futures/liquidation/history	✅ Standard (interval limit lebih rendah di plan bawah) 
+CoinGlass-API
+
+Likuidasi (aggregated coin)	/api/futures/liquidation/aggregated-history	✅ Standard 
+CoinGlass-API
+
+ETF BTC flows	/api/etf/bitcoin/flow-history	✅ Standard (real data) 
+CoinGlass-API
+
+Daftar ETF BTC	/api/etf/bitcoin/list	✅ Standard (real-time) 
+CoinGlass-API
+
+Spot supported pairs	/api/spot/supported-exchange-pairs	✅ Standard (kalau butuh spot) 
+CoinGlass-API
+
+Catatan: Heatmap/Map likuidasi model khusus & spot large-orderbook umumnya Pro+. Jadi kalau itu dipanggil, wajar error di Standard. Fokus ke history/aggregated yang tersedia. 
+CoinGlass-API
++1
+
+1) Refactor plan (urut eksekusi)
+
+A. Infrastruktur & keamanan
+
+Centralize base URL: OPEN_API_BASE = "https://open-api-v4.coinglass.com"; WS: wss://open-ws.coinglass.com/ws-api?cg-api-key=<APIKEY>. 
+CoinGlass-API
++1
+
+HTTP client middleware: otomatis pasang header CG-API-KEY + retry 429 (exponential backoff).
+
+B. Data integrity
+3) Hapus seluruh random.uniform() pada ETF; ganti konsumsi API resmi /api/etf/bitcoin/flow-history. 
+CoinGlass-API
+
+C. Kompatibilitas plan
+4) Ganti semua endpoint heatmap → history/aggregated. 
+CoinGlass-API
++1
+
+5) Implement SymbolResolver: ambil simbol valid via /api/futures/supported-exchange-pairs dan cache 60s. 
+CoinGlass-API
+
+D. Robustness
+6) Fallback interval: kalau funding/OI 422 → naikkan interval (mis. 1h → 4h). 
+CoinGlass-API
++1
+
+7) Logging terstruktur: log URL, params, status, error_code CoinGlass (bantu debug cepat).
+
+2) Patch contoh (ringkas & langsung tempel)
+
+Middleware (Python/httpx)
+
+import httpx, time, os
+API_KEY = os.getenv("COINGLASS_API_KEY")
+BASE = "https://open-api-v4.coinglass.com"
+
+client = httpx.Client(timeout=15, headers={"CG-API-KEY": API_KEY})
+
+def get_with_retry(path, params=None, max_retry=3):
+    for i in range(max_retry):
+        r = client.get(f"{BASE}{path}", params=params)
+        if r.status_code != 429:
+            return r
+        time.sleep(0.5 * (2 ** i))  # backoff
+    return r  # terakhir
+
+
+SymbolResolver (cache 60 detik)
+
+from time import time as now
+_cache = {"ts": 0, "pairs": []}
+
+def get_supported_pairs():
+    if now() - _cache["ts"] < 60 and _cache["pairs"]:
+        return _cache["pairs"]
+    r = get_with_retry("/api/futures/supported-exchange-pairs")
+    r.raise_for_status()
+    data = r.json().get("data", [])
+    _cache.update({"ts": now(), "pairs": data})
+    return data
+
+def resolve_pair(coin="SOL", base="USDT", exchange="OKX"):
+    # cari pasangan persis di daftar resmi
+    for ex in get_supported_pairs():
+        if ex.get("exchange") == exchange:
+            for p in ex.get("pairs", []):
+                if p.get("pair") == f"{coin}-{base}":
+                    return p.get("pair")
+    raise ValueError("Pair tidak ditemukan di supported-exchange-pairs")
+
+
+Sumber endpoint: 
+CoinGlass-API
+
+Funding rate (history) – fallback interval
+
+from fastapi import APIRouter, HTTPException, Query
+router = APIRouter()
+
+@router.get("/advanced/funding/rate/{coin}")
+def funding_rate(coin: str,
+                 base: str = Query("USDT"),
+                 exchange: str = Query("OKX"),
+                 interval: str = Query("1h")):
+    pair = resolve_pair(coin, base, exchange)  # "SOL-USDT"
+    params = {"pair": pair, "exchange": exchange, "interval": interval}
+    r = get_with_retry("/api/futures/funding-rate/history", params)
+    if r.status_code == 422:
+        params["interval"] = "4h"
+        r = get_with_retry("/api/futures/funding-rate/history", params)
+    if r.is_error: raise HTTPException(r.status_code, r.text)
+    return r.json()
+
+
+Sumber: funding rate history v4. 
+CoinGlass-API
+
+Open interest (history)
+
+@router.get("/advanced/oi/history/{coin}")
+def oi_history(coin: str,
+               base: str = Query("USDT"),
+               exchange: str = Query("OKX"),
+               interval: str = Query("1h")):
+    pair = resolve_pair(coin, base, exchange)
+    params = {"pair": pair, "exchange": exchange, "interval": interval}
+    r = get_with_retry("/api/futures/open-interest/history", params)
+    if r.status_code == 422:
+        params["interval"] = "4h"
+        r = get_with_retry("/api/futures/open-interest/history", params)
+    if r.is_error: raise HTTPException(r.status_code, r.text)
+    return r.json()
+
+
+Sumber: OI history v4. 
+CoinGlass-API
+
+Likuidasi (history) – pengganti heatmap Pro+
+
+@router.get("/advanced/liquidation/history/{coin}")
+def liq_history(coin: str,
+                base: str = Query("USDT"),
+                exchange: str = Query("OKX"),
+                interval: str = Query("1h")):
+    pair = resolve_pair(coin, base, exchange)
+    params = {"pair": pair, "exchange": exchange, "interval": interval}
+    r = get_with_retry("/api/futures/liquidation/history", params)
+    if r.status_code == 422:
+        params["interval"] = "4h"
+        r = get_with_retry("/api/futures/liquidation/history", params)
+    if r.is_error: raise HTTPException(r.status_code, r.text)
+    return r.json()
+
+
+Sumber: pair liquidation history. 
+CoinGlass-API
+
+ETF flows – real data (hapus random)
+
+@router.get("/advanced/etf/flows")
+def etf_flows():
+    r = get_with_retry("/api/etf/bitcoin/flow-history")
+    r.raise_for_status()
+    return r.json()
+
+
+Sumber: ETF flow history. 
+CoinGlass-API
+
+3) Tes verifikasi (cURL) — jalankan 1-per-1
+
+ganti <KEY> dengan API key kamu.
+
+Smoke test simbol
+
+curl -sS 'https://open-api-v4.coinglass.com/api/futures/supported-exchange-pairs' \
+  -H 'CG-API-KEY: <KEY>' | head
+
+
+CoinGlass-API
+
+SOL funding 1h (fallback ke 4h bila perlu)
+
+curl -sS 'https://open-api-v4.coinglass.com/api/futures/funding-rate/history?pair=SOL-USDT&exchange=OKX&interval=1h' \
+  -H 'CG-API-KEY: <KEY>' | head
+
+
+CoinGlass-API
+
+SOL OI 1h
+
+curl -sS 'https://open-api-v4.coinglass.com/api/futures/open-interest/history?pair=SOL-USDT&exchange=OKX&interval=1h' \
+  -H 'CG-API-KEY: <KEY>' | head
+
+
+CoinGlass-API
+
+SOL liquidation history
+
+curl -sS 'https://open-api-v4.coinglass.com/api/futures/liquidation/history?pair=SOL-USDT&exchange=OKX&interval=1h' \
+  -H 'CG-API-KEY: <KEY>' | head
+
+
+CoinGlass-API
+
+ETF flows
+
+curl -sS 'https://open-api-v4.coinglass.com/api/etf/bitcoin/flow-history' \
+  -H 'CG-API-KEY: <KEY>' | head
+
+
+CoinGlass-API
+
+WS connect (cek koneksi)
+
+wss://open-ws.coinglass.com/ws-api?cg-api-key=<KEY>
+
+
+CoinGlass-API
+
+4) Healthcheck mini (jalankan tiap start)
+
+GET /api/futures/supported-exchange-pairs → 200 ✅
+
+GET funding/OI/liquidation SOL-USDT@OKX interval=1h → 200 ✅ (422 → retry 4h)
+
+GET /api/etf/bitcoin/flow-history → 200 ✅
+Jika salah satu gagal, log status, path, params, dan cuplikan body untuk analisa.
+
+5) Bonus: endpoint tambahan yang relevan (opsional)
+
+OI-weighted funding (gabungan sinyal bagus untuk bias):
+/api/futures/funding-rate/oi-weight-history — ✅ Standard. 
+CoinGlass-API
+
+Hyperliquid positions (kalau kamu butuh data HL):
+/api/hyperliquid/position — tersedia mulai Standard. 
+CoinGlass-API
+
+6) Rencana deploy & rollback
+
+Buat branch coinglass-v4-refactor.
+
+Commit middleware + resolver + 4 endpoint inti di atas.
+
+Tambahkan healthcheck dan matikan semua heatmap Pro+ (feature flag).
+
+Canary 1–2 jam (rate limit 250 rpm) → observasi log 401/404/422/429.
+
+Jika stabil → merge main; kalau tidak, rollback via feature flag.
