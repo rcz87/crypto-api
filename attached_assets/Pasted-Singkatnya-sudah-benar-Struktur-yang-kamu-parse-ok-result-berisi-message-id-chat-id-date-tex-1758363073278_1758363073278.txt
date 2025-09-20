@@ -1,0 +1,78 @@
+Singkatnya: sudah benar. Struktur yang kamu parse—ok → result (berisi message_id, chat.id, date, text)—sesuai Telegram Bot API. Detailnya:
+
+Bot API selalu balas JSON dengan ok lalu isi hasil di result saat sukses. 
+Telegram
+
+result itu objek Message: punya message_id (int), date (Unix time), chat (objek Chat), text (untuk sendMessage). 
+Telegram
+
+message_id memang “identifier unik di chat”; ada kasus langka bisa bernilai 0 jika pesan dischedule otomatis pada chat besar—baru usable setelah terkirim. (Jarang, tapi ada di spesifikasi). 
+Telegram
+
+Jadi potongan parser-mu ini udah on point:
+
+data = await response.json()
+message_result = data.get('result', {})
+return {
+    'message_id': message_result.get('message_id'),
+    'chat_id': message_result.get('chat', {}).get('id'),
+    'date': message_result.get('date'),
+    'text': message_result.get('text'),
+    'ok': True
+}
+
+Patch mini (biar 100% tahan banting)
+
+Jangan hardcode ok: True – ambil dari respons:
+
+ok = bool(data.get('ok'))
+...
+'ok': ok
+
+
+Ini sesuai “Making requests”: kalau gagal, ok:false + error_code + description (kadang ada parameters.retry_after/migrate_to_chat_id). Tangkap itu untuk auto-handle error. 
+Telegram
+
+Group/supergroup chat_id bisa negatif (mis. -100…). Tipe int sudah aman—cukup jangan asumsi selalu positif. 
+Stack Overflow
+
+Fallback “caption” (kalau nanti kirim media): untuk sendPhoto/sendVideo, teksnya ada di caption, bukan text.
+
+'text': message_result.get('text') or message_result.get('caption')
+
+
+(Objek Message mendukung banyak tipe konten; text hanya untuk pesan teks murni.) 
+Telegram
+
+Simpan message_id untuk audit/update (reply/edit/delete). Itu memang ID unik di dalam chat. 
+Telegram
+
+(Opsional) Thread/Topic: kalau pakai forum topic, pertimbangkan message_thread_id dalam alur reply. 
+Telegram
+
+Contoh parser “final”
+async def parse_send_message_response(resp):
+    data = await resp.json()
+    if not data.get('ok'):
+        err = {
+            'ok': False,
+            'error_code': data.get('error_code'),
+            'description': data.get('description'),
+            'parameters': data.get('parameters', {})  # {retry_after, migrate_to_chat_id}
+        }
+        return err
+    r = data['result']
+    return {
+        'ok': True,
+        'message_id': r.get('message_id', 0),
+        'chat_id': (r.get('chat') or {}).get('id'),
+        'date': r.get('date'),
+        'text': r.get('text') or r.get('caption'),
+    }
+
+
+Baris error handling mengikuti pola resmi ok/description/error_code/parameters. 
+Telegram
+
+Field yang diambil sesuai spesifikasi Message. 
+Telegram
