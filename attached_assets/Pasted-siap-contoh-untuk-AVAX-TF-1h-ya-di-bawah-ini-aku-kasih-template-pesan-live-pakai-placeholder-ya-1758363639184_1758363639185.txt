@@ -1,0 +1,110 @@
+siap—contoh untuk AVAX (TF: 1h) ya. di bawah ini aku kasih template pesan live (pakai placeholder yang engine-mu isi otomatis) + contoh dummy biar kebayang. aku sertakan mapping tiap variabel ke endpoint CoinGlass v4 yang relevan.
+
+TL;DR
+
+Pakai 4 metrik inti: taker ratio (coin-agg), OI ROC (coin-agg OHLC), funding OHLC (pair), liquidation (coin-agg). Engine-mu sudah support semuanya. 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+🔔 Template pesan live — AVAX (1h)
+1) Akumulasi — Watch
+🟢 WHALE ACCUMULATION — Watch
+Coin: AVAX • TF: 1h
+Taker Ratio: {{avax.taker_ratio_1h}}  (≥ p95 / ≥ 1.60)
+OI ROC: {{avax.oi_roc_1h}}%  (≥ +2%)
+Funding: {{avax.funding_bps8}} bps/8h
+Liq Spike: {{avax.liq_note}}
+Plan: siapkan entry; validasi 1 bar berikut.
+
+2) Akumulasi — Action
+🟢 WHALE ACCUMULATION — Action
+Coin: AVAX • TF: 1h
+Taker: {{avax.taker_ratio_1h}} (≥ 1.80) | OI ROC: {{avax.oi_roc_1h}}% (≥ +5%)
+Funding: {{avax.funding_bps8}} bps/8h (negatif = kontra-crowd)
+Liq Spike: {{avax.liq_note}}
+Action: eksekusi rencana; pasang proteksi risiko.
+
+3) Distribusi — Watch
+🔴 DISTRIBUTION RISK — Watch
+Coin: AVAX • TF: 1h
+Taker: {{avax.taker_ratio_1h}} (≤ 0.70) | OI ROC: {{avax.oi_roc_1h}}% (≤ −2%)
+Funding: {{avax.funding_bps8}} bps/8h (positif tinggi = crowded long)
+Liq Spike: {{avax.liq_note}}
+Plan: kurangi eksposur; tunggu konfirmasi bar berikut.
+
+4) Distribusi — Action
+🔴 DISTRIBUTION RISK — Action
+Coin: AVAX • TF: 1h
+Taker: {{avax.taker_ratio_1h}} (≤ 0.55) | OI ROC: {{avax.oi_roc_1h}}% (≤ −5% atau Price↓ & OI↑)
+Funding: {{avax.funding_bps8}} bps/8h
+Liq Spike: {{avax.liq_note}}
+Action: exit/hedge; proteksi ketat.
+
+5) Spike Likuidasi (Ignition Check)
+⚡ LIQUIDATION SPIKE
+Coin: AVAX • TF: 1h
+Short Liq: ${{avax.short_liq_usd}} • Long Liq: ${{avax.long_liq_usd}}
+Now vs p95(7D): {{avax.now_vs_p95}}%
+Note: spike sisi lawan ⇒ potensi squeeze/reversal cepat.
+
+🧩 Mapping variabel → endpoint (siap di-wire di engine)
+Variabel	Cara hitung	Endpoint CoinGlass
+taker_ratio_1h	aggregated_buy_volume_usd / aggregated_sell_volume_usd (coin-agg, 1h; bisa filter exchange_list=OKX,Binance,Bybit)	/api/futures/aggregated-taker-buy-sell-volume/history?coin=AVAX&interval=1h 
+CoinGlass-API
+
+oi_roc_1h	(OI_close[t]-OI_close[t-1]) / OI_close[t-1] * 100 (coin-agg OHLC 1h)	/api/futures/open-interest/aggregated-history?coin=AVAX&interval=1h 
+CoinGlass-API
+
+funding_bps8	abs(funding_close) × 10,000 lalu normalisasi ke per 8h	/api/futures/funding-rate/history?pair=AVAX-USDT&exchange=OKX&interval=1h 
+CoinGlass-API
+
+long_liq_usd, short_liq_usd	ambil bar terakhir (coin-agg 1h)	/api/futures/liquidation/aggregated-history?coin=AVAX&interval=1h 
+CoinGlass-API
+
+Pengiriman Telegram via Bot API sendMessage (HTTP). Respons sukses berformat { ok:true, result:{ message_id, ... } }. 
+Telegram
+
+🧪 Contoh “dummy preview” (untuk uji tampilan saja)
+
+ini contoh angka dummy (bukan data live).
+
+Akumulasi — Watch (AVAX 1h)
+
+🟢 WHALE ACCUMULATION — Watch
+Coin: AVAX • TF: 1h
+Taker Ratio: 1.72
+OI ROC: +2.9%
+Funding: -4.6 bps/8h
+Liq Spike: none (calm)
+Plan: siapkan entry; validasi 1 bar berikut.
+
+
+Distribusi — Action (AVAX 1h)
+
+🔴 DISTRIBUTION RISK — Action
+Coin: AVAX • TF: 1h
+Taker: 0.58 | OI ROC: −5.4% (Price↓ & OI↑)
+Funding: +11.2 bps/8h
+Liq Spike: long-side p95 hit
+Action: exit/hedge; proteksi ketat.
+
+🧷 JSON payload (opsional) kalau mau logging/analytics
+{
+  "type": "accumulation_watch",
+  "coin": "AVAX",
+  "tf": "1h",
+  "taker_ratio": "{{avax.taker_ratio_1h}}",
+  "oi_roc_pct": "{{avax.oi_roc_1h}}",
+  "funding_bps8": "{{avax.funding_bps8}}",
+  "liq": {
+    "long_usd": "{{avax.long_liq_usd}}",
+    "short_usd": "{{avax.short_liq_usd}}",
+    "now_vs_p95_7d": "{{avax.now_vs_p95}}"
+  },
+  "confidence": "{{avax.confidence}}",
+  "message_id": "{{tele.message_id}}"
+}

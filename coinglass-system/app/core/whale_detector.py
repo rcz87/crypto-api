@@ -22,14 +22,18 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class WhaleSignal:
-    """Whale accumulation/distribution signal"""
+    """Enhanced whale signal dengan liquidation spike detection"""
     coin: str
-    signal_type: str  # 'accumulation' or 'distribution'
+    signal_type: str  # 'accumulation', 'distribution', 'liquidation_spike'
     confidence: str   # 'watch' or 'action'
     taker_ratio: float
     oi_roc: float
     funding_bps: Optional[float] = None
     liquidation_spike: Optional[float] = None
+    long_liq_usd: Optional[float] = None
+    short_liq_usd: Optional[float] = None
+    liq_note: str = "none (calm)"
+    now_vs_p95: Optional[float] = None
     timestamp: Optional[datetime] = None
     message: str = ""
     
@@ -39,7 +43,7 @@ class WhaleSignal:
 
 @dataclass
 class MarketData:
-    """Market data untuk whale analysis"""
+    """Enhanced market data dengan liquidation spike analysis"""
     taker_buy_usd: float
     taker_sell_usd: float
     oi_current: float
@@ -48,6 +52,8 @@ class MarketData:
     price_previous: float
     funding_rate: Optional[float] = None
     liquidation_volume: Optional[float] = None
+    long_liq_usd: Optional[float] = None
+    short_liq_usd: Optional[float] = None
 
 class WhaleDetectionEngine:
     """Core whale detection engine dengan real-time monitoring"""
@@ -74,6 +80,13 @@ class WhaleDetectionEngine:
                 'extreme_bps': 100,  # 100 bps = 1%
                 'high_bps': 50       # 50 bps = 0.5%
             }
+        }
+        
+        # Liquidation spike thresholds
+        self.liquidation_thresholds = {
+            'p95_multiplier': 1.5,  # 50% above p95 = spike
+            'extreme_multiplier': 2.0,  # 100% above p95 = extreme
+            'window_hours': 24 * 7  # 7 days for p95 calculation
         }
         
         logger.info("🐋 Whale Detection Engine initialized")
@@ -152,6 +165,15 @@ class WhaleDetectionEngine:
             if liq_data and 'data' in liq_data and liq_data['data']:
                 liquidation_vol = float(liq_data['data'][0].get('quantity', 0))
             
+            # Extract enhanced liquidation data
+            long_liq_usd = 0.0
+            short_liq_usd = 0.0
+            if liq_data and 'data' in liq_data and liq_data['data']:
+                latest_liq = liq_data['data'][0]
+                long_liq_usd = float(latest_liq.get('liquidation_long_volume_usd', 0))
+                short_liq_usd = float(latest_liq.get('liquidation_short_volume_usd', 0))
+                liquidation_vol = long_liq_usd + short_liq_usd
+            
             return MarketData(
                 taker_buy_usd=taker_buy,
                 taker_sell_usd=taker_sell,
@@ -160,7 +182,9 @@ class WhaleDetectionEngine:
                 price_current=current_price,
                 price_previous=previous_price,
                 funding_rate=funding_rate,
-                liquidation_volume=liquidation_vol
+                liquidation_volume=liquidation_vol,
+                long_liq_usd=long_liq_usd,
+                short_liq_usd=short_liq_usd
             )
             
         except Exception as e:
@@ -279,25 +303,35 @@ class WhaleDetectionEngine:
             return False
     
     def _format_professional_alert(self, signal: WhaleSignal) -> str:
-        """Format professional whale alert message sesuai CoinGlass v4 template"""
+        """Format professional whale alert dengan AVAX live template format"""
+        
+        # Handle liquidation spike alerts
+        if signal.signal_type == "liquidation_spike":
+            return self._format_liquidation_spike_alert(signal)
+        
+        # Standard accumulation/distribution alerts
+        return self._format_avax_template_alert(signal)
+    
+    def _format_avax_template_alert(self, signal: WhaleSignal) -> str:
+        """Format alert sesuai AVAX live template dengan exact mapping"""
         
         # Determine alert type and emoji
         if signal.signal_type == "accumulation":
             emoji = "🟢"
             alert_type = "WHALE ACCUMULATION"
-            risk_note = "entry plan"
+            risk_note = "entry"
         else:  # distribution
             emoji = "🔴" 
             alert_type = "DISTRIBUTION RISK"
             risk_note = "exit/hedge"
         
         # Confidence level formatting
-        confidence_level = signal.confidence.upper()  # WATCH or ACTION
+        confidence_level = signal.confidence.title()  # Watch or Action
         
-        # Format funding bps
-        funding_display = f"{signal.funding_bps:.1f}" if signal.funding_bps else "N/A"
+        # Format funding bps with sign preservation
+        funding_display = f"{signal.funding_bps:+.1f}" if signal.funding_bps else "N/A"
         
-        # Build professional message
+        # Build professional message sesuai template
         if signal.confidence == "action":
             # ACTION level alert (high confidence)
             alert_text = f"{emoji} *{alert_type} — {confidence_level}*\n"
@@ -308,13 +342,19 @@ class WhaleDetectionEngine:
             alert_text += f"({'≥ +5%' if signal.signal_type == 'accumulation' else '≤ -5%'})\n"
             alert_text += f"*Funding:* {funding_display} bps/8h"
             
+            # Add funding context
             if signal.funding_bps:
                 if signal.signal_type == "accumulation" and signal.funding_bps < 0:
-                    alert_text += " (kontra-crowd)"
+                    alert_text += " (negatif = kontra-crowd)"
                 elif signal.signal_type == "distribution" and signal.funding_bps > 50:
-                    alert_text += " (crowded long)"
+                    alert_text += " (positif tinggi = crowded long)"
             
-            alert_text += f"\n*Action:* eksekusi {risk_note}; aktifkan proteksi risiko."
+            alert_text += f"\n*Liq Spike:* {signal.liq_note}"
+            
+            if signal.signal_type == "accumulation":
+                alert_text += f"\n*Action:* eksekusi rencana; pasang proteksi risiko."
+            else:
+                alert_text += f"\n*Action:* {risk_note}; proteksi ketat."
             
         else:
             # WATCH level alert (medium confidence)
@@ -324,16 +364,46 @@ class WhaleDetectionEngine:
             alert_text += f"({'≥ 1.60' if signal.signal_type == 'accumulation' else '≤ 0.70'})\n"
             alert_text += f"*OI ROC:* {signal.oi_roc*100:+.1f}% "
             alert_text += f"({'≥ +2%' if signal.signal_type == 'accumulation' else '≤ -2%'})\n"
-            alert_text += f"*Funding:* {funding_display} bps/8h\n"
+            alert_text += f"*Funding:* {funding_display} bps/8h"
+            
+            # Add funding context for WATCH alerts
+            if signal.funding_bps and signal.signal_type == "distribution" and signal.funding_bps > 50:
+                alert_text += " (positif tinggi = crowded long)"
+            
+            alert_text += f"\n*Liq Spike:* {signal.liq_note}"
             
             if signal.signal_type == "accumulation":
-                alert_text += f"*Plan:* siapkan {risk_note}; validasi 1 bar berikut."
+                alert_text += f"\n*Plan:* siapkan {risk_note}; validasi 1 bar berikut."
             else:
-                alert_text += f"*Plan:* kurangi eksposur; tunggu konfirmasi bar berikut."
+                alert_text += f"\n*Plan:* kurangi eksposur; tunggu konfirmasi bar berikut."
         
         # Add timestamp
         time_str = signal.timestamp.strftime('%H:%M UTC') if signal.timestamp else 'N/A'
         alert_text += f"\n\n_Time: {time_str}_"
+        
+        return alert_text
+    
+    def _format_liquidation_spike_alert(self, signal: WhaleSignal) -> str:
+        """Format liquidation spike alert sesuai template"""
+        
+        alert_text = f"⚡ *LIQUIDATION SPIKE*\n"
+        alert_text += f"*Coin:* {signal.coin} • *TF:* 1h\n"
+        
+        # Format liquidation amounts
+        short_liq = f"${signal.short_liq_usd:,.0f}" if signal.short_liq_usd else "$0"
+        long_liq = f"${signal.long_liq_usd:,.0f}" if signal.long_liq_usd else "$0"
+        
+        alert_text += f"*Short Liq:* {short_liq} • *Long Liq:* {long_liq}\n"
+        
+        # Add p95 comparison if available
+        if signal.now_vs_p95:
+            alert_text += f"*Now vs p95(7D):* {signal.now_vs_p95:+.1f}%\n"
+        
+        alert_text += f"*Note:* spike sisi lawan ⇒ potensi squeeze/reversal cepat.\n"
+        
+        # Add timestamp
+        time_str = signal.timestamp.strftime('%H:%M UTC') if signal.timestamp else 'N/A'
+        alert_text += f"\n_Time: {time_str}_"
         
         return alert_text
     
