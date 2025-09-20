@@ -1,0 +1,101 @@
+semua patch sudah “green”. Kita kunci hasilnya dan pasang pagar tambahan biar sistemmu tahan banting di production. 🚀
+
+TL;DR
+
+Endpoint yang kamu pakai sekarang match dengan doks v4:
+• Aggregated liquidation (coin): /api/futures/liquidation/aggregated-history → tersedia di Standard, tanpa limit interval. 
+CoinGlass-API
+
+• Pair liquidation: /api/futures/liquidation/history → Standard, no limit interval. 
+CoinGlass-API
+
+• ETF flows (time-series): /api/etf/bitcoin/flow-history → untuk flow_usd/price_usd. 
+CoinGlass-API
+
+• ETF list (status realtime): /api/etf/bitcoin/list → metadata ETF (bukan net_flow harian). 
+CoinGlass-API
+
+• Resolver simbol: /api/futures/supported-exchange-pairs (refresh ±1 menit). 
+CoinGlass-API
+
+• WS URL: wss://open-ws.coinglass.com/ws-api?cg-api-key=.... 
+CoinGlass-API
+
+Acceptance checklist (post-patch, cepat & objektif)
+
+Tandai ✅ kalau sudah:
+
+✅ Liquidation (coin agg) mengembalikan 200 dengan ?coin=SOL&interval=1h (kalau kosong → tidak ada event di window itu, bukan karena plan). 
+CoinGlass-API
+
+✅ Liquidation (pair) 200 untuk ?pair=SOL-USDT&exchange=OKX&interval=1h. 
+CoinGlass-API
+
+✅ ETF flows 200 berisi time-series (timestamp, flow_usd, price_usd, etf_flows[]). 
+CoinGlass-API
+
+✅ ETF list 200 berisi status ETF (contoh: asset_details.update_date, update_timestamp), bukan net flow. 
+CoinGlass-API
+
+✅ Resolver simbol cache 60 detik; sumber kebenaran = /supported-exchange-pairs. 
+CoinGlass-API
+
+✅ (Opsional) Ringkasan likuidasi cepat via /api/futures/liquidation/coin-list (tersedia mulai Startup+, termasuk Standard). 
+CoinGlass-API
+
+Guardrails produksi (biar aman dari “overheat”)
+Area	Aturan cepat	Rujukan
+Interval policy	Funding/OI/Liquidation di Standard = No Limit. Kalau 422, auto-fallback (mis. 1h→4h).	
+CoinGlass-API
++2
+CoinGlass-API
++2
+
+Symbol truth	Dilarang tebak simbol. Selalu resolve dari /supported-exchange-pairs.	
+CoinGlass-API
+
+ETF model split	Pisah List (status) vs Flow-History (time-series). Jangan campur field.	
+CoinGlass-API
++1
+
+Heatmap/Map	Model heatmap (Map/Model2/Model3) = Pro+ only. Di Standard gunakan history/aggregated.	
+CoinGlass-API
++1
+
+WS health	Gunakan URL v4 + heartbeat/ping berkala.	
+CoinGlass-API
+Tes “golden path” (manual, 1-liner)
+
+SOL (coin aggregated):
+GET /api/futures/liquidation/aggregated-history?coin=SOL&interval=1h → 200. 
+CoinGlass-API
+
+SOL (pair @ OKX):
+GET /api/futures/liquidation/history?pair=SOL-USDT&exchange=OKX&interval=1h → 200. 
+CoinGlass-API
+
+ETF flows:
+GET /api/etf/bitcoin/flow-history → ada flow_usd/price_usd. 
+CoinGlass-API
+
+ETF list:
+GET /api/etf/bitcoin/list → field status + asset_details.update_date/update_timestamp. 
+CoinGlass-API
+
+Resolver:
+GET /api/futures/supported-exchange-pairs → cache 60s. 
+CoinGlass-API
+
+Kalau “data: []” di liquidation: itu most likely karena tidak ada event di window tersebut, bukan karena plan. Cek jendela yang lebih lebar atau scan via coin-list untuk konfirmasi tren sebelum drill-down. 
+CoinGlass-API
+
+Next boost (opsional, cepat diterapkan)
+
+Early-warning likuidasi: poll /liquidation/exchange-list (10s refresh) untuk spike multi-exchange → trigger notifikasi sebelum detail per-pair dipanggil. 
+CoinGlass-API
+
+Tambah layer analitik: OI/Funding OHLC untuk konfluensi sinyal (keduanya Standard, no limit interval). 
+CoinGlass-API
++1
+
+Spot intel tambahan: pairs-markets spot buat deteksi rotasi cepat.
