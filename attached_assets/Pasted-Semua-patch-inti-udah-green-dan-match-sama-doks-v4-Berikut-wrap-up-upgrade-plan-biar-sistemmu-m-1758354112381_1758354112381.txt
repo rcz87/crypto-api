@@ -1,0 +1,95 @@
+Semua patch inti udah “green” dan match sama doks v4. Berikut wrap-up + upgrade plan biar sistemmu makin kebal-error dan tajam ngasih sinyal.
+
+TL;DR
+
+Endpoints yang kamu pakai sekarang sudah sesuai paket Standard (liquidation pair & coin aggregated = No Limit interval; ETF list & flow history = OK). 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+Resolver simbol → supported-exchange-pairs (refresh ±1 menit) sudah benar. 
+CoinGlass-API
+
+Heatmap/Map memang Pro+ only—kamu sudah tepat pindah ke history-based. 
+CoinGlass-API
++2
+CoinGlass-API
++2
+
+✅ Quick Compliance Check (Final)
+Area	Endpoint v4	Status Standard	Catatan
+Coin agg. liquidation	/api/futures/liquidation/aggregated-history	✅ No Limit	Pakai query params coin=SOL&interval=.... 
+CoinGlass-API
+
+Pair liquidation	/api/futures/liquidation/history	✅ No Limit	Gunakan pair=SOL-USDT&exchange=OKX&interval=.... 
+CoinGlass-API
+
+ETF list (status)	/api/etf/bitcoin/list	✅	Berisi status ETF (update timestamp), bukan net flow harian. 
+CoinGlass-API
+
+ETF flows (time-series)	/api/etf/bitcoin/flow-history	✅	Ada flow_usd, price_usd, dan breakdown per ETF. 
+CoinGlass-API
+
+Symbol resolver	/api/futures/supported-exchange-pairs	✅	Sumber kebenaran simbol; cache 60s. 
+CoinGlass-API
+
+WS connect	wss://open-ws.coinglass.com/ws-api?cg-api-key=...	✅	Keepalive/ping berkala. 
+CoinGlass-API
+
+Heatmap / Map	model2/3 & map endpoints	❌ di Standard	Jangan dipanggil; gunakan history sebagai pengganti. 
+CoinGlass-API
++2
+CoinGlass-API
++2
+📈 “Operational Alerts” siap pakai
+Tujuan	Query & Sumber	Trigger Contoh	Aksi
+Spike likuidasi koin	/futures/liquidation/aggregated-history?coin=SOL&interval=1h	long+short_liq_usd > p95_7d	Telegram alert + naikkan interval view ke 4h. 
+CoinGlass-API
+
+Spike likuidasi per-pair	/futures/liquidation/history?pair=SOL-USDT&exchange=OKX&interval=1h	Δ_liq_usd 1h > 3× rata2_24h	Mark level sebagai “danger zone” di dashboard. 
+CoinGlass-API
+
+Taker flow bias	…/futures/aggregated-taker-buy-sell-volume/history?coin=SOL&interval=1h	buy/sell ratio > 1.6 atau < 0.6	Flag “momentum imbalance”. 
+CoinGlass-API
+
+Top accounts shift	…/futures/top-long-short-account-ratio/history?pair=SOL-USDT	Perubahan > 10% dalam 4 jam	Early heads-up untuk rebalancing. 
+CoinGlass-API
+
+ETF arus besar	/etf/bitcoin/flow-history	flow_usd_abs > 2× MA7	Sentimen makro risk-on/off badge. 
+CoinGlass-API
+🧪 Guardrails Playbook (melengkapi punyamu)
+
+data == [] di liquidation
+
+Pastikan param benar (coin vs pair).
+
+Lebarkan window: 1h → 4h → 1d (sudah kamu implement).
+
+Scan ringkas via coin list / exchange list buat konfirmasi ada aktivitas, baru drill-down. 
+CoinGlass-API
++1
+
+simbol invalid
+
+Refresh resolver (supported-exchange-pairs) lalu retry; jangan pernah “nebak” format. 
+CoinGlass-API
+
+WS reconnect
+
+Backoff + jitter + resubscribe; endpoint WS resmi mengharuskan key di query. 
+CoinGlass-API
+
+🚀 Next micro-upgrades (quick wins)
+
+SOL “pseudo-heatmap” dari kombinasi: aggregated-history (level cluster) + taker buy/sell (arah dorongan). Pro-feel, tetap kompatibel Standard. 
+CoinGlass-API
++1
+
+Spot intel tambahan bila perlu rotasi cepat: spot/pairs-markets (screening volatilitas & volume). 
+CoinGlass-API
+
+ETF HK (opsional) untuk jam Asia: hk-etf/bitcoin/flow-history. 
+CoinGlass-API
