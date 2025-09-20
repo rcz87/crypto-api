@@ -57,30 +57,45 @@ class TelegramHTTP:
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     
-                    if response.status == 200:
-                        data = await response.json()
-                        if data.get('ok'):
-                            # Parse message_id correctly from Bot API JSON response
-                            # Telegram Bot API always returns: {"ok": true, "result": {...Message...}}
-                            message_result = data.get('result', {})
-                            message_id = message_result.get('message_id')
-                            
-                            logger.info(f"✅ Telegram message sent successfully - message_id: {message_id}")
-                            
-                            return {
-                                'message_id': message_id,
-                                'chat_id': message_result.get('chat', {}).get('id'),
-                                'date': message_result.get('date'),
-                                'text': message_result.get('text'),
-                                'ok': True
-                            }
-                        else:
-                            logger.error(f"❌ Telegram API error: {data.get('description', 'Unknown')}")
-                            return None
-                    else:
-                        error_text = await response.text()
-                        logger.error(f"❌ HTTP error {response.status}: {error_text}")
-                        return None
+                    # Parse response according to Bot API spec
+                    data = await response.json()
+                    
+                    # Handle both success and error responses per Bot API pattern
+                    if not data.get('ok'):
+                        # Error response: {"ok": false, "error_code": 400, "description": "...", "parameters": {...}}
+                        error_code = data.get('error_code', response.status)
+                        description = data.get('description', 'Unknown error')
+                        parameters = data.get('parameters', {})
+                        
+                        # Handle retry_after for rate limiting (429)
+                        if 'retry_after' in parameters:
+                            retry_after = parameters['retry_after']
+                            logger.warning(f"⏳ Telegram rate limited - retry after {retry_after}s")
+                        
+                        logger.error(f"❌ Telegram API error {error_code}: {description}")
+                        
+                        return {
+                            'ok': False,
+                            'error_code': error_code,
+                            'description': description,
+                            'parameters': parameters
+                        }
+                    
+                    # Success response: parse Message object from result
+                    result = data.get('result', {})
+                    message_id = result.get('message_id', 0)
+                    chat = result.get('chat') or {}
+                    chat_id = chat.get('id')
+                    
+                    logger.info(f"✅ Telegram message sent successfully - message_id: {message_id}")
+                    
+                    return {
+                        'ok': True,
+                        'message_id': message_id,
+                        'chat_id': chat_id,  # Support negative IDs for groups/supergroups
+                        'date': result.get('date'),
+                        'text': result.get('text') or result.get('caption'),  # Support both text and media captions
+                    }
                         
         except asyncio.TimeoutError:
             logger.error("❌ Telegram request timeout")
