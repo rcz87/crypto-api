@@ -1,0 +1,64 @@
+{
+  "layers": {
+    "bias": {
+      "z_watch": 1.0,
+      "z_action": 2.0,
+      "abs_watch": 0.25,
+      "abs_action": 0.60
+    },
+    "funding": {
+      "lookback": "30d",
+      "p_watch": 85,
+      "p_action": 95,
+      "abs_per_8h_watch_bps": 5,
+      "abs_per_8h_action_bps": 10,
+      "use_vol_weight": true
+    },
+    "oi": {
+      "roc_window": "1h",
+      "watch_pct": 0.02,
+      "action_pct": 0.05,
+      "p_watch_60d": 85,
+      "p_action_60d": 95
+    },
+    "taker_ratio": {
+      "lookback": "30d",
+      "p_watch": 85,
+      "p_action": 95,
+      "abs_watch": [1.40, 0.70],
+      "abs_action": [1.80, 0.55]
+    },
+    "liquidation": {
+      "lookback": "7d",
+      "p_watch": 95,
+      "p_action": 99,
+      "pair_confirm": true,
+      "confirm_window_bars": 1
+    },
+    "etf_flows": {
+      "ma_window": 7,
+      "mult_watch": 1.5,
+      "mult_action": 3.0,
+      "p_action_90d": 95
+    }
+  },
+  "confluence": {
+    "watch_min": 2,
+    "action_min": 3,
+    "require_one_action": true,
+    "anti_liq_flip": true
+  },
+  "cooldown": {
+    "dedup_min": 5,
+    "sustain_bars_for_escalation": 3
+  },
+  "thresholds": {
+    "comments": {
+      "taker_ratio": "aggregated_buy_volume_usd / max(1, aggregated_sell_volume_usd)",
+      "funding_bps": "abs(funding_close) × 10,000 per 8h",
+      "oi_roc": "(OI_t - OI_{t-1}) / OI_{t-1}",
+      "liquidation": "time, aggregated_long_liquidation_usd, aggregated_short_liquidation_usd",
+      "etf_flows": "timestamp, flow_usd, price_usd, etf_flows[]"
+    }
+  }
+}
