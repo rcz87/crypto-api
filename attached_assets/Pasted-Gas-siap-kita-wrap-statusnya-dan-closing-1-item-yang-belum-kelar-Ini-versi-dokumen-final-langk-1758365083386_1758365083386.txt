@@ -1,0 +1,349 @@
+Gas, siap kita “wrap” statusnya dan closing 1 item yang belum kelar. Ini versi dokumen final + langkah praktis untuk menuntaskan yang tersisa.
+
+TL;DR
+
+8/9 items ✅ — sistem sudah production-ready.
+
+Sisa 1 item: aktifkan WS real-time heads-up (subscribe liquidationOrders, ping/pong, auto-reconnect) lalu checklist liveness. WS ini memang tersedia untuk Standard. 
+CoinGlass-API
++1
+
+✅ Checklist CoinGlass v4 — Hari Ini (final)
+Bagian	Status	Catatan singkat / Rujukan
+A. Orientation & Setup	✅	REST v4 + header CG-API-KEY, WS v4 URL verified. 
+coinglass
++1
+
+B. Refactor & Mapping	✅	Funding, OI (agg), Taker (agg), Liq (agg) pindah ke v4 & Standard = No-Limit. 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+C. Integritas Data	✅	ETF pakai flow-history (no synthetic), query params v4 ok. 
+CoinGlass-API
+
+D. Alerting & Telegram	✅	sendMessage → result.message_id, dedup 5 menit. 
+core.telegram.org
+
+E. WS & Early Heads-Up	⚠️ Tinggal eksekusi	Subscribe liquidationOrders, ping/pong, reconnect. 
+CoinGlass-API
++1
+
+F. Thresholds & Engine	✅	Rolling p85/p95/p99 + floors; confluence + kill-switch.
+G. Multi-Coin Readiness	✅	Batch smoke Tier-1/Tier-2 (futures-ready).
+H. Testing & Health Checks	✅	E2E suite lulus, 4 endpoint inti 200 OK. 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+🧩 Item tersisa: WebSocket real-time heads-up (Standard)
+
+Target: real-time “heads-up” begitu ada order likuidasi besar, sebelum retail ngeh; lalu konfirmasi via REST (taker/OI/funding) sebelum push alert final.
+
+Langkah eksekusi (ringkas & actionable)
+
+Connect ke WS v4:
+wss://open-ws.coinglass.com/ws-api?cg-api-key=<API_KEY> 
+CoinGlass-API
+
+Subscribe channel liquidationOrders (Standard+): kirim payload subscribe sesuai doks. 
+CoinGlass-API
+
+Keep-alive: kirim ping/pong berkala; pasang auto-reconnect (exponential backoff + jitter). 
+CoinGlass-API
+
+Pipeline: event WS → “heads-up” (Info) → pull REST untuk konfirmasi:
+
+Taker (coin-agg): /futures/aggregated-taker-buy-sell-volume/history?coin=…&interval=1h&exchange_list=OKX,Binance,Bybit (No-Limit). 
+CoinGlass-API
+
+OI (agg OHLC): /futures/open-interest/aggregated-history?coin=…&interval=1h (No-Limit). 
+CoinGlass-API
+
+Funding (pair OHLC): /futures/funding-rate/history?pair=…&exchange=…&interval=1h (No-Limit). 
+CoinGlass-API
+
+Liq (coin-agg): /futures/liquidation/aggregated-history?coin=…&interval=1h (No-Limit). 
+CoinGlass-API
+
+Alert: kirim Telegram (format final sudah siap) & dedup 5 menit. sendMessage harus mengembalikan result.message_id (parsermu sudah sesuai Bot API). 
+core.telegram.org
+
+Acceptance criteria (GO)
+
+WS connect ≥ 30 menit stabil, menerima event liquidationOrders. 
+CoinGlass-API
+
+Pada minimal 1 event, REST konfirmasi (taker/OI/funding/liq) berhasil & 1 alert terkirim.
+
+Reconnect otomatis OK, ping/pong berjalan.
+
+🧪 Smoke WS (contoh cepat)
+
+URL: wss://open-ws.coinglass.com/ws-api?cg-api-key=<API_KEY> (v4). 
+CoinGlass-API
+
+Channel: liquidationOrders (Standard+). 
+CoinGlass-API
+
+Setelah event → panggil 4 REST di atas untuk verifikasi (semua Standard = No-Limit). 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+📌 Catatan dokumentasi (biar cakep di repo)
+
+Rujukan endpoint resmi (Standard/No-Limit):
+Funding OHLC, OI Aggregated OHLC, Taker Aggregated, Liquidation Aggregated. 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+WS v4: Base URL + auth via query, kanal liquidationOrders = Standard and above. 
+CoinGlass-API
++1
+
+Telegram Bot API: sendMessage → objek Message + message_id (pakai untuk dedup/audit). 
+core.telegram.org
+
+Kalau mau, aku tulis blok test WS (Python/Node) siap tempel + snippet log yang kamu inginkan untuk liveness (ping ok, reconnect ok, event count). Setelah itu: 9/9 ✅ dan benar-benar “retail-ahead mode: ON”.
+
+Anda bilang:
+
+aku tulis **blok test WS** (Python/Node) siap tempel + snippet log yang kamu inginkan untuk liveness (ping ok, reconnect ok, event count). Setelah itu: **9/9 ✅** dan benar-benar “retail-ahead mode: ON”. ![](https://www.google.com/s2/favicons?domain=https://core.telegram.org&sz=32) ![](https://www.google.com/s2/favicons?domain=https://coinglass.readme.io&sz=32) ![](https://www.google.com/s2/favicons?domain=https://docs.coinglass.com&sz=32) Sumber
+
+lanjut
+ChatGPT bilang:
+Selesai berpikir selama 42s
+
+siap, kita tutup item #9 dengan blok test WS siap tempel (Python & Node) + format log liveness (ping ok, reconnect ok, event count). Semua sesuai dok resmi CoinGlass WS v4: base URL, auth via cg-api-key, subscribe liquidationOrders, dan ping tiap ±20s → pong. 
+CoinGlass-API
+
+catatan: channel liquidationOrders memang ada & bisa diakses mulai Standard Edition+. 
+CoinGlass-API
++1
+
+TL;DR
+
+URL: wss://open-ws.coinglass.com/ws-api?cg-api-key=<API_KEY>
+
+Subscribe: {"method":"subscribe","channels":["liquidationOrders"]}
+
+Keepalive: kirim 'ping' tiap ~20s, harapkan 'pong'.
+
+Lulus jika: connect stabil, event count > 0, ping/pong OK, auto-reconnect OK. 
+CoinGlass-API
+
+🐍 Python (asyncio + websockets)
+# pip install websockets
+import os, asyncio, json, random
+
+API_KEY = os.getenv("COINGLASS_API_KEY")
+WS_URL  = f"wss://open-ws.coinglass.com/ws-api?cg-api-key={API_KEY}"
+
+PING_SEC = 20
+MAX_BACKOFF = 60  # detik
+
+async def ws_run():
+    backoff = 1
+    total_events = 0
+    while True:
+        try:
+            print(f"[WS] connecting -> {WS_URL}")
+            async with (await __import__("websockets").client.connect(WS_URL)) as ws:
+                # subscribe ke channel
+                sub = {"method": "subscribe", "channels": ["liquidationOrders"]}
+                await ws.send(json.dumps(sub))
+                print("[WS] ✅ subscribed: liquidationOrders")
+
+                # task ping
+                async def pinger():
+                    while True:
+                        await asyncio.sleep(PING_SEC)
+                        await ws.send("ping")           # app-level ping (docs expect 'ping'/'pong')
+                        print("[WS] ↪️ ping")
+                ping_task = asyncio.create_task(pinger())
+
+                # reset backoff saat sukses connect
+                backoff = 1
+
+                # main receive loop
+                while True:
+                    msg = await ws.recv()
+                    if msg == "pong":
+                        print("[WS] ↩️ pong")
+                        continue
+                    try:
+                        data = json.loads(msg)
+                    except Exception:
+                        print(f"[WS] msg: {msg[:120]}")
+                        continue
+
+                    if data.get("channel") == "liquidationOrders":
+                        batch = data.get("data", [])
+                        total_events += len(batch)
+                        if batch:
+                            ex  = batch[0].get("exName")
+                            sym = batch[0].get("symbol")
+                            usd = batch[0].get("volUsd")
+                            print(f"[EVT] {len(batch)} events | {ex} {sym} ${usd}")
+        except Exception as e:
+            print(f"[WS] ❌ disconnect: {e} | reconnect in {backoff}s")
+            await asyncio.sleep(backoff + random.uniform(0, 0.5))
+            backoff = min(MAX_BACKOFF, backoff * 2)  # exponential backoff dengan jitter
+            continue
+
+if __name__ == "__main__":
+    if not API_KEY:
+        raise SystemExit("Set env COINGLASS_API_KEY")
+    asyncio.run(ws_run())
+
+
+Sumber format koneksi/subscribe/ping-pong & contoh payload liquidationOrders. 
+CoinGlass-API
+
+🟨 Node.js (ws)
+// npm i ws
+const WebSocket = require("ws");
+
+const API_KEY = process.env.COINGLASS_API_KEY;
+const URL = `wss://open-ws.coinglass.com/ws-api?cg-api-key=${API_KEY}`;
+
+const PING_MS = 20000;
+let eventCount = 0;
+let backoff = 1000; // ms
+const MAX_BACKOFF = 60000;
+
+function connect() {
+  console.log("[WS] connecting ->", URL);
+  const ws = new WebSocket(URL);
+
+  let pingTimer = null;
+
+  ws.on("open", () => {
+    console.log("[WS] ✅ open");
+    ws.send(JSON.stringify({ method: "subscribe", channels: ["liquidationOrders"] }));
+    console.log("[WS] ✅ subscribed: liquidationOrders");
+
+    // app-level ping setiap 20s (docs expect 'ping'/'pong')
+    pingTimer = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send("ping");
+        console.log("[WS] ↪️ ping");
+      }
+    }, PING_MS);
+
+    backoff = 1000; // reset
+  });
+
+  ws.on("message", (buf) => {
+    const msg = buf.toString();
+    if (msg === "pong") { console.log("[WS] ↩️ pong"); return; }
+    try {
+      const data = JSON.parse(msg);
+      if (data.channel === "liquidationOrders") {
+        const batch = data.data || [];
+        eventCount += batch.length;
+        if (batch.length) {
+          const { exName, symbol, volUsd } = batch[0];
+          console.log(`[EVT] ${batch.length} events | ${exName} ${symbol} $${volUsd}`);
+        }
+      }
+    } catch {
+      console.log("[WS] msg:", msg.slice(0, 120));
+    }
+  });
+
+  const reopen = () => {
+    if (pingTimer) clearInterval(pingTimer);
+    console.log(`[WS] ❌ closed | reconnect in ${backoff/1000}s`);
+    setTimeout(connect, backoff);
+    backoff = Math.min(MAX_BACKOFF, backoff * 2); // backoff + jitter opsional
+  };
+
+  ws.on("close", reopen);
+  ws.on("error", (err) => { console.log("[WS] error:", err.message); ws.close(); });
+}
+
+if (!API_KEY) {
+  console.error("Set env COINGLASS_API_KEY"); process.exit(1);
+}
+connect();
+
+
+Parameter WS + pesan subscribe/ping sesuai dokumentasi. 
+CoinGlass-API
+
+📋 Liveness log yang “enak dibaca”
+[WS] connecting -> wss://open-ws.coinglass.com/ws-api?cg-api-key=***
+[WS] ✅ open
+[WS] ✅ subscribed: liquidationOrders
+[WS] ↪️ ping
+[WS] ↩️ pong
+[EVT] 3 events | Binance BTCUSDT $12450.12
+[EVT] 1 events | OKX ETHUSDT $3821.77
+...
+[WS] ❌ disconnect: read timeout | reconnect in 4s
+[WS] ✅ open
+...
+
+
+↪️ ping / ↩️ pong → keep-alive sesuai rekomendasi (±20s). 
+CoinGlass-API
+
+EVT → hitungan event per pesan (snapshot orders likuidasi real-time). 
+CoinGlass-API
+
+Auto-reconnect dengan exponential backoff.
+
+✅ Acceptance (GO/NOGO)
+
+Connect stabil ≥ 30 menit, ping/pong konsisten tiap ~20s. 
+CoinGlass-API
+
+Minimal 1 pesan liquidationOrders diterima (event count > 0). 
+CoinGlass-API
+
+Putus-koneksi → reconnect otomatis kembali subscribe & ping.
+
+(Opsional) Setelah terima event, verifikasi REST (taker/OI/funding/liq) sebelum kirim alert final.
+
+REST verifikasi cepat (semua tersedia untuk Standard, interval No Limit):
+
+Taker (coin-agg): /api/futures/aggregated-taker-buy-sell-volume/history
+
+OI agg (OHLC): /api/futures/open-interest/aggregated-history
+
+Funding (pair OHLC): /api/futures/funding-rate/history
+
+Liq coin-agg: /api/futures/liquidation/aggregated-history 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+🧩 Bonus drilldown (opsional)
+
+Supported Exchange & Pairs → pastikan coin/pair tersedia: /api/futures/supported-exchange-pairs. 
+CoinGlass-API
+
+Exchange breakdown untuk likuidasi: /api/futures/liquidation/exchange-list. 
+CoinGlass-API
+
+Coin list ringkas untuk signal cepat: /api/futures/liquidation/coin-list. 
+CoinGlass-API
+
+butuh versi khusus 5m/15m atau integrasi langsung ke engine alert? bilang aja—aku siapkan snippet wire-up (consume WS → confirm via REST → kirim Telegram, dengan dedup).
