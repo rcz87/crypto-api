@@ -113,7 +113,29 @@ class MarketSentiment(BaseModel):
     dominance: Optional[float] = None
     timestamp: Optional[datetime] = None
 
+# === TYPE-SPLIT DTO: LIQUIDATION MODELS PER ENDPOINT ===
+
+class LiquidationPair(BaseModel):
+    """DTO for /api/futures/liquidation/history - pair-level liquidation data"""
+    timestamp: int  # Milliseconds timestamp
+    symbol: str  # e.g., "BTC-USDT"
+    exchange: str  # e.g., "Binance", "OKX"
+    side: str  # "long" or "short"
+    price: float  # Liquidation price
+    quantity: float  # Liquidation quantity
+    value: float  # USD value of liquidation
+    
+class LiquidationCoinAgg(BaseModel):
+    """DTO for /api/futures/liquidation/aggregated-history - coin-aggregated data"""
+    timestamp: int  # Milliseconds timestamp
+    coin: str  # e.g., "BTC", "ETH", "SOL"
+    total_liquidations: float  # Total liquidation value across exchanges
+    long_liquidations: float  # Long position liquidations
+    short_liquidations: float  # Short position liquidations
+    exchange_breakdown: Optional[Dict[str, float]] = None  # Per-exchange breakdown
+
 class LiquidationHeatmapData(BaseModel):
+    """Legacy heatmap model - keep for backward compatibility"""
     symbol: str
     price_level: float
     liquidation_amount: float

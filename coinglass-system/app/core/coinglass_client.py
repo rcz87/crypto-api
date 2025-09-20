@@ -1,6 +1,7 @@
 from app.core.http import Http
 from app.core.settings import settings
 from app.core.logging import logger
+from typing import Optional
 
 class CoinglassClient:
     def __init__(self):
@@ -23,12 +24,13 @@ class CoinglassClient:
             "pair_history": "/api/futures/liquidation/history",  # Use pair= param
         }
 
-    def _validate_and_fix_endpoint(self, url_path: str, symbol: str = None):
+    def _validate_and_fix_endpoint(self, url_path: str, symbol: Optional[str] = None):
         """Lint endpoint builder: block invalid v4 patterns and force query params"""
         
         # Check for forbidden path patterns
+        symbol_placeholder = symbol if symbol else "SYMBOL"
         for forbidden in self.forbidden_path_patterns:
-            if forbidden.replace("{symbol}", symbol or "SYMBOL") in url_path:
+            if forbidden.replace("{symbol}", symbol_placeholder) in url_path:
                 logger.error(f"🚫 BLOCKED: Invalid CoinGlass v4 endpoint pattern: {url_path}")
                 logger.info(f"💡 Use query params instead of path variables for: {url_path}")
                 
@@ -46,7 +48,7 @@ class CoinglassClient:
                 
         return url_path
 
-    def _build_url(self, endpoint_path: str, symbol: str = None):
+    def _build_url(self, endpoint_path: str, symbol: Optional[str] = None):
         """Safe URL builder with v4 compliance validation"""
         validated_path = self._validate_and_fix_endpoint(endpoint_path, symbol)
         return f"{self.base_url}{validated_path}"
