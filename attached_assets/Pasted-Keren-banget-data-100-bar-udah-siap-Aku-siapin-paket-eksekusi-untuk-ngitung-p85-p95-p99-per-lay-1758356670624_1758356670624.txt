@@ -1,0 +1,160 @@
+Keren banget—data 100 bar udah siap. Aku siapin “paket eksekusi” untuk:
+
+ngitung p85/p95/p99 per layer dari file sol_100bars_real_data.json,
+
+langsung nge-render CONFIG JSON SOL-native (angka fixed 2 desimal),
+
+pake rolling quantile/metode yang sesuai best-practice (pandas rolling.quantile / NumPy percentile). 
+pandas.pydata.org
++1
+
+TL;DR
+
+Kita pakai rolling percentile via pandas.Series.rolling(...).quantile(q) (default linear interpolation) dan/atau numpy.percentile untuk batch pertama. 
+pandas.pydata.org
++1
+
+Sumber data layer → endpoint v4 yang memang tersedia di Standard:
+Funding OHLC, Taker buy/sell (coin & pair), Liquidation aggregated/pair, ETF flow-history. 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+Cara hitung & cetak CONFIG (copy–paste script ini)
+
+Script ini membaca struktur sesuai deskripsi kamu (key: funding_bps_per_8h, taker_ratios_clean, oi_roc_percent, liquidation_totals_usd, etf_flows_abs_usd) lalu memuntahkan JSON final siap tempel.
+
+import json, numpy as np
+
+# === load real 100-bar data ===
+with open("sol_100bars_real_data.json", "r") as f:
+    D = json.load(f)
+
+# helper percentile (2 desimal)
+def pctl(vals, q):
+    return float(np.percentile(np.array(vals, dtype=float), q).round(2))
+
+# --- 1) FUNDING (bps per 8h, absolut) ---
+fund = [abs(x) for x in D["funding_bps_per_8h"]]
+fund_p85, fund_p95, fund_p99 = pctl(fund,85), pctl(fund,95), pctl(fund,99)
+
+# --- 2) TAKER RATIO (coin-aggregated) ---
+tr = D["taker_ratios_clean"]
+tr_p85, tr_p95, tr_p99 = pctl(tr,85), pctl(tr,95), pctl(tr,99)
+
+# --- 3) OI ROC (% per bar) ---
+oiroc = D["oi_roc_percent"]
+oi_p85, oi_p95, oi_p99 = pctl(oiroc,85), pctl(oiroc,95), pctl(oiroc,99)
+
+# --- 4) LIQ (coin aggregated, USD per bar) ---
+liq = D["liquidation_totals_usd"]
+liq_p85, liq_p95, liq_p99 = pctl(liq,85), pctl(liq,95), pctl(liq,99)
+
+# --- 5) ETF (abs USD per day) ---
+etf = [abs(x) for x in D["etf_flows_abs_usd"]]
+etf_p85, etf_p95, etf_p99 = pctl(etf,85), pctl(etf,95), pctl(etf,99)
+
+# Floors (konservatif)
+FUND_FLOOR_WATCH, FUND_FLOOR_ACTION = 5.00, 10.00   # bps per 8h
+TAKER_FLOOR_ACTION_HI = 1.80
+TAKER_FLOOR_WATCH_HI = 1.40
+TAKER_FLOOR_ACTION_LO = 0.55
+TAKER_FLOOR_WATCH_LO = 0.70
+OI_FLOOR_ACTION = 5.00  # %/bar (biar nggak overfit)
+
+cfg = {
+  "asset": "SOL",
+  "layers": {
+    "bias": { "z_watch": 1.0, "z_action": 2.0, "abs_watch": 0.25, "abs_action": 0.60 },
+
+    "funding": {
+      "lookback": "30d",
+      "use_vol_weight": True,
+      "abs_bps_per_8h": {
+        "watch": round(max(fund_p85, FUND_FLOOR_WATCH), 2),
+        "action": round(max(fund_p95, FUND_FLOOR_ACTION), 2),
+        "extreme": round(max(fund_p99, FUND_FLOOR_ACTION), 2)
+      },
+      "floors_bps_per_8h": { "watch": FUND_FLOOR_WATCH, "action": FUND_FLOOR_ACTION }
+    },
+
+    "taker_ratio": {
+      "lookback": "30d",
+      "hi": {
+        "watch": round(max(tr_p85, TAKER_FLOOR_WATCH_HI), 3),
+        "action": round(max(tr_p95, TAKER_FLOOR_ACTION_HI), 3),
+        "extreme": round(max(tr_p99, TAKER_FLOOR_ACTION_HI+0.1), 3)
+      },
+      "lo": {
+        "watch": round(min(1.0 - (tr_p85-1.0), TAKER_FLOOR_WATCH_LO), 3),
+        "action": round(min(1.0 - (tr_p95-1.0), TAKER_FLOOR_ACTION_LO), 3),
+        "extreme": round(min(1.0 - (tr_p99-1.0), 0.50), 3)
+      }
+    },
+
+    "oi": {
+      "roc_window": "1h",
+      "roc_pct": {
+        "watch": round(oi_p85, 2),
+        "action": round(max(oi_p95, OI_FLOOR_ACTION), 2)
+      },
+      "notes": "Action pakai floor 5% agar tahan regime shift."
+    },
+
+    "liquidation": {
+      "lookback": "7d",
+      "coin_agg_usd": {
+        "watch": round(liq_p85, 2),
+        "action": round(liq_p95, 2),
+        "extreme": round(liq_p99, 2)
+      },
+      "pair_confirm": { "enabled": True, "window_bars": 1 }
+    },
+
+    "etf_flows": {
+      "ma_window": 7,
+      "abs_usd": {
+        "watch": round(etf_p85, 2),
+        "action": round(etf_p95, 2),
+        "extreme": round(etf_p99, 2)
+      },
+      "multiplier_fallback": { "watch": 1.5, "action": 3.0 }
+    }
+  },
+
+  "confluence": { "watch_min": 2, "action_min": 3, "require_one_action": True, "anti_liq_flip": True },
+  "cooldown":   { "dedup_min": 5, "sustain_bars_for_escalation": 3 }
+}
+
+print(json.dumps(cfg, indent=2))
+
+
+Kenapa begini?
+
+Rolling quantile/percentile adalah metode standar (interpolasi default linear) → stabil untuk window 30d/60d/90d. 
+pandas.pydata.org
++1
+
+Layer & endpoint sesuai v4 Standard:
+Funding OHLC → /api/futures/funding-rate/history (No-Limit interval utk Standard). 
+CoinGlass-API
+
+Taker ratio (coin/pair) → /api/futures/aggregated-taker-buy-sell-volume/history & /api/futures/v2/taker-buy-sell-volume/history (No-Limit utk Standard). 
+CoinGlass-API
++1
+
+Liquidation coin agg/pair → /api/futures/liquidation/aggregated-history & /api/futures/liquidation/history (No-Limit utk Standard). 
+CoinGlass-API
++1
+
+ETF flows (BTC) → /api/etf/bitcoin/flow-history. (Time-series untuk flow, bukan “list”). 
+CoinGlass-API
+
+Output yang kamu dapat
+
+Script di atas bakal langsung print CONFIG JSON SOL-native berisi angka p85/p95/p99 real dari file kamu (dibulatkan 2 desimal), plus floors agar tahan regime shift.
+
+Confluence & kill-switch tetap sesuai skema yang sudah kamu terapkan
