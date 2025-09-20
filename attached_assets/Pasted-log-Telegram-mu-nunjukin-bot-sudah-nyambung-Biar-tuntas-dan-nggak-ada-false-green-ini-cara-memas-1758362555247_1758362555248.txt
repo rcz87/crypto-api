@@ -1,0 +1,71 @@
+log Telegram-mu nunjukin bot sudah nyambung. Biar “tuntas” dan nggak ada false green, ini cara memastikan parsing message_id bener-bener jalan + finishing touch anti-spam.
+
+TL;DR
+
+sendMessage harus balikin objek Message (bukan boolean). Ambil result.message_id dari respons JSON. 
+Telegram
+
+message_id itu unik di dalam suatu chat → bisa kamu pakai buat audit, edit, delete, reply, dan dedup alert. 
+Telegram
+
+Webhook & getUpdates itu saling eksklusif; jangan pakai dua-duanya bareng saat debug. 
+Telegram
+
+1) Cek struktural: pastikan yang ke-log itu JSON result, bukan boolean
+
+Jalankan satu tembakan manual dan lihat bentuk responsnya (cukup inspeksi JSON):
+
+POST https://api.telegram.org/bot<token>/sendMessage
+  chat_id=<chat_id>
+  text="🧪 Test Message ID Parsing"
+
+
+Expect: {"ok":true,"result":{ ... "message_id":12345, ... }} → simpan & tampilkan result.message_id di log. Inilah bentuk resmi: sendMessage “On success, the sent Message is returned.” 
+Telegram
+
+Catatan: field message_id di objek Message = “Unique message identifier inside this chat.” Gunakan ini sebagai kunci dedup/edit/delete. 
+Telegram
+
+2) Anti-spam dedup (5 menit)
+
+Pakailah fingerprint:
+
+dedup_key = f"{coin}|{interval}|{signal}|{round(now_ts/300)}"
+
+
+Cek di cache TTL=300s; kalau sudah ada → skip kirim.
+
+Simpan juga last_message_id per coin (opsional) buat reply / edit nanti:
+
+Balas ke status terakhir dengan reply_to_message_id atau reply_parameters. 
+Telegram
+
+3) Webhook vs getUpdates (hindari “kok result kosong?”)
+
+Telegram tegas: dua cara penerimaan update itu saling eksklusif—getUpdates atau webhook. Jangan aktifkan keduanya bareng; update disimpan ≤24 jam. 
+Telegram
+
+Kalau kamu sudah pakai webhook, getUpdates akan sering “result: []”, itu normal. (Switch ke polling hanya saat webhook dimatikan.)
+
+4) Quick acceptance checklist (biar objektif)
+
+ Respons sendMessage kamu dicetak sebagai JSON dan mengandung result.message_id. (Jangan boolean.) 
+Telegram
+
+ Dedup 5 menit menahan pesan test duplikat (harus hanya 1 yang terkirim).
+
+ (Opsional) Balasan status memakai reply_to_message_id/reply_parameters agar thread rapi. 
+Telegram
+
+ Kalau pakai webhook, getUpdates tidak kamu pakai selama pengujian. 
+Telegram
+
+5) “Kalau masih dobel”—3 titik rawan yang biasa kejadian
+
+Client masih mengembalikan boolean → pastikan kamu await r.json() dan ambil data["result"]["message_id"] (bukan True). Dok resmi mendeskripsikan format ok/result. 
+Telegram
+
+Dedup key kurang spesifik → tambahkan phase/signal_type atau chat_id ke fingerprint.
+
+Double-path (webhook + polling) → matikan salah satunya. 
+Telegram
