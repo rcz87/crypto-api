@@ -1,5 +1,6 @@
 from app.core.http import Http
 from app.core.settings import settings
+from app.core.logging import logger
 
 class CoinglassClient:
     def __init__(self):
@@ -8,6 +9,47 @@ class CoinglassClient:
             "accept": "application/json"
         })
         self.base_url = "https://open-api-v4.coinglass.com"
+        
+        # Endpoint pattern validation for CoinGlass v4 compliance
+        self.forbidden_path_patterns = [
+            "/coin-history/{symbol}",  # Should use query params
+            "/pair-history/{symbol}",  # Should use query params  
+            "/history/{symbol}",       # Should use query params
+            "/{symbol}/history",       # Should use query params
+        ]
+        
+        self.valid_liquidation_endpoints = {
+            "aggregated_history": "/api/futures/liquidation/aggregated-history",  # Use coin= param
+            "pair_history": "/api/futures/liquidation/history",  # Use pair= param
+        }
+
+    def _validate_and_fix_endpoint(self, url_path: str, symbol: str = None):
+        """Lint endpoint builder: block invalid v4 patterns and force query params"""
+        
+        # Check for forbidden path patterns
+        for forbidden in self.forbidden_path_patterns:
+            if forbidden.replace("{symbol}", symbol or "SYMBOL") in url_path:
+                logger.error(f"🚫 BLOCKED: Invalid CoinGlass v4 endpoint pattern: {url_path}")
+                logger.info(f"💡 Use query params instead of path variables for: {url_path}")
+                
+                # Auto-fix common liquidation patterns
+                if "coin-history" in url_path:
+                    fixed_url = self.valid_liquidation_endpoints["aggregated_history"]
+                    logger.info(f"🔧 AUTO-FIX: {url_path} → {fixed_url} (use coin= param)")
+                    return fixed_url
+                elif "liquidation/history" in url_path and not "aggregated" in url_path:
+                    fixed_url = self.valid_liquidation_endpoints["pair_history"]
+                    logger.info(f"🔧 AUTO-FIX: {url_path} → {fixed_url} (use pair= param)")
+                    return fixed_url
+                    
+                raise ValueError(f"Invalid CoinGlass v4 endpoint pattern: {url_path}. Use query params instead.")
+                
+        return url_path
+
+    def _build_url(self, endpoint_path: str, symbol: str = None):
+        """Safe URL builder with v4 compliance validation"""
+        validated_path = self._validate_and_fix_endpoint(endpoint_path, symbol)
+        return f"{self.base_url}{validated_path}"
 
     # === STANDARD PACKAGE ENDPOINTS (Verified v4) ===
     
@@ -463,8 +505,9 @@ class CoinglassClient:
         return response.json()
     
     def liquidation_coin_history(self, symbol: str, interval: str = "1h"):
-        """Get liquidation coin history using correct CoinGlass v4 aggregated-history endpoint"""
-        url = f"{self.base_url}/api/futures/liquidation/aggregated-history"
+        """Get liquidation coin history using lint-validated endpoint builder"""
+        # Use validated endpoint builder (will auto-fix if needed)
+        url = self._build_url("/api/futures/liquidation/aggregated-history")
         params = {"coin": symbol, "interval": interval}  # Use 'coin' param per CoinGlass docs
         response = self.http.get(url, params)
         return response.json()
