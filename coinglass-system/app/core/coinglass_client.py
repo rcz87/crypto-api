@@ -155,11 +155,11 @@ class CoinglassClient:
             f"{clean_symbol}_USD"       # SOL_USD
         ]
         
-        # PATCH: Try multiple symbol variants for liquidation endpoints
-        url = f"{self.base_url}/api/futures/liquidation/coin-history"
+        # FIX: Use correct CoinGlass v4 aggregated-history endpoint with query params
+        url = f"{self.base_url}/api/futures/liquidation/aggregated-history"
         
         for variant in symbol_variants:
-            params = {"symbol": variant, "interval": interval}
+            params = {"coin": variant, "interval": interval}  # Use 'coin' param per docs
             
             try:
                 response = self.http.get(url, params=params)
@@ -432,9 +432,9 @@ class CoinglassClient:
         return response.json()
     
     def liquidation_coin_history(self, symbol: str, interval: str = "1h"):
-        """Get liquidation coin history - Standard package compatible"""
-        url = f"{self.base_url}/api/futures/liquidation/coin-history/{symbol}"
-        params = {"interval": interval}
+        """Get liquidation coin history using correct CoinGlass v4 aggregated-history endpoint"""
+        url = f"{self.base_url}/api/futures/liquidation/aggregated-history"
+        params = {"coin": symbol, "interval": interval}  # Use 'coin' param per CoinGlass docs
         response = self.http.get(url, params)
         return response.json()
 
