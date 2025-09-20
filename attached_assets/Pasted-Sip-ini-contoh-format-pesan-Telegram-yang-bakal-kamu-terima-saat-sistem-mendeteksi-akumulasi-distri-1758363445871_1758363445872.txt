@@ -1,0 +1,113 @@
+Sip, ini contoh format pesan Telegram yang bakal kamu terima saat sistem mendeteksi akumulasi/distribusi whale, plus varian lain (funding ekstrem & spike likuidasi). Semuanya pakai data dari endpoint CoinGlass v4 yang memang tersedia di paket Standard:
+
+Taker buy/sell (coin-aggregated) untuk rasio agresor, OI aggregated (OHLC) untuk modal baru, Funding OHLC untuk sentimen leverage, dan Liquidation aggregated untuk spike. 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+Pesan Telegram bisa diformat (Markdown/HTML) dan maksimal 1–4096 karakter—aman untuk template di bawah. 
+Telegram
+
+TL;DR
+
+Kamu akan menerima pesan seperti ini (contoh). Tinggal ganti {…} dari data live.
+
+1) Akumulasi Whale (Watch)
+🟢 WHALE ACCUMULATION — Watch
+Coin: {COIN} • TF: {TF}
+Taker Ratio: {taker_ratio}  (≥ p95 atau ≥ 1.60)
+OI ROC: {oi_roc}%  (≥ +2%)
+Funding: {funding_bps} bps/8h
+Liq Spike: {liq_note}
+Plan: siapkan entry; validasi 1 bar berikut.
+
+
+Sumber metrik: taker buy/sell aggregated (rasio), OI aggregated OHLC (Δ posisi), funding OHLC (bps/8h), liquidation aggregated (spike). 
+CoinGlass-API
++3
+CoinGlass-API
++3
+CoinGlass-API
++3
+
+2) Akumulasi Whale (Action)
+🟢 WHALE ACCUMULATION — Action
+Coin: {COIN} • TF: {TF}
+Taker: {taker_ratio} (≥ 1.80) | OI ROC: {oi_roc}% (≥ +5%)
+Funding: {funding_bps} bps/8h (kontra-crowd kalau negatif)
+Liq Spike: {liq_note}
+Action: eksekusi rencana; aktifkan proteksi risiko.
+
+
+CoinGlass-API
++2
+CoinGlass-API
++2
+
+3) Distribusi / Exit Risk (Watch)
+🔴 DISTRIBUTION RISK — Watch
+Coin: {COIN} • TF: {TF}
+Taker: {taker_ratio} (≤ 0.70) | OI ROC: {oi_roc}% (≤ −2%)
+Funding: {funding_bps} bps/8h (positif tinggi = crowded long)
+Liq Spike: {liq_note}
+Plan: kurangi eksposur; tunggu konfirmasi bar berikut.
+
+
+CoinGlass-API
++2
+CoinGlass-API
++2
+
+4) Distribusi / Exit Risk (Action)
+🔴 DISTRIBUTION RISK — Action
+Coin: {COIN} • TF: {TF}
+Taker: {taker_ratio} (≤ 0.55) | OI ROC: {oi_roc}% (≤ −5% atau Price↓ & OI↑)
+Funding: {funding_bps} bps/8h
+Liq Spike: {liq_note}
+Action: eksekusi exit/hedge; pasang proteksi ketat.
+
+
+CoinGlass-API
++1
+
+5) Spike Likuidasi (Ignition Check)
+⚡ LIQUIDATION SPIKE
+Coin: {COIN} • TF: {TF}
+Short Liq: {short_usd} • Long Liq: {long_usd}
+Now vs p95(7D): {now_vs_p95}%
+Note: spike sisi lawan → potensi squeeze / reversal cepat.
+
+
+Sumber: Coin Liquidation Aggregated History (long/short USD). 
+CoinGlass-API
+
+Template variabel (mapping data → pesan)
+
+{taker_ratio} → dari /api/futures/aggregated-taker-buy-sell-volume/history (buy/sell USD → rasio). 
+CoinGlass-API
+
+{oi_roc} → Δ dari /api/futures/open-interest/aggregated-history (close_t vs close_{t-1}). 
+CoinGlass-API
+
+{funding_bps} → close dari /api/futures/funding-rate/history → normalisasi ke bps per 8h. 
+CoinGlass-API
+
+{short_usd}/{long_usd} → bar terakhir /api/futures/liquidation/aggregated-history. 
+CoinGlass-API
+
+Catatan Telegram: gunakan Markdown/HTML bila perlu, dan jaga panjang pesan ≤ 4096 karakter; kalau lebih, pecah menjadi beberapa bagian. 
+Telegram
+
+Bonus: versi ultra-ringkas (untuk push cepat)
+
+ACC Watch: 🟢 {COIN} {TF} | Taker {taker_ratio} | OI {oi_roc}% | F {funding_bps}bps
+
+ACC Action: 🟢⚡ {COIN} {TF} | T {taker_ratio} | OI {oi_roc}% | F {funding_bps}bps
+
+DIST Watch: 🔴 {COIN} {TF} | T {taker_ratio} | OI {oi_roc}% | F {funding_bps}bps
+
+SPIKE: ⚡ {COIN} {TF} | Liq L {long_usd} • S {short_usd}
+(Format singkat ini aman untuk limit 4096 & mudah dibaca di Telegram

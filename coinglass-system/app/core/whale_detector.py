@@ -253,39 +253,22 @@ class WhaleDetectionEngine:
         return True
     
     async def send_whale_alert(self, signal: WhaleSignal) -> bool:
-        """Send formatted whale alert ke Telegram dengan 5-minute deduplication"""
+        """Send professional formatted whale alert ke Telegram dengan 5-minute deduplication"""
         try:
             # Check for duplicate alerts (5-minute deduplication)
             if is_duplicate_alert(signal.coin, signal.signal_type, interval="1h"):
                 logger.info(f"🔁 Duplicate alert skipped: {signal.coin} {signal.signal_type} (5min dedup)")
                 return True  # Return True to indicate "handled" (even though skipped)
             
-            # Format alert message
-            emoji = "🟢" if signal.signal_type == "accumulation" else "🔴"
-            confidence_emoji = "🎯" if signal.confidence == "action" else "👀"
-            
-            alert_text = f"{emoji} {confidence_emoji} WHALE {signal.signal_type.upper()}\n"
-            alert_text += f"**{signal.coin}** (1h)\n\n"
-            alert_text += f"• Taker Ratio: {signal.taker_ratio:.2f}\n"
-            alert_text += f"• OI ROC: {signal.oi_roc*100:+.1f}%\n"
-            
-            if signal.funding_bps:
-                alert_text += f"• Funding: {signal.funding_bps:.1f} bps/8h\n"
-            
-            alert_text += f"• Confidence: {signal.confidence.upper()}\n"
-            alert_text += f"• Time: {signal.timestamp.strftime('%H:%M:%S') if signal.timestamp else 'N/A'}\n\n"
-            
-            if signal.confidence == "action":
-                action_text = "Siapkan entry plan" if signal.signal_type == "accumulation" else "Kurangi eksposur"
-                alert_text += f"💡 **Action**: {action_text}"
-            else:
-                alert_text += f"👁️ **Watch**: Monitor validasi di bar berikutnya"
+            # Professional message formatting based on CoinGlass v4 template
+            alert_text = self._format_professional_alert(signal)
             
             # Send to Telegram
-            result = await self.telegram.send_message(alert_text)
+            result = await self.telegram.send_message(alert_text, parse_mode='Markdown')
             
             if result and result.get('message_id'):
-                logger.info(f"✅ Whale alert sent: {signal.coin} {signal.signal_type} - message_id: {result['message_id']}")
+                logger.info(f"[TELE] ✅ whale alert sent msg_id={result['message_id']} "
+                          f"{signal.coin} {signal.signal_type} {signal.confidence}")
                 return True
             else:
                 logger.error(f"❌ Failed to send whale alert: {signal.coin}")
@@ -294,6 +277,82 @@ class WhaleDetectionEngine:
         except Exception as e:
             logger.error(f"❌ Error sending whale alert: {e}")
             return False
+    
+    def _format_professional_alert(self, signal: WhaleSignal) -> str:
+        """Format professional whale alert message sesuai CoinGlass v4 template"""
+        
+        # Determine alert type and emoji
+        if signal.signal_type == "accumulation":
+            emoji = "🟢"
+            alert_type = "WHALE ACCUMULATION"
+            risk_note = "entry plan"
+        else:  # distribution
+            emoji = "🔴" 
+            alert_type = "DISTRIBUTION RISK"
+            risk_note = "exit/hedge"
+        
+        # Confidence level formatting
+        confidence_level = signal.confidence.upper()  # WATCH or ACTION
+        
+        # Format funding bps
+        funding_display = f"{signal.funding_bps:.1f}" if signal.funding_bps else "N/A"
+        
+        # Build professional message
+        if signal.confidence == "action":
+            # ACTION level alert (high confidence)
+            alert_text = f"{emoji} *{alert_type} — {confidence_level}*\n"
+            alert_text += f"*Coin:* {signal.coin} • *TF:* 1h\n"
+            alert_text += f"*Taker:* {signal.taker_ratio:.2f} "
+            alert_text += f"({'≥ 1.80' if signal.signal_type == 'accumulation' else '≤ 0.55'}) | "
+            alert_text += f"*OI ROC:* {signal.oi_roc*100:+.1f}% "
+            alert_text += f"({'≥ +5%' if signal.signal_type == 'accumulation' else '≤ -5%'})\n"
+            alert_text += f"*Funding:* {funding_display} bps/8h"
+            
+            if signal.funding_bps:
+                if signal.signal_type == "accumulation" and signal.funding_bps < 0:
+                    alert_text += " (kontra-crowd)"
+                elif signal.signal_type == "distribution" and signal.funding_bps > 50:
+                    alert_text += " (crowded long)"
+            
+            alert_text += f"\n*Action:* eksekusi {risk_note}; aktifkan proteksi risiko."
+            
+        else:
+            # WATCH level alert (medium confidence)
+            alert_text = f"{emoji} *{alert_type} — {confidence_level}*\n"
+            alert_text += f"*Coin:* {signal.coin} • *TF:* 1h\n"
+            alert_text += f"*Taker Ratio:* {signal.taker_ratio:.2f} "
+            alert_text += f"({'≥ 1.60' if signal.signal_type == 'accumulation' else '≤ 0.70'})\n"
+            alert_text += f"*OI ROC:* {signal.oi_roc*100:+.1f}% "
+            alert_text += f"({'≥ +2%' if signal.signal_type == 'accumulation' else '≤ -2%'})\n"
+            alert_text += f"*Funding:* {funding_display} bps/8h\n"
+            
+            if signal.signal_type == "accumulation":
+                alert_text += f"*Plan:* siapkan {risk_note}; validasi 1 bar berikut."
+            else:
+                alert_text += f"*Plan:* kurangi eksposur; tunggu konfirmasi bar berikut."
+        
+        # Add timestamp
+        time_str = signal.timestamp.strftime('%H:%M UTC') if signal.timestamp else 'N/A'
+        alert_text += f"\n\n_Time: {time_str}_"
+        
+        return alert_text
+    
+    def _format_compact_alert(self, signal: WhaleSignal) -> str:
+        """Format ultra-compact alert untuk push cepat"""
+        
+        if signal.signal_type == "accumulation":
+            prefix = "🟢⚡" if signal.confidence == "action" else "🟢"
+            signal_short = "ACC"
+        else:
+            prefix = "🔴⚡" if signal.confidence == "action" else "🔴" 
+            signal_short = "DIST"
+        
+        confidence_short = signal.confidence.title()
+        funding_short = f"{signal.funding_bps:.0f}" if signal.funding_bps else "N/A"
+        
+        return (f"{prefix} {signal_short} {confidence_short}: {signal.coin} 1h | "
+                f"T {signal.taker_ratio:.2f} | OI {signal.oi_roc*100:+.1f}% | "
+                f"F {funding_short}bps")
     
     async def scan_single_coin(self, coin: str) -> Optional[WhaleSignal]:
         """Scan single coin untuk whale activity"""
