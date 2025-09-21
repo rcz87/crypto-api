@@ -1,0 +1,381 @@
+Beres. Ini satu file .md yang berisi prompt untuk AI Agent Replit + semua kode dan langkah eksekusinya. Tinggal kamu salin jadi file, misal: REPLIT_AGENT_WHaleThresholdsV2.md, lalu jalankan agent dengan isi file ini.
+
+⸻
+
+REPLIT AGENT — Whale Detection Thresholds V2 (READY-TO-PASTE)
+
+🎯 Tujuan
+
+Perbaiki sistem Whale Detection agar lebih cepat ngasih alert (tidak terlalu ketat), tanpa spam:
+	1.	Tambah profil ambang: active & moderate.
+	2.	Tambah volume filter (total taker USD per bar).
+	3.	Pakai multi-bar window (default 2 bar) supaya sinyal nggak miss kalau telat 1 bar.
+	4.	(Opsional) Boost level jika ada spike likuidasi p95.
+	5.	Tetap hormati dedup 5 menit & cooldown.
+
+🔒 Aturan Agent (Safety & Scope)
+	•	Jangan hapus/rename file penting; kerja di branch: feat/thresholds-v2.
+	•	Tambah file baru sesuai instruksi. Modifikasi file lama minimal & reversible.
+	•	Buat PR dengan ringkasan perubahan + cara rollback.
+	•	Jangan menambah dependency berat. Hanya python stdlib + yang sudah ada.
+	•	Semua variabel rahasia via ENV (jangan hardcode).
+
+🧩 Rencana Kerja (Step-by-step)
+	1.	Buat branch feat/thresholds-v2.
+	2.	Tambah config profil configs/thresholds_v2.json.
+	3.	Tambah modul baru app/core/thresholds_v2.py (profil, volume gate, evaluator, multi-bar merge).
+	4.	Tambah app/core/tiers.py (mapping coin → tier1/tier2).
+	5.	Patch ringan di app/core/whale_detector.py untuk memakai evaluator baru.
+	6.	Tambah unit test ringan tests/test_thresholds_v2.py.
+	7.	Jalankan quick tests & smoke run; buat PR.
+
+⸻
+
+📁 File & Kode — Buat/Tempel persis seperti ini
+
+1) configs/thresholds_v2.json
+
+{
+  "profile": "moderate", 
+  "dedup": { "cooldown_min": 5 },
+  "multi_bar_window": 2,
+
+  "taker_ratio": {
+    "active":   { "hi": { "watch": 1.20, "action": 1.35 }, "lo": { "watch": 0.80, "action": 0.70 } },
+    "moderate": { "hi": { "watch": 1.30, "action": 1.50 }, "lo": { "watch": 0.70, "action": 0.60 } },
+    "min_taker_usd": { "tier1": 100000, "tier2": 50000 }
+  },
+
+  "oi": {
+    "roc_window": "1h",
+    "active":   { "watch_pct": 1.0, "action_pct": 1.5 },
+    "moderate": { "watch_pct": 1.5, "action_pct": 2.5 }
+  },
+
+  "funding": { "abs_per_8h_watch_bps": 5, "abs_per_8h_action_bps": 10 },
+
+  "liquidation": {
+    "p95_boost": true
+  },
+
+  "tiers": {
+    "tier1": ["BTC","ETH","SOL","BNB"],
+    "tier2": ["AVAX","DOGE","LINK","XRP","TIA","RNDR"]
+  }
+}
+
+
+⸻
+
+2) app/core/tiers.py
+
+# -*- coding: utf-8 -*-
+from __future__ import annotations
+from typing import Dict, Set
+
+def build_tiers(cfg: Dict) -> Dict[str, Set[str]]:
+    tiers_cfg = cfg.get("tiers", {})
+    return {
+        "tier1": set(x.upper() for x in tiers_cfg.get("tier1", [])),
+        "tier2": set(x.upper() for x in tiers_cfg.get("tier2", [])),
+    }
+
+def tier_for_coin(coin: str, tiers: Dict[str, set]) -> str:
+    c = (coin or "").upper()
+    if c in tiers.get("tier1", set()):
+        return "tier1"
+    return "tier2"
+
+
+⸻
+
+3) app/core/thresholds_v2.py
+
+# -*- coding: utf-8 -*-
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Dict, Any, List, Tuple
+
+@dataclass
+class TakerProfile:
+    hi_watch: float
+    hi_action: float
+    lo_watch: float
+    lo_action: float
+    min_taker_usd_tier1: float
+    min_taker_usd_tier2: float
+
+@dataclass
+class OIProfile:
+    watch_pct: float
+    action_pct: float
+
+@dataclass
+class ConfigV2:
+    profile: str                   # "active" | "moderate"
+    dedup_cooldown_min: int
+    multi_bar_window: int
+    taker_active: TakerProfile
+    taker_moderate: TakerProfile
+    oi_active: OIProfile
+    oi_moderate: OIProfile
+    funding_watch_bps: float
+    funding_action_bps: float
+    liq_p95_boost: bool
+
+    @staticmethod
+    def from_dict(d: Dict[str, Any]) -> "ConfigV2":
+        tr = d["taker_ratio"]
+        oi = d["oi"]
+        tiers = tr.get("min_taker_usd", {})
+        return ConfigV2(
+            profile=d.get("profile","moderate"),
+            dedup_cooldown_min=int(d.get("dedup",{}).get("cooldown_min",5)),
+            multi_bar_window=int(d.get("multi_bar_window", 2)),
+            taker_active=TakerProfile(
+                hi_watch=tr["active"]["hi"]["watch"], hi_action=tr["active"]["hi"]["action"],
+                lo_watch=tr["active"]["lo"]["watch"], lo_action=tr["active"]["lo"]["action"],
+                min_taker_usd_tier1=float(tiers.get("tier1",100000)),
+                min_taker_usd_tier2=float(tiers.get("tier2",50000)),
+            ),
+            taker_moderate=TakerProfile(
+                hi_watch=tr["moderate"]["hi"]["watch"], hi_action=tr["moderate"]["hi"]["action"],
+                lo_watch=tr["moderate"]["lo"]["watch"], lo_action=tr["moderate"]["lo"]["action"],
+                min_taker_usd_tier1=float(tiers.get("tier1",100000)),
+                min_taker_usd_tier2=float(tiers.get("tier2",50000)),
+            ),
+            oi_active=OIProfile(
+                watch_pct=oi["active"]["watch_pct"], action_pct=oi["active"]["action_pct"]
+            ),
+            oi_moderate=OIProfile(
+                watch_pct=oi["moderate"]["watch_pct"], action_pct=oi["moderate"]["action_pct"]
+            ),
+            funding_watch_bps=float(d["funding"]["abs_per_8h_watch_bps"]),
+            funding_action_bps=float(d["funding"]["abs_per_8h_action_bps"]),
+            liq_p95_boost=bool(d["liquidation"].get("p95_boost", True)),
+        )
+
+def _pick_taker(cfg: ConfigV2) -> TakerProfile:
+    return cfg.taker_active if cfg.profile == "active" else cfg.taker_moderate
+
+def _pick_oi(cfg: ConfigV2) -> OIProfile:
+    return cfg.oi_active if cfg.profile == "active" else cfg.oi_moderate
+
+def evaluate_taker_ratio(buy_usd: float, sell_usd: float, coin: str, tier: str, cfg: ConfigV2) -> Tuple[str, Dict]:
+    """Volume-gated taker ratio evaluation (Action/Watch/none)."""
+    prof = _pick_taker(cfg)
+    total = float(buy_usd or 0) + float(sell_usd or 0)
+    min_gate = prof.min_taker_usd_tier1 if tier == "tier1" else prof.min_taker_usd_tier2
+    if total < min_gate:
+        return "none", {"reason": "below_volume_gate", "total_usd": total}
+
+    ratio = float(buy_usd or 0) / max(1.0, float(sell_usd or 0))
+    level = "none"
+    if ratio >= prof.hi_action or ratio <= prof.lo_action:
+        level = "action"
+    elif ratio >= prof.hi_watch or ratio <= prof.lo_watch:
+        level = "watch"
+    return level, {"ratio": ratio, "total_usd": total}
+
+def evaluate_oi_roc(oi_now: float, oi_prev: float, px_now: float, px_prev: float, cfg: ConfigV2) -> Tuple[str, Dict]:
+    """OI ROC with price direction context."""
+    if not oi_prev or oi_prev == 0:
+        return "none", {"roc_pct": 0.0, "price_up": px_now > px_prev}
+    roc = (oi_now - oi_prev) / oi_prev * 100.0
+    price_up = px_now > px_prev
+    prof = _pick_oi(cfg)
+    w, a = prof.watch_pct, prof.action_pct
+    if (price_up and roc >= a) or ((not price_up) and roc <= -a):
+        return "action", {"roc_pct": roc, "price_up": price_up}
+    if (price_up and roc >= w) or ((not price_up) and roc <= -w):
+        return "watch", {"roc_pct": roc, "price_up": price_up}
+    return "none", {"roc_pct": roc, "price_up": price_up}
+
+def merge_levels_window(history_levels: List[Dict[str, str]], window: int) -> Dict[str, str]:
+    """
+    Merge level dari N bar terakhir → ambil 'terbaik':
+    action > watch > none.
+    history_levels: list per-bar, contoh: [{"taker":"watch","oi":"none",...}, {...}]
+    """
+    take = history_levels[-window:] if window > 1 else history_levels[-1:]
+    def score(x: str) -> int: return 2 if x=="action" else (1 if x=="watch" else 0)
+    merged: Dict[str,str] = {}
+    for lvmap in take:
+        for k,v in (lvmap or {}).items():
+            if score(v) > score(merged.get(k,"none")):
+                merged[k] = v
+    return merged
+
+def boost_with_liq(level: str, liq_now: float, liq_p95: float, enable: bool=True) -> str:
+    if not enable or not liq_p95:
+        return level
+    if liq_now >= liq_p95:
+        return "action" if level == "watch" else level
+    return level
+
+
+⸻
+
+4) Patch ringan di app/core/whale_detector.py
+
+Tujuan: gunakan evaluator baru + multi-bar merge + volume gate.
+Di bawah ini diff minimal (sesuaikan import/path sesuai proyekmu).
+
+--- a/app/core/whale_detector.py
++++ b/app/core/whale_detector.py
+@@
+-from app.core.rules import evaluate_taker_ratio, evaluate_oi_roc  # lama (jika ada)
++import json, os
++from app.core.tiers import build_tiers, tier_for_coin
++from app.core.thresholds_v2 import (
++    ConfigV2, evaluate_taker_ratio, evaluate_oi_roc,
++    merge_levels_window, boost_with_liq
++)
+@@
+ class WhaleDetectionEngine:
+     def __init__(self, *args, **kwargs):
+-        self.cfg = kwargs.get("cfg")  # mungkin None di versi lama
++        # muat thresholds v2
++        cfg_path = kwargs.get("cfg_path", "configs/thresholds_v2.json")
++        with open(cfg_path, "r") as f:
++            raw = json.load(f)
++        self.cfg_v2 = ConfigV2.from_dict(raw)
++        self.tiers = build_tiers(raw)
+         ...
+@@
+-    async def scan_single_coin(self, coin: str):
++    async def scan_single_coin(self, coin: str):
+         """
+-        return signal or None
++        return signal or None, memakai thresholds_v2:
++        - taker ratio (volume-gated)
++        - oi roc (dengan konteks price)
++        - multi-bar merge (default 2 bar)
+         """
+         # === ambil data terakhir (kamu sudah punya client OK) ===
+         # asumsi: get_last_taker_coin_agg(coin) → dict {buy_usd, sell_usd}
+         #         get_last_oi_pair(coin)       → dict {oi_now, oi_prev, px_now, px_prev}
+         #         get_last_liq_agg_stats(coin) → dict {liq_now, liq_p95_7d}
+         taker = await self.data.get_last_taker_coin_agg(coin)
+         oi    = await self.data.get_last_oi_pair(coin)
+         liq   = await self.data.get_last_liq_agg_stats(coin)
+@@
+-        lv_taker, meta_taker = evaluate_taker_ratio(taker["buy_usd"], taker["sell_usd"], self.cfg)
+-        lv_oi, meta_oi       = evaluate_oi_roc(oi["oi_now"], oi["oi_prev"], oi["px_now"], oi["px_prev"], self.cfg)
++        tier = tier_for_coin(coin, self.tiers)
++        lv_taker, meta_taker = evaluate_taker_ratio(
++            taker.get("buy_usd",0), taker.get("sell_usd",1), coin, tier, self.cfg_v2
++        )
++        lv_oi, meta_oi = evaluate_oi_roc(
++            oi.get("oi_now",0), oi.get("oi_prev",0), oi.get("px_now",0), oi.get("px_prev",0), self.cfg_v2
++        )
+@@
+-        levels = {"taker": lv_taker, "oi": lv_oi}
+-        final  = self.confluence(levels)  # versi lama
++        # simpan history bar internal (list) → tambahkan bar ini
++        self._hist = getattr(self, "_hist", {})
++        if coin not in self._hist: self._hist[coin] = []
++        self._hist[coin].append({"taker": lv_taker, "oi": lv_oi})
++        merged = merge_levels_window(self._hist[coin], self.cfg_v2.multi_bar_window)
++        final = self.confluence(merged)  # pakai logic confluence-mu (≥2 watch = Watch; ≥3 incl ≥1 action = Action)
+@@
+-        # (opsional) p95 liquidation boost sudah di confluence lama
++        # p95 liquidation boost (opsional)
++        final = boost_with_liq(final, liq.get("liq_now",0), liq.get("liq_p95_7d",0), self.cfg_v2.liq_p95_boost)
+@@
+         if final in ("watch","action"):
+             # kirim alert Telegram (sudah ada di sistemmu); pakai dedup 5 menit
+             return {
+               "coin": coin,
+               "level": final,
+               "taker": meta_taker,
+               "oi": meta_oi,
+               "liq": liq
+             }
+         return None
+
+Catatan: jika engine-mu memerlukan nama fungsi berbeda untuk ambil data (self.data...), sesuaikan pemanggilannya saja.
+
+⸻
+
+5) tests/test_thresholds_v2.py (opsional tapi disarankan)
+
+from app.core.thresholds_v2 import ConfigV2, evaluate_taker_ratio, evaluate_oi_roc, merge_levels_window
+
+cfg_dict = {
+  "profile": "moderate",
+  "dedup": {"cooldown_min": 5},
+  "multi_bar_window": 2,
+  "taker_ratio": {
+    "active":   {"hi":{"watch":1.2,"action":1.35},"lo":{"watch":0.8,"action":0.7}},
+    "moderate": {"hi":{"watch":1.3,"action":1.5}, "lo":{"watch":0.7,"action":0.6}},
+    "min_taker_usd": {"tier1": 100000, "tier2": 50000}
+  },
+  "oi": {"roc_window":"1h","active":{"watch_pct":1.0,"action_pct":1.5},"moderate":{"watch_pct":1.5,"action_pct":2.5}},
+  "funding": {"abs_per_8h_watch_bps":5, "abs_per_8h_action_bps":10},
+  "liquidation": {"p95_boost": True}
+}
+cfg = ConfigV2.from_dict(cfg_dict)
+
+def test_taker_ratio_volume_gate():
+    lv, meta = evaluate_taker_ratio(20000, 10000, "DOGE", "tier2", cfg)  # total 30k < 50k (tier2)
+    assert lv == "none" and meta["reason"] == "below_volume_gate"
+
+def test_taker_ratio_levels():
+    lv, meta = evaluate_taker_ratio(180000, 100000, "BTC", "tier1", cfg)  # ratio 1.8, total 280k
+    assert lv == "action"
+
+def test_oi_roc_levels():
+    lv, meta = evaluate_oi_roc(102, 100, 10.5, 10.0, cfg) # +2% & price up -> watch (moderate)
+    assert lv in ("watch","action")
+
+def test_merge_window():
+    hist = [{"taker":"watch","oi":"none"}, {"taker":"none","oi":"action"}]
+    merged = merge_levels_window(hist, window=2)
+    assert merged["oi"] == "action"
+
+
+⸻
+
+▶️ Perintah Eksekusi
+
+# 0) Branch baru
+git checkout -b feat/thresholds-v2
+
+# 1) Tambah file sesuai blok di atas (config + 3 modul + patch whale_detector)
+#    (Bila pakai Replit Agent: biarkan agent membuat file & patch)
+
+# 2) Tes cepat (opsional)
+pytest -q tests/test_thresholds_v2.py || true
+
+# 3) Smoke run (profil = moderate; 10 coin)
+python3 coinglass-system/run_whale_monitor.py --mode monitor --coins BTC ETH SOL AVAX DOGE BNB LINK XRP TIA RNDR --interval 300
+
+# 4) Cek Telegram: harus mulai ada "Watch".
+#    Jika terlalu ramai → ganti profile menjadi "moderate" (sudah default)
+#    Jika masih sepi → ubah profile ke "active" di configs/thresholds_v2.json
+
+
+⸻
+
+✅ Acceptance Criteria (Agent harus memenuhi)
+	•	Profil active/moderate terbaca dari configs/thresholds_v2.json.
+	•	Volume gate aktif: Tier-1 min 100k USD, Tier-2 min 50k USD (total taker USD).
+	•	Multi-bar window bekerja (default 2 bar) → gabung level terbaik.
+	•	Alert mulai muncul (Watch) di market normal pada subset coin (tanpa spam).
+	•	Tidak ada perubahan destruktif; PR feat/thresholds-v2 siap merge dengan ringkasan & cara rollback.
+
+♻️ Rollback
+	•	Checkout main, hapus branch feat/thresholds-v2.
+	•	Atau revert commit PR tersebut.
+
+⸻
+
+💡 Tips Tuning Cepat
+	•	Kepanjangan alert? Tambahkan cap: max 3 alert/coin/jam.
+	•	Terlalu ramai di alt kecil? Naikkan min_taker_usd Tier-2 → 75k/100k.
+	•	Mau micro-TF 5m/15m? Engine-mu sudah mendukung interval — cukup jalankan monitor dengan --interval 300 dan pastikan fetcher REST untuk taker/OI memakai interval=5m/15m.
+
+⸻
+
+Kalau kamu mau, aku juga bisa siapkan versi YAML task-list untuk Agent biar dieksekusinya step-by-step otomatis.
