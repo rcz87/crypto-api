@@ -1,6 +1,27 @@
-node_modules
-dist
-.DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
+﻿# Environment & secrets
+.env
+client/.env
+coinglass-system/.env
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Logs
+logs/
+scripts/logs/
+*.log
+
+# Node modules & build
+node_modules/
+dist/
+build/
+
+# Replit/Local
+.local/
+.config/
+
+# Large/temporary review artifacts
+attached_assets/
+*.zip
