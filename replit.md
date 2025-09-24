@@ -15,6 +15,13 @@ The Enhanced Intelligent Screening System is an institutional-grade perpetual fu
 ### Core Architectural Decisions
 The system employs a modular architecture with clear separation of concerns, comprehensive testing, automated production deployment, and full observability. The frontend is built with React 18 (TypeScript, Vite), utilizing `shadcn/ui` and Tailwind CSS for a professional dark-themed dashboard. The backend uses Node.js/Express.js (TypeScript) with a RESTful API. Data persistence involves PostgreSQL with Drizzle ORM (Neon Database) for primary data, TimescaleDB for time-series data, and Redis for caching and rate limiting.
 
+### GPT Actions Integration (✅ PRODUCTION READY)
+**Status: FULLY OPERATIONAL** - All GPT Actions endpoints active with HTTP 200 responses
+- **GPT Endpoints**: 5/5 active (`/gpts/coinglass/whale-data`, `/gpts/coinglass/live-template`, `/gpts/unified/advanced`, `/gpts/unified/symbols`, `/gpts/health`)
+- **OpenAPI Specification**: Complete 4.0.1 GPT-compatible spec at `public/openapi-4.0.1-gpts-compat.yaml`
+- **Symbol Support**: 56 cryptocurrencies with unified mapping
+- **Real-time Integration**: Direct CoinGlass API access with live data feeds
+
 ### UI/UX Decisions
 The frontend features a modern, professional dark-themed dashboard using `shadcn/ui` and Tailwind CSS for a consistent design system. Key UI components include an AI Signal Dashboard, CVD Analysis, Confluence Scoring, Multi-timeframe Analysis, Fibonacci Visualization, Funding Rate, Liquidity Heatmap, Live Trading Signals, Multi-Coin Screener, Open Interest Charts, Order Flow Analysis, SMC Analysis, Technical Indicators, and TradingView widget integration.
 

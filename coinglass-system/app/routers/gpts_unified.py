@@ -129,7 +129,7 @@ class SingleOperationRequest(BaseModel):
 
 class BatchOperationRequest(BaseModel):
     """Batch operations request format"""
-    ops: List[SingleOperationRequest] = Field(..., description="Array of operations to perform", min_items=1, max_items=10)
+    ops: List[SingleOperationRequest] = Field(..., description="Array of operations to perform", min_length=1, max_length=10)
 
 class OperationResult(BaseModel):
     """Individual operation result"""
@@ -326,6 +326,89 @@ async def execute_operation(operation: SingleOperationRequest, base_url: str) ->
             args=final_params,
             error=f"Request failed: {str(e)}"
         )
+
+# ==============================================================================
+# MISSING GPT ACTIONS ENDPOINTS - Implementing from OpenAPI spec
+# ==============================================================================
+
+@router.post("/gpts/coinglass/whale-data", response_model=SingleResponse)
+async def whale_data_endpoint(
+    request: Request,
+    body: Optional[SingleOperationRequest] = None
+) -> SingleResponse:
+    """
+    GPT Actions endpoint for whale detection data.
+    Specialized interface for whale alerts and positions.
+    """
+    if body is None:
+        body = SingleOperationRequest(op=OperationType.whale_alerts, params={})
+    
+    base_url = "http://127.0.0.1:8000"
+    result = await execute_operation(body, base_url)
+    
+    return SingleResponse(
+        ok=result.ok,
+        op=result.op,
+        args=result.args,
+        data=result.data,
+        error=result.error
+    )
+
+@router.post("/gpts/coinglass/live-template", response_model=SingleResponse) 
+async def live_template_endpoint(
+    request: Request,
+    body: Optional[SingleOperationRequest] = None
+) -> SingleResponse:
+    """
+    GPT Actions endpoint for live market template data.
+    Provides standardized market overview templates.
+    """
+    if body is None:
+        body = SingleOperationRequest(op=OperationType.market_sentiment, params={})
+    
+    base_url = "http://127.0.0.1:8000"
+    result = await execute_operation(body, base_url)
+    
+    return SingleResponse(
+        ok=result.ok,
+        op=result.op,
+        args=result.args,
+        data=result.data,
+        error=result.error
+    )
+
+@router.get("/gpts/unified/symbols")
+async def unified_symbols_endpoint():
+    """
+    GPT Actions endpoint to get all supported symbols.
+    Returns the complete list of supported cryptocurrency symbols.
+    """
+    return {
+        "ok": True,
+        "symbols": list(COINGLASS_SYMBOL_MAPPING.keys()),
+        "count": len(COINGLASS_SYMBOL_MAPPING),
+        "source": "coinglass_unified_mapping"
+    }
+
+@router.get("/gpts/health")
+async def gpts_health_endpoint():
+    """
+    GPT Actions health check endpoint.
+    Verifies GPT Actions endpoints are operational.
+    """
+    return {
+        "status": "ok",
+        "service": "coinglass_gpt_actions",
+        "version": "4.0.1",
+        "endpoints": [
+            "/gpts/coinglass/whale-data",
+            "/gpts/coinglass/live-template", 
+            "/gpts/unified/advanced",
+            "/gpts/unified/symbols",
+            "/gpts/health"
+        ],
+        "ready": True
+    }
 
 @router.post("/gpts/advanced", response_model=Union[SingleResponse, BatchResponse])
 async def unified_advanced_endpoint(
