@@ -126,6 +126,36 @@ try:
 except ImportError as e:
     print(f"❌ Failed to load real CoinGlass API routes: {e}")
 
+# ---- Symbol normalization helpers ----
+def normalize_symbol_for_internal(symbol: str) -> str:
+    """Normalize symbol to internal format (e.g., SOL-USDT -> SOL)"""
+    s = (symbol or "").upper().strip()
+    # Remove contract/pair indicators
+    s = s.replace("_", "-")
+    if s.endswith("-SWAP"):
+        s = s[:-5]
+    # SOL-USDT -> SOL, SOLUSDT -> SOL
+    s = s.replace("-USDT", "").replace("USDT", "")
+    # Handle other common pairs
+    s = s.replace("-USD", "").replace("USD", "")
+    return s
+
+def map_symbol_for_exchange(symbol: str, exchange: str = "okx") -> str:
+    """Map symbol to exchange-specific format"""
+    s = (symbol or "").upper().strip()
+    if exchange.lower() == "okx":
+        # OKX prefers 'SOL-USDT'
+        if "-" not in s and s.endswith("USDT"):
+            s = s[:-4] + "-USDT"
+        if not s.endswith("-USDT"):
+            s = f"{s}-USDT"
+        return s
+    elif exchange.lower() == "binance":
+        # Binance prefers 'SOLUSDT'
+        return s.replace("-", "")
+    # Default: return normalized internal format
+    return normalize_symbol_for_internal(s)
+
 @app.get("/health")
 def health():
     return {"status": "ok", "has_key": bool(settings.COINGLASS_API_KEY)}
@@ -159,10 +189,11 @@ async def ticker_data(symbol: str):
     """
     Get ticker data with multi-provider fallback chain
     
-    PATCH: Fixed OKX-only dependency causing 0.0 price fallbacks.
+    ENHANCED: Added proper symbol normalization and error handling.
+    - Normalizes symbols: SOL-USDT, SOLUSDT, SOL-USDT-SWAP → SOL
     - Implements proper fallback: CoinGlass → CoinAPI → OKX (cache 60s)
     - Uses existing RealTimePriceService with proven multi-provider resilience
-    - Eliminates hardcoded 0.0 fallback data that contaminates GPT analysis
+    - Returns 502 with clear errors instead of 500 for upstream failures
     - Returns DATA_UNAVAILABLE instead of misleading 0.0 when all providers fail
     """
     from app.api.advanced import RealTimePriceService
@@ -172,63 +203,77 @@ async def ticker_data(symbol: str):
     
     logger = get_throttled_logger("ticker_service")
     
-    # Create cache key with 60s TTL (user request: cache 60s)
-    cache_key = _key(f"/ticker/{symbol}", {})
-    
-    # Check cache first (60s TTL for real price data)
-    cached_data = get_cached(cache_key, ttl_ms=60000)  # 60s = 60000ms
-    if cached_data:
-        logger.debug(f"[CACHE HIT] Ticker {symbol} (age: {cached_data.get('age_sec', 'unknown')}s)")
-        return cached_data
-    
-    # Use singleflight to prevent duplicate requests
-    lock = await singleflight(cache_key)
     try:
-        # Double-check cache after acquiring lock
-        cached_data = get_cached(cache_key, ttl_ms=60000)
+        # Normalize symbol like other routes do
+        internal_symbol = normalize_symbol_for_internal(symbol)
+        logger.info(f"[CoinGlass] Symbol mapping: {symbol} → {internal_symbol} for ticker")
+        
+        # Create cache key with normalized symbol
+        cache_key = _key(f"/ticker/{internal_symbol}", {})
+        
+        # Check cache first (60s TTL for real price data)
+        cached_data = get_cached(cache_key, ttl_ms=60000)  # 60s = 60000ms
         if cached_data:
-            logger.debug(f"[CACHE HIT AFTER LOCK] Ticker {symbol}")
+            logger.debug(f"[CACHE HIT] Ticker {internal_symbol} (age: {cached_data.get('age_sec', 'unknown')}s)")
             return cached_data
         
-        # Use proven RealTimePriceService with multi-provider fallback
-        logger.debug(f"[MULTI-PROVIDER] Fetching {symbol} via CoinGlass→CoinAPI→OKX")
-        
-        price_service = RealTimePriceService()
-        live_price = await price_service.get_live_price(symbol)
-        
-        if live_price and live_price > 0:
-            # Success: got real price data from one of the providers
-            result = {
-                "symbol": symbol.upper(),
-                "price": live_price,
-                "last": live_price,
-                "timestamp": datetime.utcnow().isoformat() + 'Z',
-                "source": "CoinGlass→CoinAPI→OKX",
-                "status": "ok",
-                "cache_ttl": 60
-            }
+        # Use singleflight to prevent duplicate requests
+        lock = await singleflight(cache_key)
+        try:
+            # Double-check cache after acquiring lock
+            cached_data = get_cached(cache_key, ttl_ms=60000)
+            if cached_data:
+                logger.debug(f"[CACHE HIT AFTER LOCK] Ticker {internal_symbol}")
+                return cached_data
             
-            # Cache successful result for 60s
-            set_cached(cache_key, result)
-            logger.info(f"[SUCCESS] {symbol}: ${live_price:,.2f} cached for 60s")
-            return result
+            # Use proven RealTimePriceService with normalized symbol
+            logger.debug(f"[MULTI-PROVIDER] Fetching {internal_symbol} via CoinGlass→CoinAPI→OKX")
+            
+            price_service = RealTimePriceService()
+            live_price = await price_service.get_live_price(internal_symbol)
         
-        else:
-            # All providers failed - return DATA_UNAVAILABLE instead of misleading 0.0
-            logger.warning(f"[ALL PROVIDERS FAILED] {symbol}: CoinGlass, CoinAPI, OKX all unavailable")
+            if live_price and live_price > 0:
+                # Success: got real price data from one of the providers
+                result = {
+                    "symbol": internal_symbol.upper(),
+                    "original_symbol": symbol.upper(),
+                    "price": live_price,
+                    "last": live_price,
+                    "timestamp": datetime.utcnow().isoformat() + 'Z',
+                    "source": "CoinGlass→CoinAPI→OKX",
+                    "status": "ok",
+                    "cache_ttl": 60
+                }
+                
+                # Cache successful result for 60s
+                set_cached(cache_key, result, ttl=60)
+                logger.info(f"[SUCCESS] {internal_symbol}: ${live_price:,.2f} cached for 60s")
+                return result
             
-            error_result = {
-                "symbol": symbol.upper(),
-                "status": "DATA_UNAVAILABLE",
-                "error": "All price providers unavailable (CoinGlass, CoinAPI, OKX)",
-                "providers_tried": ["CoinGlass", "CoinAPI", "OKX"],
-                "timestamp": datetime.utcnow().isoformat() + 'Z',
-                "source": "none"
-            }
-            
-            # Short cache for error to prevent spam (5s instead of 60s)
-            set_cached(cache_key, error_result, ttl=5)
-            return error_result
+            else:
+                # All providers failed - return 502 with clear error
+                logger.warning(f"[ALL PROVIDERS FAILED] {internal_symbol}: CoinGlass, CoinAPI, OKX all unavailable")
+                
+                error_result = {
+                    "symbol": internal_symbol.upper(),
+                    "original_symbol": symbol.upper(),
+                    "status": "DATA_UNAVAILABLE",
+                    "error": "All price providers unavailable (CoinGlass, CoinAPI, OKX)",
+                    "providers_tried": ["CoinGlass", "CoinAPI", "OKX"],
+                    "timestamp": datetime.utcnow().isoformat() + 'Z',
+                    "source": "none"
+                }
+                
+                # Short cache for error to prevent spam (5s instead of 60s)
+                set_cached(cache_key, error_result, ttl=5)
+                raise HTTPException(status_code=502, detail=f"Upstream returned empty ticker for {internal_symbol}")
+        
+        finally:
+            lock.release()
     
-    finally:
-        lock.release()
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Convert uncontrolled 500s to informative 502s
+        logger.error(f"[TICKER ERROR] {symbol} → {normalize_symbol_for_internal(symbol)}: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=502, detail=f"Ticker error for {symbol}: {type(e).__name__}: {e}")

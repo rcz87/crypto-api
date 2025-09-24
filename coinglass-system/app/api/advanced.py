@@ -774,7 +774,7 @@ async def _binance_orderbook_fallback(symbol: str, limit: int = 50):
                     )
                     
                     # Cache successful result for 2 seconds
-                    set_cached(cache_key, result, ttl_ms=2000)
+                    set_cached(cache_key, result, ttl=2)
                     logger.info(f"✅ Binance orderbook cached for {normalized_symbol} (attempt {attempt + 1})")
                     return result
                 
@@ -829,7 +829,7 @@ async def _okx_orderbook_fallback(symbol: str, limit: int = 50):
                     )
                     
                     # Cache successful result
-                    set_cached(cache_key, result, ttl_ms=3000)
+                    set_cached(cache_key, result, ttl=3)
                     logger.info(f"✅ OKX orderbook cached for {normalized_symbol}")
                     return result
                     

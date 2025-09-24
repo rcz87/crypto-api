@@ -1,0 +1,127 @@
+fokus ke C1: 500 di /py/advanced/ticker/SOL-USDT.
+
+Dari log kamu sebelumnya, /advanced/ticker/SOL = 200, tapi /advanced/ticker/SOL-USDT via proxy /py/advanced/... = 500. Jadi modulnya sebenarnya jalan, yang jebol adalah normalisasi simbol di route ticker (route lain seperti spot/orderbook & liquidation/coin-history sudah punya normalisasi—log-nya jelas “SOLUSDT → SOL”, “SOL-USDT-SWAP → SOL”). Ticker kemungkinan belum.
+
+Root cause yang paling mungkin
+
+Route ticker menerima SOL-USDT lalu melempar 500 (KeyError/TypeError) karena downstream/mapper internal mengharapkan SOL (atau format exchange khusus).
+
+Alias /py/advanced/* → /advanced/* sudah benar (service up & endpoint lain 200), jadi issue bukan module loading, melainkan symbol mapping/guardrail di route ticker.
+
+Fix cepat (patch FastAPI): normalisasi & guard-rails
+
+Tambahkan helper & guard pada route ticker.
+
+File contoh: app/routes/advanced.py atau tempat route /advanced/ticker/{symbol} didefinisikan.
+
+# ---- helpers (taruh di util module atau atas file route) ----
+def normalize_symbol_for_internal(symbol: str) -> str:
+    s = (symbol or "").upper().strip()
+    # hapus penanda kontrak / pasangan
+    s = s.replace("_", "-")
+    if s.endswith("-SWAP"):
+        s = s[:-5]
+    # SOL-USDT -> SOL, SOLUSDT -> SOL
+    s = s.replace("-USDT", "").replace("USDT", "")
+    return s
+
+def map_symbol_for_exchange(symbol: str, exchange: str = "okx") -> str:
+    s = (symbol or "").upper().strip()
+    if exchange.lower() == "okx":
+        # OKX suka 'SOL-USDT'
+        if "-" not in s and s.endswith("USDT"):
+            s = s[:-4] + "-USDT"
+        if not s.endswith("-USDT"):
+            s = f"{s}-USDT"
+        return s
+    if exchange.lower() == "binance":
+        # Binance suka 'SOLUSDT'
+        return s.replace("-", "")
+    # default fallback: internal 'SOL'
+    return normalize_symbol_for_internal(s)
+
+# ---- route ticker ----
+from fastapi import APIRouter, HTTPException, Query
+
+router = APIRouter()
+
+@router.get("/advanced/ticker/{symbol}")
+def get_ticker(
+    symbol: str,
+    exchange: str = Query("okx", regex="^(okx|binance)$")
+):
+    try:
+        internal = normalize_symbol_for_internal(symbol)  # 'SOL'
+        exch_sym = map_symbol_for_exchange(symbol, exchange)  # 'SOL-USDT' (okx) / 'SOLUSDT' (binance)
+
+        # fetch ke sumber data (contoh)
+        data = fetch_ticker_from_source(exch_sym, exchange)  # implementasi kamu sendiri
+
+        # guard-rails: jangan 500 kalau data kosong
+        if not data:
+            raise HTTPException(status_code=502, detail=f"Upstream returned empty ticker for {exch_sym} ({exchange})")
+
+        # optional cache kompat: terima ttl_ms *atau* ttl
+        # set_cached(key, data, ttl_ms=3000) <- wrapper kamu sudah support
+
+        return {
+            "status": "ok",
+            "symbol": internal,
+            "exchange_symbol": exch_sym,
+            "exchange": exchange.lower(),
+            "data": data
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        # ubah 500 tak-terkontrol jadi 400/502 yang informatif
+        raise HTTPException(status_code=502, detail=f"Ticker error for {symbol} ({exchange}): {type(e).__name__}: {e}")
+
+
+Intinya: apa pun input—SOL, SOL-USDT, SOLUSDT, bahkan SOL-USDT-SWAP—akan dinormalkan: internal SOL, exchange‐specific code sesuai OKX/Binance. Kalau upstream/mapper kosong, balas 502 yang jelas, bukan 500.
+
+(Opsional) Alias tambahan agar pasti melewati route yang benar
+
+Kalau kamu masih pakai proxy /py/advanced/*, pastikan rewrite ada (sebelum 404):
+
+// Express (server/index.ts)
+app.use('/py/advanced', (req, _res, next) => {
+  req.url = req.originalUrl.replace(/^\/py\/advanced/, '/advanced');
+  next();
+});
+
+Deploy & restart
+
+Python: restart Uvicorn/PM2/container supaya route baru aktif.
+
+Node: kalau ubah alias, restart juga.
+
+Tes ulang (yang tadinya merah)
+BASE="https://guardiansofthegreentoken.com"
+# direct FastAPI via proxy
+curl -s -o /dev/null -w "C1: %{http_code}\n" \
+  "$BASE/py/advanced/ticker/SOL-USDT"      # expect != 500 (200/4xx/502 fine)
+
+# direct ke /advanced untuk ngetes mapping BINANCE vs OKX
+curl -s -o /dev/null -w "C2: %{http_code}\n" \
+  "$BASE/advanced/ticker/SOL-USDT?exchange=okx"     # 200
+curl -s -o /dev/null -w "C3: %{http_code}\n" \
+  "$BASE/advanced/ticker/SOL-USDT?exchange=binance" # 200
+
+
+Jika masih 500:
+
+Lihat traceback Uvicorn (2–4 baris teratas). Biasanya akan jelas: KeyError/ValueError dkk → tambahkan guard di atas.
+
+Cek apakah route yang dipanggil benar (/advanced/ticker/{symbol}) dan tidak bentrok pattern lain.
+
+Kenapa ini lebih aman?
+
+Normalisasi universal → satu fungsi untuk semua route, konsisten dengan modul lain yang sudah 200 (heatmap/orderbook).
+
+Graceful errors → respon 502 dengan pesan jelas, bukan 500.
+
+Format exchange → tak perlu menghafal; route yang tangani.
+
+Kalau kamu kasih cuplikan file route ticker sekarang (±30 baris), aku bisa sisipkan patch yang pas 1:1. Setelah itu, jalankan lagi C1—harus bukan 500.
