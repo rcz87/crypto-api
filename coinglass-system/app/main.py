@@ -227,7 +227,7 @@ async def ticker_data(symbol: str):
             }
             
             # Short cache for error to prevent spam (5s instead of 60s)
-            set_cached(cache_key, error_result, ttl_ms=5000)
+            set_cached(cache_key, error_result, ttl=5)
             return error_result
     
     finally:
