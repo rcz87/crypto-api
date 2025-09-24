@@ -710,32 +710,133 @@ def get_liquidation_heatmap_query(
     
     return get_liquidation_heatmap(final_symbol, final_timeframe)
 
-async def _binance_orderbook_fallback(symbol: str, limit: int = 50):
-    """Fallback to Binance API when CoinGlass fails"""
-    import httpx
-    import asyncio
+import asyncio
+from app.core.mcache import get_cached, set_cached
+
+# In-memory cache for orderbook data (1-3 second TTL)
+_orderbook_cache = {}
+
+def _normalize_symbol_for_exchange(symbol: str, exchange: str = "binance") -> str:
+    """Enhanced symbol normalization for different exchanges"""
+    symbol = symbol.upper().strip()
     
-    # Ensure symbol has USDT suffix for Binance
-    if not symbol.upper().endswith('USDT'):
-        symbol = f"{symbol.upper()}USDT"
+    # Remove common suffixes and normalize
+    symbol = symbol.replace('-USDT-SWAP', '').replace('-USDT', '').replace('USDT', '')
+    
+    if exchange.lower() == "binance":
+        # Binance expects SYMBOLUSDT format
+        if not symbol.endswith('USDT'):
+            symbol = f"{symbol}USDT"
+    elif exchange.lower() in ["okx", "okex"]:
+        # OKX expects SYMBOL-USDT format  
+        if not symbol.endswith('-USDT'):
+            symbol = f"{symbol}-USDT"
+    
+    return symbol
+
+async def _binance_orderbook_fallback(symbol: str, limit: int = 50):
+    """Enhanced fallback to Binance API with retry + cache + normalization"""
+    import httpx
+    
+    # Enhanced symbol normalization
+    normalized_symbol = _normalize_symbol_for_exchange(symbol, "binance")
+    logger.info(f"[CoinGlass] Symbol mapping: {symbol} → {normalized_symbol} for spot_orderbook")
+    
+    # Check cache first (1-3 second TTL)
+    cache_key = f"orderbook_{normalized_symbol}_{limit}"
+    cached_data = get_cached(cache_key, ttl_ms=2000)  # 2 second cache
+    if cached_data:
+        logger.debug(f"🔄 Using cached orderbook for {normalized_symbol}")
+        return cached_data
     
     url = f"https://api.binance.com/api/v3/depth"
-    params = {"symbol": symbol, "limit": limit}
+    params = {"symbol": normalized_symbol, "limit": limit}
     
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.get(url, params=params)
+    # Retry logic: 3 attempts with 0.25s backoff
+    max_retries = 3
+    backoff_delay = 0.25
+    last_status_code = None
+    
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url, params=params)
+                last_status_code = response.status_code
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    result = SpotOrderbook(
+                        symbol=normalized_symbol,
+                        exchange="binance-fallback",
+                        bids=[[float(p), float(q)] for p, q in data.get('bids', [])],
+                        asks=[[float(p), float(q)] for p, q in data.get('asks', [])],
+                        timestamp=data.get('lastUpdateId')
+                    )
+                    
+                    # Cache successful result for 2 seconds
+                    set_cached(cache_key, result, ttl_ms=2000)
+                    logger.info(f"✅ Binance orderbook cached for {normalized_symbol} (attempt {attempt + 1})")
+                    return result
+                
+                elif response.status_code == 451:
+                    # Legal restriction - try alternative sources
+                    logger.warning(f"⚖️ Binance legal restriction (451) for {normalized_symbol}, attempt {attempt + 1}")
+                else:
+                    logger.warning(f"🔄 Binance API returned {response.status_code} for {normalized_symbol}, attempt {attempt + 1}")
+                    
+        except Exception as e:
+            logger.warning(f"🔄 Binance API error for {normalized_symbol} (attempt {attempt + 1}): {e}")
         
-        if response.status_code == 200:
-            data = response.json()
-            return SpotOrderbook(
-                symbol=symbol,
-                exchange="binance-fallback",
-                bids=[[float(p), float(q)] for p, q in data.get('bids', [])],
-                asks=[[float(p), float(q)] for p, q in data.get('asks', [])],
-                timestamp=data.get('lastUpdateId')
-            )
+        # Exponential backoff for retries
+        if attempt < max_retries - 1:
+            await asyncio.sleep(backoff_delay * (2 ** attempt))
     
-    raise Exception(f"Binance fallback failed: {response.status_code}")
+    raise Exception(f"Binance fallback failed after {max_retries} attempts: {last_status_code or 'No response'}")
+
+async def _okx_orderbook_fallback(symbol: str, limit: int = 50):
+    """OKX alternative fallback when Binance fails (for 451 errors)"""
+    import httpx
+    import time
+    
+    # OKX symbol normalization 
+    normalized_symbol = _normalize_symbol_for_exchange(symbol, "okx")
+    logger.info(f"[OKX Fallback] Symbol mapping: {symbol} → {normalized_symbol}")
+    
+    # Check cache first
+    cache_key = f"okx_orderbook_{normalized_symbol}_{limit}"
+    cached_data = get_cached(cache_key, ttl_ms=3000)  # 3 second cache for OKX
+    if cached_data:
+        logger.debug(f"🔄 Using cached OKX orderbook for {normalized_symbol}")
+        return cached_data
+    
+    url = f"https://www.okx.com/api/v5/market/books"
+    params = {"instId": normalized_symbol, "sz": limit}
+    
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            response = await client.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('data') and len(data['data']) > 0:
+                    orderbook_data = data['data'][0]
+                    result = SpotOrderbook(
+                        symbol=normalized_symbol,
+                        exchange="okx-fallback",
+                        bids=[[float(p), float(q)] for p, q, _, _ in orderbook_data.get('bids', [])],
+                        asks=[[float(p), float(q)] for p, q, _, _ in orderbook_data.get('asks', [])],
+                        timestamp=orderbook_data.get('ts', int(time.time() * 1000))
+                    )
+                    
+                    # Cache successful result
+                    set_cached(cache_key, result, ttl_ms=3000)
+                    logger.info(f"✅ OKX orderbook cached for {normalized_symbol}")
+                    return result
+                    
+    except Exception as e:
+        logger.warning(f"🔄 OKX API error for {normalized_symbol}: {e}")
+    
+    raise Exception(f"OKX fallback failed for {symbol}")
 
 async def get_spot_orderbook_impl(symbol: str, exchange: str = "binance", depth: int = 50, limit: int = 50):
     """
@@ -755,34 +856,42 @@ async def get_spot_orderbook_impl(symbol: str, exchange: str = "binance", depth:
     max_age_seconds = 120  # User requirement: reject data >120s
     current_time = datetime.now(timezone.utc)
     
-    try:
-        # Try Binance fallback for real orderbook data
-        real_orderbook = await _binance_orderbook_fallback(symbol, limit)
-        
-        if real_orderbook:
-            # Freshness validation: check if data is fresh enough
+    # Try multiple fallback sources in order of preference
+    fallback_sources = [
+        ("binance", _binance_orderbook_fallback),
+        ("okx", _okx_orderbook_fallback)
+    ]
+    
+    for source_name, fallback_func in fallback_sources:
+        try:
+            logger.info(f"🔄 Trying {source_name} orderbook for {symbol}")
+            real_orderbook = await fallback_func(symbol, limit)
             
-            # Convert timestamp to datetime for age check
-            if isinstance(real_orderbook.timestamp, (int, float)):
-                # Binance returns lastUpdateId, treat as fresh since it's real-time
-                data_time = current_time  # Binance data is real-time
-            else:
-                # Parse string timestamp
-                try:
-                    data_time = datetime.fromisoformat(str(real_orderbook.timestamp).replace('Z', '+00:00'))
-                except:
-                    data_time = current_time  # Default to current time if parsing fails
+            if real_orderbook:
+                # Freshness validation: check if data is fresh enough
+                
+                # Convert timestamp to datetime for age check
+                if isinstance(real_orderbook.timestamp, (int, float)):
+                    # Treat as fresh since it's real-time API data
+                    data_time = current_time
+                else:
+                    # Parse string timestamp
+                    try:
+                        data_time = datetime.fromisoformat(str(real_orderbook.timestamp).replace('Z', '+00:00'))
+                    except:
+                        data_time = current_time  # Default to current time if parsing fails
+                
+                data_age = (current_time - data_time).total_seconds()
+                
+                if data_age <= max_age_seconds:
+                    logger.info(f"[FRESHNESS OK] {symbol} orderbook age: {data_age:.1f}s (fresh) from {source_name}")
+                    return real_orderbook
+                else:
+                    logger.warning(f"[FRESHNESS REJECT] {symbol} orderbook age: {data_age:.1f}s > {max_age_seconds}s limit from {source_name}")
             
-            data_age = (current_time - data_time).total_seconds()
-            
-            if data_age <= max_age_seconds:
-                logger.info(f"[FRESHNESS OK] {symbol} orderbook age: {data_age:.1f}s (fresh)")
-                return real_orderbook
-            else:
-                logger.warning(f"[FRESHNESS REJECT] {symbol} orderbook age: {data_age:.1f}s > {max_age_seconds}s limit")
-        
-    except Exception as e:
-        logger.warning(f"[FALLBACK FAILED] Binance orderbook for {symbol}: {e}")
+        except Exception as e:
+            logger.warning(f"[FALLBACK FAILED] {source_name.title()} orderbook for {symbol}: {e}")
+            continue  # Try next source
     
     # All sources failed or data too stale - return DATA_UNAVAILABLE
     logger.error(f"[ALL SOURCES FAILED] {symbol} orderbook: No fresh data available")
