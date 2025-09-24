@@ -1,0 +1,134 @@
+TL;DR (plan cepat)
+
+Python cache fix (ttl_ms) — pastikan wrapper ada di modul cache yang dipakai advanced + service Python restart.
+
+GPTs routing fix — pakai rewrite in-place alias /api/gpts/* → /gpts/* (di atas 404) dan/atau proxy langsung /gpts/* → 127.0.0.1:8000.
+
+Re-smoke 3 endpoint problem child:
+
+/py/advanced/ticker/SOL-USDT → bukan 500
+
+/gpts/health → 200
+
+/gpts/unified/symbols → 200
+
+1) Python — compat wrapper ttl_ms (anti-500)
+
+Pastikan patch ini berada di file cache yang dipakai route advanced (bukan sekadar ada di repositori lain). Kalau ragu, cari rute /advanced/ticker & lihat modul cache yang dia import.
+
+Tambahkan/ubah fungsi utama cache (contoh core/cache_manager.py / core/redis_manager.py):
+
+def set_cached(key, value, ttl=None, **kwargs):
+    # Backward-compat: terima ttl_ms (milidetik) & konversi ke detik
+    ttl_ms = kwargs.pop('ttl_ms', None)
+    if ttl is None and ttl_ms is not None:
+        try:
+            ttl = max(1, int(round(float(ttl_ms) / 1000.0)))
+        except Exception:
+            ttl = 60  # fallback aman
+
+    # ... simpan sesuai backend ...
+    # if ttl: redis.setex(key, ttl, json.dumps(value))
+    # else:   redis.set(key, json.dumps(value))
+
+
+Lalu: restart service Python (Uvicorn/PM2/Docker/Replit Deployment) supaya route advanced pakai modul yang sudah dipatch.
+
+Catatan: error yang kamu lihat (set_cached() got an unexpected keyword argument 'ttl_ms') 100% hilang setelah patch ini aktif di modul yang dipakai route advanced.
+
+2) Node/Express — GPTs gateway yang konsisten (anti-404)
+
+Masalah /gpts/ 404 biasanya karena:
+
+Alias dibuat redirect 308 (OK juga), tapi diletakannya di bawah router/404 → gak pernah kena.
+
+Gateway memproxy /gpts/* ke path yang beda di Python.
+
+Solusi aman: rewrite in-place dan/atau proxy jelas.
+
+2A) Rewrite in-place (kompat /api/gpts → /gpts)
+
+Taruh segera setelah app = express() dan sebelum semua router/static/404.
+
+app.use('/api/gpts', (req, _res, next) => {
+  req.url = req.originalUrl.replace(/^\/api\/gpts/, '/gpts');
+  next();
+});
+
+2B) Proxy langsung /gpts/* ke Python 8000
+
+Kalau GPTs tinggal di FastAPI, map jalurnya tegas:
+
+// contoh pakai http-proxy-middleware (kalau sudah ada di project)
+import { createProxyMiddleware } from 'http-proxy-middleware';
+app.use('/gpts', createProxyMiddleware({
+  target: 'http://127.0.0.1:8000',
+  changeOrigin: true,
+  // jika Python expose /gpts persis, no rewrite;
+  // kalau Python expose path lain, atur pathRewrite sesuai realita
+  // pathRewrite: { '^/gpts': '/gpts' }
+}));
+
+
+Kalau kamu gak pakai library proxy: kamu sudah punya proxy internal (dari log). Pastikan blok “GPTs Gateway routes registered: /gpts/unified/ → 127.0.0.1:8000”* benar-benar memetakan /gpts/health & /gpts/unified/* juga (bukan cuma /gpts/advanced). Lengkapi mappingnya, atau tambahkan endpoint alias kecil di Node yang forward ke Python.
+
+Penting: Middleware ini harus di atas 404 handler & router lain yang mungkin menelan rute /gpts.
+
+3) Re-smoke (validasi hasil)
+
+Jalankan ini di shell:
+
+BASE="https://guardiansofthegreentoken.com"
+
+# GPTs baseline
+curl -s -o /dev/null -w "gpts/health: %{http_code}\n"          "$BASE/gpts/health"
+curl -s -o /dev/null -w "gpts/symbols: %{http_code}\n"         "$BASE/gpts/unified/symbols"
+
+# Compat alias (kalau masih ada klien lama)
+curl -s -o /dev/null -w "api/gpts/signal: %{http_code}\n" -I   "$BASE/api/gpts/signal"
+
+# Advanced ticker (problem child)
+curl -s -o /dev/null -w "py/ticker SOL-USDT: %{http_code}\n"   "$BASE/py/advanced/ticker/SOL-USDT"
+
+
+Expected:
+
+gpts/health = 200
+
+gpts/unified/symbols = 200
+
+api/gpts/signal = 308/200 (opsional)
+
+py/advanced/ticker/SOL-USDT ≠ 500 (kalau upstream kosong → balikin 4xx/502 yang informatif lebih baik daripada 500)
+
+4) CoinGlass key benar-benar kebaca (biar gak disalahin agent 😅)
+
+Di Python service, pastikan:
+
+import os
+assert os.getenv("COINGLASS_API_KEY"), "COINGLASS_API_KEY not set"
+
+
+Set env di Node dan Python (container/Deployment).
+
+Pastikan gateway meneruskan header/token jika dibutuhkan.
+
+5) Jika setelah patch masih ada 500 di /py/advanced/ticker/*
+
+Tambahkan normalisasi simbol + guard-rails di route ticker (seperti modul lain yang sudah sukses: heatmap/orderbook). Pola cepat:
+
+def normalize(symbol: str) -> str:
+    s = (symbol or '').upper().strip()
+    return s.replace('-USDT','').replace('USDT','').replace('_','-').replace('-SWAP','')
+
+@router.get("/advanced/ticker/{symbol}")
+def get_ticker(symbol: str, exchange: str = 'okx'):
+    internal = normalize(symbol)            # 'SOL'
+    exch_sym = f"{internal}-USDT" if exchange=='okx' else f"{internal}USDT"
+    data = fetch_ticker(exch_sym, exchange) # implementasi kamu
+    if not data:
+        raise HTTPException(status_code=502, detail=f"Empty ticker for {exch_sym}")
+    return {"status":"ok","symbol":internal,"exchange_symbol":exch_sym,"data":data}
+
+
+Ini konsisten dengan log kamu di modul lain: “SOLUSDT → SOL untuk spot_orderbook”.
