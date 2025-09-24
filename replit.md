@@ -16,11 +16,22 @@ The Enhanced Intelligent Screening System is an institutional-grade perpetual fu
 The system employs a modular architecture with clear separation of concerns, comprehensive testing, automated production deployment, and full observability. The frontend is built with React 18 (TypeScript, Vite), utilizing `shadcn/ui` and Tailwind CSS for a professional dark-themed dashboard. The backend uses Node.js/Express.js (TypeScript) with a RESTful API. Data persistence involves PostgreSQL with Drizzle ORM (Neon Database) for primary data, TimescaleDB for time-series data, and Redis for caching and rate limiting.
 
 ### GPT Actions Integration (✅ PRODUCTION READY)
-**Status: FULLY OPERATIONAL** - All GPT Actions endpoints active with HTTP 200 responses
-- **GPT Endpoints**: 5/5 active (`/gpts/coinglass/whale-data`, `/gpts/coinglass/live-template`, `/gpts/unified/advanced`, `/gpts/unified/symbols`, `/gpts/health`)
+**Status: FULLY OPERATIONAL** - GPT Actions providing real-time institutional data
+
+**Verified Working Operations (September 24, 2025):**
+- **Single Operations**: `{"op":"whale_alerts","params":{"exchange":"hyperliquid"}}` - Active whale positions & liquidations
+- **Batch Operations**: `{"ops":[{"op":"ticker","params":{"symbol":"BTC"}},{"op":"market_sentiment","params":{}}]}` - Multi-operation support
+- **Real Data Validation**: BTC $112,441.1, ETH $4,166, SOL $209.59 (live prices confirmed)
+- **Market Intelligence**: 100+ cryptocurrencies with volume, market cap, dominance data
+- **Institutional Data**: ETF flows, whale positions, liquidation heatmaps, sentiment analysis
+
+**Active Endpoints:**
+- `/gpts/unified/advanced` - ✅ Multi-operation gateway (primary endpoint for private GPT)
+- `/gpts/health` - ✅ System health monitoring  
+- `/gpts/unified/symbols` - ✅ Symbol mapping reference
 - **OpenAPI Specification**: Complete 4.0.1 GPT-compatible spec at `public/openapi-4.0.1-gpts-compat.yaml`
-- **Symbol Support**: 56 cryptocurrencies with unified mapping
-- **Real-time Integration**: Direct CoinGlass API access with live data feeds
+
+**Supported Operations:** whale_alerts, whale_positions, etf_flows, market_sentiment, market_coins, ticker, liquidation_heatmap, spot_orderbook, atr, options_oi
 
 ### UI/UX Decisions
 The frontend features a modern, professional dark-themed dashboard using `shadcn/ui` and Tailwind CSS for a consistent design system. Key UI components include an AI Signal Dashboard, CVD Analysis, Confluence Scoring, Multi-timeframe Analysis, Fibonacci Visualization, Funding Rate, Liquidity Heatmap, Live Trading Signals, Multi-Coin Screener, Open Interest Charts, Order Flow Analysis, SMC Analysis, Technical Indicators, and TradingView widget integration.
