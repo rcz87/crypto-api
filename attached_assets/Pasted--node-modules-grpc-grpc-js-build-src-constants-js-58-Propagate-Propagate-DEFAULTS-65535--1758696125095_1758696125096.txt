@@ -1,0 +1,221 @@
+/node_modules/@grpc/grpc-js/build/src/constants.js:58:    Propagate[Propagate["DEFAULTS"] = 65535] = "DEFAULTS";
+./node_modules/@grpc/grpc-js/build/src/internal-channel.js:507:            flags: propagateFlags !== null && propagateFlags !== void 0 ? propagateFlags : constants_1.Propagate.DEFAULTS,
+./node_modules/@grpc/grpc-js/build/src/constants.d.ts:35:    DEFAULTS = 65535
+./node_modules/@grpc/grpc-js/src/constants.ts:55:  DEFAULTS = 0xffff |
+./node_modules/@grpc/grpc-js/src/internal-channel.ts:743:      flags: propagateFlags ?? Propagate.DEFAULTS,
+./.pythonlibs/lib/python3.11/site-packages/pydantic/mypy.py:1229:ERROR_FIELD_DEFAULTS = ErrorCode('pydantic-field', 'Invalid Field defaults', 'Pydantic')
+./.pythonlibs/lib/python3.11/site-packages/pydantic/v1/mypy.py:791:ERROR_FIELD_DEFAULTS = ErrorCode('pydantic-field', 'Invalid Field defaults', 'Pydantic')
+./.pythonlibs/lib/python3.11/site-packages/pydantic/v1/mypy.py:821:    api.fail('Field default and default_factory cannot be specified together', context, code=ERROR_FIELD_DEFAULTS)
+./.pythonlibs/lib/python3.11/site-packages/celery/app/defaults.py:383:DEFAULTS = {
+./.pythonlibs/lib/python3.11/site-packages/celery/app/defaults.py:387:_OLD_DEFAULTS = {old_key: opt.default for old_key, _, opt in __compat}
+./.pythonlibs/lib/python3.11/site-packages/celery/app/defaults.py:392:SETTING_KEYS = set(DEFAULTS.keys())
+./.pythonlibs/lib/python3.11/site-packages/celery/app/defaults.py:427:    return searchresult(None, name.lower(), DEFAULTS[name.lower()])
+./.pythonlibs/lib/python3.11/site-packages/celery/app/utils.py:18:from .defaults import _OLD_DEFAULTS, _OLD_SETTING_KEYS, _TO_NEW_KEY, _TO_OLD_KEY, DEFAULTS, SETTING_KEYS, find
+./.pythonlibs/lib/python3.11/site-packages/celery/app/utils.py:225:    DEFAULTS, _TO_NEW_KEY, _old_key_to_new, E_MIX_OLD_INTO_NEW,
+./.pythonlibs/lib/python3.11/site-packages/celery/app/utils.py:228:    _OLD_DEFAULTS, _TO_OLD_KEY, _new_key_to_old, E_MIX_NEW_INTO_OLD,
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:95:ARGMINMAX_DEFAULTS = {"out": None}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:97:    ARGMINMAX_DEFAULTS, fname="argmin", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:100:    ARGMINMAX_DEFAULTS, fname="argmax", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:136:ARGSORT_DEFAULTS: dict[str, int | str | None] = {}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:137:ARGSORT_DEFAULTS["axis"] = -1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:138:ARGSORT_DEFAULTS["kind"] = "quicksort"
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:139:ARGSORT_DEFAULTS["order"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:140:ARGSORT_DEFAULTS["kind"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:141:ARGSORT_DEFAULTS["stable"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:145:    ARGSORT_DEFAULTS, fname="argsort", max_fname_arg_count=0, method="both"
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:150:ARGSORT_DEFAULTS_KIND: dict[str, int | None] = {}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:151:ARGSORT_DEFAULTS_KIND["axis"] = -1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:152:ARGSORT_DEFAULTS_KIND["order"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:153:ARGSORT_DEFAULTS_KIND["stable"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:155:    ARGSORT_DEFAULTS_KIND, fname="argsort", max_fname_arg_count=0, method="both"
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:175:CLIP_DEFAULTS: dict[str, Any] = {"out": None}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:177:    CLIP_DEFAULTS, fname="clip", method="both", max_fname_arg_count=3
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:212:CUM_FUNC_DEFAULTS: dict[str, Any] = {}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:213:CUM_FUNC_DEFAULTS["dtype"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:214:CUM_FUNC_DEFAULTS["out"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:216:    CUM_FUNC_DEFAULTS, method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:219:    CUM_FUNC_DEFAULTS, fname="cumsum", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:239:ALLANY_DEFAULTS: dict[str, bool | None] = {}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:240:ALLANY_DEFAULTS["dtype"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:241:ALLANY_DEFAULTS["out"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:242:ALLANY_DEFAULTS["keepdims"] = False
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:243:ALLANY_DEFAULTS["axis"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:245:    ALLANY_DEFAULTS, fname="all", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:248:    ALLANY_DEFAULTS, fname="any", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:251:LOGICAL_FUNC_DEFAULTS = {"out": None, "keepdims": False}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:252:validate_logical_func = CompatValidator(LOGICAL_FUNC_DEFAULTS, method="kwargs")
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:254:MINMAX_DEFAULTS = {"axis": None, "dtype": None, "out": None, "keepdims": False}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:256:    MINMAX_DEFAULTS, fname="min", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:259:    MINMAX_DEFAULTS, fname="max", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:262:RESHAPE_DEFAULTS: dict[str, str] = {"order": "C"}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:264:    RESHAPE_DEFAULTS, fname="reshape", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:267:REPEAT_DEFAULTS: dict[str, Any] = {"axis": None}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:269:    REPEAT_DEFAULTS, fname="repeat", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:272:ROUND_DEFAULTS: dict[str, Any] = {"out": None}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:274:    ROUND_DEFAULTS, fname="round", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:277:SORT_DEFAULTS: dict[str, int | str | None] = {}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:278:SORT_DEFAULTS["axis"] = -1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:279:SORT_DEFAULTS["kind"] = "quicksort"
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:280:SORT_DEFAULTS["order"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:281:validate_sort = CompatValidator(SORT_DEFAULTS, fname="sort", method="kwargs")
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:283:STAT_FUNC_DEFAULTS: dict[str, Any | None] = {}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:284:STAT_FUNC_DEFAULTS["dtype"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:285:STAT_FUNC_DEFAULTS["out"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:287:SUM_DEFAULTS = STAT_FUNC_DEFAULTS.copy()
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:288:SUM_DEFAULTS["axis"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:289:SUM_DEFAULTS["keepdims"] = False
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:290:SUM_DEFAULTS["initial"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:292:PROD_DEFAULTS = SUM_DEFAULTS.copy()
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:294:MEAN_DEFAULTS = SUM_DEFAULTS.copy()
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:296:MEDIAN_DEFAULTS = STAT_FUNC_DEFAULTS.copy()
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:297:MEDIAN_DEFAULTS["overwrite_input"] = False
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:298:MEDIAN_DEFAULTS["keepdims"] = False
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:300:STAT_FUNC_DEFAULTS["keepdims"] = False
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:302:validate_stat_func = CompatValidator(STAT_FUNC_DEFAULTS, method="kwargs")
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:304:    SUM_DEFAULTS, fname="sum", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:307:    PROD_DEFAULTS, fname="prod", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:310:    MEAN_DEFAULTS, fname="mean", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:313:    MEDIAN_DEFAULTS, fname="median", method="both", max_fname_arg_count=1
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:316:STAT_DDOF_FUNC_DEFAULTS: dict[str, bool | None] = {}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:317:STAT_DDOF_FUNC_DEFAULTS["dtype"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:318:STAT_DDOF_FUNC_DEFAULTS["out"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:319:STAT_DDOF_FUNC_DEFAULTS["keepdims"] = False
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:320:validate_stat_ddof_func = CompatValidator(STAT_DDOF_FUNC_DEFAULTS, method="kwargs")
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:322:TAKE_DEFAULTS: dict[str, str | None] = {}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:323:TAKE_DEFAULTS["out"] = None
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:324:TAKE_DEFAULTS["mode"] = "raise"
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:325:validate_take = CompatValidator(TAKE_DEFAULTS, fname="take", method="kwargs")
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:342:TRANSPOSE_DEFAULTS = {"axes": None}
+./.pythonlibs/lib/python3.11/site-packages/pandas/compat/numpy/function.py:344:    TRANSPOSE_DEFAULTS, fname="transpose", method="both", max_fname_arg_count=0
+./.pythonlibs/lib/python3.11/site-packages/pygments/lexers/_postgres_builtins.py:115:    'DEFAULTS',
+./.pythonlibs/lib/python3.11/site-packages/pygments/lexers/_sql_builtins.py:34:    'DEALLOCATE', 'DECLARE', 'DEFAULT', 'DEFAULTS', 'DEFERRABLE',
+./.pythonlibs/lib/python3.11/site-packages/pygments/lexers/markup.py:1093:        'BASEPAGENAME', 'BASEPAGENAMEE', 'CASCADINGSOURCES', 'DEFAULTSORT', 'DEFAULTSORTKEY',
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2284:  _FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT = _descriptor.Descriptor(
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2320:  _FEATURESETDEFAULTS = _descriptor.Descriptor(
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2352:    nested_types=[_FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT, ],
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2622:  _FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT.fields_by_name['edition'].enum_type = _EDITION
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2623:  _FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT.fields_by_name['features'].message_type = _FEATURESET
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2624:  _FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT.containing_type = _FEATURESETDEFAULTS
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2625:  _FEATURESETDEFAULTS.fields_by_name['defaults'].message_type = _FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2626:  _FEATURESETDEFAULTS.fields_by_name['minimum_edition'].enum_type = _EDITION
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2627:  _FEATURESETDEFAULTS.fields_by_name['maximum_edition'].enum_type = _EDITION
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2654:  DESCRIPTOR.message_types_by_name['FeatureSetDefaults'] = _FEATURESETDEFAULTS
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2776:  _globals['_FEATURESETDEFAULTS']._serialized_start=10236
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2777:  _globals['_FEATURESETDEFAULTS']._serialized_end=10618
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2778:  _globals['_FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT']._serialized_start=10483
+./.pythonlibs/lib/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2779:  _globals['_FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT']._serialized_end=10618
+./.pythonlibs/lib64/python3.11/site-packages/pydantic/mypy.py:1229:ERROR_FIELD_DEFAULTS = ErrorCode('pydantic-field', 'Invalid Field defaults', 'Pydantic')
+./.pythonlibs/lib64/python3.11/site-packages/pydantic/v1/mypy.py:791:ERROR_FIELD_DEFAULTS = ErrorCode('pydantic-field', 'Invalid Field defaults', 'Pydantic')
+./.pythonlibs/lib64/python3.11/site-packages/pydantic/v1/mypy.py:821:    api.fail('Field default and default_factory cannot be specified together', context, code=ERROR_FIELD_DEFAULTS)
+./.pythonlibs/lib64/python3.11/site-packages/celery/app/defaults.py:383:DEFAULTS = {
+./.pythonlibs/lib64/python3.11/site-packages/celery/app/defaults.py:387:_OLD_DEFAULTS = {old_key: opt.default for old_key, _, opt in __compat}
+./.pythonlibs/lib64/python3.11/site-packages/celery/app/defaults.py:392:SETTING_KEYS = set(DEFAULTS.keys())
+./.pythonlibs/lib64/python3.11/site-packages/celery/app/defaults.py:427:    return searchresult(None, name.lower(), DEFAULTS[name.lower()])
+./.pythonlibs/lib64/python3.11/site-packages/celery/app/utils.py:18:from .defaults import _OLD_DEFAULTS, _OLD_SETTING_KEYS, _TO_NEW_KEY, _TO_OLD_KEY, DEFAULTS, SETTING_KEYS, find
+./.pythonlibs/lib64/python3.11/site-packages/celery/app/utils.py:225:    DEFAULTS, _TO_NEW_KEY, _old_key_to_new, E_MIX_OLD_INTO_NEW,
+./.pythonlibs/lib64/python3.11/site-packages/celery/app/utils.py:228:    _OLD_DEFAULTS, _TO_OLD_KEY, _new_key_to_old, E_MIX_NEW_INTO_OLD,
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:95:ARGMINMAX_DEFAULTS = {"out": None}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:97:    ARGMINMAX_DEFAULTS, fname="argmin", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:100:    ARGMINMAX_DEFAULTS, fname="argmax", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:136:ARGSORT_DEFAULTS: dict[str, int | str | None] = {}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:137:ARGSORT_DEFAULTS["axis"] = -1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:138:ARGSORT_DEFAULTS["kind"] = "quicksort"
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:139:ARGSORT_DEFAULTS["order"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:140:ARGSORT_DEFAULTS["kind"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:141:ARGSORT_DEFAULTS["stable"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:145:    ARGSORT_DEFAULTS, fname="argsort", max_fname_arg_count=0, method="both"
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:150:ARGSORT_DEFAULTS_KIND: dict[str, int | None] = {}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:151:ARGSORT_DEFAULTS_KIND["axis"] = -1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:152:ARGSORT_DEFAULTS_KIND["order"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:153:ARGSORT_DEFAULTS_KIND["stable"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:155:    ARGSORT_DEFAULTS_KIND, fname="argsort", max_fname_arg_count=0, method="both"
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:175:CLIP_DEFAULTS: dict[str, Any] = {"out": None}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:177:    CLIP_DEFAULTS, fname="clip", method="both", max_fname_arg_count=3
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:212:CUM_FUNC_DEFAULTS: dict[str, Any] = {}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:213:CUM_FUNC_DEFAULTS["dtype"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:214:CUM_FUNC_DEFAULTS["out"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:216:    CUM_FUNC_DEFAULTS, method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:219:    CUM_FUNC_DEFAULTS, fname="cumsum", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:239:ALLANY_DEFAULTS: dict[str, bool | None] = {}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:240:ALLANY_DEFAULTS["dtype"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:241:ALLANY_DEFAULTS["out"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:242:ALLANY_DEFAULTS["keepdims"] = False
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:243:ALLANY_DEFAULTS["axis"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:245:    ALLANY_DEFAULTS, fname="all", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:248:    ALLANY_DEFAULTS, fname="any", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:251:LOGICAL_FUNC_DEFAULTS = {"out": None, "keepdims": False}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:252:validate_logical_func = CompatValidator(LOGICAL_FUNC_DEFAULTS, method="kwargs")
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:254:MINMAX_DEFAULTS = {"axis": None, "dtype": None, "out": None, "keepdims": False}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:256:    MINMAX_DEFAULTS, fname="min", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:259:    MINMAX_DEFAULTS, fname="max", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:262:RESHAPE_DEFAULTS: dict[str, str] = {"order": "C"}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:264:    RESHAPE_DEFAULTS, fname="reshape", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:267:REPEAT_DEFAULTS: dict[str, Any] = {"axis": None}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:269:    REPEAT_DEFAULTS, fname="repeat", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:272:ROUND_DEFAULTS: dict[str, Any] = {"out": None}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:274:    ROUND_DEFAULTS, fname="round", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:277:SORT_DEFAULTS: dict[str, int | str | None] = {}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:278:SORT_DEFAULTS["axis"] = -1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:279:SORT_DEFAULTS["kind"] = "quicksort"
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:280:SORT_DEFAULTS["order"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:281:validate_sort = CompatValidator(SORT_DEFAULTS, fname="sort", method="kwargs")
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:283:STAT_FUNC_DEFAULTS: dict[str, Any | None] = {}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:284:STAT_FUNC_DEFAULTS["dtype"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:285:STAT_FUNC_DEFAULTS["out"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:287:SUM_DEFAULTS = STAT_FUNC_DEFAULTS.copy()
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:288:SUM_DEFAULTS["axis"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:289:SUM_DEFAULTS["keepdims"] = False
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:290:SUM_DEFAULTS["initial"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:292:PROD_DEFAULTS = SUM_DEFAULTS.copy()
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:294:MEAN_DEFAULTS = SUM_DEFAULTS.copy()
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:296:MEDIAN_DEFAULTS = STAT_FUNC_DEFAULTS.copy()
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:297:MEDIAN_DEFAULTS["overwrite_input"] = False
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:298:MEDIAN_DEFAULTS["keepdims"] = False
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:300:STAT_FUNC_DEFAULTS["keepdims"] = False
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:302:validate_stat_func = CompatValidator(STAT_FUNC_DEFAULTS, method="kwargs")
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:304:    SUM_DEFAULTS, fname="sum", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:307:    PROD_DEFAULTS, fname="prod", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:310:    MEAN_DEFAULTS, fname="mean", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:313:    MEDIAN_DEFAULTS, fname="median", method="both", max_fname_arg_count=1
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:316:STAT_DDOF_FUNC_DEFAULTS: dict[str, bool | None] = {}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:317:STAT_DDOF_FUNC_DEFAULTS["dtype"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:318:STAT_DDOF_FUNC_DEFAULTS["out"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:319:STAT_DDOF_FUNC_DEFAULTS["keepdims"] = False
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:320:validate_stat_ddof_func = CompatValidator(STAT_DDOF_FUNC_DEFAULTS, method="kwargs")
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:322:TAKE_DEFAULTS: dict[str, str | None] = {}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:323:TAKE_DEFAULTS["out"] = None
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:324:TAKE_DEFAULTS["mode"] = "raise"
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:325:validate_take = CompatValidator(TAKE_DEFAULTS, fname="take", method="kwargs")
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:342:TRANSPOSE_DEFAULTS = {"axes": None}
+./.pythonlibs/lib64/python3.11/site-packages/pandas/compat/numpy/function.py:344:    TRANSPOSE_DEFAULTS, fname="transpose", method="both", max_fname_arg_count=0
+./.pythonlibs/lib64/python3.11/site-packages/pygments/lexers/_postgres_builtins.py:115:    'DEFAULTS',
+./.pythonlibs/lib64/python3.11/site-packages/pygments/lexers/_sql_builtins.py:34:    'DEALLOCATE', 'DECLARE', 'DEFAULT', 'DEFAULTS', 'DEFERRABLE',
+./.pythonlibs/lib64/python3.11/site-packages/pygments/lexers/markup.py:1093:        'BASEPAGENAME', 'BASEPAGENAMEE', 'CASCADINGSOURCES', 'DEFAULTSORT', 'DEFAULTSORTKEY',
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2284:  _FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT = _descriptor.Descriptor(
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2320:  _FEATURESETDEFAULTS = _descriptor.Descriptor(
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2352:    nested_types=[_FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT, ],
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2622:  _FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT.fields_by_name['edition'].enum_type = _EDITION
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2623:  _FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT.fields_by_name['features'].message_type = _FEATURESET
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2624:  _FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT.containing_type = _FEATURESETDEFAULTS
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2625:  _FEATURESETDEFAULTS.fields_by_name['defaults'].message_type = _FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2626:  _FEATURESETDEFAULTS.fields_by_name['minimum_edition'].enum_type = _EDITION
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2627:  _FEATURESETDEFAULTS.fields_by_name['maximum_edition'].enum_type = _EDITION
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2654:  DESCRIPTOR.message_types_by_name['FeatureSetDefaults'] = _FEATURESETDEFAULTS
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2776:  _globals['_FEATURESETDEFAULTS']._serialized_start=10236
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2777:  _globals['_FEATURESETDEFAULTS']._serialized_end=10618
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2778:  _globals['_FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT']._serialized_start=10483
+./.pythonlibs/lib64/python3.11/site-packages/google/protobuf/descriptor_pb2.py:2779:  _globals['_FEATURESETDEFAULTS_FEATURESETEDITIONDEFAULT']._serialized_end=10618
+./verify_endpoints.py:33:DEFAULTS = {
+./verify_endpoints.py:288:        if "pair" in key:   return DEFAULTS["pair"].lower()  # ← Ensure lowercase
+./verify_endpoints.py:289:        if "symbol" in key: return DEFAULTS["symbol"]
+./verify_endpoints.py:290:        if "asset" in key:  return DEFAULTS["asset"]
+./verify_endpoints.py:324:    {"method":"GET", "path":f"/api/{DEFAULTS['pair']}/complete"},
+./verify_endpoints.py:325:    {"method":"GET", "path":f"/api/{DEFAULTS['pair']}/technical"},
+./verify_endpoints.py:326:    {"method":"GET", "path":f"/api/{DEFAULTS['pair']}/funding"},
+./verify_endpoints.py:327:    {"method":"GET", "path":f"/api/{DEFAULTS['pair']}/smc"},
+./verify_endpoints.py:328:    {"method":"GET", "path":f"/api/{DEFAULTS['pair']}/cvd"},
+./verify_endpoints.py:397:                payload = {"symbol":DEFAULTS["symbol"], "tf":"1h", "limit":100}
+./verify_endpoints.py:399:                payload = {"symbol":DEFAULTS["symbol"], "tf":"4h"}
+./verify_endpoints.py:401:                payload = {"symbol":DEFAULTS["symbol"], "tfs":["5m","15m","1h"], "features":["BOS","CHOCH","OB","FVG","LIQ_SWEEP"]}
+./verify_endpoints.py:403:                payload = {"symbol":DEFAULTS["symbol"], "tfs":["5m","15m","1h"]}
+~/workspace$ 
