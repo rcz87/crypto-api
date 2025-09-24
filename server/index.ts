@@ -489,9 +489,17 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
 
-  // 🔄 Backward compatibility alias: /api/gpts/* → /gpts/*
+  // 🔄 Backward compatibility aliases
+  
+  // /api/gpts/* → /gpts/*
   app.use('/api/gpts', (req, res) => {
     const target = req.originalUrl.replace(/^\/api\/gpts/, '/gpts');
+    return res.redirect(308, target);
+  });
+  
+  // /advanced/* → /py/advanced/* (two-way compatibility)
+  app.use('/advanced', (req, res) => {
+    const target = req.originalUrl.replace(/^\/advanced/, '/py/advanced');
     return res.redirect(308, target);
   });
 

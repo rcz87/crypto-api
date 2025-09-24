@@ -1,0 +1,86 @@
+Tujuan:
+1) Naikkan Core 12 jadi 12/12 PASSED.
+2) Sinkronkan OpenAPI YAML dengan endpoint real.
+3) Tambahkan observability, alias, dan CI tester.
+
+Aksi yang harus dilakukan:
+
+### A. Routing & Alias
+- Di Express/NGINX, tambahkan alias permanen:
+  - /api/gpts/*  → 308 → /gpts/*
+  - /py/advanced/* ↔ /advanced/* (two-way alias atau 308 → satu arah yang dipilih)
+- Commit: "feat(router): add compat aliases for /gpts and /advanced prefixes"
+
+### B. Fix 503 orderbook (upstream)
+- Di service Python advanced:
+  - Tambahkan retry sederhana (3x, backoff 0.25s) untuk call orderbook.
+  - Cache hasil 1–3 detik (in-memory/Redis) agar tidak memukul upstream.
+  - Normalisasi simbol agar cocok (SOL vs SOL-USDT) sesuai provider.
+- Commit: "fix(advanced): add retry+cache & symbol normalization for orderbook"
+
+### C. OpenAPI YAML sync (public/openapi-4.0.1-gpts-compat.yaml)
+- Tambahkan definisi untuk endpoint berikut:
+  - GET /gpts/health
+  - GET /gpts/unified/symbols
+  - GET /api/pairs/supported
+  - GET /api/{pair}/complete
+  - GET /api/{pair}/technical
+  - GET /api/{pair}/funding
+  - GET /api/{pair}/smc
+  - GET /api/{pair}/cvd
+  - GET /api/ai/signal
+  - GET /api/ai/enhanced-signal
+  - GET /api/premium/institutional-analytics
+  - GET /health
+- Pastikan {pair} di docs contoh = "sol" (lowercase) sesuai implementasi prod.
+- Commit: "docs(openapi): sync schema with live endpoints; normalize {pair}"
+
+### D. Observability
+- Tambahkan header rate-limit di AI endpoints:
+  - X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
+- Tambahkan log per 5xx & 429 → webhook Telegram (throttled).
+- Commit: "feat(obs): rate-limit headers + 5xx/429 telegram alerts"
+
+### E. CI Tester (verify_endpoints.py)
+- Tambahkan "STRICT mode" (env `STRICT_ONLY_YAML=true`) agar CI hanya uji endpoint yang ada di YAML.
+- Tambahkan summary output: passed/failed & publish CSV sebagai artifact.
+- Commit: "chore(ci): strict endpoint verification + artifacts"
+
+### F. Rerun Verifikasi
+- Jalankan verify_endpoints.py (STRICT) ke https://guardiansofthegreentoken.com
+- Target: Core 12 = 12/12 PASSED.
+- Simpan CSV & ringkasan TL;DR ke tools/testers/, lalu tampilkan di console.
+
+Output yang diharapkan:
+- TL;DR baru menegaskan 12/12 PASSED
+- probe_results.csv (STRICT) + ringkasan
+- konfirmasi OpenAPI sudah sinkron
+Bonus: command cepat smoke-test (prod)
+bash
+Salin kode
+BASE="https://guardiansofthegreentoken.com"
+
+# GPT actions
+curl -s -o /dev/null -w "[%{http_code}] /gpts/health\n" $BASE/gpts/health
+curl -s -o /dev/null -w "[%{http_code}] /gpts/unified/symbols\n" $BASE/gpts/unified/symbols
+
+# Core pair routes (pakai lowercase)
+for p in complete technical funding smc cvd; do
+  curl -s -o /dev/null -w "[%{http_code}] /api/sol/$p\n" $BASE/api/sol/$p
+done
+
+# AI endpoints
+curl -s -o /dev/null -w "[%{http_code}] /api/ai/signal\n" $BASE/api/ai/signal
+curl -s -o /dev/null -w "[%{http_code}] /api/ai/enhanced-signal\n" $BASE/api/ai/enhanced-signal
+
+# System
+curl -s -o /dev/null -w "[%{http_code}] /health\n" $BASE/health
+curl -s -o /dev/null -w "[%{http_code}] /api/pairs/supported\n" $BASE/api/pairs/supported
+Ringkas hasil CSV kamu (otomatis)
+Aku sudah:
+
+Membaca file kamu (probe_results.csv),
+
+Menampilkan ke UI (raw + ringkasan last-status + top 10 slow),
+
+Menyimpan ringkasan sebagai probe_summary.csv supaya gampang dishare.
