@@ -491,6 +491,12 @@ app.use((req, res, next) => {
   // Add response error interceptor before routes
   app.use(responseErrorInterceptor);
 
+  // 🔄 GPTs routing fix: Rewrite in-place alias /api/gpts/* → /gpts/*
+  app.use('/api/gpts', (req, _res, next) => {
+    req.url = req.originalUrl.replace(/^\/api\/gpts/, '/gpts');
+    next();
+  });
+
   const server = await registerRoutes(app);
 
   // 🔄 Backward compatibility aliases
