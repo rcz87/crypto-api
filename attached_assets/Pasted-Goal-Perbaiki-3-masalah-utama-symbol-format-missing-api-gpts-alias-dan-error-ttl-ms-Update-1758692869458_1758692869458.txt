@@ -1,0 +1,216 @@
+Goal:
+
+Perbaiki 3 masalah utama: symbol format, missing /api/gpts/* alias, dan error ttl_ms.
+
+Update tester supaya cocok dengan arsitektur nyata (gunakan /gpts/* & /api/{pair}/*), hormati rate limit, dan rerun verifikasi.
+
+Target Core 12: ≥ 11/12 PASSED. Domain: https://guardiansofthegreentoken.com
+.
+
+0) Konfigurasi umum
+
+BASE_URL = https://guardiansofthegreentoken.com
+
+Repo: yang aktif di Replit saat ini.
+
+Jika ada auth, tambahkan X-API-Key atau Authorization: Bearer sesuai env.
+
+1) Fix #1 — Symbol/Pair Format
+
+Masalah: Banyak endpoint core pakai pola /api/{pair}/* dengan pair lower-case (contoh: /api/sol/complete), bukan SOL-USDT.
+Aksi:
+
+Buka tools/testers/verify_endpoints.py (atau lokasi script verifikasi terbaru).
+
+Ubah DEFAULTS jadi:
+
+DEFAULTS = {
+    "pair":   "sol",   # ← WAS: SOL-USDT / SOL, ganti ke lower-case 'sol'
+    "symbol": "SOL",   # simbol untuk query (kalau perlu)
+    "asset":  "SOL",
+}
+
+
+Di fungsi fill_path_params, pastikan {pair} selalu diturunkan ke lower-case:
+
+if "pair" in key:
+    return DEFAULTS["pair"].lower()
+
+
+Pastikan path uji untuk market data/analysis pakai endpoint yang memang ada di YAML:
+
+/api/{pair}/complete
+
+/api/{pair}/technical
+
+/api/{pair}/funding
+
+/api/{pair}/smc
+
+/api/{pair}/cvd
+
+2) Fix #2 — Alias untuk /api/gpts/ (compat)
+
+Masalah: GPT Actions hidup di /gpts/*; tester lama cari /api/gpts/* → 404.
+Aksi (non-breaking alias):
+Di Express (mis. server/index.ts atau server/routes.ts) tambahkan redirect 308 agar keduanya valid:
+
+// Alias backward-compat untuk /api/gpts/* → /gpts/*
+app.use('/api/gpts', (req, res) => {
+  const target = req.originalUrl.replace(/^\/api\/gpts/, '/gpts');
+  return res.redirect(308, target);
+});
+
+
+Catatan: ini tidak mengubah handler eksisting; hanya alias untuk kompatibilitas tester & integrasi lama.
+
+3) Fix #3 — Python cache error (ttl_ms)
+
+Masalah: /py/advanced/ticker/SOL-USDT → 500 "set_cached() got an unexpected keyword argument 'ttl_ms'".
+Aksi (safe wrapper):
+
+Cari definisi set_cached dan semua pemanggilan ttl_ms=:
+
+grep -R --line-number "ttl_ms=" .
+grep -R --line-number "def set_cached" .
+
+
+Di modul cache utama (contoh core/redis_manager.py atau core/cache_manager.py), modifikasi fungsi jadi menerima keduanya:
+
+def set_cached(key, value, ttl=None, ttl_ms=None, **kwargs):
+    # Backward-compat: jika ttl_ms diisi, konversi ke detik
+    if ttl is None and ttl_ms is not None:
+        try:
+            ttl = max(1, int(round(float(ttl_ms)/1000.0)))
+        except Exception:
+            ttl = 60  # fallback aman 60s
+    # ... lanjutkan logika set cache (redis.setex / set) memakai ttl (detik)
+    # contoh:
+    # if ttl:
+    #     redis.setex(key, ttl, json.dumps(value))
+    # else:
+    #     redis.set(key, json.dumps(value))
+
+
+Jangan ubah pemanggilan lain; wrapper ini compat tanpa merusak call-site.
+
+4) Update tester agar sesuai arsitektur & hormati rate limit
+
+Masalah:
+
+Banyak 404 karena tester mencari /api/gpts/*.
+
+429 karena batasi “maks 5 AI analysis/min”.
+
+Aksi di tools/testers/verify_endpoints.py:
+
+Core set ganti agar sesuai realitas schema (berdasarkan YAML & hasil agent):
+
+CORE12 = [
+    {"method":"GET", "path":"/gpts/health"},
+    {"method":"GET", "path":"/gpts/unified/symbols"},
+
+    {"method":"GET", "path":"/api/pairs/supported"},
+    {"method":"GET", "path":"/api/{pair}/complete"},
+    {"method":"GET", "path":"/api/{pair}/technical"},
+    {"method":"GET", "path":"/api/{pair}/funding"},
+    {"method":"GET", "path":"/api/{pair}/smc"},
+    {"method":"GET", "path":"/api/{pair}/cvd"},
+
+    {"method":"GET", "path":"/api/ai/signal"},
+    {"method":"GET", "path":"/api/ai/enhanced-signal"},
+
+    {"method":"GET", "path":"/health"},
+    {"method":"GET", "path":"/api/premium/institutional-analytics"}
+]
+
+
+(Jika /advanced/* memang ada di YAML final kamu, boleh tambahkan setelah ini; kalau tidak, jangan dipaksa.)
+
+Hilangkan harapan ke /api/gpts/* dari tester (biar tidak laporan palsu 404).
+
+Throttle endpoint berat (AI/analysis) untuk hindari 429:
+
+Tambahkan queue sederhana: setiap call ke /api/ai/signal dan /api/ai/enhanced-signal, beri time.sleep(12) sebelum lanjut call berat lain.
+
+Atau buat set HEAVY_ENDPOINTS = {"/api/ai/signal", "/api/ai/enhanced-signal", "/gpts/unified/advanced"} dan enforce jarak 12–15 detik.
+
+Contoh minimal:
+
+HEAVY = ("/api/ai/signal", "/api/ai/enhanced-signal", "/gpts/unified/advanced")
+last_heavy_ts = 0
+
+def maybe_throttle(path):
+    nonlocal last_heavy_ts
+    import time
+    if any(x in path for x in HEAVY):
+        gap = time.time() - last_heavy_ts
+        if gap < 12:
+            time.sleep(12 - gap)
+        last_heavy_ts = time.time()
+# panggil maybe_throttle(final_path) tepat sebelum request dieksekusi
+
+
+Alias tetap dipertahankan (mis. /py/advanced/* → /advanced/*) sebagai fallback.
+
+5) Re-run verifikasi (STRICT + FULL)
+
+Jalankan tester update (STRICT: hanya yang ada di YAML + CORE12 baru).
+
+Simpan CSV tools/testers/probe_results.csv.
+
+Target pass:
+
+Core 12: minimal 11/12 PASSED (ideal 12/12).
+
+Total: tren meningkat (⚠️ & ❌ berkurang signifikan).
+
+6) (Opsional tapi bagus) — Sinkronkan OpenAPI YAML
+
+Tambahkan endpoint GPT health/unified ke YAML jika belum.
+
+Tambahkan grup /api/{pair}/* lengkap (smc, cvd, technical, funding).
+
+Hapus rujukan ke /api/gpts/* bila memang tidak dipakai.
+
+Commit message yang dipakai:
+
+fix: normalize pair to lower-case 'sol' for path params
+
+feat(express): add 308 alias /api/gpts/* -> /gpts/* for backward compatibility
+
+fix(python-cache): accept ttl_ms in set_cached with seconds conversion
+
+chore(tester): align core set to YAML; add AI throttling; reduce false 404
+
+7) Sukses criteria & laporan akhir
+
+Cetak TL;DR baru + tabel Markdown + probe_results.csv (43+ rows).
+
+Jika masih ada ⚠️/❌:
+
+404 → tunjukkan path & sarankan registrasi/alias spesifik.
+
+405 → sarankan method yang benar (GET/POST yang sesuai).
+
+429 → sebutkan endpoint yang kena dan waktu tunggu disarankan.
+
+5xx → tampilkan stack/“snippet” error singkat.
+
+🎯 Eksekusi sekarang
+
+Lakukan langkah 1–5 di atas berurutan, commit perubahan kecil per langkah, lalu running ulang verifikasi. Kirimkan ringkasan final + tools/testers/probe_results.csv. Target: Core 12 ≥ 11/12 PASSED.
+
+TL;DR versi manusia:
+
+Ubah default pair jadi sol (lowercase) → 400 hilang.
+
+Tambah alias /api/gpts/* → /gpts/* di Express → 404 palsu hilang.
+
+Perbaiki ttl_ms di Python cache (wrapper) → 500 hilang.
+
+Update tester (endpoint sesuai YAML + throttle AI) → 429 turun drastis.
+
+Rerun verifikasi sampai hijau.
+
+Kalau sudah dieksekusi, drop hasil TL;DR baru ke sini. Aku siap cek delta-nya & push tweak terakhir biar 12/12 tembus. 🚀

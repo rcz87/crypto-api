@@ -25,8 +25,8 @@ X_API_KEY     = os.environ.get("X_API_KEY", "").strip()
 AUTH_BEARER   = os.environ.get("AUTH_BEARER", "").strip()
 
 DEFAULTS = {
-    "pair":   "SOL-USDT",
-    "symbol": "SOL-USDT",
+    "pair":   "sol",      # ← Fixed: lowercase untuk /api/{pair}/* paths
+    "symbol": "SOL",      # ← Symbol untuk query parameters 
     "asset":  "SOL",
 }
 
@@ -94,7 +94,7 @@ def fill_path_params(path: str) -> str:
     # Replace {pair}, {symbol}, etc.
     def repl_curly(m):
         key = m.group(1).lower()
-        if "pair" in key:   return DEFAULTS["pair"]
+        if "pair" in key:   return DEFAULTS["pair"].lower()  # ← Ensure lowercase
         if "symbol" in key: return DEFAULTS["symbol"]
         if "asset" in key:  return DEFAULTS["asset"]
         return key  # fallback
@@ -124,21 +124,42 @@ def alias_paths(path: str) -> List[str]:
 # Core 12 (tambahan luar YAML)
 # =========================
 CORE12 = [
-    {"method":"GET" , "path":"/gpts/health"},
-    {"method":"GET" , "path":"/gpts/unified/symbols"},
-    {"method":"GET" , "path":"/gpts/coinglass/whale-data?symbol=BTCUSDT"},
-    {"method":"GET" , "path":"/api/gpts/status"},
-    {"method":"GET" , "path":f"/api/gpts/signal?symbol={DEFAULTS['symbol']}&tf=15m"},
-    {"method":"GET" , "path":f"/api/gpts/sinyal/tajam?symbol={DEFAULTS['symbol']}&tf=1h&format=json"},
-    {"method":"POST", "path":"/api/gpts/market-data", "json":{"symbol":DEFAULTS["symbol"], "tf":"1h", "limit":100}},
-    {"method":"POST", "path":"/api/gpts/analysis", "json":{"symbol":DEFAULTS["symbol"], "tf":"4h"}},
-    {"method":"POST", "path":"/api/gpts/smc-analysis", "json":{"symbol":DEFAULTS["symbol"], "tfs":["5m","15m","1h"], "features":["BOS","CHOCH","OB","FVG","LIQ_SWEEP"]}},
-    {"method":"POST", "path":"/api/gpts/smc-zones", "json":{"symbol":DEFAULTS["symbol"], "tfs":["5m","15m","1h"]}},
-    {"method":"GET" , "path":"/advanced/whale/alerts"},
-    {"method":"GET" , "path":f"/advanced/options/oi/{DEFAULTS['symbol']}"},
-    {"method":"GET" , "path":f"/advanced/spot/orderbook/{DEFAULTS['symbol']}"},
-    {"method":"GET" , "path":"/api/performance/stats"},
+    # GPT Actions (confirmed working)
+    {"method":"GET", "path":"/gpts/health"},
+    {"method":"GET", "path":"/gpts/unified/symbols"},
+    
+    # Core API endpoints (dari YAML real)
+    {"method":"GET", "path":"/api/pairs/supported"},
+    {"method":"GET", "path":f"/api/{DEFAULTS['pair']}/complete"},
+    {"method":"GET", "path":f"/api/{DEFAULTS['pair']}/technical"},
+    {"method":"GET", "path":f"/api/{DEFAULTS['pair']}/funding"},
+    {"method":"GET", "path":f"/api/{DEFAULTS['pair']}/smc"},
+    {"method":"GET", "path":f"/api/{DEFAULTS['pair']}/cvd"},
+    
+    # AI endpoints (dengan throttling)
+    {"method":"GET", "path":"/api/ai/signal"},
+    {"method":"GET", "path":"/api/ai/enhanced-signal"},
+    
+    # System health & premium
+    {"method":"GET", "path":"/health"},
+    {"method":"GET", "path":"/api/premium/institutional-analytics"}
 ]
+
+# =========================
+# AI Throttling untuk mencegah 429 errors
+# =========================
+HEAVY_ENDPOINTS = ("/api/ai/signal", "/api/ai/enhanced-signal", "/gpts/unified/advanced", "/api/ai/")
+last_heavy_ts = 0
+
+def maybe_throttle(path: str):
+    """Add throttling for AI/heavy endpoints"""
+    global last_heavy_ts
+    if any(x in path for x in HEAVY_ENDPOINTS):
+        gap = time.time() - last_heavy_ts
+        if gap < 12:  # 12 second gap between AI calls
+            print(f"🐌 Throttling {path}: waiting {12-gap:.1f}s...")
+            time.sleep(12 - gap)
+        last_heavy_ts = time.time()
 
 # =========================
 # Probe runner
@@ -212,6 +233,9 @@ def main():
         status, latency, snippet, final_path = None, None, None, None
         # try variants until one returns non-error/timeout
         for pv in path_variants:
+            # Add throttling for AI endpoints
+            maybe_throttle(pv)
+            
             if method == "GET":
                 s, ms, snip = http_get(pv)
             elif method == "POST":

@@ -44,11 +44,27 @@ def get_cached(key: str, ttl_ms: int = 300) -> Optional[Any]:
     return entry["data"]
 
 
-def set_cached(key: str, data: Any) -> None:
-    """Store data in cache with current timestamp"""
+def set_cached(key: str, data: Any, ttl=None, ttl_ms=None, **kwargs) -> None:
+    """Store data in cache with current timestamp
+    
+    Args:
+        key: Cache key
+        data: Data to cache
+        ttl: TTL in seconds (optional)
+        ttl_ms: TTL in milliseconds (backward compatibility, optional)
+        **kwargs: Additional parameters for compatibility
+    """
+    # Backward-compat: jika ttl_ms diisi, konversi ke detik
+    if ttl is None and ttl_ms is not None:
+        try:
+            ttl = max(1, int(round(float(ttl_ms)/1000.0)))
+        except Exception:
+            ttl = 60  # fallback aman 60s
+    
     _cache[key] = {
         "ts": time.time(),
-        "data": data
+        "data": data,
+        "ttl": ttl  # Store TTL for future use if needed
     }
 
 

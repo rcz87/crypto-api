@@ -489,6 +489,12 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
 
+  // 🔄 Backward compatibility alias: /api/gpts/* → /gpts/*
+  app.use('/api/gpts', (req, res) => {
+    const target = req.originalUrl.replace(/^\/api\/gpts/, '/gpts');
+    return res.redirect(308, target);
+  });
+
   // 🎯 GPTs Gateway proxy middleware (AFTER Node.js routes to ensure Node.js gets priority)
   // This handles /gpts/* routes that weren't handled by Node.js (like /gpts/institutional/bias)
   app.use("/gpts", createProxyMiddleware({
