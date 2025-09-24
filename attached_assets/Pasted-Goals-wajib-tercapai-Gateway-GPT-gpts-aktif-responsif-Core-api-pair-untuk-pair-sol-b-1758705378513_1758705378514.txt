@@ -1,0 +1,186 @@
+Goals (wajib tercapai):
+
+✅ Gateway GPT /gpts/ aktif & responsif
+
+✅ Core /api/{pair} untuk pair sol berfungsi
+
+✅ AI endpoints berfungsi & tidak 429
+
+✅ CoinAPI endpoints sampel hidup
+
+✅ Laporan akhir berupa tabel PASS/ATTN/ERR + CSV + saran perbaikan
+
+✅ (Opsional kuat) /health.commit == HEAD Git (bukti build)
+
+Definition of Done (DoD):
+
+SMOKE (6 cek) lulus:
+GET /gpts/health = 200, GET /gpts/unified/symbols = 200,
+HEAD /api/gpts/signal = 308/200, GET /api/sol/complete = 200,
+GET /api/ai/signal = 200, POST /gpts/unified/advanced = 200 (hasil tidak kosong di ≥1 modul).
+
+DEEP VERIFY: Golden set ≥ 95% 2xx, tidak ada 5xx.
+
+Output:
+
+TL;DR OK/ATTN/ERR + 3 prioritas aksi,
+
+Tabel Markdown (No | Method | Path | Status | Latency | Note),
+
+tools/testers/probe_results.csv.
+
+0) Konfigurasi
+BASE_URL = https://guardiansofthegreentoken.com
+PAIR     = sol          # lowercase penting
+SYMBOL   = SOL
+STRICT_ONLY_YAML = true # deep-verify ikuti OpenAPI
+RAW_YAML = https://raw.githubusercontent.com/rcz87/crypto-api/main/public/openapi-4.0.1-gpts-compat.yaml
+
+
+Rate & cache guards (wajib diterapkan saat tes):
+
+Heavy ops (/gpts/unified/advanced, /api/ai/enhanced-signal) → ≤ 5/min, jeda 12–15 detik, random jitter 0.4–1.2s.
+
+Light ops (/api/ai/signal, /api/{pair}/*) → jeda 1–2 detik.
+
+Cache client minimal: unified 10–20s; analitik pair 60–120s.
+
+1) SMOKE (6 cek, wajib lulus)
+
+Jalankan berurutan, hormati pacing. Cetak HTTP code apa adanya:
+
+GET  /gpts/health
+GET  /gpts/unified/symbols
+HEAD /api/gpts/signal            # alias rewrite/proxy check (308/200)
+GET  /api/sol/complete
+GET  /api/ai/signal
+POST /gpts/unified/advanced  {"ops":["whale","heatmap","spot_ob"],"symbol":"SOL","timeframe":"1h","exchange":"okx","options":{"softFail":true,"maxRetries":2}}
+
+
+PASS criteria: 200, 200, 308/200, 200, 200, 200 (unified non-kosong ≥1 modul).
+
+2) DEEP VERIFY — Golden Set (tanpa menyerang /advanced/*)
+
+Uji hanya endpoint relevan untuk analisis tajam (hindari /advanced/* langsung; itu internal).
+
+A. GPT Actions
+
+GET  /gpts/health
+GET  /gpts/unified/symbols
+POST /gpts/unified/advanced  {"ops":["etf_flows","whale","heatmap","spot_ob"],"symbol":"SOL","timeframe":"1h","exchange":"okx","options":{"softFail":true,"maxRetries":2}}
+
+
+B. Core Pair (PAIR=sol)
+
+GET /api/sol/complete
+GET /api/sol/technical
+GET /api/sol/funding
+GET /api/sol/cvd
+GET /api/sol/smc
+
+
+C. AI & Enhanced
+
+GET /api/ai/signal
+GET /api/ai/enhanced-signal   # heavy: hormati pacing
+
+
+D. CoinAPI (sampel sehat)
+
+GET /api/coinapi/assets
+GET /api/coinapi/exchanges
+GET /api/coinapi/twap/SOLUSDT
+GET /api/coinapi/vwap/SOLUSDT
+
+
+E. System
+
+GET /health
+GET /metrics           # harap 200/Prometheus text
+
+
+Klasifikasi hasil:
+
+✅ PASS = 2xx
+
+⚠️ ATTENTION = 401/403/404/405/308 (beri saran singkat: auth, alias, method)
+
+❌ ERROR = 5xx/TIMEOUT (beri diagnosis & langkah patch singkat)
+
+Catatan penting:
+
+/advanced/ 404 itu expected (internal-only). Jangan ditandai error; tulis “INTERNAL-ONLY (expected 404)”.
+
+3) Autodiagnosis & saran singkat (jika ada ATTENTION/ERROR)
+
+HEAD /api/gpts/signal = 404 → taruh rewrite /api/gpts → /gpts di atas 404 handler; atau proxy /gpts/* ke 127.0.0.1:8000.
+
+/gpts/unified/ = 404* → gateway belum map path; tambah rule proxy untuk /gpts/*.
+
+5xx pada unified/AI → kurangi pace (12–15s), tambahkan cache 10–20s, retry 1x; log error snippet.
+
+CoinAPI 4xx → cek rate-limit/key; gunakan sampel ringan (assets/exchanges/twap/vwap).
+
+/metrics 404 → pastikan middleware metrics/register diinisialisasi.
+
+4) Output akhir (WAJIB)
+
+TL;DR: total tested, ✅/⚠️/❌, 3 action prioritas.
+
+Tabel Markdown: No | Method | Path | Status | Latency | Note.
+
+CSV: simpan tools/testers/probe_results.csv (kolom: method,path,status,latency_ms,snippet).
+
+(Opsional kuat) bukti build:
+
+GH=$(git rev-parse --short HEAD)
+/health.commit == GH  # cetak keduanya
+
+5) “No more fake fixed” (aturan pelaporan)
+
+DILARANG menulis “fixed” kalau ada cek yang gagal.
+
+Jika ada FAIL → tulis penyebab paling mungkin + patch 1–3 baris + file target.
+
+Kalau semua PASS → tulis “All PASS” + waktu total + link CSV.
+
+6) (Opsional, tapi mantap) — Quick patch rules yang boleh dijalankan bila ditemukan masalah klasik
+
+Jalankan hanya jika ditemukan gejala berikut, lalu ulangi SMOKE + DEEP VERIFY:
+
+A. Alias GPT (404)
+
+Tambah di entry server, sebelum router/404:
+
+app.use('/api/gpts', (req, _res, next) => {
+  req.url = req.originalUrl.replace(/^\/api\/gpts/, '/gpts'); next();
+});
+
+
+Pastikan proxy /gpts/* → http://127.0.0.1:8000.
+
+B. AI 429 / 5xx
+
+Tambah pacing 12–15s & cache 10–20s untuk unified/enhanced.
+
+C. CoinAPI 4xx/5xx
+
+Turunkan beban: uji assets, exchanges, twap, vwap.
+
+7) Laporan yang diharapkan (contoh)
+TL;DR — API Readiness
+Total tested: 18 | ✅ 17  ⚠️ 1  ❌ 0
+Actions: (1) Naikkan TTL cache unified jadi 20s; (2) tambah jitter 0.5–1.0s; (3) expose commit di /health.
+
+| No | Method | Path                           | Status | Latency | Note                       |
+|  1 | GET    | /gpts/health                   | 200    | 85 ms   | OK                         |
+|  2 | GET    | /gpts/unified/symbols          | 200    | 102 ms  | OK                         |
+|  3 | POST   | /gpts/unified/advanced         | 200    | 612 ms  | OK (whale & heatmap OK)    |
+|  4 | HEAD   | /api/gpts/signal               | 308    | 23 ms   | Alias OK                   |
+|  5 | GET    | /api/sol/complete              | 200    | 141 ms  | OK                         |
+...
+CSV: tools/testers/probe_results.csv
+Health: commit=abc1234 (== HEAD) ✅
+
+
+Catatan terakhir: Jangan uji /advanced/* secara langsung (internal-only). Jika terpaksa mengaudit /advanced/*, tandai INTERNAL-ONLY ketimbang error.

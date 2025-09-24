@@ -86,6 +86,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GPT Actions gateway routes (unified endpoints)
   registerGptsRoutes(app);
 
+  // 🔧 ALIAS FIX: /api/gpts/* → /gpts/* (per testing specification)
+  app.use('/api/gpts', (req: Request, res: Response, next: Function) => {
+    req.url = req.originalUrl.replace(/^\/api\/gpts/, '/gpts');
+    next();
+  });
+
   // 📊 SELECTIVE MONITORING ENDPOINTS - untuk visualisasi/monitoring only
   // Pertahankan /advanced/ internal, expose hanya yang diperlukan untuk dashboard
   const PY_BASE = process.env.PY_BASE || 'http://127.0.0.1:8000';
