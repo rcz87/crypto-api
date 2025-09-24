@@ -1,0 +1,129 @@
+Anda adalah AI Agent Replit bertugas memverifikasi endpoint produksi terhadap schema OpenAPI.
+
+# KONFIG WAJIB
+BASE_URL="https://guardiansofthegreentoken.com"
+RAW_YAML="https://raw.githubusercontent.com/rcz87/crypto-api/main/public/openapi-4.0.1-gpts-compat.yaml"
+
+# OPSIONAL AUTH (isi jika perlu)
+# HEADERS={"X-API-Key":"<API_KEY_SAYA>"}  # atau Authorization: Bearer <TOKEN>
+
+# KONTEKS ARSITEKTUR
+- Cluster GPT Actions (tanpa /api):    /gpts/*
+- Node.js Express Gateway:             /api/*
+- Python FastAPI Advanced:             /advanced/*
+
+# TUGAS ANDA
+1) Ambil & parse OpenAPI YAML dari RAW_YAML → ekstrak (METHOD, PATH).
+2) (Opsional) Coba ambil schema JSON dari server jika tersedia di:
+   - /api/openapi_schema, /openapi.json, /.well-known/openapi.json
+   Lakukan DIFF dengan YAML (hanya jika ketemu).
+3) Normalisasi METHOD & contoh request minimal:
+   # GET (pakai query default)
+   - /gpts/health
+   - /gpts/unified/symbols
+   - /gpts/coinglass/whale-data                ?symbol=BTCUSDT (jika butuh)
+   - /api/gpts/status
+   - /api/gpts/signal                          ?symbol=SOL-USDT&tf=15m
+   - /api/gpts/sinyal/tajam                    ?symbol=SOL-USDT&tf=1h&format=json
+   - /api/performance/stats
+   # POST (payload minimal)
+   - /api/gpts/market-data      {"symbol":"SOL-USDT","tf":"1h","limit":100}
+   - /api/gpts/analysis         {"symbol":"SOL-USDT","tf":"4h"}
+   - /api/gpts/smc-analysis     {"symbol":"SOL-USDT","tfs":["5m","15m","1h"],"features":["BOS","CHOCH","OB","FVG","LIQ_SWEEP"]}
+   - /api/gpts/smc-zones        {"symbol":"SOL-USDT","tfs":["5m","15m","1h"]}
+   # Advanced (FastAPI) bila ada di YAML:
+   - /advanced/whale/alerts
+   - /advanced/options/oi/SOL-USDT (GET)
+   - /advanced/spot/orderbook/SOL-USDT (GET)
+   - /advanced/liquidation/coin-history?symbol=SOL-USDT-SWAP (GET)
+
+4) PROBE semua endpoint dari YAML:
+   - Untuk GET → timeout 15s; untuk POST → timeout 25s
+   - Sertakan HEADERS jika di-set
+   - Catat: status_code, waktu respon (ms), potongan body (maks 200 char)
+   - Klasifikasikan:
+     ✅ 2xx (OK), ⚠️ 4xx/405 (butuh perhatian), ❌ error/timeout
+
+5) OUTPUT WAJIB:
+   - TL;DR ringkas (berapa OK/Warning/Error)
+   - Tabel Markdown: No | Method | Path | Status | Catatan (<= 1 kalimat)
+   - Checklist aksi:
+     - [ ] 404 → kemungkinan prefix beda (/gpts vs /api/gpts) atau blueprint belum di-register
+     - [ ] 405 → salah method (mis. harus POST bukan GET)
+     - [ ] 401/403 → butuh API key/role → ulangi dengan header auth
+     - [ ] 5xx/timeout → lihat log service upstream
+   - Simpan CSV `tools/testers/probe_results.csv` (kolom: method,path,status,latency_ms,snippet)
+
+6) ATURAN KHUSUS UNTUK SISTEM INI:
+   - Uji **dua jalur** bila ada duplikasi di YAML: versi **/gpts/** dan versi **/api/gpts/** (fallback), lalu tandai mana yang hidup di produksi.
+   - Untuk CoinGlass/derivatives, gunakan simbol contoh:
+     - SOL-USDT untuk spot; SOL-USDT-SWAP untuk futures (liquidation/history).
+   - Jangan ubah nama endpoint di laporan; hanya laporkan gap.
+
+7) KRITERIA LULUS “CORE 12”:
+   Wajib 200 OK untuk:
+   - /gpts/health
+   - /api/gpts/status
+   - /api/performance/stats
+   - /api/gpts/signal (GET, SOL-USDT 15m)
+   - /api/gpts/sinyal/tajam (GET, SOL-USDT 1h json) — jika 405, coba POST sesuai schema
+   - /api/gpts/market-data (POST)
+   - /api/gpts/analysis (POST)
+   - /api/gpts/smc-analysis (POST)
+   - /api/gpts/smc-zones (POST)
+   - /advanced/whale/alerts (GET) — jika ada di YAML
+   - /advanced/options/oi/SOL-USDT (GET) — jika ada di YAML
+   - /advanced/spot/orderbook/SOL-USDT (GET) — jika ada di YAML
+
+8) DELIVERABLES
+   - Console: ringkasan + tabel
+   - File: tools/testers/probe_results.csv
+✅ Core set yang akan dicek (ringkasan)
+Kategori	Method	Path (Produksi)	Catatan
+GPT Actions	GET	/gpts/health	liveness cluster GPT
+GPT Actions	GET	/gpts/unified/symbols	daftar simbol
+Coinglass GPT	GET	/gpts/coinglass/whale-data?symbol=BTCUSDT	preview data whale
+Gateway	GET	/api/gpts/status	status lengkap
+Signal	GET	/api/gpts/signal?symbol=SOL-USDT&tf=15m	quick signal
+Signal Tajam	GET→(fallback POST)	/api/gpts/sinyal/tajam?symbol=SOL-USDT&tf=1h&format=json	kalau 405 → POST
+Market Data	POST	/api/gpts/market-data	OHLC
+Analysis	POST	/api/gpts/analysis	MTF analysis
+SMC	POST	/api/gpts/smc-analysis	BOS/CHoCH/OB/FVG
+SMC Zones	POST	/api/gpts/smc-zones	zona OB/FVG
+Perf	GET	/api/performance/stats	metrik
+Advanced	GET	/advanced/whale/alerts	bila ada di YAML
+
+🧪 (Opsional) Smoke test manual cepat (copy–paste di shell)
+Bagus buat sanity check sebelum/selesai agent jalan.
+
+bash
+Salin kode
+BASE="https://guardiansofthegreentoken.com"
+
+# GETs
+curl -s -o /dev/null -w "[%{http_code}] /gpts/health\n"               "$BASE/gpts/health"
+curl -s -o /dev/null -w "[%{http_code}] /api/gpts/status\n"          "$BASE/api/gpts/status"
+curl -s -o /dev/null -w "[%{http_code}] /api/performance/stats\n"    "$BASE/api/performance/stats"
+curl -s -o /dev/null -w "[%{http_code}] /api/gpts/signal\n"          "$BASE/api/gpts/signal?symbol=SOL-USDT&tf=15m"
+curl -s -o /dev/null -w "[%{http_code}] /api/gpts/sinyal/tajam\n"    "$BASE/api/gpts/sinyal/tajam?symbol=SOL-USDT&tf=1h&format=json"
+
+# POSTs
+curl -s -o /dev/null -w "[%{http_code}] /api/gpts/market-data\n" \
+  -H "Content-Type: application/json" \
+  -d '{"symbol":"SOL-USDT","tf":"1h","limit":100}' \
+  "$BASE/api/gpts/market-data"
+
+curl -s -o /dev/null -w "[%{http_code}] /api/gpts/analysis\n" \
+  -H "Content-Type: application/json" \
+  -d '{"symbol":"SOL-USDT","tf":"4h"}' \
+  "$BASE/api/gpts/analysis"
+
+curl -s -o /dev/null -w "[%{http_code}] /api/gpts/smc-analysis\n" \
+  -H "Content-Type: application/json" \
+  -d '{"symbol":"SOL-USDT","tfs":["5m","15m","1h"],"features":["BOS","CHOCH","OB","FVG","LIQ_SWEEP"]}' \
+  "$BASE/api/gpts/smc-analysis"
+
+curl -s -o /dev/null -w "[%{http_code}] /api/gpts/smc-zones\n" \
+  -H "Content-Type: application/json" \
+  -d '{"symbol":"SOL-USDT","tfs":["5m","15m","1h"]}' \
+  "$BASE/api/gpts/smc-zones"
