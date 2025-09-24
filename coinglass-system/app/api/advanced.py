@@ -744,7 +744,7 @@ async def _binance_orderbook_fallback(symbol: str, limit: int = 50):
     
     # Check cache first (1-3 second TTL)
     cache_key = f"orderbook_{normalized_symbol}_{limit}"
-    cached_data = get_cached(cache_key, ttl_ms=2000)  # 2 second cache
+    cached_data = get_cached(cache_key)  # 2 second cache
     if cached_data:
         logger.debug(f"🔄 Using cached orderbook for {normalized_symbol}")
         return cached_data
@@ -804,7 +804,7 @@ async def _okx_orderbook_fallback(symbol: str, limit: int = 50):
     
     # Check cache first
     cache_key = f"okx_orderbook_{normalized_symbol}_{limit}"
-    cached_data = get_cached(cache_key, ttl_ms=3000)  # 3 second cache for OKX
+    cached_data = get_cached(cache_key)  # 3 second cache for OKX
     if cached_data:
         logger.debug(f"🔄 Using cached OKX orderbook for {normalized_symbol}")
         return cached_data

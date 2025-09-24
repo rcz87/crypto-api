@@ -90,7 +90,7 @@ class ReplDBCacheManager:
         try:
             current_value = self.get(key, 0)
             if isinstance(current_value, (int, float)):
-                new_value = current_value + amount
+                new_value = int(current_value + amount)  # Convert to int
                 self.set(key, new_value)
                 return new_value
             else:

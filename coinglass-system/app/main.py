@@ -212,7 +212,7 @@ async def ticker_data(symbol: str):
         cache_key = _key(f"/ticker/{internal_symbol}", {})
         
         # Check cache first (60s TTL for real price data)
-        cached_data = get_cached(cache_key, ttl_ms=60000)  # 60s = 60000ms
+        cached_data = get_cached(cache_key)
         if cached_data:
             logger.debug(f"[CACHE HIT] Ticker {internal_symbol} (age: {cached_data.get('age_sec', 'unknown')}s)")
             return cached_data
@@ -221,7 +221,7 @@ async def ticker_data(symbol: str):
         lock = await singleflight(cache_key)
         try:
             # Double-check cache after acquiring lock
-            cached_data = get_cached(cache_key, ttl_ms=60000)
+            cached_data = get_cached(cache_key)
             if cached_data:
                 logger.debug(f"[CACHE HIT AFTER LOCK] Ticker {internal_symbol}")
                 return cached_data
