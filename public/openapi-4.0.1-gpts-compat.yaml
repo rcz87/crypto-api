@@ -2700,6 +2700,90 @@ paths:
                   timestamp: { type: string, format: date-time }
         '500': { $ref: '#/components/responses/ProblemResponse' }
 
+  /gpts/health:
+    get:
+      operationId: getGPTsHealth
+      summary: GPT Actions service health check
+      description: "🔓 Health check endpoint for GPT Actions service. Returns operational status and timestamp. No authentication required."
+      tags: ["🚀 GPT Actions"]
+      security: []
+      responses:
+        '200':
+          description: Service health status
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      status: { type: string, example: "operational" }
+                      timestamp: { type: string, format: date-time }
+                      service: { type: string, example: "gpts-gateway" }
+                      version: { type: string, example: "1.0.0" }
+                  timestamp: { type: string, format: date-time }
+                required: ["success", "data", "timestamp"]
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "GPT Actions service unavailable" }
+                  timestamp: { type: string, format: date-time }
+
+  /gpts/unified/symbols:
+    get:
+      operationId: getGPTsUnifiedSymbols
+      summary: Get all supported symbols for GPT Actions
+      description: "🔓 Returns 56+ supported cryptocurrency symbols for use with GPT Actions endpoints. Includes major cryptos (BTC, ETH, SOL), DeFi tokens (UNI, AAVE), and other supported assets. No authentication required."
+      tags: ["🚀 GPT Actions"]
+      security: []
+      responses:
+        '200':
+          description: List of supported symbols
+          headers:
+            RateLimit-Limit: { $ref: '#/components/headers/RateLimit-Limit' }
+            RateLimit-Remaining: { $ref: '#/components/headers/RateLimit-Remaining' }
+            RateLimit-Reset: { $ref: '#/components/headers/RateLimit-Reset' }
+            RateLimit-Policy: { $ref: '#/components/headers/RateLimit-Policy' }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      symbols:
+                        type: array
+                        items: { type: string }
+                        example: ["BTC", "ETH", "SOL", "ADA", "AVAX", "DOT", "ATOM", "NEAR", "ALGO", "FTM", "LUNA", "ONE", "MATIC", "ARB", "OP", "LRC", "UNI", "SUSHI", "AAVE", "COMP", "MKR", "SNX", "CRV", "1INCH", "YFI", "DOGE", "SHIB", "PEPE", "FLOKI", "BONK"]
+                      count: { type: integer, example: 56 }
+                      updated: { type: string, format: date-time }
+                  timestamp: { type: string, format: date-time }
+                required: ["success", "data", "timestamp"]
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "Symbols service unavailable" }
+                  timestamp: { type: string, format: date-time }
+
   /gpts/unified/advanced:
     post:
       operationId: unifiedAdvancedEndpoint
