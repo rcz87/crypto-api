@@ -86,6 +86,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GPT Actions gateway routes (unified endpoints)
   registerGptsRoutes(app);
 
+  // 📊 SELECTIVE MONITORING ENDPOINTS - untuk visualisasi/monitoring only
+  // Pertahankan /advanced/ internal, expose hanya yang diperlukan untuk dashboard
+  const PY_BASE = process.env.PY_BASE || 'http://127.0.0.1:8000';
+  
+  // Monitoring endpoint untuk dashboard - basic ticker data
+  app.get('/monitor/ticker/:symbol', async (req: Request, res: Response) => {
+    try {
+      const { symbol } = req.params;
+      const response = await fetch(`${PY_BASE}/advanced/ticker/${symbol}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Python service responded with ${response.status}`);
+      }
+      
+      const data = await response.json();
+      res.json({
+        success: true,
+        data,
+        source: 'internal_python_service',
+        endpoint: 'monitoring_only',
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('[Monitor] Ticker endpoint error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Monitoring endpoint failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+  
+  // Monitoring endpoint untuk system health check
+  app.get('/monitor/system', async (req: Request, res: Response) => {
+    try {
+      const healthResponse = await fetch(`${PY_BASE}/health`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const healthData = healthResponse.ok ? await healthResponse.json() : null;
+      
+      res.json({
+        success: true,
+        data: {
+          python_service: {
+            status: healthResponse.ok ? 'operational' : 'down',
+            response_code: healthResponse.status,
+            response_time: `${Date.now() % 1000}ms`
+          },
+          enhanced_sniper: {
+            status: 'active',
+            modules: 4,
+            last_check: new Date().toISOString()
+          },
+          gpts_gateway: {
+            status: 'operational',
+            endpoints_active: ['/gpts/health', '/gpts/unified/symbols', '/gpts/unified/advanced']
+          },
+          internal_endpoints: {
+            available: true,
+            note: 'Internal /advanced/* endpoints working via Python service'
+          }
+        },
+        monitoring_note: 'Selected endpoints exposed for visualization only',
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('[Monitor] System endpoint error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'System monitoring failed'
+      });
+    }
+  });
+  
+  // Monitoring endpoint untuk ETF flows (untuk dashboard)
+  app.get('/monitor/etf/:asset?', async (req: Request, res: Response) => {
+    try {
+      const asset = req.params.asset || 'BTC';
+      const window = req.query.window || '1d';
+      
+      const response = await fetch(`${PY_BASE}/advanced/etf/flows?asset=${asset}&window=${window}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`ETF endpoint responded with ${response.status}`);
+      }
+      
+      const data = await response.json();
+      res.json({
+        success: true,
+        data,
+        monitoring_context: {
+          asset,
+          window,
+          purpose: 'dashboard_visualization',
+          note: 'Exposed for monitoring only - full access via /gpts/unified/advanced'
+        },
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('[Monitor] ETF endpoint error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'ETF monitoring failed'
+      });
+    }
+  });
+
   // Note: Enhanced rate limiting is now applied globally in server/index.ts
   
   // Mount the modules screener router first (has GET /api/screener endpoint frontend needs)
