@@ -29,7 +29,7 @@ export function globalErrorHandler(err: any, req: Request, res: Response, next: 
   });
   
   // Send error response
-  const errorResponse = {
+  const errorResponse: any = {
     success: false,
     error: statusCode >= 500 ? 'Internal server error' : err.message,
     timestamp: new Date().toISOString(),
@@ -39,8 +39,8 @@ export function globalErrorHandler(err: any, req: Request, res: Response, next: 
   
   // Add more details in development
   if (process.env.NODE_ENV === 'development') {
-    errorResponse['details'] = err.message;
-    errorResponse['stack'] = err.stack;
+    errorResponse.details = err.message;
+    errorResponse.stack = err.stack;
   }
   
   res.status(statusCode).json(errorResponse);

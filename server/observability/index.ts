@@ -47,7 +47,7 @@ export interface ObservabilitySystemStatus {
 
 class ObservabilitySystem {
   private initialized = false;
-  private schedulerInterval: NodeJS.Timer | null = null;
+  private schedulerInterval: NodeJS.Timeout | null = null;
   private migrationCompleted = false;
 
   /**
