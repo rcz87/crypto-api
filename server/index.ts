@@ -11,6 +11,14 @@ const app = express();
 // Trust proxy for proper IP detection behind Replit's proxy
 app.set('trust proxy', true);
 
+// 🔧 FIX #1: ALIAS REWRITE /api/gpts/* → /gpts/* (per testing specification)
+// IMPORTANT: Place BEFORE routes registration to intercept correctly
+app.use('/api/gpts', (req: Request, _res: Response, next: NextFunction) => {
+  // REWRITE in-place (not redirect) so HEAD/POST/GET all work properly
+  req.url = req.originalUrl.replace(/^\/api\/gpts/, '/gpts');
+  next();
+});
+
 // Whitelist domains for CORS
 const allowedOrigins = [
   'http://localhost:5000',

@@ -1,0 +1,145 @@
+mantap, report-nya rapi banget. 16/18 PASS (89%) udah sangat siap produksi. Tinggal “rapihin dua ujung kabel” biar 100%:
+
+TL;DR
+
+Fix #1 (alias): HEAD /api/gpts/signal = 404 ⇒ tambahkan rewrite /api/gpts/* → /gpts/* di atas 404 handler.
+
+Fix #2 (build-proof): /health belum ada commit ⇒ expose commit + verify == HEAD.
+
+Optimasi: puncak latency ~9.85s di /gpts/unified/advanced ⇒ kecilkan tail dengan caching pendek (10–20s) + parallel ops + timeout per modul.
+
+Di bawah ini patch siap tempel + langkah cepat republish + prompt Agent mini buat otomatisasi.
+
+1) Patch alias (HEAD & GET keduanya hijau)
+
+Taruh setelah app = express() & sebelum router/404/error handler.
+
+// server/index.ts (atau src/app.ts)
+app.use('/api/gpts', (req, _res, next) => {
+  // REWRITE in-place (bukan redirect) supaya HEAD/POST/GET semua aman
+  req.url = req.originalUrl.replace(/^\/api\/gpts/, '/gpts');
+  next();
+});
+
+
+Kenapa rewrite? Lebih stabil (tanpa round-trip), dan HEAD otomatis di-handle router GET.
+
+2) Patch /health — expose commit (bukti build)
+// server/index.ts (atau src/app.ts)
+app.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    commit: process.env.GIT_COMMIT || 'unknown',
+    time: new Date().toISOString(),
+  });
+});
+
+
+Saat start / deploy, set env:
+
+export GIT_COMMIT=$(git rev-parse --short HEAD)
+# lalu jalankan start/redeploy seperti biasa
+
+
+Smoke verifikasi:
+
+GH=$(git rev-parse --short HEAD)
+PR=$(curl -s https://guardiansofthegreentoken.com/health | jq -r .commit)
+echo "GITHUB=$GH  PROD=$PR"
+# harus sama
+
+3) Optimasi latency /gpts/unified/advanced (target p95 < 4s)
+
+Langkah cepat & aman (tanpa ubah arsitektur):
+
+Cache hasil unified per (symbol,timeframe,ops) 10–20s (in-memory/Redis).
+
+Parallel ops: jalankan etf_flows / whale / heatmap / spot_ob secara paralel (async gather).
+
+Timeout per modul: 2.5–3.0s/module (soft-fail) → jangan tunggu modul yang lambat.
+
+Retry ringan: 1x untuk empty data (100–250ms backoff).
+
+Jeda GPT: 12–15s antar heavy call (kamu sudah respect ini; lanjutkan).
+
+Expose rate header di response: X-RateLimit-Remaining, dsb, agar klien taat pacing.
+
+Hasil real kamu menunjukkan semua modul sukses, jadi bottleneck murni tail latency. Empat poin di atas biasanya turunin p95 drastis.
+
+4) Replit — langkah republish singkat
+git add -A
+git commit -m "fix(router): rewrite /api/gpts/* -> /gpts/*; chore(health): expose commit"
+git push
+
+# Set commit env & redeploy
+export GIT_COMMIT=$(git rev-parse --short HEAD)
+# (Replit Deployments: Publish / Redeploy)
+
+
+Smoke 6 baris (wajib lulus):
+
+BASE="https://guardiansofthegreentoken.com"
+curl -s -o /dev/null -w "gpts/health: %{http_code}\n"           "$BASE/gpts/health"
+curl -s -o /dev/null -w "gpts/symbols: %{http_code}\n"          "$BASE/gpts/unified/symbols"
+curl -s -o /dev/null -w "api/gpts/signal (HEAD): %{http_code}\n" -I "$BASE/api/gpts/signal"
+curl -s -o /dev/null -w "sol/complete: %{http_code}\n"          "$BASE/api/sol/complete"
+curl -s -o /dev/null -w "ai/signal: %{http_code}\n"             "$BASE/api/ai/signal"
+curl -s -o /dev/null -w "unified: %{http_code}\n"               -X POST -H "Content-Type: application/json" \
+  -d '{"ops":["whale","heatmap","spot_ob"],"symbol":"SOL","timeframe":"1h","exchange":"okx","options":{"softFail":true,"maxRetries":2}}' \
+  "$BASE/gpts/unified/advanced"
+
+
+Expect: 200, 200, 308/200, 200, 200, 200.
+
+5) Prompt mini untuk Replit Agent (otomatisasi 2 perbaikan + verifikasi)
+
+Tempel prompt ini ke Agent; dia apply patch di atas, redeploy, lalu tes.
+
+TASK: Finalize API readiness (alias + health.commit) and verify.
+
+Steps:
+1) Add rewrite alias in server entry (index/app):
+   app.use('/api/gpts', (req, _res, next) => { req.url = req.originalUrl.replace(/^\/api\/gpts/, '/gpts'); next(); });
+
+2) Expose commit in /health:
+   app.get('/health', (_req,res)=>res.json({status:'ok', commit:process.env.GIT_COMMIT||'unknown', time:new Date().toISOString()}));
+
+3) Commit & push:
+   git add -A
+   git commit -m "fix(router): rewrite /api/gpts/* -> /gpts/*; chore(health): expose commit"
+   git push
+
+4) Redeploy with:
+   export GIT_COMMIT=$(git rev-parse --short HEAD)
+
+5) Smoke test (print results):
+   GET /gpts/health
+   GET /gpts/unified/symbols
+   HEAD /api/gpts/signal       # expect 308/200
+   GET  /api/sol/complete
+   GET  /api/ai/signal
+   POST /gpts/unified/advanced {"ops":["whale","heatmap","spot_ob"],"symbol":"SOL","timeframe":"1h","exchange":"okx","options":{"softFail":true,"maxRetries":2}}
+
+6) Verify build:
+   Print HEAD short SHA and /health.commit; MUST be equal.
+
+7) Output:
+   - TL;DR PASS/ATTN/ERR
+   - Table No | Method | Path | Status | Latency | Note
+   - Confirm "All PASS" or list remaining actions if any.
+
+6) Saran pasang SLO (biar analismu semakin tajam)
+
+/gpts/unified/advanced: p95 < 4s, error-rate < 0.1%
+
+/api/ai/signal: p95 < 1s
+
+Publish meter: Prometheus + alert Telegram kalau p95 > target > 3 menit berturut-turut.
+
+Ringkas
+
+Kamu sudah production-ready; tinggal alias HEAD (sekarang 404) & commit field di /health.
+
+Latency unified tinggal dirapikan dengan cache 10–20s + parallel ops + timeout modul.
+
+Setelah patch & redeploy, kirim hasil smoke 6 baris—aku cek lagi, pastikan 100% hijau.

@@ -68,7 +68,7 @@ export function registerSystemRoutes(app: Express): void {
     }
   });
 
-  // Comprehensive health check endpoint with OKX and CoinGlass connectivity test
+  // 🔧 FIX #2: Enhanced health endpoint with commit field (build verification)
   app.get('/health', async (req: Request, res: Response) => {
     try {
       const startTime = Date.now();
@@ -115,6 +115,7 @@ export function registerSystemRoutes(app: Express): void {
       const healthData = {
         status,
         timestamp: new Date().toISOString(),
+        commit: process.env.GIT_COMMIT || 'unknown',
         services: {
           okx: okxConnected ? 'connected' : 'error' as const,
           api: 'operational' as const,
