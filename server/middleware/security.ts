@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { metricsCollector } from '../utils/metrics';
 import { getClientIp, isLoopback, isPrivateNetwork } from '../utils/ip';
+import { errorAlerter } from '../observability/errorAlerter';
 
 // Rate limiting configuration for different endpoint tiers
 interface RateLimitConfig {
@@ -377,9 +378,10 @@ export function enhancedRateLimit(req: Request, res: Response, next: NextFunctio
     }
     // Still add rate limit headers for testing/consistency
     res.set({
-      'X-RateLimit-Limit': config.requests.toString(),
-      'X-RateLimit-Remaining': config.requests.toString(),
-      'X-RateLimit-Reset': new Date(Date.now() + config.windowMs).toISOString(),
+      'RateLimit-Limit': config.requests.toString(),
+      'RateLimit-Remaining': config.requests.toString(),
+      'RateLimit-Reset': Math.floor((Date.now() + config.windowMs) / 1000).toString(),
+      'RateLimit-Policy': `${config.requests};w=${Math.floor(config.windowMs / 1000)}`,
       'X-RateLimit-Tier': tier
     });
     return next();
@@ -403,16 +405,20 @@ export function enhancedRateLimit(req: Request, res: Response, next: NextFunctio
   const key = `${tier}:${clientIP}`;
   const result = rateLimitStore.increment(key, config.windowMs);
   
-  // Add rate limit headers
+  // Add standardized rate limit headers (RFC 6585 + draft-ietf-httpapi-ratelimit-headers)
   res.set({
-    'X-RateLimit-Limit': config.requests.toString(),
-    'X-RateLimit-Remaining': Math.max(0, config.requests - result.count).toString(),
-    'X-RateLimit-Reset': new Date(result.resetTime).toISOString(),
+    'RateLimit-Limit': config.requests.toString(),
+    'RateLimit-Remaining': Math.max(0, config.requests - result.count).toString(),
+    'RateLimit-Reset': Math.floor(result.resetTime / 1000).toString(),
+    'RateLimit-Policy': `${config.requests};w=${Math.floor(config.windowMs / 1000)}`,
     'X-RateLimit-Tier': tier
   });
 
   if (result.count > config.requests) {
     securityMonitor.recordRateLimitHit(clientIP, tier);
+    
+    // Record 429 error for alerting
+    errorAlerter.recordError(429, req.path, req.get('User-Agent'), clientIP);
     
     // Enhanced 429 response with security info
     res.status(429).json({
