@@ -32,10 +32,10 @@ run_test() {
     echo -n "🧪 Testing $test_name... "
     
     if [ "$method" = "GET" ]; then
-        response=$(curl -s -w "HTTPSTATUS:%{http_code}\nTIME:%{time_total}" \
+        response=$(curl -s -w "\nHTTPSTATUS:%{http_code}\nTIME:%{time_total}" \
                    --max-time $TIMEOUT "$url")
     else
-        response=$(curl -s -w "HTTPSTATUS:%{http_code}\nTIME:%{time_total}" \
+        response=$(curl -s -w "\nHTTPSTATUS:%{http_code}\nTIME:%{time_total}" \
                    --max-time $TIMEOUT \
                    -X "$method" \
                    -H "Content-Type: application/json" \
@@ -55,6 +55,9 @@ run_test() {
             success_field=$(echo "$body" | jq -r '.success // "null"')
             if [ "$success_field" = "true" ]; then
                 echo "   📊 Response: Valid JSON with success=true"
+            elif [ "$success_field" = "null" ]; then
+                # Some Python service responses don't include "success" field, that's OK
+                echo "   📊 Response: Valid JSON (success field not present - OK for Python service)"
             else
                 echo -e "   ${YELLOW}⚠️  Response: Valid JSON but success=${success_field}${NC}"
             fi
@@ -98,12 +101,12 @@ run_test "GPTs Batch Operations" "$BASE_URL/gpts/unified/advanced" "POST" '{"ops
 echo "⚡ PERFORMANCE VALIDATION:"
 echo "========================="
 
-start_time=$(date +%s.%3N)
+start_time=$(date +%s)
 curl -s --max-time $TIMEOUT "$BASE_URL/gpts/health" >/dev/null
-end_time=$(date +%s.%3N)
-response_time=$(echo "$end_time - $start_time" | bc -l)
+end_time=$(date +%s)
+response_time=$((end_time - start_time))
 
-if (( $(echo "$response_time < 5.0" | bc -l) )); then
+if [ $response_time -lt 5 ]; then
     echo -e "🚀 Performance: ${GREEN}EXCELLENT${NC} (${response_time}s < 5s threshold)"
 else
     echo -e "⚠️  Performance: ${YELLOW}SLOW${NC} (${response_time}s >= 5s threshold)"
