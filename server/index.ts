@@ -489,7 +489,13 @@ app.use((req, res, next) => {
   // 🚀 Initialize Institutional Alert System
   try {
     const { startInstitutionalScheduler, startSniperScheduler } = await import("./schedulers/institutional");
-    startInstitutionalScheduler();
+    
+    // 🚨 FIX: Add startup delay to prevent 502 errors during service initialization
+    // Wait 10 seconds after server starts to ensure all services are ready
+    setTimeout(() => {
+      log("🔧 Starting institutional bias scheduler after startup delay...");
+      startInstitutionalScheduler();
+    }, 10000);
     startSniperScheduler();
     log("✅ Institutional Alert System initialized - bias & sniper alerts active");
   } catch (error: any) {
