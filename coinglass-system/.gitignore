@@ -1,0 +1,22 @@
+# Environment & secrets
+.env
+client/.env
+coinglass-system/.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Logs
+logs/
+scripts/logs/
+*.log
+
+# Node modules & build
+node_modules/
+dist/
+build/
+
+# Local config
+.local/
+.config/
