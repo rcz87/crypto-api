@@ -38,7 +38,7 @@ class HeatmapRequest(BaseModel):
         return v.upper()
 
 class SignalRequest(BaseModel):
-    symbols: List[str] = Field(..., min_items=1, max_items=50)
+    symbols: List[str]
     signal_types: Optional[List[str]] = Field(default=None)
     severity_levels: Optional[List[str]] = Field(default=None)
     
@@ -73,7 +73,7 @@ class LiquidationFilter(BaseModel):
 class DataExportRequest(BaseModel):
     data_type: str = Field(..., pattern="^(liquidations|funding_rate|oi_data|heatmap)$")
     format: str = Field(default="json", pattern="^(json|csv|parquet)$")
-    symbols: List[str] = Field(..., min_items=1, max_items=20)
+    symbols: List[str]
     time_range: TimeRangeValidator
     filters: Optional[Dict[str, Any]] = None
     
@@ -84,7 +84,7 @@ class DataExportRequest(BaseModel):
 
 class WebhookConfig(BaseModel):
     url: str = Field(..., pattern=r'^https?://.+')
-    events: List[str] = Field(..., min_items=1)
+    events: List[str]
     secret: Optional[str] = Field(None, min_length=16)
     active: bool = Field(default=True)
     
