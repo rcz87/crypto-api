@@ -607,37 +607,73 @@ def get_supported_coins():
         client = CoinglassClient()
         raw_data = client.supported_coins()
         
+        # DEBUG: Log raw response format
+        logger.info(f"🔍 DEBUG market_coins - Raw data type: {type(raw_data)}")
+        logger.info(f"🔍 DEBUG market_coins - Raw data keys: {list(raw_data.keys()) if isinstance(raw_data, dict) else 'N/A'}")
+        if raw_data and 'data' in raw_data:
+            data_array = raw_data['data']
+            logger.info(f"🔍 DEBUG market_coins - Data array type: {type(data_array)}")
+            logger.info(f"🔍 DEBUG market_coins - Data array length: {len(data_array) if data_array else 0}")
+            if data_array and len(data_array) > 0:
+                first_item = data_array[0]
+                logger.info(f"🔍 DEBUG market_coins - First item type: {type(first_item)}")
+                logger.info(f"🔍 DEBUG market_coins - First item value: {first_item}")
+                
         # Validate and transform response
         supported_coins = []
-        if raw_data and 'data' in raw_data:
-            for record in raw_data['data']:
+        
+        # Handle data array that contains strings (symbol names)
+        if raw_data and 'data' in raw_data and isinstance(raw_data['data'], list):
+            data_array = raw_data['data']
+            for record in data_array:
                 try:
-                    coin = SupportedCoin(
-                        symbol=record.get('symbol', ''),
-                        name=record.get('name', record.get('symbol', '')),
-                        is_active=record.get('is_active', True),
-                        supported_intervals=record.get('intervals', ['1h', '4h', '1d']),
-                        exchange_availability=record.get('exchanges', [])
-                    )
-                    supported_coins.append(coin)
+                    # Check if record is a string (symbol) or dict (object)
+                    if isinstance(record, str):
+                        # Handle string symbols: "BTC", "ETH", etc.
+                        symbol = record.strip().upper()
+                        coin = SupportedCoin(
+                            symbol=symbol,
+                            name=symbol,  # Use symbol as name for simplicity
+                            is_active=True,
+                            supported_intervals=['1h', '4h', '1d'],
+                            exchange_availability=[]
+                        )
+                        supported_coins.append(coin)
+                        logger.debug(f"✅ Processed string symbol: {symbol}")
+                    elif isinstance(record, dict):
+                        # Handle object format: {"symbol": "BTC", "name": "Bitcoin", ...}
+                        symbol = record.get('symbol', '').strip().upper()
+                        if symbol:
+                            coin = SupportedCoin(
+                                symbol=symbol,
+                                name=record.get('name', symbol),
+                                is_active=record.get('is_active', True),
+                                supported_intervals=record.get('intervals', ['1h', '4h', '1d']),
+                                exchange_availability=record.get('exchanges', [])
+                            )
+                            supported_coins.append(coin)
+                            logger.debug(f"✅ Processed object symbol: {symbol}")
                 except Exception as e:
-                    logger.warning(f"Skipped invalid coin record: {e}")
+                    logger.warning(f"⚠️ Skipped invalid coin record ({type(record)}): {e}")
                     continue
         
-        # If raw_data is just a list of symbols (simpler format)
+        # Fallback: If raw_data is just a list of symbols (direct array format)
         elif isinstance(raw_data, list):
             for symbol in raw_data:
                 try:
-                    coin = SupportedCoin(
-                        symbol=symbol if isinstance(symbol, str) else symbol.get('symbol', ''),
-                        name=symbol if isinstance(symbol, str) else symbol.get('name', symbol.get('symbol', '')),
-                        is_active=True,
-                        supported_intervals=['1h', '4h', '1d'],
-                        exchange_availability=[]
-                    )
-                    supported_coins.append(coin)
+                    if isinstance(symbol, str):
+                        symbol_clean = symbol.strip().upper()
+                        coin = SupportedCoin(
+                            symbol=symbol_clean,
+                            name=symbol_clean,
+                            is_active=True,
+                            supported_intervals=['1h', '4h', '1d'],
+                            exchange_availability=[]
+                        )
+                        supported_coins.append(coin)
+                        logger.debug(f"✅ Processed direct symbol: {symbol_clean}")
                 except Exception as e:
-                    logger.warning(f"Skipped invalid coin symbol: {e}")
+                    logger.warning(f"⚠️ Skipped invalid coin symbol: {e}")
                     continue
         
         return SupportedCoinsResponse(
