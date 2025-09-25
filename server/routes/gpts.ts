@@ -89,7 +89,7 @@ export function registerGptsRoutes(app: Express): void {
       // Default coins jika tidak ada yang diminta
       const targetCoins = coins && Array.isArray(coins) ? coins : ['BTC', 'ETH', 'SOL'];
       
-      let whaleData = [];
+      let whaleData: any[] = [];
       
       if (operation === 'scan' || operation === 'monitor') {
         // Jalankan whale detector real-time
@@ -341,7 +341,7 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
 
       // If Python service succeeds, check JSON response
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as any;
         
         // If Python service returns ok: false for supported operations, use Node.js fallback
         const supportedOps = ['whale_alerts', 'market_sentiment'];

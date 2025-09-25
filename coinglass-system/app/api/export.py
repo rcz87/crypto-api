@@ -50,6 +50,11 @@ async def export_data(
             content = buffer.getvalue()
             media_type = "application/octet-stream"
             filename = f"{request.data_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.parquet"
+        else:
+            # Default to JSON if format is unrecognized
+            content = json.dumps(data, default=str)
+            media_type = "application/json"
+            filename = f"{request.data_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         
         logger.info(f"Data export completed for user {current_user['user_id']}: {request.data_type}")
         
@@ -57,8 +62,11 @@ async def export_data(
         def generate():
             if isinstance(content, bytes):
                 yield content
-            else:
+            elif isinstance(content, str):
                 yield content.encode('utf-8')
+            else:
+                # Handle other types (like bytearray, memoryview)
+                yield bytes(content)
         
         return StreamingResponse(
             generate(),
@@ -87,7 +95,7 @@ async def export_liquidations(request: DataExportRequest):
     
     with engine.begin() as conn:
         # Create parameter dictionary with symbols
-        params = {
+        params: dict = {
             "start_time": request.time_range.start_time,
             "end_time": request.time_range.end_time
         }
@@ -115,7 +123,7 @@ async def export_funding_rates(request: DataExportRequest):
     
     with engine.begin() as conn:
         # Create parameter dictionary with symbols
-        params = {
+        params: dict = {
             "start_time": request.time_range.start_time,
             "end_time": request.time_range.end_time
         }
@@ -143,7 +151,7 @@ async def export_oi_data(request: DataExportRequest):
     
     with engine.begin() as conn:
         # Create parameter dictionary with symbols
-        params = {
+        params: dict = {
             "start_time": request.time_range.start_time,
             "end_time": request.time_range.end_time
         }
@@ -171,7 +179,7 @@ async def export_heatmap_data(request: DataExportRequest):
     
     with engine.begin() as conn:
         # Create parameter dictionary with symbols
-        params = {
+        params: dict = {
             "start_time": request.time_range.start_time,
             "end_time": request.time_range.end_time
         }
