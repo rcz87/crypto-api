@@ -1309,7 +1309,7 @@ export const screenerResults = pgTable("screener_results", {
 
 // Screening parameters schema
 export const screenerParamsSchema = z.object({
-  symbols: z.array(z.string()).default(['SOL', 'BTC', 'ETH']),
+  symbols: z.array(z.string()).min(1).max(50).default(['SOL', 'BTC', 'ETH']),
   timeframe: z.enum(['5m', '15m', '30m', '1h', '4h', '1d']).default('15m'),
   limit: z.number().min(50).max(500).default(200),
   enabledLayers: z.object({
