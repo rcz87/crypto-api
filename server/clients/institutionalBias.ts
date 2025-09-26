@@ -3,7 +3,7 @@
  * Handles fetching institutional bias data with automatic fallback between Node and Python services
  */
 
-import fetch from "node-fetch";
+import axios from "axios";
 import { jsonOrText } from "../utils/jsonOrText.js";
 import { normalizePerp } from "../utils/symbols.js";
 
@@ -41,7 +41,7 @@ async function getOnce(base: string, symbol: string): Promise<BiasOk | BiasUnava
   const timeoutId = setTimeout(() => controller.abort(), 10000);
   
   try {
-    const response = await fetch(url, { 
+    const response = await axios.get(url, { 
       headers: { 
         Accept: "application/json",
         "User-Agent": "InstitutionalBias-Client"
@@ -53,7 +53,7 @@ async function getOnce(base: string, symbol: string): Promise<BiasOk | BiasUnava
 
   // 404 → treat as unavailable (bukan throw)
   if (response.status === 404) {
-    const body = await response.text();
+    const body = response.data || '';
     return {
       ok: false,
       unavailable: true,
@@ -63,12 +63,12 @@ async function getOnce(base: string, symbol: string): Promise<BiasOk | BiasUnava
     };
   }
 
-  if (!response.ok) {
-    const body = await response.text();
+  if (response.status >= 400) {
+    const body = response.data || '';
     throw new Error(`Bias API ${response.status}: ${body.slice(0, 160)}`);
   }
 
-    const data = await jsonOrText(response);
+    const data = response.data;
     return { 
       ok: true, 
       status: response.status, 
@@ -117,13 +117,13 @@ export async function fetchInstitutionalBias(symbol: string): Promise<BiasOk | B
  */
 export async function fetchSupportedSymbols(): Promise<string[]> {
   try {
-    const response = await fetch(`${PY_BASE}/symbols`, { 
+    const response = await axios.get(`${PY_BASE}/symbols`, { 
       headers: { Accept: "application/json" } 
     });
     
-    if (!response.ok) return [];
+    if (response.status >= 400) return [];
     
-    const data = await response.json() as any;
+    const data = response.data as any;
     return Array.isArray(data) ? data : (data?.symbols ? data.symbols : []);
   } catch {
     return [];

@@ -54,7 +54,7 @@ app.use((req, res, next) => {
 import { createProxyMiddleware, type Options } from "http-proxy-middleware";
 import type { IncomingMessage, ServerResponse } from 'http';
 import { spawn } from "child_process";
-import fetch from "node-fetch";
+import axios from "axios";
 
 // Import metrics collector early for proxy middleware
 import { metricsCollector } from "./utils/metrics";

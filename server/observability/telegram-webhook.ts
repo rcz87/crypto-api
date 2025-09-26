@@ -4,7 +4,7 @@
  */
 
 import express from "express";
-import fetch from "node-fetch";
+import axios from "axios";
 import { storeFeedback, setSnooze, sendQuickCommandResponse } from "./telegram-actions";
 import { saveGhostOrder } from "../services/okxGhost";
 

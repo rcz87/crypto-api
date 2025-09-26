@@ -6,7 +6,7 @@ import { storage } from '../storage.js';
 import { healthCheckSchema } from '../../shared/schema.js';
 import type { SystemLogs } from '../../shared/schema.js';
 import rateLimit from 'express-rate-limit';
-import fetch from 'node-fetch';
+import axios from 'axios';
 import { healthMonitor, healthCheckMiddleware, pythonServiceGuard } from '../middleware/healthMonitor';
 import { circuitBreaker } from '../middleware/circuitBreaker';
 

@@ -3,7 +3,7 @@
  * Combines whale activity, ETF flows, and market sentiment for trading signals
  */
 
-import fetch from "node-fetch";
+import axios from "axios";
 import { fetchInstitutionalBias } from "../clients/institutionalBias.js";
 
 const PY_BASE = process.env.PY_BASE || "http://localhost:8000";

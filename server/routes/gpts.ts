@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from 'express';
-import fetch from 'node-fetch';
+import axios from 'axios';
 import { normalizePerp } from '../utils/symbols.js';
 import { getWhaleAlerts } from '../clients/whaleAlerts.js';
 import { getMarketSentiment } from '../clients/marketSentiment.js';

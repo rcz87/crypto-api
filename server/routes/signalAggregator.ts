@@ -5,7 +5,7 @@
  */
 
 import { Request, Response } from "express";
-import fetch from "node-fetch";
+import axios from "axios";
 
 const PY_BASE = process.env.PY_BASE || "http://127.0.0.1:8000";
 
@@ -17,25 +17,23 @@ async function fetchUnifiedEndpoint(operation: string, params: any, timeoutMs: n
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   
   try {
-    const response = await fetch(`${PY_BASE}/gpts/advanced`, {
-      method: 'POST',
+    const response = await axios.post(`${PY_BASE}/gpts/advanced`, {
+        op: operation,
+        params: params
+      }, {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        op: operation,
-        params: params
-      }),
       signal: controller.signal
     });
     
     clearTimeout(timeoutId);
     
-    if (!response.ok) {
+    if (response.status >= 400) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
-    return await response.json();
+    return response.data;
   } catch (error) {
     clearTimeout(timeoutId);
     throw error;
