@@ -771,7 +771,7 @@ def _normalize_symbol_for_exchange(symbol: str, exchange: str = "binance") -> st
     return symbol
 
 async def _binance_orderbook_fallback(symbol: str, limit: int = 50):
-    """Enhanced fallback to Binance API with retry + cache + normalization"""
+    """Enhanced fallback to Binance API with smart geo-block detection"""
     import httpx
     
     # Enhanced symbol normalization
@@ -788,10 +788,11 @@ async def _binance_orderbook_fallback(symbol: str, limit: int = 50):
     url = f"https://api.binance.com/api/v3/depth"
     params = {"symbol": normalized_symbol, "limit": limit}
     
-    # Retry logic: 3 attempts with 0.25s backoff
+    # For 451 errors, fail fast instead of retrying
     max_retries = 3
     backoff_delay = 0.25
     last_status_code = None
+    geo_blocked = False
     
     for attempt in range(max_retries):
         try:
@@ -815,19 +816,26 @@ async def _binance_orderbook_fallback(symbol: str, limit: int = 50):
                     return result
                 
                 elif response.status_code == 451:
-                    # Legal restriction - try alternative sources
-                    logger.warning(f"⚖️ Binance legal restriction (451) for {normalized_symbol}, attempt {attempt + 1}")
+                    # Legal restriction - don't retry, fail fast to trigger OKX fallback
+                    geo_blocked = True
+                    if attempt == 0:  # Only log once to reduce noise
+                        logger.info(f"🌍 Binance geo-restricted for {normalized_symbol}, will use OKX fallback")
+                    break  # Exit retry loop immediately for 451 errors
                 else:
                     logger.warning(f"🔄 Binance API returned {response.status_code} for {normalized_symbol}, attempt {attempt + 1}")
                     
         except Exception as e:
             logger.warning(f"🔄 Binance API error for {normalized_symbol} (attempt {attempt + 1}): {e}")
         
-        # Exponential backoff for retries
-        if attempt < max_retries - 1:
+        # For non-451 errors, use exponential backoff
+        if not geo_blocked and attempt < max_retries - 1:
             await asyncio.sleep(backoff_delay * (2 ** attempt))
     
-    raise Exception(f"Binance fallback failed after {max_retries} attempts: {last_status_code or 'No response'}")
+    # Provide more informative error message
+    if geo_blocked:
+        raise Exception(f"[FALLBACK NEEDED] Binance geo-restricted (451) for {normalized_symbol}")
+    else:
+        raise Exception(f"Binance fallback failed after {max_retries} attempts: {last_status_code or 'No response'}")
 
 async def _okx_orderbook_fallback(symbol: str, limit: int = 50):
     """OKX alternative fallback when Binance fails (for 451 errors)"""
@@ -926,7 +934,12 @@ async def get_spot_orderbook_impl(symbol: str, exchange: str = "binance", depth:
                     logger.warning(f"[FRESHNESS REJECT] {symbol} orderbook age: {data_age:.1f}s > {max_age_seconds}s limit from {source_name}")
             
         except Exception as e:
-            logger.warning(f"[FALLBACK FAILED] {source_name.title()} orderbook for {symbol}: {e}")
+            error_msg = str(e)
+            # Reduce noise for expected geo-block errors
+            if "geo-restricted" in error_msg.lower() or "451" in error_msg:
+                logger.info(f"[EXPECTED] {source_name.title()} geo-restricted for {symbol}, trying next provider")
+            else:
+                logger.warning(f"[FALLBACK FAILED] {source_name.title()} orderbook for {symbol}: {e}")
             continue  # Try next source
     
     # All sources failed or data too stale - return DATA_UNAVAILABLE
