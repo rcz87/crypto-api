@@ -7,6 +7,8 @@ import { healthCheckSchema } from '../../shared/schema.js';
 import type { SystemLogs } from '../../shared/schema.js';
 import rateLimit from 'express-rate-limit';
 import fetch from 'node-fetch';
+import { healthMonitor, healthCheckMiddleware, pythonServiceGuard } from '../middleware/healthMonitor';
+import { circuitBreaker } from '../middleware/circuitBreaker';
 
 /**
  * Register all system and monitoring routes
@@ -48,6 +50,22 @@ export function registerSystemRoutes(app: Express): void {
         timestamp: new Date().toISOString()
       });
     }
+  });
+
+  // 🚨 NEW: Python service health monitoring with circuit breaker protection  
+  app.get('/health/python', healthCheckMiddleware);
+  
+  // 🚨 NEW: Circuit breaker status endpoint
+  app.get('/health/circuit-breaker', (req: Request, res: Response) => {
+    const status = circuitBreaker.getStatus();
+    const allClosed = Object.values(status).every(state => state.state === 'CLOSED');
+    
+    res.status(allClosed ? 200 : 503).json({
+      success: true,
+      circuit_breaker_status: status,
+      overall_status: allClosed ? 'all_circuits_closed' : 'some_circuits_open',
+      timestamp: new Date().toISOString()
+    });
   });
 
   // Metrics endpoint for monitoring and observability

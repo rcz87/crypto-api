@@ -142,9 +142,9 @@ export class CircuitBreaker {
 
   public getStatus(): { [service: string]: CircuitBreakerState } {
     const status: { [service: string]: CircuitBreakerState } = {};
-    for (const [service, state] of this.failures.entries()) {
+    this.failures.forEach((state, service) => {
       status[service] = { ...state };
-    }
+    });
     return status;
   }
 }
