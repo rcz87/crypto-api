@@ -3,6 +3,7 @@ from app.core.settings import settings
 from app.core.logging import logger
 from typing import Optional
 import time
+from collections import defaultdict, deque
 
 class CoinglassClient:
     def __init__(self):
@@ -11,6 +12,11 @@ class CoinglassClient:
             "accept": "application/json"
         })
         self.base_url = "https://open-api-v4.coinglass.com"
+        
+        # CIRCUIT BREAKER: Track failed endpoints to prevent excessive API calls
+        self.endpoint_failures = defaultdict(lambda: deque(maxlen=10))  # Last 10 requests per endpoint
+        self.circuit_breaker_threshold = 7  # Break circuit if 7/10 requests fail
+        self.circuit_breaker_reset_time = 300  # 5 minutes reset time
         
         # Endpoint pattern validation for CoinGlass v4 compliance
         self.forbidden_path_patterns = [
@@ -55,22 +61,40 @@ class CoinglassClient:
         return f"{self.base_url}{validated_path}"
     
     def _apply_guardrails_with_fallback(self, response_data: dict, endpoint: str, params: dict, original_interval: str = "1h"):
-        """Enhanced Guardrails: interval fallback + external service backup"""
+        """Enhanced Guardrails: circuit breaker + interval fallback + external service backup"""
+        
+        # Extract pair/coin info from params for circuit breaker tracking
+        pair_coin = params.get('pair') or params.get('coin') or params.get('symbol', 'unknown')
+        endpoint_key = f"{endpoint}_{pair_coin}"
         
         if not response_data or not response_data.get('data'):
+            # RECORD FAILURE for circuit breaker
+            self._record_endpoint_failure(endpoint_key)
+            
             # GUARDRAILS: Log detailed information about empty response
             logger.warning(f"🚨 GUARDRAILS: Empty data detected")
             logger.info(f"📍 Endpoint: {endpoint}")
             logger.info(f"📋 Params: {params}")
             logger.info(f"🕒 Interval: {original_interval}")
-            
-            # Extract pair/coin info from params
-            pair_coin = params.get('pair') or params.get('coin') or params.get('symbol', 'unknown')
             logger.info(f"💱 Pair/Coin: {pair_coin}")
+            
+            # CIRCUIT BREAKER: Check if we should skip further attempts
+            if self._should_skip_endpoint(endpoint, pair_coin):
+                logger.warning(f"⚡ CIRCUIT BREAKER ACTIVE: Fast-tracking to external backup for {pair_coin}")
+                # Skip interval fallback, go directly to external backup
+                external_backup = self._try_external_backup(pair_coin, endpoint)
+                if external_backup:
+                    logger.info(f"✅ EXTERNAL BACKUP SUCCESS: Got data from NodeJS service")
+                    return external_backup
+                else:
+                    logger.warning(f"🚨 ALL FALLBACKS FAILED: Generating minimal response for {pair_coin}")
+                    return self._generate_minimal_response(pair_coin, endpoint)
             
             # STEP 1: AUTO-FALLBACK interval strategy
             interval_fallback_data = self._try_interval_fallback(endpoint, params, original_interval)
             if interval_fallback_data and interval_fallback_data.get('data'):
+                # RECORD SUCCESS to reset circuit breaker
+                self._record_endpoint_success(endpoint_key)
                 return interval_fallback_data
             
             # STEP 2: External service backup (NodeJS/OKX backup)
@@ -84,8 +108,45 @@ class CoinglassClient:
             logger.warning(f"🚨 ALL FALLBACKS FAILED: Generating minimal response for {pair_coin}")
             return self._generate_minimal_response(pair_coin, endpoint)
         
-        # Return original data if valid
+        # RECORD SUCCESS for valid data
+        self._record_endpoint_success(endpoint_key)
         return response_data
+
+    def _is_circuit_open(self, endpoint_key: str):
+        """Check if circuit breaker is open for this endpoint"""
+        if endpoint_key not in self.endpoint_failures:
+            return False
+            
+        failures = self.endpoint_failures[endpoint_key]
+        if len(failures) < self.circuit_breaker_threshold:
+            return False
+            
+        # Check if we have enough failures in recent time
+        current_time = time.time()
+        recent_failures = [f for f in failures if (current_time - f) < self.circuit_breaker_reset_time]
+        
+        return len(recent_failures) >= self.circuit_breaker_threshold
+
+    def _record_endpoint_failure(self, endpoint_key: str):
+        """Record a failure for circuit breaker tracking"""
+        self.endpoint_failures[endpoint_key].append(time.time())
+        logger.debug(f"🔒 CIRCUIT BREAKER: Recorded failure for {endpoint_key} ({len(self.endpoint_failures[endpoint_key])}/10)")
+
+    def _record_endpoint_success(self, endpoint_key: str):
+        """Record a success to potentially reset circuit breaker"""
+        if endpoint_key in self.endpoint_failures:
+            # Clear failures on success to reset circuit
+            self.endpoint_failures[endpoint_key].clear()
+            logger.debug(f"✅ CIRCUIT BREAKER: Cleared failures for {endpoint_key}")
+
+    def _should_skip_endpoint(self, endpoint: str, symbol: str = "unknown"):
+        """Check if endpoint should be skipped due to circuit breaker"""
+        endpoint_key = f"{endpoint}_{symbol}"
+        
+        if self._is_circuit_open(endpoint_key):
+            logger.warning(f"⚡ CIRCUIT BREAKER: Skipping {endpoint} for {symbol} (too many recent failures)")
+            return True
+        return False
 
     def _try_interval_fallback(self, endpoint: str, params: dict, original_interval: str):
         """Try higher interval fallback (1h→4h→1d)"""
