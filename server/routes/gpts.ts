@@ -3,6 +3,8 @@ import axios from 'axios';
 import { normalizePerp } from '../utils/symbols.js';
 import { getWhaleAlerts } from '../clients/whaleAlerts.js';
 import { getMarketSentiment } from '../clients/marketSentiment.js';
+import { screenerService } from '../modules/screener/screener.service.js';
+import { type ScreenerParams } from '../../shared/schema.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
@@ -344,7 +346,7 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
         const data = await response.json() as any;
         
         // If Python service returns ok: false for supported operations, use Node.js fallback
-        const supportedOps = ['whale_alerts', 'market_sentiment'];
+        const supportedOps = ['whale_alerts', 'market_sentiment', 'multi_coin_screening'];
         const isSupported = req.body.op && supportedOps.includes(req.body.op) ||
                            req.body.ops && req.body.ops.some((op: any) => supportedOps.includes(op.op));
         
@@ -442,10 +444,18 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
       console.warn(`[GPTs Gateway] /gpts/advanced failed: ${response.status} - ${errorText}`);
       
       // Try Node.js fallback for specific operations
-      const fallbackResult = await tryNodeFallback(req.body);
-      if (fallbackResult) {
-        console.log('[GPTs Gateway] Using Node.js fallback for operation');
-        return res.json(fallbackResult);
+      console.log(`[GPTs Gateway] Attempting Node.js fallback for operation: ${req.body.op}`);
+      console.log(`[GPTs Gateway] Request body:`, JSON.stringify(req.body));
+      
+      try {
+        const fallbackResult = await tryNodeFallback(req.body);
+        console.log(`[GPTs Gateway] Fallback result:`, fallbackResult ? 'SUCCESS' : 'NULL');
+        if (fallbackResult) {
+          console.log('[GPTs Gateway] Using Node.js fallback for operation');
+          return res.json(fallbackResult);
+        }
+      } catch (fallbackError) {
+        console.error('[GPTs Gateway] Fallback execution error:', fallbackError);
       }
       
       return res.status(response.status).json({
@@ -742,6 +752,62 @@ async function tryNodeFallback(requestBody: any): Promise<any> {
               used_sources: sentimentResult.used_sources
             }
           };
+
+        case 'multi_coin_screening':
+          console.log('[Node Fallback] Handling multi_coin_screening operation');
+          console.log('[Node Fallback] Request params:', JSON.stringify(params));
+          try {
+            // Parse symbols from params (support both params.symbols and direct symbols)
+            const symbols = params.symbols || requestBody.symbols || ['BTC', 'ETH', 'SOL'];
+            const timeframe = params.timeframe || requestBody.timeframe || '15m';
+            
+            // Create screener params
+            const screenerParams: ScreenerParams = {
+              symbols: Array.isArray(symbols) ? symbols : symbols.split(',').map((s: string) => s.trim().toUpperCase()),
+              timeframe: timeframe as any,
+              limit: 200,
+              enabledLayers: {
+                smc: true,
+                price_action: true,
+                ema: true,
+                rsi_macd: true,
+                funding: true,
+                oi: true,
+                cvd: true,
+                fibo: true,
+              }
+            };
+            
+            // Run the screener
+            const screeningResult = await screenerService.screenMultipleSymbols(screenerParams);
+            
+            return {
+              ok: true,
+              op: 'multi_coin_screening',
+              args: { 
+                symbols: screenerParams.symbols,
+                timeframe: screenerParams.timeframe,
+                layers: Object.keys(screenerParams.enabledLayers).filter(layer => screenerParams.enabledLayers[layer as keyof typeof screenerParams.enabledLayers])
+              },
+              data: {
+                module: 'multi_coin_screening',
+                results: screeningResult.results,
+                stats: screeningResult.stats,
+                timestamp: screeningResult.timestamp,
+                used_sources: ['node_screener_service', 'okx_api', '8_layer_confluence'],
+                summary: `Screened ${screeningResult.results.length} symbols: BUY=${screeningResult.stats.buySignals}, SELL=${screeningResult.stats.sellSignals}, HOLD=${screeningResult.stats.holdSignals}`
+              }
+            };
+          } catch (screeningError) {
+            console.error('[Node Fallback] Multi-coin screening failed:', screeningError);
+            return {
+              ok: false,
+              op: 'multi_coin_screening',
+              args: params,
+              data: null,
+              error: screeningError instanceof Error ? screeningError.message : 'Screening service failed'
+            };
+          }
           
         default:
           // Operation not supported by Node.js fallback
