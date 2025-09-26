@@ -18,6 +18,17 @@ class CoinglassClient:
         self.circuit_breaker_threshold = 7  # Break circuit if 7/10 requests fail
         self.circuit_breaker_reset_time = 300  # 5 minutes reset time
         
+        # SMART CACHE: Reduce API calls with intelligent caching
+        self.cache = {}  # Format: {cache_key: {"data": response, "timestamp": time, "ttl": seconds}}
+        self.cache_ttl = {
+            "liquidation": 30,     # 30 seconds for liquidation data
+            "open_interest": 60,   # 1 minute for OI data
+            "funding_rate": 120,   # 2 minutes for funding rates
+            "etf": 300,           # 5 minutes for ETF data
+            "whale": 60,          # 1 minute for whale positions
+            "default": 120        # 2 minutes default
+        }
+        
         # Endpoint pattern validation for CoinGlass v4 compliance
         self.forbidden_path_patterns = [
             "/coin-history/{symbol}",  # Should use query params
@@ -61,11 +72,18 @@ class CoinglassClient:
         return f"{self.base_url}{validated_path}"
     
     def _apply_guardrails_with_fallback(self, response_data: dict, endpoint: str, params: dict, original_interval: str = "1h"):
-        """Enhanced Guardrails: circuit breaker + interval fallback + external service backup"""
+        """Enhanced Guardrails: smart cache + circuit breaker + interval fallback + external service backup"""
         
         # Extract pair/coin info from params for circuit breaker tracking
         pair_coin = params.get('pair') or params.get('coin') or params.get('symbol', 'unknown')
         endpoint_key = f"{endpoint}_{pair_coin}"
+        
+        # SMART CACHE: Check if we have valid cached data first
+        cache_key = self._get_cache_key(endpoint, params, pair_coin)
+        cached_data = self._get_cached_data(cache_key)
+        if cached_data:
+            logger.info(f"🚀 CACHE HIT: Returning cached data for {pair_coin}")
+            return cached_data
         
         if not response_data or not response_data.get('data'):
             # RECORD FAILURE for circuit breaker
@@ -81,10 +99,16 @@ class CoinglassClient:
             # CIRCUIT BREAKER: Check if we should skip further attempts
             if self._should_skip_endpoint(endpoint, pair_coin):
                 logger.warning(f"⚡ CIRCUIT BREAKER ACTIVE: Fast-tracking to external backup for {pair_coin}")
+                # Invalidate any cached data for this problematic endpoint
+                self._invalidate_cache_for_endpoint(endpoint, pair_coin)
+                
                 # Skip interval fallback, go directly to external backup
                 external_backup = self._try_external_backup(pair_coin, endpoint)
                 if external_backup:
                     logger.info(f"✅ EXTERNAL BACKUP SUCCESS: Got data from NodeJS service")
+                    # Cache successful backup data
+                    cache_key = self._get_cache_key(endpoint, params, pair_coin)
+                    self._set_cached_data(cache_key, external_backup, endpoint)
                     return external_backup
                 else:
                     logger.warning(f"🚨 ALL FALLBACKS FAILED: Generating minimal response for {pair_coin}")
@@ -110,6 +134,11 @@ class CoinglassClient:
         
         # RECORD SUCCESS for valid data
         self._record_endpoint_success(endpoint_key)
+        
+        # SMART CACHE: Store successful response
+        cache_key = self._get_cache_key(endpoint, params, pair_coin)
+        self._set_cached_data(cache_key, response_data, endpoint)
+        
         return response_data
 
     def _is_circuit_open(self, endpoint_key: str):
@@ -147,6 +176,81 @@ class CoinglassClient:
             logger.warning(f"⚡ CIRCUIT BREAKER: Skipping {endpoint} for {symbol} (too many recent failures)")
             return True
         return False
+
+    def _get_cache_key(self, endpoint: str, params: dict, symbol: str = "unknown"):
+        """Generate unique cache key for endpoint + params combination"""
+        # Create deterministic key from endpoint, symbol, and sorted params
+        param_str = "&".join([f"{k}={v}" for k, v in sorted(params.items())])
+        return f"{endpoint}_{symbol}_{param_str}"
+
+    def _get_cache_ttl(self, endpoint: str):
+        """Get appropriate TTL based on endpoint type"""
+        if "liquidation" in endpoint:
+            return self.cache_ttl["liquidation"]
+        elif "open-interest" in endpoint:
+            return self.cache_ttl["open_interest"]
+        elif "funding" in endpoint:
+            return self.cache_ttl["funding_rate"]
+        elif "etf" in endpoint:
+            return self.cache_ttl["etf"]
+        elif "whale" in endpoint:
+            return self.cache_ttl["whale"]
+        else:
+            return self.cache_ttl["default"]
+
+    def _get_cached_data(self, cache_key: str):
+        """Retrieve valid cached data if available"""
+        if cache_key in self.cache:
+            cached_item = self.cache[cache_key]
+            current_time = time.time()
+            
+            # Check if cache is still valid
+            if (current_time - cached_item["timestamp"]) < cached_item["ttl"]:
+                logger.debug(f"🚀 CACHE HIT: Using cached data for {cache_key}")
+                return cached_item["data"]
+            else:
+                # Remove expired cache
+                del self.cache[cache_key]
+                logger.debug(f"🗑️ CACHE EXPIRED: Removed stale cache for {cache_key}")
+        
+        return None
+
+    def _set_cached_data(self, cache_key: str, data: dict, endpoint: str):
+        """Store successful response in cache"""
+        if data and data.get('data'):  # Only cache successful responses
+            ttl = self._get_cache_ttl(endpoint)
+            self.cache[cache_key] = {
+                "data": data,
+                "timestamp": time.time(),
+                "ttl": ttl
+            }
+            logger.debug(f"💾 CACHE STORED: Cached response for {cache_key} (TTL: {ttl}s)")
+
+    def _invalidate_cache_for_endpoint(self, endpoint: str, symbol: str):
+        """Invalidate cache entries for specific endpoint when circuit opens"""
+        to_remove = []
+        for cache_key in self.cache:
+            if f"{endpoint}_{symbol}" in cache_key:
+                to_remove.append(cache_key)
+        
+        for key in to_remove:
+            del self.cache[key]
+            logger.debug(f"🗑️ CACHE INVALIDATED: Removed cache for failed endpoint {key}")
+
+    def _clean_expired_cache(self):
+        """Periodically clean expired cache entries"""
+        current_time = time.time()
+        to_remove = []
+        
+        for cache_key, cached_item in self.cache.items():
+            if (current_time - cached_item["timestamp"]) >= cached_item["ttl"]:
+                to_remove.append(cache_key)
+        
+        for key in to_remove:
+            del self.cache[key]
+        
+        if to_remove:
+            logger.debug(f"🧹 CACHE CLEANED: Removed {len(to_remove)} expired entries")
 
     def _try_interval_fallback(self, endpoint: str, params: dict, original_interval: str):
         """Try higher interval fallback (1h→4h→1d)"""
