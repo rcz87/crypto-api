@@ -41,9 +41,10 @@ async function getDbConnection(): Promise<{ sql: any; db: any } | null> {
     }
 
     dbConnection = postgres(connectionString, {
-      max: 10,
-      idle_timeout: 20,
-      connect_timeout: 10,
+      max: 20,              // Increased from 10 to 20 for better production scaling
+      max_lifetime: 1800,   // 30 minutes connection lifetime (pool_recycle equivalent)
+      idle_timeout: 20,     // Keep existing - good for cleanup
+      connect_timeout: 10,  // Keep existing - good timeout
     });
 
     dbInstance = drizzle(dbConnection);

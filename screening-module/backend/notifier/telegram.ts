@@ -4,7 +4,7 @@
 // Purpose: Send formatted trading alerts to Telegram with HTML formatting
 // ============================================================================
 
-import fetch from 'node-fetch';
+import axios from 'axios';
 import { logger } from '../screener/logger';
 
 const token = process.env.TELEGRAM_BOT_TOKEN;

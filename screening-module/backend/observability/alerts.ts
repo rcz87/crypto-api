@@ -1,7 +1,7 @@
 // Professional Alert System - Telegram notifications for trading system
 // Real-time monitoring and alerting for institutional trading
 
-import fetch from 'node-fetch';
+import axios from 'axios';
 import { httpErrorsTotal, httpRequestsTotal, signalsGenerated, portfolioEquity } from './metrics';
 import { logger } from '../screener/logger';
 
