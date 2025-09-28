@@ -324,26 +324,20 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
   // Unified advanced endpoint - gateway to existing Python GPT Actions endpoint with Node.js fallback
   app.post('/gpts/unified/advanced', async (req: Request, res: Response) => {
     try {
-      // Forward request to Python service with body and headers
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
-      const response = await fetch(`${PY_BASE}/gpts/advanced`, {
-        method: 'POST',
+      // Forward request to Python service with body and headers using axios
+      const response = await axios.post(`${PY_BASE}/gpts/advanced`, req.body, {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'GPTs-Gateway-Node'
         },
-        body: JSON.stringify(req.body),
-        signal: controller.signal
+        timeout: 30000,
+        validateStatus: () => true // Don't throw on 4xx/5xx status codes
       });
-      
-      clearTimeout(timeoutId);
 
       // If Python service succeeds, check JSON response
-      if (response.ok) {
-        const data = await response.json() as any;
+      if (response.status === 200) {
+        const data = response.data as any;
         
         // If Python service returns ok: false for supported operations, use Node.js fallback
         const supportedOps = ['whale_alerts', 'market_sentiment', 'multi_coin_screening'];
@@ -440,7 +434,7 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
       }
 
       // Python service failed - try Node.js fallback for supported operations
-      const errorText = await response.text();
+      const errorText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
       console.warn(`[GPTs Gateway] /gpts/advanced failed: ${response.status} - ${errorText}`);
       
       // Try Node.js fallback for specific operations
@@ -501,30 +495,24 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
         });
       }
 
-      // Forward to Python unified endpoint using POST
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-      
-      const response = await fetch(`${PY_BASE}/gpts/advanced`, {
-        method: 'POST',
+      // Forward to Python unified endpoint using POST with axios
+      const response = await axios.post(`${PY_BASE}/gpts/advanced`, {
+        op: 'ticker',
+        params: {
+          symbol: symbol
+        }
+      }, {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'GPTs-Gateway-Node'
         },
-        body: JSON.stringify({
-          op: 'ticker',
-          params: {
-            symbol: symbol
-          }
-        }),
-        signal: controller.signal
+        timeout: 15000,
+        validateStatus: () => true // Don't throw on 4xx/5xx status codes
       });
-      
-      clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const errorText = await response.text();
+      if (response.status >= 400) {
+        const errorText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
         console.warn(`[GPTs Gateway] market data for ${symbol} failed: ${response.status} - ${errorText}`);
         
         return res.status(response.status).json({
@@ -535,7 +523,7 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
         });
       }
 
-      const data = await response.json();
+      const data = response.data;
       
       res.json({
         success: true,
@@ -574,24 +562,19 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
       const symbol = normalizePerp(rawSymbol);
       console.log(`[GPTs Gateway] Fetching institutional bias for ${symbol} (normalized from ${rawSymbol})`);
 
-      // Forward request to Python service
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-      
-      const response = await fetch(`${PY_BASE}/institutional/bias?symbol=${encodeURIComponent(symbol)}`, {
-        method: 'GET',
+      // Forward request to Python service using axios for consistency
+      const response = await axios.get(`${PY_BASE}/institutional/bias?symbol=${encodeURIComponent(symbol)}`, {
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'GPTs-Gateway-Node'
         },
-        signal: controller.signal
+        timeout: 15000,
+        validateStatus: () => true // Don't throw on 4xx/5xx status codes
       });
-      
-      clearTimeout(timeoutId);
 
       // Handle 404 specifically
       if (response.status === 404) {
-        const errorText = await response.text();
+        const errorText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
         console.warn(`[GPTs Gateway] institutional bias for ${symbol} not found: ${errorText}`);
         
         return res.status(404).json({
@@ -603,8 +586,8 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
         });
       }
 
-      if (!response.ok) {
-        const errorText = await response.text();
+      if (response.status >= 400) {
+        const errorText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
         console.warn(`[GPTs Gateway] institutional bias for ${symbol} failed: ${response.status} - ${errorText}`);
         
         return res.status(response.status).json({
@@ -616,9 +599,9 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
       }
 
       // Check content type before parsing
-      const contentType = response.headers.get('content-type') || '';
+      const contentType = response.headers['content-type'] || '';
       if (!contentType.includes('application/json')) {
-        const text = await response.text();
+        const text = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
         console.error(`[GPTs Gateway] Expected JSON but got ${contentType}. Response: ${text.substring(0, 200)}...`);
         
         return res.status(502).json({
@@ -629,7 +612,7 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
         });
       }
 
-      const data = await response.json();
+      const data = response.data;
       
       res.json({
         success: true,
@@ -654,22 +637,17 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
   // Health check specific to GPTs gateway
   app.get('/gpts/health', async (req: Request, res: Response) => {
     try {
-      // Test connectivity to Python service
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      const response = await fetch(`${PY_BASE}/health`, {
-        method: 'GET',
+      // Test connectivity to Python service using axios
+      const response = await axios.get(`${PY_BASE}/health`, {
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'GPTs-Gateway-Node'
         },
-        signal: controller.signal
+        timeout: 5000,
+        validateStatus: () => true // Don't throw on 4xx/5xx status codes
       });
-      
-      clearTimeout(timeoutId);
 
-      const isHealthy = response.ok;
+      const isHealthy = response.status === 200;
       
       res.status(isHealthy ? 200 : 503).json({
         success: isHealthy,

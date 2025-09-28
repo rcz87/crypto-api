@@ -37,19 +37,15 @@ async function getOnce(base: string, symbol: string): Promise<BiasOk | BiasUnava
 
   console.log(`[BiasClient] Fetching from: ${url}`);
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-  
   try {
     const response = await axios.get(url, { 
       headers: { 
         Accept: "application/json",
         "User-Agent": "InstitutionalBias-Client"
       },
-      signal: controller.signal
+      timeout: 10000,
+      validateStatus: () => true // Don't throw on 4xx/5xx status codes
     });
-    
-    clearTimeout(timeoutId);
 
   // 404 → treat as unavailable (bukan throw)
   if (response.status === 404) {
@@ -76,8 +72,7 @@ async function getOnce(base: string, symbol: string): Promise<BiasOk | BiasUnava
       symbol: norm 
     };
   } catch (error: any) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
       throw new Error(`Request timeout after 10000ms for ${url}`);
     }
     throw error;
