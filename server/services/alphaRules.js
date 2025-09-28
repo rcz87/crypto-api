@@ -90,6 +90,9 @@ export async function runInstitutionalBiasAlert() {
   try {
     console.log("🔍 Running Institutional Bias Analysis...");
     
+    // Check for test mode FIRST before using in thresholds
+    const testMode = process.env.BIAS_TEST_MODE === 'true';
+    
     // Use the new institutional bias client with fallback and 404 handling
     const DEFAULT_SYMBOL = process.env.BIAS_SYMBOL || "SOL-USDT-SWAP";
     const biasResult = await fetchInstitutionalBias(DEFAULT_SYMBOL);
@@ -111,57 +114,114 @@ export async function runInstitutionalBiasAlert() {
     const etfData = biasData?.etf_data || {};
     const sentimentData = biasData?.sentiment_data || {};
 
-    // Analyze whale activity - FURTHER LOWERED FOR TESTING  
-    const whaleBuyLarge = whaleEvents.some(event => 
-      event.side === "buy" && 
-      (event.usd_size || 0) >= 10_000  // Lowered from 200K to 10K for testing
-    );
+    // Debug whale events data structure
+    console.log(`🐋 Debug: Found ${whaleEvents.length} whale events`);
+    if (whaleEvents.length > 0) {
+      console.log(`🔍 Sample event keys:`, Object.keys(whaleEvents[0] || {}));
+      console.log(`🔍 First 2 events:`, whaleEvents.slice(0, 2).map(e => ({
+        side: e.side || e.direction || e.trade_side,
+        size: e.usd_size || e.size_usd || e.amount_usd || e.usd,
+        raw_keys: Object.keys(e)
+      })));
+    }
     
-    // Analyze ETF flows - LOWERED THRESHOLD FOR TESTING
-    const etfInflow = (etfData?.today?.net_inflow_usd || 0) > -999_999_999;  // Accept any value for testing
+    // Analyze whale activity with normalized field names
+    const whaleBuyLarge = whaleEvents.some(event => {
+      // Normalize side field (handle different providers)
+      const side = (event.side || event.direction || event.trade_side || '').toString().toLowerCase();
+      // Normalize size field (handle different providers)  
+      const size = Number(event.usd_size ?? event.size_usd ?? event.amount_usd ?? event.usd ?? 0);
+      const isBuy = side.startsWith('buy') || side === 'long' || side === '1';
+      const isLargeSize = size >= (testMode ? 10_000 : 1_000_000); // $1M production, $10K test mode
+      
+      if (isBuy && isLargeSize) {
+        console.log(`🎯 Whale BUY detected: ${side} $${size.toLocaleString()}`);
+      }
+      
+      return isBuy && isLargeSize;
+    });
+    
+    // Analyze ETF flows with production/test thresholds
+    const etfInflow = (etfData?.today?.net_inflow_usd || 0) > (testMode ? -999_999_999 : 0);  // Positive for production, any for test
     const inflowAmount = Math.round(etfData?.today?.net_inflow_usd || 0);
     
-    // Analyze sentiment - LOWERED THRESHOLD FOR TESTING
+    // Analyze sentiment with production/test thresholds
     const sentimentScore = sentimentData?.score || 50;
-    const sentimentOK = sentimentScore >= 30;  // Lowered from 60 to 30 for testing
+    const sentimentOK = sentimentScore >= (testMode ? 30 : 60);  // 60+ for production, 30+ for test
 
+    // Test mode already declared at top of function
+    
+    // Detailed condition logging with dynamic thresholds
+    const whaleThreshold = testMode ? 10_000 : 1_000_000;
+    const sentimentThreshold = testMode ? 30 : 60;
+    const reasons = [];
+    if (!whaleBuyLarge) reasons.push(`Whale: No large BUY ≥$${(whaleThreshold/1000)}K detected`);
+    if (!etfInflow) reasons.push(`ETF: No positive inflow detected`);
+    if (!sentimentOK) reasons.push(`Sentiment: ${sentimentScore} < ${sentimentThreshold} threshold`);
+    
     console.log(`📊 Bias Check: Whale=${whaleBuyLarge}, ETF=${etfInflow}, Sentiment=${sentimentScore}`);
+    if (reasons.length > 0) {
+      console.log(`❌ Unmet conditions: ${reasons.join(', ')}`);
+    }
+    
+    // Test mode: force alert with any 2 conditions met for testing
+    const testTrigger = testMode && (
+      (whaleBuyLarge && etfInflow) || 
+      (etfInflow && sentimentOK) || 
+      (whaleBuyLarge && sentimentOK)
+    );
+    
+    if (testTrigger && testMode) {
+      console.log(`🧪 TEST MODE: Forcing institutional bias alert with partial conditions`);
+    }
 
-    // Trigger LONG bias alert if all conditions met
-    if (whaleBuyLarge && etfInflow && sentimentOK) {
-      const alertMsg = `🟢 INSTITUTIONAL LONG BIAS (BTC)
+    // Trigger LONG bias alert if all conditions met OR test mode with 2/3 conditions
+    if ((whaleBuyLarge && etfInflow && sentimentOK) || testTrigger) {
+      const symbol = biasResult?.symbol || DEFAULT_SYMBOL.replace('-USDT-SWAP', '');
+      const alertMsg = `🟢 INSTITUTIONAL LONG BIAS (${symbol})
 
-🐋 Whale Activity: ≥$1M BUY detected
+🐋 Whale Activity: ≥$${testMode ? '10K' : '1M'} BUY detected${testMode ? ' [TEST MODE]' : ''}
 💰 ETF Net Inflow: $${inflowAmount.toLocaleString()} USD  
 📈 Market Sentiment: ${sentimentScore}/100
 
 ⏱️ Next: Check liquidation heatmap & spot orderbook for precise entry levels.
 
-#InstitutionalBias #BTC #LongSetup`;
+#InstitutionalBias #${symbol} #LongSetup`;
 
       await sendTelegramAlert(alertMsg);
       console.log("✅ Institutional LONG bias alert sent!");
       return { bias: "LONG", triggered: true, reason: "All conditions met" };
     }
 
-    // Check for SHORT bias (opposite conditions)
-    const whaleSellLarge = whaleEvents.some(event => 
-      event.side === "sell" && 
-      (event.usd_size || 0) >= 10_000  // Lowered from 200K to 10K for testing  
-    );
-    const etfOutflow = (etfData?.today?.net_inflow_usd || 0) < -500_000;
-    const sentimentBear = sentimentScore <= 40;
+    // Check for SHORT bias (opposite conditions) with normalized field names
+    const whaleSellLarge = whaleEvents.some(event => {
+      // Normalize side field (handle different providers)
+      const side = (event.side || event.direction || event.trade_side || '').toString().toLowerCase();
+      // Normalize size field (handle different providers)  
+      const size = Number(event.usd_size ?? event.size_usd ?? event.amount_usd ?? event.usd ?? 0);
+      const isSell = side.startsWith('sell') || side === 'short' || side === '0';
+      const isLargeSize = size >= (testMode ? 10_000 : 1_000_000); // $1M production, $10K test mode
+      
+      if (isSell && isLargeSize) {
+        console.log(`🎯 Whale SELL detected: ${side} $${size.toLocaleString()}`);
+      }
+      
+      return isSell && isLargeSize;
+    });
+    const etfOutflow = (etfData?.today?.net_inflow_usd || 0) < (testMode ? -100_000 : -500_000);
+    const sentimentBear = sentimentScore <= (testMode ? 50 : 40);
 
     if (whaleSellLarge && etfOutflow && sentimentBear) {
-      const alertMsg = `🔴 INSTITUTIONAL SHORT BIAS (BTC)
+      const symbol = biasResult?.symbol || DEFAULT_SYMBOL.replace('-USDT-SWAP', '');
+      const alertMsg = `🔴 INSTITUTIONAL SHORT BIAS (${symbol})
 
-🐋 Whale Activity: ≥$1M SELL detected
+🐋 Whale Activity: ≥$${testMode ? '10K' : '1M'} SELL detected${testMode ? ' [TEST MODE]' : ''}
 💸 ETF Net Outflow: $${Math.abs(inflowAmount).toLocaleString()} USD
 📉 Market Sentiment: ${sentimentScore}/100
 
 ⏱️ Next: Check liquidation clusters above for short entry zones.
 
-#InstitutionalBias #BTC #ShortSetup`;
+#InstitutionalBias #${symbol} #ShortSetup`;
 
       await sendTelegramAlert(alertMsg);
       console.log("✅ Institutional SHORT bias alert sent!");
@@ -320,23 +380,24 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
 async function sendTelegramAlert(message) {
   try {
     // Import enhanced Telegram functions
-    const { sendInstitutionalBias, sendSOLSniperAlert } = await import("../observability/telegram-actions.js");
+    const { sendInstitutionalBias, sendSOLSniperAlert } = await import("../observability/telegram-actions.ts");
     
     // Try to extract structured data from message for interactive alerts
     if (message.includes("INSTITUTIONAL") && message.includes("BIAS")) {
-      // Parse institutional bias data
-      const symbol = message.includes("BTC") ? "BTC" : message.includes("SOL") ? "SOL" : "BTC";
+      // Parse institutional bias data from dynamic message format
+      const symbolMatch = message.match(/BIAS \(([^)]+)\)/);
+      const symbol = symbolMatch ? symbolMatch[1] : "BTC";
       const bias = message.includes("LONG") ? "LONG" : message.includes("SHORT") ? "SHORT" : "NEUTRAL";
-      const whale = message.includes("≥$1M BUY") || message.includes("buy") && message.includes("detected");
+      const whale = /≥\$\d+[KM]?\s+(BUY|SELL)\s+detected/i.test(message);
       const etfFlow = message.includes("Inflow") ? 25000000 : message.includes("Outflow") ? -10000000 : 0;
       
       // Extract sentiment score if available
       const sentimentMatch = message.match(/Sentiment: (\d+)/);
       const sentiment = sentimentMatch ? parseInt(sentimentMatch[1]) : 50;
       
-      // Extract confidence if available  
+      // Extract confidence from message or default based on test mode
       const confidenceMatch = message.match(/(\d+)%/);
-      const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
+      const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 85;
       
       // Send interactive alert
       const success = await sendInstitutionalBias({
