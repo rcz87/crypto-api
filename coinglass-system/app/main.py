@@ -160,6 +160,33 @@ def map_symbol_for_exchange(symbol: str, exchange: str = "okx") -> str:
 def health():
     return {"status": "ok", "has_key": bool(settings.COINGLASS_API_KEY)}
 
+@app.get("/debug/routes")
+def debug_routes():
+    """🔍 Debug endpoint to enumerate all available routes"""
+    routes = []
+    for route in app.routes:
+        try:
+            path = getattr(route, 'path', None)
+            methods = getattr(route, 'methods', None)
+            if path:
+                routes.append({
+                    "path": path,
+                    "methods": list(methods) if methods else ["GET"],
+                    "name": getattr(route, 'name', ''),
+                    "tags": getattr(route, 'tags', [])
+                })
+        except AttributeError:
+            continue
+    
+    # Sort by path for readability
+    routes.sort(key=lambda x: x['path'])
+    
+    return {
+        "total_routes": len(routes),
+        "py_base_url": "http://127.0.0.1:8000",
+        "routes": routes
+    }
+
 @app.get("/institutional/bias")
 def institutional_bias_root(symbol: str = "BTC"):
     """
