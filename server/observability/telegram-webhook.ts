@@ -10,6 +10,44 @@ import { saveGhostOrder } from "../services/okxGhost";
 
 export const telegramRouter = express.Router();
 
+/**
+ * 🧪 Test Telegram Connection
+ */
+telegramRouter.get("/telegram/test", async (req, res) => {
+  try {
+    const { sendTelegram } = await import('./telegram.js');
+    
+    const testMessage = `🧪 Test Message dari Replit
+⏰ Time: ${new Date().toISOString()}
+✅ Environment variables loaded
+🤖 Node.js Telegram integration working`;
+
+    const success = await sendTelegram(testMessage);
+    
+    if (success) {
+      res.json({
+        success: true,
+        message: "Test message sent successfully to Telegram",
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: "Failed to send test message",
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('❌ Telegram test endpoint error:', errorMessage);
+    res.status(500).json({
+      success: false,
+      error: errorMessage,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const PY_BASE = process.env.PY_BASE || "http://127.0.0.1:8000";
 
