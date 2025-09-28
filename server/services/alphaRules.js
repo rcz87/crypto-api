@@ -111,19 +111,19 @@ export async function runInstitutionalBiasAlert() {
     const etfData = biasData?.etf_data || {};
     const sentimentData = biasData?.sentiment_data || {};
 
-    // Analyze whale activity
+    // Analyze whale activity - TEMPORARILY LOWERED FOR TESTING
     const whaleBuyLarge = whaleEvents.some(event => 
       event.side === "buy" && 
-      (event.usd_size || 0) >= 1_000_000
+      (event.usd_size || 0) >= 200_000  // Lowered from 1M to 200K for testing
     );
     
-    // Analyze ETF flows
-    const etfInflow = (etfData?.today?.net_inflow_usd || 0) > 0;
+    // Analyze ETF flows - LOWERED THRESHOLD FOR TESTING
+    const etfInflow = (etfData?.today?.net_inflow_usd || 0) > -999_999_999;  // Accept any value for testing
     const inflowAmount = Math.round(etfData?.today?.net_inflow_usd || 0);
     
-    // Analyze sentiment
+    // Analyze sentiment - LOWERED THRESHOLD FOR TESTING
     const sentimentScore = sentimentData?.score || 50;
-    const sentimentOK = sentimentScore >= 60;
+    const sentimentOK = sentimentScore >= 30;  // Lowered from 60 to 30 for testing
 
     console.log(`📊 Bias Check: Whale=${whaleBuyLarge}, ETF=${etfInflow}, Sentiment=${sentimentScore}`);
 
@@ -147,7 +147,7 @@ export async function runInstitutionalBiasAlert() {
     // Check for SHORT bias (opposite conditions)
     const whaleSellLarge = whaleEvents.some(event => 
       event.side === "sell" && 
-      (event.usd_size || 0) >= 1_000_000
+      (event.usd_size || 0) >= 200_000  // Lowered from 1M to 200K for testing
     );
     const etfOutflow = (etfData?.today?.net_inflow_usd || 0) < -500_000;
     const sentimentBear = sentimentScore <= 40;

@@ -48,6 +48,52 @@ telegramRouter.get("/telegram/test", async (req, res) => {
   }
 });
 
+/**
+ * 🎯 Force Trigger Alert Test
+ */
+telegramRouter.get("/telegram/force-alert", async (req, res) => {
+  try {
+    const { sendTelegram } = await import('./telegram.js');
+    
+    const forceAlertMessage = `🚨 FORCED TEST ALERT
+    
+🎯 Testing alert system functionality
+🐋 Simulated whale activity: $250K BUY detected  
+💰 Simulated ETF Inflow: +$150K USD
+📈 Market Sentiment: 65/100
+
+✅ Force alert test successful
+⏰ Time: ${new Date().toISOString()}
+
+#TestAlert #SystemCheck`;
+
+    const success = await sendTelegram(forceAlertMessage);
+    
+    if (success) {
+      console.log("✅ Force alert test sent successfully");
+      res.json({
+        success: true,
+        message: "Force alert sent successfully to Telegram",
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: "Failed to send force alert",
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('❌ Force alert endpoint error:', errorMessage);
+    res.status(500).json({
+      success: false,
+      error: errorMessage,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const PY_BASE = process.env.PY_BASE || "http://127.0.0.1:8000";
 
