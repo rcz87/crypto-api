@@ -94,6 +94,36 @@ telegramRouter.get("/telegram/force-alert", async (req, res) => {
   }
 });
 
+/**
+ * 🎯 Force Trigger Institutional Bias Alert
+ */
+telegramRouter.get("/telegram/force-institutional", async (req, res) => {
+  try {
+    const { runInstitutionalBiasAlert } = await import('../services/alphaRules.js');
+    
+    console.log("🔍 Force triggering institutional bias alert...");
+    const result = await runInstitutionalBiasAlert();
+    
+    console.log("📊 Institutional bias result:", result);
+    
+    res.json({
+      success: true,
+      message: "Institutional bias check completed",
+      result: result,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('❌ Force institutional alert error:', errorMessage);
+    res.status(500).json({
+      success: false,
+      error: errorMessage,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const PY_BASE = process.env.PY_BASE || "http://127.0.0.1:8000";
 
