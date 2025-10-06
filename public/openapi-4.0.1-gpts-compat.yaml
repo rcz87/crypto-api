@@ -2902,48 +2902,38 @@ paths:
           content:
             application/json:
               schema:
-                oneOf:
-                  - type: object
-                    properties:
-                      ok:
-                        type: boolean
-                        example: true
-                      op:
-                        type: string
-                        example: ticker
-                      args:
-                        type: object
-                        additionalProperties: true
-                        example: {"symbol": "SOL"}
-                      data:
-                        type: object
-                        additionalProperties: true
-                        example: {"symbol": "SOL", "price": 232.91, "last": 232.91, "timestamp": "2025-10-06T10:36:00Z", "source": "CoinGlass→CoinAPI→OKX", "status": "ok", "cache_ttl": 60}
-                    required: ["ok", "op", "args"]
-                  - type: object
-                    properties:
-                      ok:
-                        type: boolean
-                        example: true
-                      results:
-                        type: array
-                        items:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                    description: Operation success status
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ok:
+                          type: boolean
+                          description: Individual operation success status
+                        op:
+                          type: string
+                          description: Operation name that was performed
+                        args:
                           type: object
-                          properties:
-                            ok:
-                              type: boolean
-                            op:
-                              type: string
-                            args:
-                              type: object
-                              additionalProperties: true
-                            data:
-                              type: object
-                              additionalProperties: true
-                            error:
-                              type: string
-                          required: ["ok", "op", "args"]
-                    required: ["ok", "results"]
+                          additionalProperties: true
+                          description: Arguments passed to the operation
+                        data:
+                          type: object
+                          additionalProperties: true
+                          description: Operation result data
+                        error:
+                          type: string
+                          nullable: true
+                          description: Error message if operation failed
+                      required: ["ok", "op", "args"]
+                    description: Array of operation results (always an array, even for single operations)
+                required: ["ok", "results"]
               examples:
                 btc_live_price:
                   summary: LIVE Bitcoin price (Oct 2025)
