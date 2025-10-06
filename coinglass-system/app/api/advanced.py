@@ -6,6 +6,11 @@ import time
 import asyncio
 import httpx
 from app.core.coinglass_client import CoinglassClient
+
+# Indonesia Timezone Helper (WIB = UTC+7)
+def get_wib_time() -> datetime:
+    """Get current time in WIB (UTC+7)"""
+    return datetime.now(timezone.utc) + timedelta(hours=7)
 from app.core.sniper_engine import SniperTimingEngine
 from app.core.http import HttpError, RateLimitExceeded
 from app.core.logging import logger
@@ -156,11 +161,11 @@ def determine_side_from_position(position_size: float) -> str:
     else:
         return 'neutral'
 
-@router.get("/whale/alerts", response_model=List[WhaleAlert])
+@router.get("/whale/alerts")
 async def get_whale_alerts(
     exchange: str = Query("hyperliquid", description="Exchange to filter whale alerts")
 ):
-    """Get whale alerts dengan real-time notional value calculation"""
+    """Get whale alerts dengan real-time notional value calculation dan WIB timestamp"""
     try:
         client = CoinglassClient()
         raw_data = client.whale_alerts(exchange)
@@ -186,29 +191,30 @@ async def get_whale_alerts(
                     if side == 'unknown' and position_size != 0:
                         side = determine_side_from_position(position_size)
                     
-                    # Generate real timestamp if not provided
-                    timestamp = record.get('timestamp')
-                    if not timestamp:
-                        timestamp = datetime.now(timezone.utc).isoformat()
+                    # Generate WIB timestamp string (UTC+7 untuk Indonesia)
+                    wib_time = get_wib_time()
+                    # Format sebagai string WIB yang mudah dibaca
+                    wib_timestamp_str = wib_time.strftime('%Y-%m-%d %H:%M:%S WIB')
                     
-                    logger.info(f"🐋 Whale Alert: {symbol} {side} {position_size} = ${real_notional_value:,.2f} at {timestamp}")
+                    logger.info(f"🐋 Whale Alert: {symbol} {side} {position_size} = ${real_notional_value:,.2f} at {wib_timestamp_str}")
                     
-                    alert = WhaleAlert(
-                        exchange=record.get('exchange', exchange),
-                        symbol=symbol,
-                        side=side,
-                        position_size=position_size,
-                        notional_value=real_notional_value,  # ← REAL-TIME CALCULATED
-                        timestamp=datetime.now(timezone.utc) if not timestamp else (datetime.fromisoformat(timestamp.replace('Z', '+00:00')) if isinstance(timestamp, str) else timestamp),
-                        meta=record.get('meta', {})
-                    )
-                    whale_alerts.append(alert)
+                    # Return as dict to preserve WIB string format
+                    whale_alerts.append({
+                        "exchange": record.get('exchange', exchange),
+                        "symbol": symbol,
+                        "side": side,
+                        "position_size": position_size,
+                        "notional_value": real_notional_value,
+                        "timestamp": wib_timestamp_str,  # WIB string preserved
+                        "meta": record.get('meta', {})
+                    })
                     
                 except Exception as e:
                     logger.warning(f"Skipped invalid whale alert: {e}")
                     continue
         
-        return whale_alerts
+        # Return JSONResponse to preserve string timestamp
+        return JSONResponse(content=whale_alerts)
         
     except RateLimitExceeded as e:
         raise HTTPException(

@@ -53,7 +53,7 @@ class WhaleAlert(BaseModel):
     side: str  # "long" or "short"
     position_size: float
     notional_value: float
-    timestamp: Optional[datetime] = None
+    timestamp: Optional[str] = None  # Changed to string for WIB formatting
     meta: Optional[Dict[str, Any]] = None
 
 class WhalePosition(BaseModel):
