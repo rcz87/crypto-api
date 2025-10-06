@@ -575,11 +575,9 @@ app.use((req, res, next) => {
     // 🚀 START BACKGROUND SERVICES AFTER SERVER IS LISTENING
     // This ensures health checks pass quickly while services initialize in background
     
-    // Start Python service (non-blocking)
-    if (process.env.NODE_ENV === 'production') {
-      log("🐍 Starting Python service in background...");
-      startPythonService();
-    }
+    // Start Python service (non-blocking) - runs in all environments
+    log("🐍 Starting Python service in background...");
+    startPythonService();
     
     // Initialize observability system (non-blocking)
     (async () => {
