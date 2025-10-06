@@ -576,8 +576,13 @@ app.use((req, res, next) => {
     // This ensures health checks pass quickly while services initialize in background
     
     // Start Python service (non-blocking) - runs in all environments
-    log("🐍 Starting Python service in background...");
-    startPythonService();
+    try {
+      log("🐍 Starting Python service in background...");
+      const pythonProc = startPythonService();
+      log(`🐍 Python service spawn initiated, PID: ${pythonProc?.pid || 'pending'}`);
+    } catch (error: any) {
+      log(`❌ Python service start error: ${error?.message || String(error)}`);
+    }
     
     // Initialize observability system (non-blocking)
     (async () => {
