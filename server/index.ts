@@ -389,8 +389,7 @@ const startPythonService = () => {
   return pythonProcess;
 };
 
-// Start Python service
-startPythonService();
+// Python service will be started AFTER app.listen() to prevent blocking startup
 
 // Observability will be initialized after routes registration
 
@@ -477,30 +476,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize observability system (metrics, tracing, alerts)
-  try {
-    const { initObservability } = await import("../screening-module/backend/observability");
-    initObservability(app);
-    log("Observability system initialized successfully");
-  } catch (error: any) {
-    log(`Failed to initialize observability: ${error?.message || String(error)}`);
-  }
-
-  // 🚀 Initialize Institutional Alert System
-  try {
-    const { startInstitutionalScheduler, startSniperScheduler } = await import("./schedulers/institutional");
-    
-    // 🚨 FIX: Add startup delay to prevent 502 errors during service initialization
-    // Wait 10 seconds after server starts to ensure all services are ready
-    setTimeout(() => {
-      log("🔧 Starting institutional bias scheduler after startup delay...");
-      startInstitutionalScheduler();
-    }, 10000);
-    startSniperScheduler();
-    log("✅ Institutional Alert System initialized - bias & sniper alerts active");
-  } catch (error: any) {
-    log(`❌ Failed to initialize institutional alerts: ${error?.message || String(error)}`);
-  }
+  // Observability and alerts will be initialized AFTER app.listen() to prevent blocking startup
 
   // Add response error interceptor before routes
   app.use(responseErrorInterceptor);
@@ -586,11 +562,48 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
+  const startTime = Date.now();
+  
   server.listen({
     port,
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    const listenDuration = Date.now() - startTime;
+    log(`✅ Server listening on port ${port} in ${listenDuration}ms`);
+    
+    // 🚀 START BACKGROUND SERVICES AFTER SERVER IS LISTENING
+    // This ensures health checks pass quickly while services initialize in background
+    
+    // Start Python service (non-blocking)
+    if (process.env.NODE_ENV === 'production') {
+      log("🐍 Starting Python service in background...");
+      startPythonService();
+    }
+    
+    // Initialize observability system (non-blocking)
+    (async () => {
+      try {
+        const { initObservability } = await import("../screening-module/backend/observability");
+        initObservability(app);
+        log("✅ Observability system initialized");
+      } catch (error: any) {
+        log(`⚠️ Observability init failed: ${error?.message || String(error)}`);
+      }
+    })();
+    
+    // Initialize Institutional Alert System (non-blocking)
+    (async () => {
+      try {
+        const { startInstitutionalScheduler, startSniperScheduler } = await import("./schedulers/institutional");
+        startInstitutionalScheduler();
+        startSniperScheduler();
+        log("✅ Institutional Alert System initialized");
+      } catch (error: any) {
+        log(`⚠️ Institutional alerts init failed: ${error?.message || String(error)}`);
+      }
+    })();
+    
+    log(`🚀 Total startup time: ${Date.now() - startTime}ms`);
   });
 })();
