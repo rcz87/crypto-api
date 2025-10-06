@@ -2788,7 +2788,29 @@ paths:
     post:
       operationId: unifiedAdvancedEndpoint
       summary: Unified GPT Actions endpoint for all CoinGlass Premium Intelligence
-      description: "Unified GPT Actions endpoint for CoinGlass Premium Intelligence. Supports whale alerts, ETF flows, market sentiment, ticker data, and 8+ operations in single or batch mode. Use 'op' for single operations or 'ops' array for batch."
+      description: |
+        **🚨 CRITICAL: This API Returns REAL-TIME LIVE DATA (Not Historical)**
+        
+        Unified GPT Actions endpoint for CoinGlass Premium Intelligence with REAL-TIME price feeds.
+        
+        **Key Operations:**
+        - **ticker**: Get LIVE cryptocurrency prices (updated every 60 seconds from multiple exchanges)
+          - Example: BTC currently ~$124,000 USD (as of Oct 2025)
+          - Example: SOL currently ~$232 USD (as of Oct 2025)
+          - Example: ETH currently ~$4,567 USD (as of Oct 2025)
+        - **whale_alerts**: Real-time whale detection (transactions >$1M USD)
+        - **etf_flows**: Bitcoin ETF institutional flow tracking
+        - **market_sentiment**: Current market sentiment with fear/greed index
+        - **liquidation_heatmap**: Live liquidation cluster analysis
+        - **spot_orderbook**: Real-time orderbook depth from major exchanges
+        
+        **⚠️ IMPORTANT FOR GPT:**
+        - Always call this API to get current prices - DO NOT use training data
+        - Prices change frequently - cached training data is outdated
+        - API returns live data from CoinGlass, CoinAPI, and OKX exchanges
+        - Data is refreshed every 60 seconds with multi-provider fallback
+        
+        Use 'op' field for single operations or 'ops' array for batch requests (max 10 ops).
       tags: ["🚀 GPT Actions"]
       requestBody:
         required: true
@@ -2847,23 +2869,29 @@ paths:
                   description: Array of operations to perform (use this for batch operations)
               additionalProperties: false
             examples:
-              single_operation:
-                summary: Single operation example
+              single_operation_btc:
+                summary: Get LIVE Bitcoin price (real-time)
+                value:
+                  op: ticker
+                  params:
+                    symbol: BTC
+              single_operation_sol:
+                summary: Get LIVE Solana price (real-time)
                 value:
                   op: ticker
                   params:
                     symbol: SOL
               batch_operations:
-                summary: Batch operations example
+                summary: Batch operations with live prices
                 value:
                   ops:
-                    - op: whale_alerts
+                    - op: ticker
                       params:
                         symbol: BTC
-                    - op: market_sentiment
                     - op: ticker
                       params:
                         symbol: ETH
+                    - op: market_sentiment
       responses:
         '200':
           description: Successful operation(s)
@@ -2890,7 +2918,7 @@ paths:
                       data:
                         type: object
                         additionalProperties: true
-                        example: {"symbol": "SOL", "price": 200.0, "status": "stub-ok"}
+                        example: {"symbol": "SOL", "price": 232.91, "last": 232.91, "timestamp": "2025-10-06T10:36:00Z", "source": "CoinGlass→CoinAPI→OKX", "status": "ok", "cache_ttl": 60}
                     required: ["ok", "op", "args"]
                   - type: object
                     properties:
@@ -2917,30 +2945,40 @@ paths:
                           required: ["ok", "op", "args"]
                     required: ["ok", "results"]
               examples:
-                single_success:
-                  summary: Single operation success
+                btc_live_price:
+                  summary: LIVE Bitcoin price (Oct 2025)
+                  description: Real-time BTC price from CoinGlass/CoinAPI/OKX exchanges
+                  value:
+                    ok: true
+                    op: ticker
+                    args: {"symbol": "BTC"}
+                    data: {"symbol": "BTC", "price": 124113.0, "last": 124113.0, "timestamp": "2025-10-06T10:36:00Z", "source": "CoinGlass→CoinAPI→OKX", "status": "ok", "cache_ttl": 60}
+                sol_live_price:
+                  summary: LIVE Solana price (Oct 2025)
+                  description: Real-time SOL price from CoinGlass/CoinAPI/OKX exchanges
                   value:
                     ok: true
                     op: ticker
                     args: {"symbol": "SOL"}
-                    data: {"symbol": "SOL", "price": 200.0, "status": "stub-ok"}
-                batch_success:
-                  summary: Batch operations success
+                    data: {"symbol": "SOL", "price": 232.91, "last": 232.91, "timestamp": "2025-10-06T10:36:00Z", "source": "CoinGlass→CoinAPI→OKX", "status": "ok", "cache_ttl": 60}
+                batch_live_prices:
+                  summary: Batch request for multiple live prices
+                  description: Get real-time prices for BTC, ETH, and SOL in one request
                   value:
                     ok: true
                     results:
                       - ok: true
-                        op: whale_alerts
-                        args: {"symbol": "BTC", "min_usd": 1000000}
-                        data: {"symbol": "BTC", "status": "stub-ok"}
-                      - ok: true
-                        op: market_sentiment
-                        args: {}
-                        data: {"sentiment": "neutral", "metrics": {}, "status": "stub-ok"}
+                        op: ticker
+                        args: {"symbol": "BTC"}
+                        data: {"symbol": "BTC", "price": 124113.0, "last": 124113.0, "timestamp": "2025-10-06T10:36:00Z", "source": "CoinGlass→CoinAPI→OKX", "status": "ok", "cache_ttl": 60}
                       - ok: true
                         op: ticker
                         args: {"symbol": "ETH"}
-                        data: {"symbol": "ETH", "price": 3500.0, "status": "stub-ok"}
+                        data: {"symbol": "ETH", "price": 4567.89, "last": 4567.89, "timestamp": "2025-10-06T10:36:00Z", "source": "CoinGlass→CoinAPI→OKX", "status": "ok", "cache_ttl": 60}
+                      - ok: true
+                        op: ticker
+                        args: {"symbol": "SOL"}
+                        data: {"symbol": "SOL", "price": 232.91, "last": 232.91, "timestamp": "2025-10-06T10:36:00Z", "source": "CoinGlass→CoinAPI→OKX", "status": "ok", "cache_ttl": 60}
         '400':
           description: Invalid request format
           content:
