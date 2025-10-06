@@ -64,6 +64,77 @@ The frontend features a modern, professional dark-themed dashboard using `shadcn
 ### Feature Specifications
 The **SharpSignalEngine** employs an 8-layer detection system analyzing SMC (market structure, BOS/CHoCH, liquidity sweeps), CVD (order flow divergence with AI filtering), and Multi-timeframe analysis. It performs real-time whale detection, smart money tracking, incorporates ATR-based stops and position sizing, and uses a 25-feature vector neural network for advanced confluence scoring. The **AI Trading System** utilizes backpropagation-trained neural network models with 25-feature vectors, adaptive learning, and genetic algorithm-based parameter tuning. The **Multi-Coin Screening Module** conducts 8-Layer analysis with high-performance metrics. **CoinGlass Integration** provides real-time streaming liquidations, funding rates, open interest, heatmap analytics via TimescaleDB, and automated Telegram alerts. **API Resilience & Performance** features auto-batching, exponential backoff retries, multi-provider fallbacks, circuit breaker protection, WebSocket auto-reconnection, and adaptive throttling, aiming for average response times under 50ms. An advanced alert system includes interactive Telegram features, robust risk management integration (position sizing, stop loss, take profit, risk-reward), and specific trigger conditions for whale activity, ETF flows, and smart money.
 
+## Planned Features
+
+### New Listing Detection System (October 6, 2025)
+**Status: 🔄 PLANNED** - Awaiting implementation approval
+
+**Objective:**
+Build real-time new cryptocurrency listing detection and early opportunity scanner to identify pump potential before retail traders, leveraging existing institutional data infrastructure.
+
+**Core Capabilities:**
+1. **Real-time Listing Monitor**
+   - OKX instruments endpoint polling (5-minute intervals)
+   - Automatic new trading pair detection
+   - Database comparison for new listings
+   - Instant Telegram alerts on detection
+
+2. **Volume Spike Detection**
+   - 500%+ volume increase alerts (1-hour window)
+   - Open Interest growth tracking (>200% threshold)
+   - Funding rate spike analysis
+   - Smart money entry detection via whale alerts
+
+3. **Early Opportunity Scoring**
+   - Initial liquidity analysis
+   - First-hour price action patterns
+   - Volume/OI correlation scoring
+   - Risk assessment for new listings
+
+4. **Multi-Exchange Coverage**
+   - OKX (primary, already integrated)
+   - CoinGlass aggregation (300+ exchanges)
+   - Binance API (optional expansion)
+   - CoinMarketCap metadata (optional)
+
+**Data Sources (Priority Order):**
+1. ✅ **OKX API** - `/api/v5/public/instruments` for new pairs detection
+2. ✅ **CoinGlass API** - Multi-exchange volume aggregation, whale activity
+3. ✅ **CoinAPI** - Historical data and metadata (fallback)
+4. 🆕 **Binance Announcement API** - Official listing calendar (optional)
+5. 🆕 **CoinMarketCap API** - Social sentiment and market cap (optional)
+
+**Implementation Strategy:**
+- **Phase 1**: OKX instruments monitoring + volume spike detection (use existing infra)
+- **Phase 2**: Telegram alert system integration
+- **Phase 3**: Early opportunity scoring algorithm
+- **Phase 4**: Multi-exchange expansion (Binance, others)
+
+**Technical Approach:**
+- Leverage existing OKX, CoinGlass, CoinAPI integrations
+- Reuse whale detection, CVD, OI infrastructure
+- Scheduler-based polling (5-min intervals)
+- PostgreSQL for listing history tracking
+- Redis caching for performance
+
+**Expected Deliverables:**
+1. New listing detection endpoint: `/api/listings/new`
+2. Volume spike scanner endpoint: `/api/listings/spikes`
+3. Opportunity scoring endpoint: `/api/listings/opportunities`
+4. Telegram alert integration
+5. Historical listing performance database
+
+**Dependencies:**
+- Existing: OKX API, CoinGlass API, CoinAPI (all active)
+- Optional: Binance API key, CoinMarketCap API key
+- Infrastructure: Current scheduler system, PostgreSQL, Telegram bot
+
+**Business Value:**
+- Early entry opportunities for users
+- Competitive advantage over retail traders
+- Increased user engagement via alerts
+- Premium feature for institutional clients
+
 ## External Dependencies
 
 ### Data Providers
