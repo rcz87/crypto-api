@@ -121,6 +121,17 @@ class OperationType(str, Enum):
     liquidation_heatmap = "liquidation_heatmap"
     spot_orderbook = "spot_orderbook"
     options_oi = "options_oi"
+    
+    # CoinGlass Advanced Data
+    oi_history = "oi_history"
+    oi_aggregated = "oi_aggregated"
+    funding_rate = "funding_rate"
+    taker_volume = "taker_volume"
+    
+    # OKX Real-time Data (proxied to Node.js)
+    cvd_analysis = "cvd_analysis"
+    funding_rate_okx = "funding_rate_okx"
+    open_interest_okx = "open_interest_okx"
 
 class SingleOperationRequest(BaseModel):
     """Single operation request format"""
@@ -231,11 +242,67 @@ OPERATION_CONFIG = {
         "defaults": {"symbol": "BTC", "window": "1d"},
         "query_params": ["window"],
         "path_params": ["symbol"]
+    },
+    
+    # CoinGlass Advanced Data Operations
+    "oi_history": {
+        "endpoint": "/oi/history/{symbol}",
+        "method": "GET",
+        "defaults": {"symbol": "SOLUSDT", "interval": "1h"},
+        "query_params": ["interval", "exchange"],
+        "path_params": ["symbol"]
+    },
+    "oi_aggregated": {
+        "endpoint": "/oi/aggregated/{symbol}",
+        "method": "GET",
+        "defaults": {"symbol": "SOLUSDT", "interval": "1h"},
+        "query_params": ["interval"],
+        "path_params": ["symbol"]
+    },
+    "funding_rate": {
+        "endpoint": "/funding/rate/{symbol}",
+        "method": "GET",
+        "defaults": {"symbol": "SOLUSDT", "interval": "8h", "exchange": "OKX"},
+        "query_params": ["interval", "exchange"],
+        "path_params": ["symbol"]
+    },
+    "taker_volume": {
+        "endpoint": "/taker-volume/{symbol}",
+        "method": "GET",
+        "defaults": {"symbol": "SOLUSDT", "exchange": "OKX", "interval": "1h"},
+        "query_params": ["exchange", "interval"],
+        "path_params": ["symbol"]
+    },
+    
+    # OKX Real-time Data Operations (Node.js proxy)
+    "cvd_analysis": {
+        "endpoint": "/api/{symbol}/cvd",
+        "method": "GET",
+        "defaults": {"symbol": "sol"},
+        "query_params": [],
+        "path_params": ["symbol"],
+        "proxy_to": "nodejs"
+    },
+    "funding_rate_okx": {
+        "endpoint": "/api/{symbol}/funding",
+        "method": "GET",
+        "defaults": {"symbol": "sol"},
+        "query_params": [],
+        "path_params": ["symbol"],
+        "proxy_to": "nodejs"
+    },
+    "open_interest_okx": {
+        "endpoint": "/api/{symbol}/open-interest",
+        "method": "GET",
+        "defaults": {"symbol": "sol"},
+        "query_params": [],
+        "path_params": ["symbol"],
+        "proxy_to": "nodejs"
     }
 }
 
 async def execute_operation(operation: SingleOperationRequest, base_url: str) -> OperationResult:
-    """Execute a single operation by proxying to the appropriate /advanced/* endpoint"""
+    """Execute a single operation by proxying to the appropriate /advanced/* endpoint or Node.js OKX service"""
     op_name = operation.op.value
     
     if op_name not in OPERATION_CONFIG:
@@ -256,11 +323,16 @@ async def execute_operation(operation: SingleOperationRequest, base_url: str) ->
     for param in symbol_params:
         if param in final_params:
             original_symbol = final_params[param]
-            mapped_symbol = convert_user_symbol_to_coinglass(original_symbol)
-            final_params[param] = mapped_symbol
+            # For OKX endpoints, keep lowercase (sol, btc, eth)
+            if config.get("proxy_to") == "nodejs":
+                final_params[param] = original_symbol.lower().replace('usdt', '').replace('-usdt-swap', '')
+            else:
+                # For CoinGlass, apply normal mapping
+                mapped_symbol = convert_user_symbol_to_coinglass(original_symbol)
+                final_params[param] = mapped_symbol
             
             # Log symbol mapping for monitoring
-            print(f"[CoinGlass] Symbol mapping: {original_symbol} → {mapped_symbol} for {op_name}")
+            print(f"[Symbol] {original_symbol} → {final_params[param]} for {op_name}")
     
     # Build endpoint URL with path parameters
     endpoint = config["endpoint"]
@@ -274,17 +346,22 @@ async def execute_operation(operation: SingleOperationRequest, base_url: str) ->
         if param in final_params:
             query_params[param] = final_params[param]
     
+    # Determine target URL based on proxy configuration
+    if config.get("proxy_to") == "nodejs":
+        # Proxy to Node.js OKX service on port 5000
+        target_url = f"http://127.0.0.1:5000{endpoint}"
+    else:
+        # Default: CoinGlass Python FastAPI on port 8000
+        if not endpoint.startswith('/'):
+            endpoint = '/' + endpoint
+        target_url = f"{base_url}/advanced{endpoint}"
+    
     # Make internal HTTP request
     try:
         async with httpx.AsyncClient() as client:
-            # Safely join base_url and endpoint, avoiding double slashes
-            # Since router is mounted under /advanced, we need to add that prefix back for internal calls
-            if not endpoint.startswith('/'):
-                endpoint = '/' + endpoint
-            url = f"{base_url}/advanced{endpoint}"
             response = await client.request(
                 method=config["method"],
-                url=url,
+                url=target_url,
                 params=query_params,
                 timeout=30.0
             )
@@ -292,18 +369,30 @@ async def execute_operation(operation: SingleOperationRequest, base_url: str) ->
             if response.status_code == 200:
                 raw_data = response.json()
                 
+                # Handle Node.js response format {success: true, data: {...}}
+                if isinstance(raw_data, dict) and "success" in raw_data:
+                    if raw_data["success"]:
+                        actual_data = raw_data.get("data", {})
+                    else:
+                        return OperationResult(
+                            ok=False,
+                            op=op_name,
+                            args=final_params,
+                            error=raw_data.get("error", "Unknown error from OKX service")
+                        )
+                else:
+                    actual_data = raw_data
+                
                 # Format adapter: wrap arrays in dict structure for GPT Actions compatibility
-                if isinstance(raw_data, list):
-                    # For array responses, wrap in a dict with metadata
+                if isinstance(actual_data, list):
                     formatted_data = {
-                        "items": raw_data,
-                        "count": len(raw_data),
+                        "items": actual_data,
+                        "count": len(actual_data),
                         "type": "array",
-                        "source": "coinglass_api"
+                        "source": "okx_api" if config.get("proxy_to") == "nodejs" else "coinglass_api"
                     }
                 else:
-                    # Keep dict responses as-is
-                    formatted_data = raw_data
+                    formatted_data = actual_data
                 
                 return OperationResult(
                     ok=True,
