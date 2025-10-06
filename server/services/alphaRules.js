@@ -154,8 +154,12 @@ export async function runInstitutionalBiasAlert() {
     // Detailed condition logging with dynamic thresholds
     const whaleThreshold = testMode ? 10_000 : 1_000_000;
     const sentimentThreshold = testMode ? 30 : 60;
+    const whaleThresholdDisplay = whaleThreshold >= 1_000_000 
+      ? `$${whaleThreshold / 1_000_000}M` 
+      : `$${whaleThreshold / 1_000}K`;
+    
     const reasons = [];
-    if (!whaleBuyLarge) reasons.push(`Whale: No large BUY ≥$${(whaleThreshold/1000)}K detected`);
+    if (!whaleBuyLarge) reasons.push(`Whale: No large BUY ≥${whaleThresholdDisplay} detected`);
     if (!etfInflow) reasons.push(`ETF: No positive inflow detected`);
     if (!sentimentOK) reasons.push(`Sentiment: ${sentimentScore} < ${sentimentThreshold} threshold`);
     
