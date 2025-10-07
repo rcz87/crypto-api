@@ -114,7 +114,7 @@ export class ListingsService {
 
         const volumeData = await this.checkVolumeSpike(listing.symbol);
         
-        if (volumeData && volumeData.spikePercentage >= 500) {
+        if (volumeData && volumeData.spikePercentage >= 150) {
           const [oiData, whaleData, fundingData, buySellData] = await Promise.all([
             this.getOpenInterestChange(listing.symbol),
             this.detectWhaleActivity(listing.symbol),
@@ -282,8 +282,8 @@ export class ListingsService {
   private calculateConfidence(volumeData: VolumeData, whaleData: WhaleActivityData, oiData: any): number {
     let confidence = 0;
 
-    if (volumeData.spikePercentage >= 500) confidence += 30;
-    if (volumeData.spikePercentage >= 800) confidence += 20;
+    if (volumeData.spikePercentage >= 150) confidence += 30;
+    if (volumeData.spikePercentage >= 300) confidence += 20;
     
     if (whaleData.detected) confidence += 25;
     if (whaleData.totalUSD >= 1000000) confidence += 15;

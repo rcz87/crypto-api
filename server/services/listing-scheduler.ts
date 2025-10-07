@@ -9,7 +9,7 @@ let schedulerInterval: NodeJS.Timeout | null = null;
 let isRunning = false;
 
 const SCAN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-const MIN_OPPORTUNITY_SCORE = 65; // Only alert on good opportunities
+const MIN_OPPORTUNITY_SCORE = 40; // Lower threshold for more alerts (testing)
 
 async function scanAndAlert(): Promise<void> {
   if (isRunning) {
