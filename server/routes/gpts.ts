@@ -7,6 +7,8 @@ import { screenerService } from '../modules/screener/screener.service.js';
 import { type ScreenerParams } from '../../shared/schema.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { listingsService } from '../services/listings.js';
+import { listingScorerService } from '../services/listing-scorer.js';
 import * as path from 'path';
 
 const execAsync = promisify(exec);
@@ -340,7 +342,7 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
         const data = response.data as any;
         
         // If Python service returns ok: false for supported operations, use Node.js fallback
-        const supportedOps = ['whale_alerts', 'market_sentiment', 'multi_coin_screening'];
+        const supportedOps = ['whale_alerts', 'market_sentiment', 'multi_coin_screening', 'new_listings', 'volume_spikes', 'opportunities'];
         const isSupported = req.body.op && supportedOps.includes(req.body.op) ||
                            req.body.ops && req.body.ops.some((op: any) => supportedOps.includes(op.op));
         
@@ -784,6 +786,170 @@ async function tryNodeFallback(requestBody: any): Promise<any> {
               args: params,
               data: null,
               error: screeningError instanceof Error ? screeningError.message : 'Screening service failed'
+            };
+          }
+
+        case 'new_listings':
+          console.log('[Node Fallback] Handling new_listings operation');
+          try {
+            const limit = params.limit || 20;
+            const listings = await listingsService.getActiveListings(limit);
+            
+            const formattedListings = listings.map(listing => {
+              const listingTime = new Date(listing.listingTime);
+              const timeElapsed = Date.now() - listingTime.getTime();
+              const hoursElapsed = Math.floor(timeElapsed / (1000 * 60 * 60));
+              const minutesElapsed = Math.floor((timeElapsed % (1000 * 60 * 60)) / (1000 * 60));
+              
+              const initialPrice = parseFloat(listing.initialPrice);
+              const currentPrice = listing.currentPrice ? parseFloat(listing.currentPrice) : initialPrice;
+              const priceChangeNum = ((currentPrice - initialPrice) / initialPrice * 100);
+              
+              return {
+                symbol: listing.symbol,
+                exchange: listing.exchange,
+                listingTime: listingTime.toISOString(),
+                initialPrice: listing.initialPrice,
+                currentPrice: listing.currentPrice || listing.initialPrice,
+                priceChange: `${priceChangeNum > 0 ? '+' : ''}${priceChangeNum.toFixed(2)}%`,
+                volume24h: listing.volume24h,
+                timeElapsed: hoursElapsed > 0 ? `${hoursElapsed}h ${minutesElapsed}m` : `${minutesElapsed}m`,
+                status: listing.status,
+              };
+            });
+            
+            return {
+              ok: true,
+              op: 'new_listings',
+              args: { limit },
+              data: {
+                module: 'new_listings',
+                listings: formattedListings,
+                total: listings.length,
+                used_sources: ['okx_api', 'listings_service', 'real_time_monitoring'],
+                summary: `Found ${listings.length} new cryptocurrency listings`
+              }
+            };
+          } catch (listingsError) {
+            console.error('[Node Fallback] New listings failed:', listingsError);
+            return {
+              ok: false,
+              op: 'new_listings',
+              args: params,
+              data: null,
+              error: listingsError instanceof Error ? listingsError.message : 'New listings service failed'
+            };
+          }
+
+        case 'volume_spikes':
+          console.log('[Node Fallback] Handling volume_spikes operation');
+          try {
+            const limit = params.limit || 20;
+            const spikes = await listingsService.getRecentSpikes(limit);
+            
+            const formattedSpikes = spikes.map(spike => {
+              const metadata = spike.metadata as any || {};
+              const whaleBuyPressure = metadata.whaleBuyOrders || 0;
+              const whaleSellPressure = metadata.whaleSellOrders || 0;
+              const whaleDirection = whaleBuyPressure > whaleSellPressure ? 'BUY' : 
+                                    whaleSellPressure > whaleBuyPressure ? 'SELL' : 'NEUTRAL';
+              
+              const whaleActivity = spike.whaleCount > 0 ? {
+                totalOrders: spike.whaleCount,
+                buyOrders: whaleBuyPressure,
+                sellOrders: whaleSellPressure,
+                direction: whaleDirection,
+                totalUSD: spike.whaleTotalUsd,
+                averageSize: spike.whaleCount > 0 ? (parseFloat(spike.whaleTotalUsd) / spike.whaleCount).toFixed(2) : '0',
+              } : undefined;
+              
+              const buyVol = parseFloat(metadata.buyVolume || '0');
+              const sellVol = parseFloat(metadata.sellVolume || '0');
+              const cvd = buyVol - sellVol;
+              
+              return {
+                symbol: spike.symbol,
+                normalVolume: spike.normalVolume,
+                currentVolume: spike.spikeVolume,
+                spikePercentage: `+${spike.spikePercentage}%`,
+                whaleActivity,
+                orderFlow: metadata.buyVolume || metadata.sellVolume ? {
+                  buyVolume: metadata.buyVolume,
+                  sellVolume: metadata.sellVolume,
+                  cvd: cvd.toFixed(2),
+                  buyPercentage: buyVol + sellVol > 0 ? ((buyVol / (buyVol + sellVol)) * 100).toFixed(1) : '0',
+                } : undefined,
+                openInterestChange: spike.openInterestChange ? `+${spike.openInterestChange}%` : undefined,
+                fundingRate: spike.fundingRateChange,
+                signal: spike.signal,
+                confidence: spike.confidence,
+              };
+            });
+            
+            return {
+              ok: true,
+              op: 'volume_spikes',
+              args: { limit },
+              data: {
+                module: 'volume_spikes',
+                spikes: formattedSpikes,
+                total: spikes.length,
+                used_sources: ['okx_api', 'whale_detection', 'cvd_analysis', 'real_time_monitoring'],
+                summary: `Detected ${spikes.length} volume spikes with enhanced whale & order flow analysis`
+              }
+            };
+          } catch (spikesError) {
+            console.error('[Node Fallback] Volume spikes failed:', spikesError);
+            return {
+              ok: false,
+              op: 'volume_spikes',
+              args: params,
+              data: null,
+              error: spikesError instanceof Error ? spikesError.message : 'Volume spikes service failed'
+            };
+          }
+
+        case 'opportunities':
+          console.log('[Node Fallback] Handling opportunities operation');
+          try {
+            const symbol = params.symbol;
+            const minScore = params.minScore || 60;
+            const opportunities = await listingScorerService.getOpportunities(symbol, minScore);
+            
+            const formattedOpportunities = opportunities.map(opp => ({
+              symbol: opp.symbol,
+              opportunityScore: opp.opportunityScore,
+              breakdown: {
+                liquidityScore: opp.liquidityScore,
+                momentumScore: opp.momentumScore,
+                riskScore: opp.riskScore,
+                smartMoneyScore: opp.smartMoneyScore,
+                technicalScore: opp.technicalScore,
+              },
+              recommendation: opp.recommendation,
+              reasoning: opp.reasoning,
+            }));
+            
+            return {
+              ok: true,
+              op: 'opportunities',
+              args: { symbol, minScore },
+              data: {
+                module: 'opportunities',
+                opportunities: formattedOpportunities,
+                total: opportunities.length,
+                used_sources: ['ai_scoring', 'neural_network', 'multi_factor_analysis'],
+                summary: `Found ${opportunities.length} trading opportunities with score ≥${minScore}`
+              }
+            };
+          } catch (opportunitiesError) {
+            console.error('[Node Fallback] Opportunities failed:', opportunitiesError);
+            return {
+              ok: false,
+              op: 'opportunities',
+              args: params,
+              data: null,
+              error: opportunitiesError instanceof Error ? opportunitiesError.message : 'Opportunities service failed'
             };
           }
           
