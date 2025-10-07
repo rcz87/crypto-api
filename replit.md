@@ -5,6 +5,37 @@ The Enhanced Intelligent Screening System is an institutional-grade perpetual fu
 
 ## Recent Changes
 
+### Liquidation Endpoint Data Path Clarification (October 7, 2025)
+**Status: ✅ VERIFIED WORKING** - All liquidation endpoints returning accurate real-time prices
+
+**Investigation Resolution:**
+- ✅ **OKX Service Working Perfectly** - Real-time price fetching confirmed (BTC $124,368, ETH $4,680, SOL $233)
+- ✅ **Response Structure Documented** - `currentPrice` located at `.data.heatmap.currentPrice` (NOT `.data.currentPrice`)
+- ✅ **All Trading Pairs Operational** - BTC, ETH, SOL liquidation endpoints verified with live data
+- ✅ **Generic /:pair Endpoint Migration Complete** - All pairs use unified `/api/:pair/liquidation` format
+
+**Technical Details:**
+```json
+{
+  "success": true,
+  "data": {
+    "timeframe": "1H",
+    "heatmap": {
+      "currentPrice": "233.2600",  // ← CORRECT PATH
+      "levels": [...],
+      "liquidationRisk": "low"
+    },
+    "riskMetrics": {...},
+    "recommendations": {...}
+  }
+}
+```
+
+**LiquidationAnalysis Response Schema:**
+- Top-level: `timeframe`, `heatmap`, `riskMetrics`, `recommendations`, `lastUpdate`
+- Price data: Nested inside `heatmap.currentPrice` (string with 4 decimal places)
+- All endpoints follow this consistent structure for BTC, ETH, SOL, and other pairs
+
 ### Institutional Bias Alert System Fixes (October 6, 2025)
 **Status: ✅ PRODUCTION READY** - All critical runtime issues resolved
 
