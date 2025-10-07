@@ -44,3 +44,111 @@ The **SharpSignalEngine** employs an 8-layer detection system analyzing SMC, CVD
 - **Lucide React**: Icons.
 - **TradingView**: Charting widget integration.
 - **shadcn/ui with Tailwind CSS**: UI framework.
+
+## Future Development Roadmap
+
+### Advanced Alpha Screening System for Micro-Cap Hidden Gems
+Implementation of systematic 4-layer scoring methodology for identifying high-potential micro-cap crypto projects (<$100M market cap) in pre-retail phase.
+
+#### Scoring Framework (100% Total Score)
+
+**Layer 1: Fundamental & Credibility Analysis (35%)**
+- **Team Quality Assessment**: 
+  - Founder track record, leadership skills, industry expertise
+  - Resilience and pivot capability evaluation
+  - "People First" investment thesis
+- **VC Tier-1 Validation Signal**:
+  - Investment from top-tier VCs ($250k-$40M rounds)
+  - Proxy for institutional due diligence validation
+  - Firms: a16z, Paradigm, Sequoia, Pantera, etc.
+- **Product Vision & Infrastructure**:
+  - Technical implementation (speed, scalability, security)
+  - Consensus mechanism analysis (PoW/PoS)
+  - Innovation level and interoperability
+  - Real-world problem solving capability
+
+**Layer 2: Tokenomics & Value Accrual (30%)**
+- **Supply Structure & Dilution Metrics**:
+  - Circulating supply ratio analysis (ideal: 80-90% at TGE)
+  - Total supply vs circulating supply comparison
+  - Future dilution risk assessment
+- **Vesting Schedule Analysis** (Critical):
+  - **Vesting cliff duration**: ≥12 months (ideal), ≥6 months (minimum)
+  - Team/VC token release timeline
+  - Alignment with long-term protocol success
+- **Dilution Risk Matrix**:
+  | Circulating Supply | Vesting Cliff | Risk Level | Score |
+  |-------------------|---------------|------------|-------|
+  | 80-90% | ≥6 months | Low | High |
+  | 30-40% | 12 months | Medium | Medium |
+  | <20% | <6 months | Very High | Reject |
+- **Advanced Value Accrual Mechanisms**:
+  - **veLocker (Vote Escrow)**: Long-term token locking for governance power, liquidity sink creation, progressive exit tax
+  - **Gauges System**: Emission allocation mechanism, efficient capital distribution
+
+**Layer 3: Technical Traction & Resilience (25%)**
+- **Security Audit Requirements**:
+  - Minimum: 1 audit from Tier-1 firm (Certik, Hashlock, ConsenSys Diligence, Cyfrin, Hacken)
+  - Ideal: 2+ audits from reputable firms
+  - Smart contract immutability risk mitigation
+- **Developer Activity Metrics**:
+  - GitHub activity monitoring (commits, merges)
+  - High & consistent development activity indicator
+  - Ghost chain risk mitigation
+- **User Adoption & Stickiness**:
+  - **DAU/MAU Ratio**: Target ≥20% (DeFi/Finance benchmark: 22%)
+  - Indicates 6+ days usage per month
+  - Organic utility vs token incentive differentiation
+  - Product-Market Fit (PMF) validation
+- **Quality Adoption Benchmarks**:
+  | Metric | Engagement Level | Ideal Benchmark | Pre-Retail Significance |
+  |--------|-----------------|-----------------|------------------------|
+  | DAU/MAU | Stickiness | 20-22%+ | PMF proven |
+  | On-chain Activity | Transaction sustainability | Increasing trend/wallet | Organic growth |
+  | GitHub Activity | Project health | Stable & increasing | Active development |
+
+**Layer 4: Strategic Narrative Sectors (10%)**
+- **Real World Assets (RWA) - Institutional Alpha**:
+  - Market size: $12B+ tokenized assets
+  - **ERC-3643 Compliance**: Permissioned token standard for qualified users, TradFi capital gateway
+  - TVL growth: $0 → $5M → $70M trajectory analysis
+  - Regulatory readiness for institutional adoption
+- **DePIN (Decentralized Physical Infrastructure Networks)**:
+  - Physical infrastructure utilization metrics
+  - **Node Count Growth**: Network provider participation
+  - **Bandwidth Utilization**: Actual capacity usage measurement
+  - On-chain identity verification for integrity
+  - Growth rate: Node count & bandwidth >> price growth = alpha signal
+
+#### Red Flags (Automatic Rejection Criteria)
+1. **Documentation Issues**: Poor/absent whitepaper, lack of transparency
+2. **Team Credibility**: Unverified team, scam history
+3. **Security Gaps**: No smart contract audit from reputable firm
+4. **Bad Tokenomics**: Team/VC dominated supply without transparent vesting
+
+#### Implementation Strategy
+- **Entry Timing**: "Building phase" with high dev activity, pre-retail hype
+- **Risk Mitigation**: Vesting cliff ≥12 months + veLocker mechanisms
+- **Sector Focus**: RWA (ERC-3643 compliant) + DePIN (explosive node growth)
+- **Validation Signals**: VC Tier-1 backing + Security audits + DAU/MAU ≥20%
+
+#### Technical Implementation Plan
+1. **New Scoring Engine Module**: `server/services/alpha-screener.ts`
+2. **Database Schema**: Micro-cap projects tracking, scoring history
+3. **API Endpoints**: 
+   - `/api/alpha/screen` - Run screening analysis
+   - `/api/alpha/hidden-gems` - Get top-scored opportunities
+4. **GPT Actions Operation**: `alpha_screening` or `hidden_gems`
+5. **Telegram Alerts**: Enhanced alerts with 4-layer scoring breakdown
+6. **Data Integration**:
+   - CoinGecko/CoinMarketCap API for market cap filtering (<$100M)
+   - GitHub API for developer activity metrics
+   - On-chain analytics for DAU/MAU ratio
+   - Audit database for security verification
+   - VC backing database for Tier-1 validation
+
+#### Expected Outcomes
+- Systematic identification of micro-cap gems before retail discovery
+- Multi-dimensional risk assessment (35-30-25-10 framework)
+- Alpha generation through market inefficiency exploitation
+- Institutional-grade due diligence automation
