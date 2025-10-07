@@ -1918,3 +1918,172 @@ export const unifiedSentimentResponseSchema = z.object({
 // Type exports for unified sentiment
 export type UnifiedSentiment = z.infer<typeof unifiedSentimentResponseSchema>;
 
+// ========================
+// NEW LISTING DETECTION SYSTEM
+// ========================
+
+// New Listings tracking table
+export const newListings = pgTable("new_listings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: text("symbol").notNull(),
+  exchange: text("exchange").notNull(),
+  listingTime: timestamp("listing_time", { withTimezone: true }).notNull(),
+  initialPrice: decimal("initial_price", { precision: 18, scale: 8 }).notNull(),
+  currentPrice: decimal("current_price", { precision: 18, scale: 8 }),
+  volume24h: decimal("volume_24h", { precision: 18, scale: 2 }),
+  volumeSpike: decimal("volume_spike", { precision: 10, scale: 2 }), // percentage
+  openInterest: decimal("open_interest", { precision: 18, scale: 2 }),
+  openInterestChange: decimal("open_interest_change", { precision: 10, scale: 2 }), // percentage
+  fundingRate: decimal("funding_rate", { precision: 8, scale: 6 }),
+  whaleActivity: jsonb("whale_activity"), // whale trades detected
+  opportunityScore: integer("opportunity_score"), // 0-100
+  status: text("status").notNull().default("active"), // 'active', 'monitored', 'expired'
+  alertSent: boolean("alert_sent").default(false),
+  metadata: jsonb("metadata"), // additional data
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// Volume Spike tracking for existing and new listings
+export const volumeSpikes = pgTable("volume_spikes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: text("symbol").notNull(),
+  exchange: text("exchange").notNull(),
+  normalVolume: decimal("normal_volume", { precision: 18, scale: 2 }).notNull(),
+  spikeVolume: decimal("spike_volume", { precision: 18, scale: 2 }).notNull(),
+  spikePercentage: decimal("spike_percentage", { precision: 10, scale: 2 }).notNull(),
+  openInterestChange: decimal("open_interest_change", { precision: 10, scale: 2 }),
+  whaleCount: integer("whale_count").default(0),
+  whaleTotalUsd: decimal("whale_total_usd", { precision: 18, scale: 2 }),
+  fundingRateChange: decimal("funding_rate_change", { precision: 8, scale: 6 }),
+  signal: text("signal"), // 'buy', 'sell', 'neutral'
+  confidence: integer("confidence"), // 0-100
+  alertSent: boolean("alert_sent").default(false),
+  detectedAt: timestamp("detected_at", { withTimezone: true }).defaultNow(),
+});
+
+// Listing Opportunities - scored opportunities for new listings
+export const listingOpportunities = pgTable("listing_opportunities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  listingId: varchar("listing_id").references(() => newListings.id, { onDelete: "cascade" }),
+  symbol: text("symbol").notNull(),
+  opportunityScore: integer("opportunity_score").notNull(), // 0-100
+  liquidityScore: integer("liquidity_score"), // 0-100
+  momentumScore: integer("momentum_score"), // 0-100
+  riskScore: integer("risk_score"), // 0-100 (lower is better)
+  smartMoneyScore: integer("smart_money_score"), // 0-100
+  technicalScore: integer("technical_score"), // 0-100
+  recommendation: jsonb("recommendation"), // action, entry, SL, TP, R:R
+  reasoning: jsonb("reasoning"), // array of reasons
+  exitStrategy: jsonb("exit_strategy"),
+  status: text("status").default("active"), // 'active', 'closed', 'expired'
+  alertSent: boolean("alert_sent").default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// Insert schemas
+export const insertNewListingSchema = createInsertSchema(newListings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertVolumeSpikeSchema = createInsertSchema(volumeSpikes).omit({
+  id: true,
+  detectedAt: true,
+});
+
+export const insertListingOpportunitySchema = createInsertSchema(listingOpportunities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types
+export type NewListing = typeof newListings.$inferSelect;
+export type InsertNewListing = z.infer<typeof insertNewListingSchema>;
+export type VolumeSpike = typeof volumeSpikes.$inferSelect;
+export type InsertVolumeSpike = z.infer<typeof insertVolumeSpikeSchema>;
+export type ListingOpportunity = typeof listingOpportunities.$inferSelect;
+export type InsertListingOpportunity = z.infer<typeof insertListingOpportunitySchema>;
+
+// Response schemas for API
+export const newListingResponseSchema = z.object({
+  success: z.boolean(),
+  data: z.object({
+    newListings: z.array(z.object({
+      symbol: z.string(),
+      exchange: z.string(),
+      listingTime: z.string(),
+      initialPrice: z.string(),
+      currentPrice: z.string().optional(),
+      priceChange: z.string().optional(),
+      volume24h: z.string().optional(),
+      timeElapsed: z.string(),
+      status: z.string(),
+    })),
+    total: z.number(),
+    lastUpdate: z.string(),
+  }),
+  timestamp: z.string(),
+});
+
+export const volumeSpikeResponseSchema = z.object({
+  success: z.boolean(),
+  data: z.object({
+    volumeSpikes: z.array(z.object({
+      symbol: z.string(),
+      normalVolume: z.string(),
+      currentVolume: z.string(),
+      spikePercentage: z.string(),
+      openInterestChange: z.string().optional(),
+      whaleActivity: z.object({
+        buyOrders: z.number(),
+        totalUSD: z.string(),
+        averageSize: z.string(),
+      }).optional(),
+      fundingRate: z.string().optional(),
+      signal: z.string(),
+      confidence: z.number(),
+    })),
+    total: z.number(),
+    lastUpdate: z.string(),
+  }),
+  timestamp: z.string(),
+});
+
+export const opportunityResponseSchema = z.object({
+  success: z.boolean(),
+  data: z.object({
+    opportunities: z.array(z.object({
+      symbol: z.string(),
+      opportunityScore: z.number(),
+      breakdown: z.object({
+        liquidityScore: z.number(),
+        momentumScore: z.number(),
+        riskScore: z.number(),
+        smartMoneyScore: z.number(),
+        technicalScore: z.number(),
+      }),
+      recommendation: z.object({
+        action: z.string(),
+        entry: z.string().optional(),
+        stopLoss: z.string().optional(),
+        targets: z.array(z.string()).optional(),
+        riskReward: z.string().optional(),
+        confidence: z.string(),
+        timeframe: z.string().optional(),
+      }),
+      reasoning: z.array(z.string()),
+    })),
+    total: z.number(),
+    lastUpdate: z.string(),
+  }),
+  timestamp: z.string(),
+});
+
+export type NewListingResponse = z.infer<typeof newListingResponseSchema>;
+export type VolumeSpikeResponse = z.infer<typeof volumeSpikeResponseSchema>;
+export type OpportunityResponse = z.infer<typeof opportunityResponseSchema>;
+
