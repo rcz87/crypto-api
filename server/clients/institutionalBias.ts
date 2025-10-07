@@ -9,7 +9,7 @@ import { normalizePerp } from "../utils/symbols.js";
 
 const API_BASE = process.env.API_BASE || "http://127.0.0.1:5000";
 const PY_BASE = process.env.PY_BASE || "http://127.0.0.1:8000";
-const BIAS_TARGET = (process.env.BIAS_TARGET || "node").toLowerCase() as "node" | "python";
+const BIAS_TARGET = (process.env.BIAS_TARGET || "python").toLowerCase() as "node" | "python";
 
 export type BiasOk = { 
   ok: true; 
