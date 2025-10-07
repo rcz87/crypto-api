@@ -3637,6 +3637,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test Telegram alert functionality
+  app.post('/api/listings/test-telegram', async (req: Request, res: Response) => {
+    try {
+      const { telegramListingAlerts } = await import('./services/telegram-listing-alerts');
+      
+      const testListing = {
+        symbol: 'TEST-USDT-SWAP',
+        exchange: 'okx',
+        listingTime: new Date().toISOString(),
+        initialPrice: '1.2345',
+        currentPrice: '1.2500',
+        volume24h: '1500000',
+      };
+
+      const sent = await telegramListingAlerts.sendNewListingAlert(testListing as any);
+
+      res.json({
+        success: sent,
+        message: sent ? 'Test alert sent to Telegram!' : 'Failed to send alert',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error sending test alert:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send test alert',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // Start Enhanced AI Signal Engine schedulers for strategy evolution
   aiSignalEngine.startSchedulers();
   console.log("🚀 Enhanced AI Signal Engine schedulers started - auto evolution & cleanup enabled");
