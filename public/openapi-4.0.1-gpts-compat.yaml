@@ -2803,12 +2803,18 @@ paths:
         - **market_sentiment**: Current market sentiment with fear/greed index
         - **liquidation_heatmap**: Live liquidation cluster analysis
         - **spot_orderbook**: Real-time orderbook depth from major exchanges
+        - **alpha_screening**: 4-layer alpha analysis (fundamental, tokenomics, technical, narrative) with CoinMarketCap data from 300+ exchanges
+        - **new_listings**: New exchange listings detection with volume spike analysis
+        - **volume_spikes**: Volume spike detection with whale & order flow analysis
+        - **opportunities**: AI-scored trading opportunities with neural network analysis
+        - **micro_caps**: Micro-cap gems discovery (<$100M market cap) with tokenomics scoring
         
         **⚠️ IMPORTANT FOR GPT:**
         - Always call this API to get current prices - DO NOT use training data
         - Prices change frequently - cached training data is outdated
-        - API returns live data from CoinGlass, CoinAPI, and OKX exchanges
+        - API returns live data from CoinGlass, CoinAPI, OKX, and CoinMarketCap (300+ exchanges)
         - Data is refreshed every 60 seconds with multi-provider fallback
+        - Alpha screening uses real-time CoinMarketCap data with multi-exchange aggregation
         
         Use 'op' field for single operations or 'ops' array for batch requests (max 10 ops).
       tags: ["🚀 GPT Actions"]
@@ -2833,6 +2839,11 @@ paths:
                     - liquidation_heatmap
                     - spot_orderbook
                     - options_oi
+                    - alpha_screening
+                    - new_listings
+                    - volume_spikes
+                    - opportunities
+                    - micro_caps
                   description: Operation to perform (use this for single operations)
                 params:
                   type: object
@@ -2858,6 +2869,11 @@ paths:
                           - liquidation_heatmap
                           - spot_orderbook
                           - options_oi
+                          - alpha_screening
+                          - new_listings
+                          - volume_spikes
+                          - opportunities
+                          - micro_caps
                         description: Operation to perform
                       params:
                         type: object
@@ -2881,6 +2897,26 @@ paths:
                   op: ticker
                   params:
                     symbol: SOL
+              alpha_screening_sol:
+                summary: Alpha screening analysis for SOL (real-time)
+                value:
+                  op: alpha_screening
+                  params:
+                    symbol: SOL
+              micro_caps_screening:
+                summary: Find micro-cap hidden gems (<$100M market cap)
+                value:
+                  op: micro_caps
+                  params:
+                    maxMarketCap: 100000000
+                    minScore: 60
+                    limit: 10
+              new_listings_watch:
+                summary: Monitor new exchange listings with volume spikes
+                value:
+                  op: new_listings
+                  params:
+                    limit: 20
               batch_operations:
                 summary: Batch operations with live prices
                 value:
@@ -2951,6 +2987,32 @@ paths:
                     op: ticker
                     args: {"symbol": "SOL"}
                     data: {"symbol": "SOL", "price": 232.91, "last": 232.91, "timestamp": "2025-10-06T10:36:00Z", "source": "CoinGlass→CoinAPI→OKX", "status": "ok", "cache_ttl": 60}
+                alpha_screening_sol_response:
+                  summary: Alpha screening for SOL with tokenomics analysis
+                  description: Real-time alpha screening with 4-layer scoring (fundamental, tokenomics, technical, narrative)
+                  value:
+                    ok: true
+                    op: alpha_screening
+                    args: {"symbol": "SOL"}
+                    data: 
+                      module: alpha_screening
+                      symbol: SOL
+                      name: Solana
+                      price: 230.81
+                      marketCap: 126040693771.26
+                      marketCapFormatted: "$126040.69M"
+                      alphaScore: 84
+                      fundamentalScore: 31
+                      tokenomicsScore: 25
+                      technicalScore: 25
+                      narrativeScore: 3
+                      circulatingSupply: 546085564.84
+                      totalSupply: 611305109.42
+                      circulatingRatio: 0.893
+                      dilutionRisk: 0.119
+                      tags: ["pos", "platform", "solana-ecosystem", "layer-1"]
+                      used_sources: ["coinmarketcap_api", "multi_exchange_aggregation", "300+_exchanges"]
+                      summary: "Alpha screening for SOL: Score 84/100 (Market Cap: $126041M)"
                 batch_live_prices:
                   summary: Batch request for multiple live prices
                   description: Get real-time prices for BTC, ETH, and SOL in one request
