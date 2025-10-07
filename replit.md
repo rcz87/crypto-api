@@ -30,6 +30,7 @@ The **SharpSignalEngine** employs an 8-layer detection system analyzing SMC, CVD
 - **OKX API**: Live pricing, order flow, funding rates.
 - **CoinAPI**: Cryptocurrency data, VWAP calculations.
 - **CoinGlass v4 API**: Institutional data, ETF flows, whale alerts.
+- **CoinMarketCap API**: Multi-exchange aggregation (300+ exchanges), market cap data, tokenomics analysis, micro-cap screening (Free tier: 10K credits/month).
 
 ### Infrastructure
 - **Neon Database**: PostgreSQL database.
@@ -132,20 +133,32 @@ Implementation of systematic 4-layer scoring methodology for identifying high-po
 - **Sector Focus**: RWA (ERC-3643 compliant) + DePIN (explosive node growth)
 - **Validation Signals**: VC Tier-1 backing + Security audits + DAU/MAU ≥20%
 
-#### Technical Implementation Plan
-1. **New Scoring Engine Module**: `server/services/alpha-screener.ts`
-2. **Database Schema**: Micro-cap projects tracking, scoring history
-3. **API Endpoints**: 
-   - `/api/alpha/screen` - Run screening analysis
-   - `/api/alpha/hidden-gems` - Get top-scored opportunities
-4. **GPT Actions Operation**: `alpha_screening` or `hidden_gems`
-5. **Telegram Alerts**: Enhanced alerts with 4-layer scoring breakdown
-6. **Data Integration**:
-   - CoinGecko/CoinMarketCap API for market cap filtering (<$100M)
-   - GitHub API for developer activity metrics
-   - On-chain analytics for DAU/MAU ratio
-   - Audit database for security verification
-   - VC backing database for Tier-1 validation
+#### Technical Implementation Status
+✅ **CoinMarketCap Integration Complete** (October 2025):
+1. **API Service**: `server/services/coinmarketcap.ts`
+   - Rate limiting: 10K/month, 333/day, 30/min (Free tier)
+   - Auto-reset daily/monthly counters
+   - Credit tracking & usage stats
+2. **Alpha Screening Endpoints** (`server/routes/alpha.ts`):
+   - `GET /api/alpha/screen/:symbol` - Full 4-layer alpha analysis
+   - `GET /api/alpha/micro-caps` - Micro-cap opportunities (<$100M market cap)
+   - `GET /api/alpha/new-listings` - Recent listings with tokenomics scoring
+   - `GET /api/alpha/market-metrics` - Global crypto market metrics (BTC dominance, DeFi market cap, etc.)
+   - `GET /api/alpha/stats` - CMC API usage statistics
+3. **Enhanced Listing Scorer** (`server/services/listing-scorer.ts`):
+   - Market Cap scoring (10%): Micro-cap premium (<$100M)
+   - Tokenomics scoring (10%): Circulating ratio, FDV dilution risk
+   - Narrative scoring (5%): RWA, DePIN sector detection
+   - Multi-exchange data from 300+ exchanges (Binance, OKX, Coinbase, etc.)
+4. **Telegram Integration** (`server/services/telegram-listing-alerts.ts`):
+   - Alpha opportunity alerts with market cap, tokenomics, and cross-exchange validation
+   - Enhanced formatting with CMC fundamental data
+
+**Pending Implementation**:
+- GitHub API for developer activity metrics
+- On-chain analytics for DAU/MAU ratio
+- Audit database for security verification
+- VC backing database for Tier-1 validation
 
 #### Expected Outcomes
 - Systematic identification of micro-cap gems before retail discovery
