@@ -607,6 +607,17 @@ app.use((req, res, next) => {
       }
     })();
     
+    // Initialize New Listing Detection System (non-blocking)
+    (async () => {
+      try {
+        const { startListingScheduler } = await import("./services/listing-scheduler");
+        startListingScheduler();
+        log("✅ New Listing Detection System initialized");
+      } catch (error: any) {
+        log(`⚠️ Listing scheduler init failed: ${error?.message || String(error)}`);
+      }
+    })();
+    
     log(`🚀 Total startup time: ${Date.now() - startTime}ms`);
   });
 })();
