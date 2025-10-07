@@ -3640,6 +3640,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Start Enhanced AI Signal Engine schedulers for strategy evolution
   aiSignalEngine.startSchedulers();
   console.log("🚀 Enhanced AI Signal Engine schedulers started - auto evolution & cleanup enabled");
+
+  // Start New Listing Detection Scheduler
+  const { startListingScheduler } = await import('./services/listing-scheduler');
+  startListingScheduler();
+  console.log("🚀 New Listing Detection Scheduler started - 5min interval monitoring enabled");
   
   return httpServer;
 }
