@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { listingOpportunities, NewListing, InsertListingOpportunity } from '@shared/schema';
 import { OKXService } from './okx';
+import { cmcService } from './coinmarketcap';
 import { eq } from 'drizzle-orm';
 
 interface OpportunityScores {
@@ -10,6 +11,8 @@ interface OpportunityScores {
   riskScore: number;
   smartMoneyScore: number;
   technicalScore: number;
+  tokenomicsScore?: number;
+  marketCapScore?: number;
 }
 
 interface TradingRecommendation {
@@ -43,14 +46,19 @@ export class ListingScorerService {
       momentumScore,
       smartMoneyScore,
       technicalScore,
+      cmcData,
     ] = await Promise.all([
       this.calculateLiquidityScore(listing.symbol),
       this.calculateMomentumScore(listing.symbol),
       this.calculateSmartMoneyScore(listing.symbol),
       this.calculateTechnicalScore(listing.symbol),
+      this.getCMCData(listing.symbol),
     ]);
 
     const riskScore = this.calculateRiskScore(listing, liquidityScore, momentumScore);
+    
+    const tokenomicsScore = cmcData?.tokenomicsScore || 0;
+    const marketCapScore = cmcData?.marketCapScore || 0;
     
     const opportunityScore = this.calculateOpportunityScore({
       opportunityScore: 0,
@@ -59,6 +67,8 @@ export class ListingScorerService {
       riskScore,
       smartMoneyScore,
       technicalScore,
+      tokenomicsScore,
+      marketCapScore,
     });
 
     const scores: OpportunityScores = {
@@ -68,10 +78,12 @@ export class ListingScorerService {
       riskScore,
       smartMoneyScore,
       technicalScore,
+      tokenomicsScore,
+      marketCapScore,
     };
 
     const recommendation = this.generateRecommendation(scores, listing);
-    const reasoning = this.generateReasoning(scores, listing);
+    const reasoning = this.generateReasoning(scores, listing, cmcData);
     const exitStrategy = this.generateExitStrategy(recommendation);
 
     return {
@@ -248,13 +260,67 @@ export class ListingScorerService {
     return risk;
   }
 
+  private async getCMCData(symbol: string): Promise<{
+    tokenomicsScore: number;
+    marketCapScore: number;
+    marketCap?: number;
+    circulatingRatio?: number;
+    dilutionRisk?: number;
+    details?: string[];
+  } | null> {
+    try {
+      // Convert OKX symbol format to CMC format (e.g., BTC-USDT-SWAP -> BTC)
+      const baseSymbol = symbol.split('-')[0];
+      
+      const quotes = await cmcService.getQuotes([baseSymbol]);
+      const coinData = quotes[baseSymbol];
+      
+      if (!coinData) {
+        return null;
+      }
+
+      const tokenomics = cmcService.calculateTokenomicsScore(coinData);
+      
+      // Market cap scoring (prefer micro-caps for alpha opportunities)
+      const marketCap = coinData.quote.USD.market_cap;
+      let marketCapScore = 0;
+      
+      if (marketCap < 10000000) {
+        marketCapScore = 100; // <$10M = extreme micro-cap
+      } else if (marketCap < 50000000) {
+        marketCapScore = 80; // <$50M = micro-cap
+      } else if (marketCap < 100000000) {
+        marketCapScore = 60; // <$100M = small-cap
+      } else if (marketCap < 500000000) {
+        marketCapScore = 40; // <$500M = mid-cap
+      } else {
+        marketCapScore = 20; // >$500M = large-cap
+      }
+
+      return {
+        tokenomicsScore: tokenomics.score,
+        marketCapScore,
+        marketCap,
+        circulatingRatio: tokenomics.circulatingRatio,
+        dilutionRisk: tokenomics.dilutionRisk,
+        details: tokenomics.details,
+      };
+    } catch (error) {
+      console.error('[ListingScorer] CMC data fetch error:', error);
+      return null;
+    }
+  }
+
   private calculateOpportunityScore(scores: OpportunityScores): number {
+    // Enhanced weights with CMC data
     const weights = {
-      liquidity: 0.25,
-      momentum: 0.30,
-      risk: -0.20,
-      smartMoney: 0.15,
-      technical: 0.10,
+      liquidity: 0.20,      // Reduced from 0.25
+      momentum: 0.25,       // Reduced from 0.30
+      risk: -0.15,          // Reduced from -0.20
+      smartMoney: 0.15,     // Same
+      technical: 0.10,      // Same
+      tokenomics: 0.10,     // NEW - Tokenomics from CMC
+      marketCap: 0.05,      // NEW - Market cap scoring
     };
 
     const weighted = 
@@ -262,7 +328,9 @@ export class ListingScorerService {
       scores.momentumScore * weights.momentum +
       scores.riskScore * weights.risk +
       scores.smartMoneyScore * weights.smartMoney +
-      scores.technicalScore * weights.technical;
+      scores.technicalScore * weights.technical +
+      (scores.tokenomicsScore || 0) * weights.tokenomics +
+      (scores.marketCapScore || 0) * weights.marketCap;
 
     return Math.max(0, Math.min(100, weighted));
   }
@@ -301,12 +369,38 @@ export class ListingScorerService {
     };
   }
 
-  private generateReasoning(scores: OpportunityScores, listing: NewListing): string[] {
+  private generateReasoning(scores: OpportunityScores, listing: NewListing, cmcData?: any): string[] {
     const reasons: string[] = [];
     const hoursOld = (Date.now() - new Date(listing.listingTime).getTime()) / (1000 * 60 * 60);
 
     if (hoursOld < 2) {
       reasons.push(`✅ Listed ${hoursOld.toFixed(1)}h ago - Early entry window`);
+    }
+
+    // CMC Market Cap Analysis
+    if (cmcData?.marketCap) {
+      const mcInM = (cmcData.marketCap / 1000000).toFixed(1);
+      if (cmcData.marketCap < 100000000) {
+        reasons.push(`💎 Micro-cap gem: $${mcInM}M market cap - High growth potential`);
+      } else if (cmcData.marketCap < 500000000) {
+        reasons.push(`📊 Mid-cap: $${mcInM}M market cap - Moderate risk/reward`);
+      }
+    }
+
+    // CMC Tokenomics Analysis
+    if (cmcData?.details && cmcData.details.length > 0) {
+      cmcData.details.forEach((detail: string) => {
+        reasons.push(`🔗 ${detail}`);
+      });
+    }
+
+    if (cmcData?.circulatingRatio !== undefined) {
+      const ratio = (cmcData.circulatingRatio * 100).toFixed(0);
+      if (cmcData.circulatingRatio >= 0.8) {
+        reasons.push(`✅ Strong tokenomics: ${ratio}% tokens circulating`);
+      } else if (cmcData.circulatingRatio < 0.5) {
+        reasons.push(`⚠️ Dilution risk: Only ${ratio}% tokens circulating`);
+      }
     }
 
     if (scores.liquidityScore >= 70) {

@@ -12,6 +12,7 @@ import { registerTradingRoutes } from "./routes/trading";
 import { registerGhostRoutes } from "./routes/ghost";
 import { registerGptsRoutes } from "./routes/gpts";
 import { screenerRouter } from "./modules/screener/screener.routes.js";
+import alphaRouter from "./routes/alpha";
 import { CVDService } from "./services/cvd";
 import { ConfluenceService } from "./services/confluence";
 import { TechnicalIndicatorsService } from "./services/technicalIndicators";
@@ -214,6 +215,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Mount the modules screener router first (has GET /api/screener endpoint frontend needs)
   app.use('/api/screener', screenerRouter);
+
+  // 📊 Alpha Screening Routes (CoinMarketCap Integration)
+  app.use('/api/alpha', alphaRouter);
+  console.log('📊 Alpha screening routes registered successfully');
 
   // 📱 Telegram Interactive Webhook Routes
   try {

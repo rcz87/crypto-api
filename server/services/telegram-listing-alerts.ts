@@ -181,6 +181,72 @@ export class TelegramListingAlertsService {
     }
   }
 
+  async sendAlphaOpportunityAlert(opportunity: {
+    symbol: string;
+    marketCap: number;
+    price: number;
+    alphaScore: number;
+    tokenomicsScore?: number;
+    circulatingRatio?: number;
+    dilutionRisk?: number;
+    reasoning?: string[];
+  }): Promise<boolean> {
+    try {
+      const mcInM = (opportunity.marketCap / 1000000).toFixed(2);
+      const emoji = opportunity.alphaScore >= 80 ? '💎💎' : opportunity.alphaScore >= 70 ? '💎' : '📊';
+
+      const message = [
+        `${emoji} *ALPHA OPPORTUNITY!*`,
+        '━━━━━━━━━━━━━━━━━━',
+        `🪙 ${opportunity.symbol}`,
+        '',
+        '📊 *Multi-Exchange Data (CMC):*',
+        `   • Market Cap: $${mcInM}M`,
+        `   • Price: $${opportunity.price.toFixed(8)}`,
+        `   • Alpha Score: *${opportunity.alphaScore}/100*`,
+        '',
+      ];
+
+      if (opportunity.tokenomicsScore !== undefined) {
+        message.push('🔗 *Tokenomics Analysis:*');
+        message.push(`   • Score: ${opportunity.tokenomicsScore}/30`);
+        if (opportunity.circulatingRatio !== undefined) {
+          const ratio = (opportunity.circulatingRatio * 100).toFixed(0);
+          message.push(`   • Circulating: ${ratio}%`);
+        }
+        if (opportunity.dilutionRisk !== undefined) {
+          const risk = (opportunity.dilutionRisk * 100).toFixed(0);
+          message.push(`   • Dilution Risk: ${risk}%`);
+        }
+        message.push('');
+      }
+
+      if (opportunity.reasoning && opportunity.reasoning.length > 0) {
+        message.push('💡 *Key Insights:*');
+        opportunity.reasoning.slice(0, 4).forEach(reason => {
+          message.push(`   ${reason}`);
+        });
+        message.push('');
+      }
+
+      if (opportunity.alphaScore >= 80) {
+        message.push('🎯 *Action:* HIGH CONVICTION - Consider Position');
+      } else if (opportunity.alphaScore >= 70) {
+        message.push('🎯 *Action:* STRONG CANDIDATE - Research Further');
+      } else {
+        message.push('🎯 *Action:* MONITOR - Emerging Opportunity');
+      }
+
+      message.push('');
+      message.push('📱 Data from 300+ exchanges via CoinMarketCap');
+
+      return await sendTelegram(message.join('\n'), { parseMode: 'Markdown' });
+    } catch (error) {
+      console.error('Error sending alpha opportunity alert:', error);
+      return false;
+    }
+  }
+
   async sendDailySummary(stats: {
     newListings: number;
     volumeSpikes: number;
