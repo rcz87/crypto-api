@@ -115,9 +115,12 @@ export class ListingsService {
         const volumeData = await this.checkVolumeSpike(listing.symbol);
         
         if (volumeData && volumeData.spikePercentage >= 500) {
-          const oiData = await this.getOpenInterestChange(listing.symbol);
-          const whaleData = await this.detectWhaleActivity(listing.symbol);
-          const fundingData = await this.getFundingRateChange(listing.symbol);
+          const [oiData, whaleData, fundingData, buySellData] = await Promise.all([
+            this.getOpenInterestChange(listing.symbol),
+            this.detectWhaleActivity(listing.symbol),
+            this.getFundingRateChange(listing.symbol),
+            this.calculateBuySellVolume(listing.symbol),
+          ]);
 
           const spikeData: InsertVolumeSpike = {
             symbol: listing.symbol,
@@ -132,12 +135,19 @@ export class ListingsService {
             signal: this.determineSignal(whaleData, oiData),
             confidence: this.calculateConfidence(volumeData, whaleData, oiData),
             alertSent: false,
+            metadata: {
+              buyVolume: buySellData?.buyVolume.toString() || '0',
+              sellVolume: buySellData?.sellVolume.toString() || '0',
+              cvd: buySellData?.cvd.toString() || '0',
+              whaleBuyOrders: whaleData.buyOrders,
+              whaleSellOrders: whaleData.sellOrders,
+            },
           };
 
           const [inserted] = await db.insert(volumeSpikes).values(spikeData).returning();
           spikes.push(inserted);
 
-          console.log(`Volume spike detected: ${listing.symbol} +${volumeData.spikePercentage.toFixed(0)}%`);
+          console.log(`Volume spike detected: ${listing.symbol} +${volumeData.spikePercentage.toFixed(0)}% (Buy: $${buySellData?.buyVolume.toFixed(0)}, Sell: $${buySellData?.sellVolume.toFixed(0)})`);
         }
       } catch (error) {
         console.error(`Error checking volume spike for ${listing.symbol}:`, error);
@@ -218,6 +228,30 @@ export class ListingsService {
         totalUSD: 0,
         averageSize: 0,
       };
+    }
+  }
+
+  private async calculateBuySellVolume(symbol: string): Promise<{ buyVolume: number; sellVolume: number; cvd: number } | null> {
+    try {
+      const trades = await this.okxService.getRecentTrades(symbol);
+      
+      const buyVolume = trades
+        .filter(t => t.side === 'buy')
+        .reduce((sum, t) => sum + (parseFloat(t.size) * parseFloat(t.price)), 0);
+      
+      const sellVolume = trades
+        .filter(t => t.side === 'sell')
+        .reduce((sum, t) => sum + (parseFloat(t.size) * parseFloat(t.price)), 0);
+      
+      const cvd = buyVolume - sellVolume;
+      
+      return {
+        buyVolume,
+        sellVolume,
+        cvd,
+      };
+    } catch {
+      return null;
     }
   }
 

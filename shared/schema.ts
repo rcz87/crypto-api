@@ -1960,6 +1960,7 @@ export const volumeSpikes = pgTable("volume_spikes", {
   confidence: integer("confidence"), // 0-100
   alertSent: boolean("alert_sent").default(false),
   detectedAt: timestamp("detected_at", { withTimezone: true }).defaultNow(),
+  metadata: jsonb("metadata"), // Store buy/sell volumes, whale direction, CVD, etc.
 });
 
 // Listing Opportunities - scored opportunities for new listings

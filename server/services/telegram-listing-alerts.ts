@@ -37,7 +37,9 @@ export class TelegramListingAlertsService {
   async sendVolumeSpikeAlert(spike: VolumeSpike): Promise<boolean> {
     try {
       const spikePercent = parseFloat(spike.spikePercentage);
-      const signal = this.getSignalEmoji(spike.signal || 'neutral');
+      const signal = spike.signal || 'neutral';
+      const signalEmoji = this.getSignalEmoji(signal);
+      const directionEmoji = this.getDirectionEmoji(signal);
 
       const message = [
         '🚨 *VOLUME SPIKE ALERT!*',
@@ -52,29 +54,71 @@ export class TelegramListingAlertsService {
       ];
 
       if (spike.whaleCount && spike.whaleCount > 0) {
+        const metadata = spike.metadata as any || {};
+        const whaleBuyPressure = metadata.whaleBuyOrders || 0;
+        const whaleSellPressure = metadata.whaleSellOrders || 0;
+        const totalWhaleUsd = parseFloat(spike.whaleTotalUsd || '0');
+        const avgSize = totalWhaleUsd / spike.whaleCount;
+        
         message.push('🐋 *Whale Activity:*');
         message.push(`   • ${spike.whaleCount} large orders detected`);
-        message.push(`   • Total: $${parseFloat(spike.whaleTotalUsd || '0').toLocaleString()}`);
-        const avgSize = parseFloat(spike.whaleTotalUsd || '0') / spike.whaleCount;
+        message.push(`   • Total: $${totalWhaleUsd.toLocaleString()}`);
         message.push(`   • Avg size: $${avgSize.toLocaleString()}`);
+        
+        if (whaleBuyPressure > 0 || whaleSellPressure > 0) {
+          message.push(`   • Direction: ${whaleBuyPressure > whaleSellPressure ? '🟢 BUY' : '🔴 SELL'} pressure`);
+          message.push(`     (${whaleBuyPressure} buy / ${whaleSellPressure} sell)`);
+        }
+        message.push('');
+      }
+
+      const metadata = spike.metadata as any || {};
+      if (metadata.buyVolume || metadata.sellVolume) {
+        const buyVol = parseFloat(metadata.buyVolume || '0');
+        const sellVol = parseFloat(metadata.sellVolume || '0');
+        const total = buyVol + sellVol;
+        const buyPercent = (buyVol / total) * 100;
+        const sellPercent = (sellVol / total) * 100;
+        const cvd = buyVol - sellVol;
+        
+        message.push('📈 *Order Flow Analysis:*');
+        message.push(`   • Buy Volume: $${buyVol.toLocaleString()} (${buyPercent.toFixed(1)}%)`);
+        message.push(`   • Sell Volume: $${sellVol.toLocaleString()} (${sellPercent.toFixed(1)}%)`);
+        message.push(`   • CVD: ${cvd >= 0 ? '+' : ''}$${cvd.toLocaleString()}`);
+        message.push(`   • Pressure: ${buyPercent > sellPercent ? '🟢 BULLISH' : '🔴 BEARISH'}`);
         message.push('');
       }
 
       if (spike.openInterestChange) {
-        message.push('📈 *Open Interest:*');
-        message.push(`   • Change: +${spike.openInterestChange}%`);
+        const oiChange = parseFloat(spike.openInterestChange);
+        message.push('📊 *Open Interest:*');
+        message.push(`   • Change: ${oiChange >= 0 ? '+' : ''}${oiChange.toFixed(1)}%`);
+        message.push(`   • Interpretation: ${oiChange > 0 ? 'New positions opening' : 'Positions closing'}`);
         message.push('');
       }
 
       if (spike.fundingRateChange) {
-        message.push(`⚡ Funding Rate: ${spike.fundingRateChange}% ${this.getFundingEmoji(parseFloat(spike.fundingRateChange))}`);
+        const frChange = parseFloat(spike.fundingRateChange);
+        message.push(`⚡ *Funding Rate:* ${frChange >= 0 ? '+' : ''}${frChange}% ${this.getFundingEmoji(frChange)}`);
+        message.push(`   ${frChange > 0 ? 'Longs paying shorts' : 'Shorts paying longs'}`);
         message.push('');
       }
 
-      message.push(`🎯 *Signal:* ${signal} ${spike.signal?.toUpperCase() || 'NEUTRAL'}`);
+      message.push(`${directionEmoji} *TRADING SIGNAL:* ${signalEmoji} ${signal.toUpperCase()}`);
       message.push(`💡 Confidence: ${spike.confidence || 0}%`);
       message.push('');
-      message.push(`⚡ *Entry window:* Next 10-15 min`);
+      
+      if (signal === 'buy') {
+        message.push(`🎯 *Action:* CONSIDER LONG POSITION`);
+        message.push(`⚡ Entry window: Next 10-15 min`);
+        message.push(`🛡️ Manage risk: Use stop loss`);
+      } else if (signal === 'sell') {
+        message.push(`🎯 *Action:* CONSIDER SHORT POSITION`);
+        message.push(`⚡ Entry window: Next 10-15 min`);
+        message.push(`🛡️ Manage risk: Use stop loss`);
+      } else {
+        message.push(`⚠️ *Action:* MONITOR - Mixed signals`);
+      }
 
       return await sendTelegram(message.join('\n'), { parseMode: 'Markdown' });
     } catch (error) {
@@ -181,6 +225,17 @@ export class TelegramListingAlertsService {
         return '🔴';
       default:
         return '⚪';
+    }
+  }
+
+  private getDirectionEmoji(signal: string): string {
+    switch (signal.toLowerCase()) {
+      case 'buy':
+        return '📈';
+      case 'sell':
+        return '📉';
+      default:
+        return '➡️';
     }
   }
 
