@@ -290,7 +290,9 @@ class CoinglassClient:
             if "funding-rate" in endpoint:
                 backup_url = f"http://localhost:5000/api/sol/technical"
             elif "liquidation" in endpoint:
-                backup_url = f"http://localhost:5000/api/sol/liquidation"
+                # Use new generic endpoint format - extract coin from symbol
+                symbol_param = symbol.replace('USDT', '').replace('-USDT-SWAP', '').replace('-', '')
+                backup_url = f"http://localhost:5000/api/{symbol_param}/liquidation"
             elif "open-interest" in endpoint:
                 backup_url = f"http://localhost:5000/api/metrics"
             else:

@@ -2059,20 +2059,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // /api/logs endpoint moved to registerSystemRoutes()
 
-  // SOL Liquidation Analysis endpoint
+  // SOL Liquidation Analysis endpoint (Legacy - use /api/:pair/liquidation for multi-pair support)
   app.get('/api/sol/liquidation', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
     try {
-      // Add deprecation warning
-      addDeprecationWarning(req, res, {
-        legacyEndpoint: '/api/sol/liquidation',
-        newEndpoint: '/api/{pair}/liquidation (planned)',
-        deprecatedSince: '2024-01-01',
-        removalDate: '2024-06-01',
-        migrationGuide: 'Liquidation analysis will be available for all trading pairs. Consider using the liquidation heat map for market-wide risk analysis.'
-      });
-
       const timeframe = (req.query.timeframe as string) || '1H';
       
       // Get required data for liquidation analysis
@@ -2106,23 +2097,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addLog({
         level: 'info',
         message: 'Liquidation analysis request completed',
-        details: `GET /api/sol/liquidation - ${responseTime}ms - 200 OK - Timeframe: ${timeframe} - DEPRECATED`,
+        details: `GET /api/sol/liquidation - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}`,
       });
       
-      // Wrap response with deprecation notice
-      const responseData = wrapResponseWithDeprecation({
+      res.json({
         success: true,
         data: liquidationAnalysis,
         timestamp: new Date().toISOString(),
-      }, {
-        legacyEndpoint: '/api/sol/liquidation',
-        newEndpoint: '/api/{pair}/liquidation (planned)',
-        deprecatedSince: '2024-01-01',
-        removalDate: '2024-06-01',
-        migrationGuide: 'Liquidation analysis will be available for all trading pairs. Consider using the liquidation heat map for market-wide risk analysis.'
       });
-
-      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -2142,20 +2124,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // SOL Liquidation Heat Map - Market-wide Risk Analysis
+  // SOL Liquidation Heat Map - Market-wide Risk Analysis (Legacy - use /api/:pair/liquidation-heatmap for multi-pair support)
   app.get('/api/sol/liquidation-heatmap', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
     try {
-      // Add deprecation warning
-      addDeprecationWarning(req, res, {
-        legacyEndpoint: '/api/sol/liquidation-heatmap',
-        newEndpoint: '/api/{pair}/liquidation-heatmap (planned)',
-        deprecatedSince: '2024-01-01',
-        removalDate: '2024-06-01',
-        migrationGuide: 'Liquidation heat map analysis will be available for all trading pairs. This provides market-wide risk analysis across multiple assets.'
-      });
-
       // Get required market data
       const [currentTicker, openInterest, fundingRate] = await Promise.all([
         okxService.getTicker(),
@@ -2188,23 +2161,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addLog({
         level: 'info',
         message: 'Liquidation heat map analysis completed',
-        details: `GET /api/sol/liquidation-heatmap - ${responseTime}ms - 200 OK - Price: $${currentPrice}, Risk Score: ${heatMapAnalysis.overallRiskScore} - DEPRECATED`,
+        details: `GET /api/sol/liquidation-heatmap - ${responseTime}ms - 200 OK - Price: $${currentPrice}, Risk Score: ${heatMapAnalysis.overallRiskScore}`,
       });
       
-      // Wrap response with deprecation notice
-      const responseData = wrapResponseWithDeprecation({
+      res.json({
         success: true,
         data: heatMapAnalysis,
         timestamp: new Date().toISOString(),
-      }, {
-        legacyEndpoint: '/api/sol/liquidation-heatmap',
-        newEndpoint: '/api/{pair}/liquidation-heatmap (planned)',
-        deprecatedSince: '2024-01-01',
-        removalDate: '2024-06-01',
-        migrationGuide: 'Liquidation heat map analysis will be available for all trading pairs. This provides market-wide risk analysis across multiple assets.'
       });
-
-      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -2372,20 +2336,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Quick Liquidation Price Calculator
+  // Generic Liquidation Analysis endpoint (Multi-pair support)
+  app.get('/api/:pair/liquidation', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const pair = req.params.pair.toUpperCase();
+      const timeframe = (req.query.timeframe as string) || '1H';
+      const tradingPair = `${pair}-USDT-SWAP`;
+      
+      // Get required data for liquidation analysis
+      const [currentTicker, orderBook, openInterest, fundingRate, candles] = await Promise.all([
+        okxService.getTicker(tradingPair),
+        okxService.getOrderBook(tradingPair),
+        okxService.getOpenInterest(tradingPair),
+        okxService.getFundingRate(tradingPair),
+        okxService.getCandles(tradingPair, timeframe, 50)
+      ]);
+      
+      // Initialize liquidation service
+      const liquidationService = new LiquidationService();
+      
+      // Perform liquidation analysis
+      const liquidationAnalysis = await liquidationService.analyzeLiquidations(
+        parseFloat(currentTicker.price),
+        orderBook,
+        openInterest,
+        fundingRate,
+        candles,
+        timeframe
+      );
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Liquidation analysis request completed',
+        details: `GET /api/${pair}/liquidation - ${responseTime}ms - 200 OK - Timeframe: ${timeframe}`,
+      });
+      
+      res.json({
+        success: true,
+        data: liquidationAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const pair = req.params.pair.toUpperCase();
+      console.error(`Error in /api/${pair}/liquidation:`, error);
+      
+      await storage.addLog({
+        level: 'error',
+        message: 'Liquidation analysis request failed',
+        details: `GET /api/${pair}/liquidation - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Quick Liquidation Price Calculator (Legacy - use /api/:pair/liquidation-price for multi-pair support)
   app.get('/api/sol/liquidation-price', async (req: Request, res: Response) => {
     const startTime = Date.now();
     
     try {
-      // Add deprecation warning
-      addDeprecationWarning(req, res, {
-        legacyEndpoint: '/api/sol/liquidation-price',
-        newEndpoint: '/api/{pair}/liquidation-price (planned)',
-        deprecatedSince: '2024-01-01',
-        removalDate: '2024-06-01',
-        migrationGuide: 'Liquidation price calculator will be available for all trading pairs. Use the newer unified position calculator for multi-pair support.'
-      });
-
       const entryPrice = parseFloat(req.query.entryPrice as string);
       const leverage = parseFloat(req.query.leverage as string);
       const side = req.query.side as 'long' | 'short';
@@ -2417,11 +2440,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addLog({
         level: 'info',
         message: 'Liquidation price calculation completed',
-        details: `GET /api/sol/liquidation-price - ${responseTime}ms - 200 OK - Entry: ${entryPrice}, Leverage: ${leverage}x ${side} - DEPRECATED`,
+        details: `GET /api/sol/liquidation-price - ${responseTime}ms - 200 OK - Entry: ${entryPrice}, Leverage: ${leverage}x ${side}`,
       });
       
-      // Wrap response with deprecation notice
-      const responseData = wrapResponseWithDeprecation({
+      res.json({
         success: true,
         data: {
           entryPrice,
@@ -2434,15 +2456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ((liquidationPrice - entryPrice) / entryPrice) * 100
         },
         timestamp: new Date().toISOString(),
-      }, {
-        legacyEndpoint: '/api/sol/liquidation-price',
-        newEndpoint: '/api/{pair}/liquidation-price (planned)',
-        deprecatedSince: '2024-01-01',
-        removalDate: '2024-06-01',
-        migrationGuide: 'Liquidation price calculator will be available for all trading pairs. Use the newer unified position calculator for multi-pair support.'
       });
-
-      res.json(responseData);
       
     } catch (error) {
       const responseTime = Date.now() - startTime;
