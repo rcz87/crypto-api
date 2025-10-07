@@ -9,6 +9,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { listingsService } from '../services/listings.js';
 import { listingScorerService } from '../services/listing-scorer.js';
+import { cmcService } from '../services/coinmarketcap.js';
 import * as path from 'path';
 
 const execAsync = promisify(exec);
@@ -342,7 +343,7 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
         const data = response.data as any;
         
         // If Python service returns ok: false for supported operations, use Node.js fallback
-        const supportedOps = ['whale_alerts', 'market_sentiment', 'multi_coin_screening', 'new_listings', 'volume_spikes', 'opportunities'];
+        const supportedOps = ['whale_alerts', 'market_sentiment', 'multi_coin_screening', 'new_listings', 'volume_spikes', 'opportunities', 'alpha_screening', 'micro_caps'];
         const isSupported = req.body.op && supportedOps.includes(req.body.op) ||
                            req.body.ops && req.body.ops.some((op: any) => supportedOps.includes(op.op));
         
@@ -950,6 +951,142 @@ async function tryNodeFallback(requestBody: any): Promise<any> {
               args: params,
               data: null,
               error: opportunitiesError instanceof Error ? opportunitiesError.message : 'Opportunities service failed'
+            };
+          }
+
+        case 'alpha_screening':
+          console.log('[Node Fallback] Handling alpha_screening operation');
+          try {
+            const symbol = params.symbol || 'BTC';
+            const quotes = await cmcService.getQuotes([symbol.toUpperCase()]);
+            const metadata = await cmcService.getMetadata([symbol.toUpperCase()]);
+            
+            const coinData = quotes[symbol.toUpperCase()];
+            const coinMeta = metadata[symbol.toUpperCase()];
+            
+            if (!coinData || !coinMeta) {
+              return {
+                ok: false,
+                op: 'alpha_screening',
+                args: { symbol },
+                data: null,
+                error: `Data not found for symbol: ${symbol}`
+              };
+            }
+
+            const tokenomics = cmcService.calculateTokenomicsScore(coinData);
+            const marketCap = coinData.quote.USD.market_cap;
+            
+            // Calculate alpha scores
+            const fundamentalScore = Math.min(35, Math.round((coinMeta.category === 'coin' ? 35 : 25) * (1 - marketCap / 1000000000000)));
+            const tokenomicsScore = tokenomics.score;
+            const technicalScore = 25;
+            const narrativeScore = coinMeta.tags?.some((t: string) => ['rwa', 'depin', 'ai'].includes(t.toLowerCase())) ? 10 : 3;
+            const alphaScore = fundamentalScore + tokenomicsScore + technicalScore + narrativeScore;
+            
+            return {
+              ok: true,
+              op: 'alpha_screening',
+              args: { symbol },
+              data: {
+                module: 'alpha_screening',
+                symbol: symbol.toUpperCase(),
+                name: coinMeta.name,
+                marketCap,
+                marketCapFormatted: `$${(marketCap / 1000000).toFixed(2)}M`,
+                price: coinData.quote.USD.price,
+                alphaScore,
+                fundamentalScore,
+                tokenomicsScore,
+                technicalScore,
+                narrativeScore,
+                circulatingSupply: coinData.circulating_supply,
+                totalSupply: coinData.total_supply,
+                circulatingRatio: tokenomics.circulatingRatio,
+                dilutionRisk: tokenomics.dilutionRisk,
+                tags: coinMeta.tags || [],
+                used_sources: ['coinmarketcap_api', 'multi_exchange_aggregation', '300+_exchanges'],
+                summary: `Alpha screening for ${symbol}: Score ${alphaScore}/100 (Market Cap: $${(marketCap / 1000000).toFixed(0)}M)`
+              }
+            };
+          } catch (alphaError) {
+            console.error('[Node Fallback] Alpha screening failed:', alphaError);
+            return {
+              ok: false,
+              op: 'alpha_screening',
+              args: params,
+              data: null,
+              error: alphaError instanceof Error ? alphaError.message : 'Alpha screening failed'
+            };
+          }
+
+        case 'micro_caps':
+          console.log('[Node Fallback] Handling micro_caps operation');
+          try {
+            const maxMarketCap = params.maxMarketCap || 100000000; // $100M default
+            const minScore = params.minScore || 60;
+            const limit = params.limit || 10;
+            
+            const coins = await cmcService.getMicroCaps(maxMarketCap);
+            
+            const opportunities = coins.slice(0, limit).map(coin => {
+              const tokenomics = cmcService.calculateTokenomicsScore(coin);
+              const marketCap = coin.quote.USD.market_cap;
+              const volume24h = coin.quote.USD.volume_24h;
+              
+              // Market cap scoring (prefer smaller caps)
+              const marketCapScore = marketCap < 50000000 ? 100 : marketCap < 75000000 ? 80 : 60;
+              
+              // Volume scoring
+              const volumeScore = volume24h > 10000000 ? 100 : volume24h > 5000000 ? 80 : volume24h > 1000000 ? 60 : 40;
+              
+              // Calculate alpha score
+              const alphaScore = Math.round((tokenomics.score * 0.3) + (marketCapScore * 0.4) + (volumeScore * 0.3));
+              
+              return {
+                symbol: coin.symbol,
+                name: coin.name,
+                marketCap,
+                marketCapFormatted: `$${(marketCap / 1000000).toFixed(2)}M`,
+                price: coin.quote.USD.price,
+                volume24h,
+                volumeFormatted: `$${(volume24h / 1000000).toFixed(2)}M`,
+                percentChange24h: coin.quote.USD.percent_change_24h,
+                circulatingSupply: coin.circulating_supply,
+                totalSupply: coin.total_supply,
+                circulatingRatio: tokenomics.circulatingRatio,
+                dilutionRisk: tokenomics.dilutionRisk,
+                tokenomicsScore: tokenomics.score,
+                marketCapScore,
+                volumeScore,
+                alphaScore,
+                tags: coin.tags || [],
+                reasoning: tokenomics.details
+              };
+            }).filter(opp => opp.alphaScore >= minScore);
+            
+            return {
+              ok: true,
+              op: 'micro_caps',
+              args: { maxMarketCap, minScore, limit },
+              data: {
+                module: 'micro_caps',
+                opportunities,
+                total: opportunities.length,
+                maxMarketCap: `$${(maxMarketCap / 1000000).toFixed(0)}M`,
+                minScore,
+                used_sources: ['coinmarketcap_api', 'multi_exchange_aggregation', '300+_exchanges'],
+                summary: `Found ${opportunities.length} micro-cap opportunities <$${(maxMarketCap / 1000000).toFixed(0)}M with alpha score ≥${minScore}`
+              }
+            };
+          } catch (microCapsError) {
+            console.error('[Node Fallback] Micro caps failed:', microCapsError);
+            return {
+              ok: false,
+              op: 'micro_caps',
+              args: params,
+              data: null,
+              error: microCapsError instanceof Error ? microCapsError.message : 'Micro caps service failed'
             };
           }
           
