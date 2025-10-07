@@ -3489,7 +3489,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const initialPrice = parseFloat(listing.initialPrice);
         const currentPrice = listing.currentPrice ? parseFloat(listing.currentPrice) : initialPrice;
-        const priceChange = ((currentPrice - initialPrice) / initialPrice * 100).toFixed(2);
+        const priceChangeNum = ((currentPrice - initialPrice) / initialPrice * 100);
+        const priceChange = priceChangeNum.toFixed(2);
 
         return {
           symbol: listing.symbol,
@@ -3497,7 +3498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           listingTime: listingTime.toISOString(),
           initialPrice: listing.initialPrice,
           currentPrice: listing.currentPrice || listing.initialPrice,
-          priceChange: `${priceChange > 0 ? '+' : ''}${priceChange}%`,
+          priceChange: `${priceChangeNum > 0 ? '+' : ''}${priceChange}%`,
           volume24h: listing.volume24h,
           timeElapsed: hoursElapsed > 0 ? `${hoursElapsed}h ${minutesElapsed}m` : `${minutesElapsed}m`,
           status: listing.status,
