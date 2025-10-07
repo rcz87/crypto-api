@@ -3468,6 +3468,174 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // ========================
+  // NEW LISTING DETECTION ENDPOINTS
+  // ========================
+  
+  const { listingsService } = await import('./services/listings');
+  const { listingScorerService } = await import('./services/listing-scorer');
+
+  // Get new cryptocurrency listings
+  app.get('/api/listings/new', async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const listings = await listingsService.getActiveListings(limit);
+
+      const formattedListings = listings.map(listing => {
+        const listingTime = new Date(listing.listingTime);
+        const timeElapsed = Date.now() - listingTime.getTime();
+        const hoursElapsed = Math.floor(timeElapsed / (1000 * 60 * 60));
+        const minutesElapsed = Math.floor((timeElapsed % (1000 * 60 * 60)) / (1000 * 60));
+
+        const initialPrice = parseFloat(listing.initialPrice);
+        const currentPrice = listing.currentPrice ? parseFloat(listing.currentPrice) : initialPrice;
+        const priceChange = ((currentPrice - initialPrice) / initialPrice * 100).toFixed(2);
+
+        return {
+          symbol: listing.symbol,
+          exchange: listing.exchange,
+          listingTime: listingTime.toISOString(),
+          initialPrice: listing.initialPrice,
+          currentPrice: listing.currentPrice || listing.initialPrice,
+          priceChange: `${priceChange > 0 ? '+' : ''}${priceChange}%`,
+          volume24h: listing.volume24h,
+          timeElapsed: hoursElapsed > 0 ? `${hoursElapsed}h ${minutesElapsed}m` : `${minutesElapsed}m`,
+          status: listing.status,
+        };
+      });
+
+      res.json({
+        success: true,
+        data: {
+          newListings: formattedListings,
+          total: listings.length,
+          lastUpdate: new Date().toISOString(),
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error fetching new listings:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch new listings',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Get volume spikes detection
+  app.get('/api/listings/spikes', async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const spikes = await listingsService.getRecentSpikes(limit);
+
+      const formattedSpikes = spikes.map(spike => {
+        const whaleActivity = spike.whaleCount > 0 ? {
+          buyOrders: spike.whaleCount,
+          totalUSD: spike.whaleTotalUsd,
+          averageSize: spike.whaleCount > 0 ? (parseFloat(spike.whaleTotalUsd) / spike.whaleCount).toFixed(2) : '0',
+        } : undefined;
+
+        return {
+          symbol: spike.symbol,
+          normalVolume: spike.normalVolume,
+          currentVolume: spike.spikeVolume,
+          spikePercentage: `+${spike.spikePercentage}%`,
+          openInterestChange: spike.openInterestChange ? `+${spike.openInterestChange}%` : undefined,
+          whaleActivity,
+          fundingRate: spike.fundingRateChange,
+          signal: spike.signal,
+          confidence: spike.confidence,
+        };
+      });
+
+      res.json({
+        success: true,
+        data: {
+          volumeSpikes: formattedSpikes,
+          total: spikes.length,
+          lastUpdate: new Date().toISOString(),
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error fetching volume spikes:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch volume spikes',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Get opportunity analysis
+  app.get('/api/listings/opportunities', async (req: Request, res: Response) => {
+    try {
+      const symbol = req.query.symbol as string;
+      const minScore = parseInt(req.query.minScore as string) || 60;
+
+      const opportunities = await listingScorerService.getOpportunities(symbol, minScore);
+
+      const formattedOpportunities = opportunities.map(opp => ({
+        symbol: opp.symbol,
+        opportunityScore: opp.opportunityScore,
+        breakdown: {
+          liquidityScore: opp.liquidityScore,
+          momentumScore: opp.momentumScore,
+          riskScore: opp.riskScore,
+          smartMoneyScore: opp.smartMoneyScore,
+          technicalScore: opp.technicalScore,
+        },
+        recommendation: opp.recommendation,
+        reasoning: opp.reasoning,
+      }));
+
+      res.json({
+        success: true,
+        data: {
+          opportunities: formattedOpportunities,
+          total: opportunities.length,
+          lastUpdate: new Date().toISOString(),
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error fetching opportunities:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch opportunities',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Manual trigger for scanning (for testing)
+  app.post('/api/listings/scan', async (req: Request, res: Response) => {
+    try {
+      await listingsService.initializeMonitoredSymbols();
+      const newListings = await listingsService.scanNewListings();
+      const spikes = await listingsService.detectVolumeSpikes();
+
+      res.json({
+        success: true,
+        data: {
+          newListingsDetected: newListings.length,
+          volumeSpikesDetected: spikes.length,
+          listings: newListings,
+          spikes,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error scanning listings:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to scan listings',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // Start Enhanced AI Signal Engine schedulers for strategy evolution
   aiSignalEngine.startSchedulers();
   console.log("🚀 Enhanced AI Signal Engine schedulers started - auto evolution & cleanup enabled");
