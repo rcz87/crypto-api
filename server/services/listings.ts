@@ -22,15 +22,23 @@ interface WhaleActivityData {
 export class ListingsService {
   private okxService: OKXService;
   private monitoredSymbols: Set<string>;
+  private initialized: boolean;
 
   constructor() {
     this.okxService = new OKXService();
     this.monitoredSymbols = new Set();
+    this.initialized = false;
   }
 
   async initializeMonitoredSymbols(): Promise<void> {
+    if (this.initialized) {
+      console.log(`Already initialized with ${this.monitoredSymbols.size} symbols, skipping...`);
+      return;
+    }
+
     const instruments = await okxInstrumentsService.getInstruments('SWAP');
     this.monitoredSymbols = new Set(instruments.map(inst => inst.instId));
+    this.initialized = true;
     console.log(`Initialized ${this.monitoredSymbols.size} symbols for monitoring`);
   }
 
@@ -88,6 +96,22 @@ export class ListingsService {
 
     for (const listing of recentListings) {
       try {
+        const recentSpike = await db
+          .select()
+          .from(volumeSpikes)
+          .where(
+            and(
+              eq(volumeSpikes.symbol, listing.symbol),
+              gte(volumeSpikes.detectedAt, sql`NOW() - INTERVAL '1 hour'`)
+            )
+          )
+          .limit(1);
+
+        if (recentSpike.length > 0) {
+          console.log(`Spike cooldown active for ${listing.symbol}, skipping...`);
+          continue;
+        }
+
         const volumeData = await this.checkVolumeSpike(listing.symbol);
         
         if (volumeData && volumeData.spikePercentage >= 500) {
