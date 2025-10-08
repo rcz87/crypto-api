@@ -500,6 +500,10 @@ export class EnhancedAISignalEngine {
     // Try cache first for performance
     return cache.getSingleFlight(cacheKey, async () => {
       try {
+        // First, get candles data for technical analysis
+        const candles = await okxService.getCandles(symbol, '1H', 200);
+        const trades = await okxService.getRecentTrades(symbol, 100).catch(() => []);
+        
         // Gather comprehensive market data
         const [
           mtfAnalysis,
@@ -508,13 +512,23 @@ export class EnhancedAISignalEngine {
           fundingData
         ] = await Promise.all([
           multiTimeframeService.performMTFAnalysis(symbol),
-          this.technicalService.analyzeTechnicalIndicators(symbol, '1H'),
-          this.cvdService.analyzeCVD(symbol, '1H'),
+          this.technicalService.analyzeTechnicalIndicators(candles, '1H'),
+          this.cvdService.analyzeCVD(candles, trades, '1H'),
           enhancedFundingRateService.getEnhancedFundingRate(symbol)
         ]);
       
       // Get confluence data separately
-      const confluenceData = await this.confluenceService.calculateConfluenceScore(symbol, '1H');
+      const confluenceData = await this.confluenceService.calculateConfluenceScore(
+        undefined, // smc
+        cvdData,   // cvd
+        undefined, // volumeProfile
+        undefined, // fundingRate
+        undefined, // openInterest
+        technicalData, // technicalIndicators
+        undefined, // fibonacciAnalysis
+        undefined, // orderFlowMetrics
+        '1H'
+      );
 
       const features: number[] = [];
 
@@ -952,21 +966,140 @@ export class EnhancedAISignalEngine {
     return fallbackSignal;
   }
 
-  // Enhanced reasoning generation
+  // Enhanced reasoning generation with GPT-4o deep analysis
   private async generateEnhancedReasoning(
     patterns: EnhancedMarketPattern[],
     neuralPrediction: NeuralNetworkPrediction,
     features: number[],
     degradationContext?: any
   ): Promise<EnhancedAISignal['reasoning']> {
+    // Build rich context for GPT analysis
+    const featureLabels = [
+      'MTF Confidence', 'MTF Agreement', 'MTF Signal Strength', '1m Strength', '5m Strength', 
+      '15m Strength', '1h Strength', '4h Strength', 'Timeframe Risk', 'Signal Count',
+      'RSI', 'Momentum', 'EMA Trend', 'MACD Histogram', 'BB Position',
+      'Stochastic K', 'Stochastic D', 'CCI', 'Parabolic SAR', 'Ichimoku',
+      'OBV', 'Williams %R', 'ATR', 'Volatility', 'Volume',
+      'CVD Value', 'CVD Confidence', 'Flow Phase', 'Active Divergences', 'Buyer Aggression',
+      'Dominant Side', 'Avg Trade Size', 'Trade Count', 'Smart Money Accumulation', 'Smart Money Distribution',
+      'Confluence Overall', 'Confluence Confidence', 'Confluence Trend', 'Confluence Strength', 'Risk Level',
+      'Funding Rate', 'Funding Direction', 'Funding Sentiment', 'Funding Confidence', 'Funding OI Correlation',
+      'Premium Price Correlation', 'Funding Squeeze Alert', 'Manipulation Alert', 'Overall Sentiment', 'Liquidation Pressure'
+    ];
+
+    // GPT-enhanced reasoning if available
+    if (this.openai) {
+      try {
+        const featureContext = features.map((val, idx) => 
+          `${featureLabels[idx] || `Feature ${idx}`}: ${val.toFixed(3)}`
+        ).join('\n');
+
+        const patternContext = patterns.map(p => 
+          `- ${p.name} (${(p.confidence * 100).toFixed(1)}% conf, ${p.pattern_complexity} complexity, R:R ${p.risk_reward_ratio})`
+        ).join('\n');
+
+        const prompt = `Analyze SOL-USDT-SWAP with institutional-grade depth using this comprehensive market intelligence:
+
+═══════════════════════════════════════
+📊 NEURAL NETWORK PREDICTION
+═══════════════════════════════════════
+Direction: ${neuralPrediction.direction.toUpperCase()}
+Confidence: ${neuralPrediction.confidence}%
+Risk Level: ${neuralPrediction.risk_level}
+Price Target: ${neuralPrediction.price_target}
+Time Horizon: ${neuralPrediction.time_horizon}
+
+═══════════════════════════════════════
+🧠 25-FEATURE VECTOR ANALYSIS (Normalized 0-1)
+═══════════════════════════════════════
+${featureContext}
+
+Key Insights from Features:
+- Bullish signals (>0.7): ${features.filter(f => f > 0.7).length} indicators
+- Bearish signals (<0.3): ${features.filter(f => f < 0.3).length} indicators
+- Neutral zone (0.3-0.7): ${features.filter(f => f >= 0.3 && f <= 0.7).length} indicators
+
+═══════════════════════════════════════
+🎯 DETECTED MARKET PATTERNS
+═══════════════════════════════════════
+${patterns.length > 0 ? patternContext : 'No significant patterns detected'}
+
+═══════════════════════════════════════
+📈 MARKET STRUCTURE INTELLIGENCE
+═══════════════════════════════════════
+Multi-Timeframe Confluence: ${features[0] > 0.7 ? 'STRONG' : features[0] < 0.3 ? 'WEAK' : 'MODERATE'} (${(features[0] * 100).toFixed(1)}%)
+Institutional Flow (CVD): ${features[30] > 0.7 ? 'HEAVY BUYING' : features[30] < 0.3 ? 'HEAVY SELLING' : 'BALANCED'} (${(features[30] * 100).toFixed(1)}%)
+Smart Money Activity: ${features[38] > 0.7 ? 'ACCUMULATION' : features[39] > 0.7 ? 'DISTRIBUTION' : 'NEUTRAL'}
+Funding Rate Regime: ${Math.abs(features[45]) > 0.7 ? 'EXTREME' : 'NORMAL'} (${(features[45] * 100).toFixed(1)}%)
+Volatility State: ${features[28] > 0.7 ? 'HIGH' : features[28] < 0.3 ? 'LOW' : 'MODERATE'}
+
+${degradationContext?.degraded ? `\n⚠️ DATA QUALITY NOTICE: ${degradationContext.message}\nData Source: ${degradationContext.data_source} (degraded mode)\n` : ''}
+
+═══════════════════════════════════════
+🤖 YOUR TASK - INSTITUTIONAL ANALYSIS
+═══════════════════════════════════════
+As an institutional trading AI, provide deep market intelligence in JSON format with these keys:
+
+{
+  "primary_factors": [
+    "List 3-5 PRIMARY drivers for this signal (specific, actionable)",
+    "Focus on WHAT is happening in the market RIGHT NOW"
+  ],
+  "supporting_evidence": [
+    "List 3-5 SUPPORTING data points from features",
+    "Include specific indicator readings and confluence"
+  ],
+  "risk_factors": [
+    "List 3-5 KEY risks traders MUST monitor",
+    "Include contrarian signals and potential invalidation points"
+  ],
+  "market_context": "Single paragraph explaining the NARRATIVE - WHY this is happening, what institutional players are doing, market psychology",
+  "neural_analysis": "Explain what the 25-feature vector reveals that human traders might miss - hidden patterns, cross-indicator confluence, regime changes",
+  "hidden_insights": "What does GPT see that algorithms miss? Contrarian views, narrative shifts, psychological factors"
+}
+
+Be precise, numeric, and institutional-grade. Avoid generic statements.`;
+
+        const response = await this.openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            { 
+              role: 'system', 
+              content: 'You are an elite institutional trading AI with deep market microstructure expertise. Provide precise, data-driven analysis with specific numeric insights. Never be generic.' 
+            },
+            { role: 'user', content: prompt }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.3,
+          max_tokens: 2000
+        });
+
+        const gptReasoning = JSON.parse(response.choices[0]?.message?.content || '{}');
+        
+        console.log('🤖 Enhanced AI: GPT-4o deep analysis completed');
+        
+        return {
+          primary_factors: gptReasoning.primary_factors || ['Neural network analysis suggests neutral conditions'],
+          supporting_evidence: gptReasoning.supporting_evidence || ['Limited market signals detected'],
+          risk_factors: gptReasoning.risk_factors || ['Standard market risk applies'],
+          market_context: gptReasoning.market_context || `Neural network confidence: ${neuralPrediction.confidence}%`,
+          neural_analysis: gptReasoning.neural_analysis || `Feature vector indicates ${features.filter(f => f > 0.7).length} strong bullish signals and ${features.filter(f => f < 0.3).length} strong bearish signals.`,
+          pattern_confluence: patterns.length > 0 ? 
+            patterns.reduce((sum, p) => sum + p.confidence, 0) / patterns.length : 0
+        };
+
+      } catch (error) {
+        console.warn('🚨 Enhanced AI: GPT analysis failed, using local reasoning:', error);
+      }
+    }
+
+    // Fallback to local reasoning if GPT unavailable
     const primaryFactors: string[] = [];
     const supportingEvidence: string[] = [];
     const riskFactors: string[] = [];
     
-    // Neural network analysis
     const neuralAnalysis = `Neural network analysis with ${neuralPrediction.confidence}% confidence suggests ${neuralPrediction.direction} bias. Risk assessment: ${neuralPrediction.risk_level}. Feature vector indicates ${features.filter(f => f > 0.7).length} strong bullish signals and ${features.filter(f => f < 0.3).length} strong bearish signals.`;
     
-    // Pattern-based factors
     if (patterns.length > 0) {
       const dominantPattern = patterns.reduce((prev, current) => 
         current.confidence > prev.confidence ? current : prev
@@ -980,14 +1113,12 @@ export class EnhancedAISignalEngine {
       });
     }
 
-    // Feature-based analysis
     if (features[0] > 0.7) primaryFactors.push('Strong multi-timeframe confluence detected');
     if (features[15] > 0.8 || features[15] < 0.2) riskFactors.push('Extreme RSI conditions indicate potential reversal risk');
     if (features[35] > 0.7) supportingEvidence.push('Institutional flow detected via CVD analysis');
 
     let marketContext = `Current market showing ${patterns.length} active patterns. Neural network confidence: ${neuralPrediction.confidence}%. Multi-timeframe alignment: ${features[1] > 0.7 ? 'Strong' : 'Weak'}. Institutional activity: ${features[35] > 0.6 ? 'High' : 'Low'}.`;
     
-    // Add degradation context to market context
     if (degradationContext?.degraded) {
       marketContext += ` Data quality: ${degradationContext.data_source} source (${degradationContext.degraded ? 'degraded' : 'optimal'}).`;
       riskFactors.push(`Data quality concerns: ${degradationContext.message || 'Operating with fallback data sources'}`);
