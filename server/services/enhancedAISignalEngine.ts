@@ -898,7 +898,7 @@ export class EnhancedAISignalEngine {
     const degradationNotice = createSignalDegradationNotice(degradationContext, 'ai_signal');
 
     const signal: EnhancedAISignal = {
-      signal_id: `enhanced_ai_${Date.now()}`,
+      signal_id: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
       symbol,
       direction: correctedDirection,
