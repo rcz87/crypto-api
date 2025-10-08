@@ -998,7 +998,26 @@ export class EnhancedAISignalEngine {
           `${p.name}(${(p.confidence * 100).toFixed(1)}%,R:R=${p.risk_reward_ratio})`
         ).join(' | ');
 
-        const prompt = `Analyze ${symbol} with institutional-grade intelligence.
+        const prompt = `You are **Institutional-Grade Crypto Reasoning Agent**.
+Your task: analyze market data context for ${symbol} and output **JSON only**.
+
+SCHEMA OUTPUT:
+{
+  "bias": "long" | "short" | "neutral",
+  "confidence": number (0 ≤ confidence ≤ 1),
+  "primary_factors": string[],
+  "supporting_evidence": {
+    [factor: string]: string
+  },
+  "risk_factors": string[],
+  "market_context": string,
+  "hidden_insights": string,
+  "sniper_timing_5m": {
+    "triggerLong": string,
+    "triggerShort": string,
+    "alert": string
+  }
+}
 
 -- NEURAL PREDICTION --
 Direction: ${neuralPrediction.direction.toUpperCase()}
@@ -1009,47 +1028,38 @@ Risk Level: ${neuralPrediction.risk_level}
 -- FEATURE VECTOR (25 normalized 0-1) --
 ${featureContext}
 
--- ENHANCED MARKET CONTEXT --
+-- ADDITIONAL DATA CONTEXT --
 Liquidity heatmap clusters (top 20): ${heatmapSummary}
 Orderbook imbalance (bid/ask ratio): ${obImbalance}
 Top liquidation zones: ${liqZones}
-Pattern historical performance: ${histSummary}
-Cross-feature divergences: ${divergenceSummary}
-
--- DETECTED PATTERNS --
-${patterns.length > 0 ? patternContext : 'No significant patterns'}
-
-${degradationContext?.degraded ? `\n⚠️ DATA QUALITY NOTICE: ${degradationContext.message}\nData Source: ${degradationContext.data_source} (degraded mode)\n` : ''}
+Pattern historical summary: ${histSummary}
+Detected divergences: ${divergenceSummary}
+Detected market patterns: ${patterns.length > 0 ? patternContext : 'No significant patterns'}
+${degradationContext?.degraded ? `Data quality: ${degradationContext.data_source} (degraded mode)` : ''}
 
 TASK:
-As an institutional AI, output precise JSON with keys:
-{
-  "bias":"long|short|neutral",
-  "confidence":0-1,
-  "primary_factors":[],
-  "supporting_evidence":[],
-  "risk_factors":[],
-  "market_context": "",
-  "hidden_insights": "",
-  "sniper_timing_5m": { "triggerLong":"", "triggerShort":"", "alert":"" }
-}
+- Identify 3-5 **primary drivers** for current price bias
+- For each driver, supply **direct supporting evidence** from context (use factor name as key)
+- List 3 key **risk factors** that could invalidate the bias
+- Summarize market_context (why price behaves so, 1-3 sentences)
+- Provide hidden_insights (what models might miss, 1-2 sentences)
+- Formulate sniper_timing_5m triggers with objective conditions
+- Validate consistency: if factor lacks evidence or conflicts emerge, degrade or neutralize
 
-RULES:
-1. Every primary_factor MUST have matching supporting_evidence from data above
-2. If divergence or conflict detected, degrade confidence or neutralize bias
-3. Use evidence from: heatmap clusters, orderbook imbalance, liq zones, divergences, patterns, features
-4. Be numeric, precise, actionable - avoid generic statements
-5. If no strong factor with evidence, bias = neutral
-6. Validate internal consistency - conflicting evidence → neutral bias
-
-Do not output anything else. JSON only.`;
+INSTRUCTIONS:
+1. Use only provided context; **do not invent numbers**
+2. Every primary_factors[i] must have corresponding supporting_evidence[factor]
+3. If contradictory evidence (bullish & bearish), degrade confidence or output "neutral"
+4. If insufficient context, prefer "neutral" with moderate confidence
+5. Sniper timing must be objective (e.g. "break above 238.7 AND CVD > 0")
+6. Output JSON only. No extra text.`;
 
         const response = await this.openai.chat.completions.create({
           model: 'gpt-4o',
           messages: [
             { 
               role: 'system', 
-              content: 'You are an institutional trading AI with deep market structure expertise. Output precise, evidence-backed JSON analysis.' 
+              content: 'You are **Institutional-Grade Crypto Reasoning Agent** with deep market structure expertise. Output JSON strictly adhering to schema. No narrative beyond required fields.' 
             },
             { role: 'user', content: prompt }
           ],
@@ -1163,45 +1173,45 @@ Do not output anything else. JSON only.`;
       };
     }
     
-    // Pastikan supporting_evidence koheren
-    if (!Array.isArray(r.supporting_evidence)) {
-      r.supporting_evidence = [];
-    }
-    
-    // Filter faktor yang tidak punya evidence
-    // Handle both string arrays and object arrays from GPT
+    // Pastikan supporting_evidence koheren - now expects object mapping {factor: evidence}
     const pf: string[] = [];
     const ev: string[] = [];
     
-    console.log(`🔍 Validation: primary_factors count=${r.primary_factors.length}, evidence count=${r.supporting_evidence.length}`);
+    // Handle new format: supporting_evidence as object mapping
+    const evidenceMap = (typeof r.supporting_evidence === 'object' && !Array.isArray(r.supporting_evidence)) 
+      ? r.supporting_evidence 
+      : {};
+    
+    console.log(`🔍 Validation: primary_factors count=${r.primary_factors.length}, evidence type=${typeof r.supporting_evidence}`);
     
     for (let i = 0; i < r.primary_factors.length; i++) {
-      const fact = r.primary_factors[i];
-      const evidenceItem = r.supporting_evidence[i];
+      const factor = r.primary_factors[i];
       
-      console.log(`🔍 Validation [${i}]: evidenceItem type=${typeof evidenceItem}, value=`, evidenceItem);
-      
+      // Try to find evidence for this factor
       let evidence: string | null = null;
       
-      // Handle object format: {factor: "", evidence: ""}
-      if (evidenceItem && typeof evidenceItem === 'object' && 'evidence' in evidenceItem) {
-        evidence = evidenceItem.evidence;
-        console.log(`✅ Extracted from object: "${evidence}"`);
+      // Method 1: Direct mapping by factor name (NEW FORMAT)
+      if (evidenceMap[factor] && typeof evidenceMap[factor] === 'string') {
+        evidence = evidenceMap[factor];
+        console.log(`✅ Found evidence for "${factor}" via mapping: "${evidence}"`);
       }
-      // Handle string format
-      else if (evidenceItem && typeof evidenceItem === 'string') {
-        evidence = evidenceItem;
-        console.log(`✅ Using string directly: "${evidence}"`);
-      } else {
-        console.log(`❌ Could not extract evidence from evidenceItem`);
+      // Method 2: Legacy array format with index (BACKWARD COMPAT)
+      else if (Array.isArray(r.supporting_evidence) && r.supporting_evidence[i]) {
+        const evidenceItem = r.supporting_evidence[i];
+        if (typeof evidenceItem === 'object' && 'evidence' in evidenceItem) {
+          evidence = evidenceItem.evidence;
+          console.log(`✅ Found evidence for "${factor}" via legacy array-object: "${evidence}"`);
+        } else if (typeof evidenceItem === 'string') {
+          evidence = evidenceItem;
+          console.log(`✅ Found evidence for "${factor}" via legacy array-string: "${evidence}"`);
+        }
       }
       
       if (evidence && evidence.length > 0) {
-        pf.push(fact);
+        pf.push(factor);
         ev.push(evidence);
-        console.log(`✅ Added to valid list: factor="${fact}"`);
       } else {
-        console.log(`❌ Skipped - no valid evidence for factor="${fact}"`);
+        console.log(`❌ No evidence found for factor: "${factor}"`);
       }
     }
     
