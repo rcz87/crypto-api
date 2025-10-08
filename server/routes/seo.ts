@@ -91,6 +91,27 @@ Allow: /openapi.json`);
     }
   });
 
+  // GPT Actions Schema - Ultra-compact version (25KB, 31 operations)
+  app.get('/gpt-actions-schema.json', (req: Request, res: Response) => {
+    try {
+      const schemaPath = path.join(process.cwd(), 'openapi-gpt-actions.json');
+      const schemaContent = fs.readFileSync(schemaPath, 'utf8');
+      
+      // NO caching - always fresh for GPT Actions import
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      
+      const jsonContent = JSON.parse(schemaContent);
+      res.json(jsonContent);
+    } catch (error) {
+      console.error('Error serving GPT Actions schema:', error);
+      res.status(500).json({ error: 'Failed to load GPT Actions schema' });
+    }
+  });
+
   // Sitemap.xml for search engines
   app.get('/sitemap.xml', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');

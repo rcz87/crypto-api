@@ -71,6 +71,19 @@ function corsMiddleware(req: Request, res: Response, next: Function) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // OpenAPI Schema endpoint - MUST be before other routes
+  app.get('/openapi.json', (_req: Request, res: Response) => {
+    try {
+      const schemaPath = path.join(process.cwd(), 'public', 'openapi-ultra-compact.json');
+      const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
+      res.header('Content-Type', 'application/json');
+      res.header('Access-Control-Allow-Origin', '*');
+      res.json(schema);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to load OpenAPI schema' });
+    }
+  });
+
   // SEO routes MUST be registered FIRST before any middleware
   // This ensures they're not caught by Vite's catch-all route
   registerSeoRoutes(app);
