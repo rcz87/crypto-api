@@ -509,18 +509,53 @@ export class EnhancedAISignalEngine {
         const candles = await okxService.getCandles(symbol, '1H', 200);
         const trades = await okxService.getRecentTrades(symbol, 100).catch(() => []);
         
-        // Gather comprehensive market data
+        // Gather comprehensive market data INCLUDING orderbook, liquidations
         const [
           mtfAnalysis,
           technicalData,
           cvdData,
-          fundingData
+          fundingData,
+          orderbook,
+          liquidationData
         ] = await Promise.all([
           multiTimeframeService.performMTFAnalysis(symbol),
           this.technicalService.analyzeTechnicalIndicators(candles, '1H'),
           this.cvdService.analyzeCVD(candles, trades, '1H'),
-          enhancedFundingRateService.getEnhancedFundingRate(symbol)
+          enhancedFundingRateService.getEnhancedFundingRate(symbol),
+          okxService.getOrderBook(symbol, 50).catch(() => ({ bids: [], asks: [], timestamp: Date.now() })),
+          fetch(`http://127.0.0.1:5000/api/${symbol.replace('-USDT-SWAP', '')}/liquidation`)
+            .then(r => r.json())
+            .catch(() => ({ success: false, data: null }))
         ]);
+        
+        // Populate real market data for GPT context
+        if (orderbook && orderbook.bids?.length > 0 && orderbook.asks?.length > 0) {
+          const totalBids = orderbook.bids.reduce((sum: number, bid: any) => sum + (parseFloat(bid.size || bid[1] || '0')), 0);
+          const totalAsks = orderbook.asks.reduce((sum: number, ask: any) => sum + (parseFloat(ask.size || ask[1] || '0')), 0);
+          this.orderbookData = { bids: totalBids, asks: totalAsks };
+        }
+        
+        // Populate liquidation heatmap data
+        if (liquidationData?.success && liquidationData.data?.heatmap_clusters) {
+          this.liquidityZones = liquidationData.data.heatmap_clusters
+            .slice(0, 50)
+            .map((cluster: any) => ({
+              price: cluster.price_level || cluster.price || 0,
+              liquidity: cluster.total_liquidations || cluster.liquidity || 0
+            }))
+            .filter((z: any) => z.price > 0 && z.liquidity > 0);
+        }
+        
+        // Populate liquidation zones
+        if (liquidationData?.success && liquidationData.data?.liquidations) {
+          this.liquidations = liquidationData.data.liquidations
+            .slice(0, 100)
+            .map((liq: any) => ({
+              price: liq.price || 0,
+              size: Math.abs(liq.size || liq.amount || 0)
+            }))
+            .filter((l: any) => l.price > 0 && l.size > 0);
+        }
       
       // Get confluence data separately
       const confluenceData = await this.confluenceService.calculateConfluenceScore(
@@ -573,9 +608,9 @@ export class EnhancedAISignalEngine {
         technicalData.obv.current.signal === 'accumulation' ? 0.8 :
         technicalData.obv.current.signal === 'distribution' ? 0.2 : 0.5,
         technicalData.williamsR.current.value / 100 + 0.5, // Normalize Williams %R
-        0.5, // ATR placeholder
-        0.5, // Volatility placeholder  
-        1.0  // Volume placeholder
+        this.calculateATR(candles) / (parseFloat(String(candles[candles.length - 1]?.close)) || 1), // Real ATR normalized
+        this.calculateVolatility(candles), // Real volatility (stddev of returns)
+        this.normalizeVolume(candles) // Real volume normalized
       );
 
       // CVD Analysis features (10 features)
@@ -588,7 +623,7 @@ export class EnhancedAISignalEngine {
         cvdData?.buyerSellerAggression?.dominantSide === 'buyers' ? 0.8 : 
         cvdData?.buyerSellerAggression?.dominantSide === 'sellers' ? 0.2 : 0.5,
         parseFloat(cvdData?.buyerSellerAggression?.buyerAggression?.averageSize || '1000'),
-        0, // placeholder for trade count
+        Math.min(trades.length / 100, 1.0), // Real trade count normalized
         cvdData?.smartMoneySignals?.accumulation?.detected ? 0.8 : 0.5,
         cvdData?.smartMoneySignals?.distribution?.detected ? 0.2 : 0.5
       );
@@ -822,13 +857,42 @@ export class EnhancedAISignalEngine {
     const confidence = Math.round(rawConfidence * confidenceScalingFactor);
 
     // Generate enhanced reasoning with degradation awareness
-    const reasoning = await this.generateEnhancedReasoning(
+    let reasoning = await this.generateEnhancedReasoning(
       detectedPatterns, 
       neuralPrediction, 
       features,
       degradationContext,
       symbol  // Pass symbol for proper context
     );
+
+    // Get current market price for reality check
+    const candles = await okxService.getCandles(symbol, '1H', 1).catch(() => []);
+    const currentPrice = candles[0] ? parseFloat(String(candles[0].close)) : 0;
+    
+    // Apply Reality Check Layer - cross-validate GPT output vs real market data
+    const realityCheckResult = this.applySanityCheck(
+      reasoning,
+      currentPrice,
+      this.liquidityZones,
+      this.orderbookData,
+      this.calculateATR(await okxService.getCandles(symbol, '1H', 50).catch(() => [])),
+      direction,
+      confidence
+    );
+    
+    reasoning = realityCheckResult.correctedReasoning;
+    let correctedConfidence = confidence;
+    let correctedDirection = direction;
+    
+    if (realityCheckResult.confidenceCap) {
+      correctedConfidence = Math.min(confidence, realityCheckResult.confidenceCap);
+      console.log(`⚠️ Reality Check: Confidence capped from ${confidence} to ${correctedConfidence} - ${realityCheckResult.reason}`);
+    }
+    
+    if (realityCheckResult.biasOverride) {
+      correctedDirection = realityCheckResult.biasOverride as 'long' | 'short' | 'neutral';
+      console.log(`⚠️ Reality Check: Bias corrected from ${direction} to ${correctedDirection} - ${realityCheckResult.reason}`);
+    }
 
     // Create degradation notice
     const degradationNotice = createSignalDegradationNotice(degradationContext, 'ai_signal');
@@ -837,9 +901,9 @@ export class EnhancedAISignalEngine {
       signal_id: `enhanced_ai_${Date.now()}`,
       timestamp: new Date().toISOString(),
       symbol,
-      direction,
+      direction: correctedDirection,
       strength,
-      confidence,
+      confidence: correctedConfidence,
       neural_prediction: neuralPrediction,
       detected_patterns: detectedPatterns,
       reasoning,
@@ -1287,12 +1351,189 @@ INSTRUCTIONS:
   }
 
   /**
+   * Calculate Average True Range (ATR) from candles
+   */
+  private calculateATR(candles: CandleData[], period: number = 14): number {
+    if (!candles || candles.length < period + 1) return 0;
+    
+    const trValues: number[] = [];
+    for (let i = 1; i < candles.length; i++) {
+      const high = parseFloat(String(candles[i].high));
+      const low = parseFloat(String(candles[i].low));
+      const prevClose = parseFloat(String(candles[i - 1].close));
+      
+      const tr = Math.max(
+        high - low,
+        Math.abs(high - prevClose),
+        Math.abs(low - prevClose)
+      );
+      trValues.push(tr);
+    }
+    
+    // Average of last period TRs
+    const recentTRs = trValues.slice(-period);
+    return recentTRs.reduce((sum, tr) => sum + tr, 0) / recentTRs.length;
+  }
+
+  /**
+   * Calculate volatility (standard deviation of returns)
+   */
+  private calculateVolatility(candles: CandleData[], period: number = 20): number {
+    if (!candles || candles.length < period + 1) return 0.5;
+    
+    const returns: number[] = [];
+    for (let i = 1; i < candles.length && i <= period; i++) {
+      const close = parseFloat(String(candles[i].close));
+      const prevClose = parseFloat(String(candles[i - 1].close));
+      const ret = (close - prevClose) / prevClose;
+      returns.push(ret);
+    }
+    
+    if (returns.length === 0) return 0.5;
+    
+    const avgReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length;
+    const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length;
+    const volatility = Math.sqrt(variance);
+    
+    // Normalize to 0-1 range (typical crypto volatility 0-0.1, so * 10)
+    return Math.min(volatility * 10, 1.0);
+  }
+
+  /**
+   * Normalize volume to 0-1 range
+   */
+  private normalizeVolume(candles: CandleData[], period: number = 20): number {
+    if (!candles || candles.length < 2) return 0.5;
+    
+    const recentCandles = candles.slice(-period);
+    const volumes = recentCandles.map(c => parseFloat(String(c.volume)));
+    const avgVolume = volumes.reduce((sum, v) => sum + v, 0) / volumes.length;
+    const currentVolume = parseFloat(String(candles[candles.length - 1].volume));
+    
+    // Relative volume: current / average, capped at 2x
+    const relativeVolume = Math.min(currentVolume / (avgVolume || 1), 2.0) / 2.0;
+    return relativeVolume;
+  }
+
+  /**
    * Get top liquidation zones
    */
   private getTopLiquidationZones(liqs: Array<{ price: number; size: number }>, topN: number): string {
     if (!liqs || liqs.length === 0) return 'No liquidation data';
     const sorted = liqs.sort((a, b) => b.size - a.size).slice(0, topN);
     return sorted.map(l => `${l.price.toFixed(2)}:${l.size.toFixed(0)}`).join(', ');
+  }
+
+  /**
+   * Reality Check Layer - Sanity check GPT output vs real market data
+   * Prevents hallucinations and validates analysis against actual market conditions
+   */
+  private applySanityCheck(
+    reasoning: EnhancedAISignal['reasoning'],
+    currentPrice: number,
+    liquidityZones: Array<{ price: number; liquidity: number }>,
+    orderbookData: { bids: number; asks: number },
+    atr: number,
+    originalBias: string,
+    originalConfidence: number
+  ): {
+    correctedReasoning: EnhancedAISignal['reasoning'];
+    confidenceCap?: number;
+    biasOverride?: string;
+    reason?: string;
+  } {
+    const corrections: string[] = [];
+    let confidenceCap: number | undefined;
+    let biasOverride: string | undefined;
+    let reason = '';
+
+    // 1. Check if targets are too extreme (>30% from current price)
+    const supportingEvidence = reasoning.supporting_evidence || [];
+    const evidenceText = supportingEvidence.join(' ');
+    
+    // Extract any price levels mentioned in evidence
+    const priceMatches = evidenceText.match(/\d+(\.\d+)?/g);
+    if (priceMatches && currentPrice > 0) {
+      for (const priceStr of priceMatches) {
+        const targetPrice = parseFloat(priceStr);
+        if (targetPrice > 50 && targetPrice < currentPrice * 3) { // Reasonable price range
+          const diffPercent = Math.abs((targetPrice - currentPrice) / currentPrice);
+          if (diffPercent > 0.3) { // >30% deviation
+            confidenceCap = 60;
+            reason = `Target price ${targetPrice} is ${(diffPercent * 100).toFixed(1)}% from current ${currentPrice}`;
+            corrections.push('Target price too far from current market price');
+            break;
+          }
+        }
+      }
+    }
+
+    // 2. Check liquidity zone mismatch
+    const mentionsLiquidity = reasoning.primary_factors.some(f => 
+      f.toLowerCase().includes('liquidity') || f.toLowerCase().includes('heatmap')
+    );
+    
+    if (mentionsLiquidity && liquidityZones.length === 0) {
+      confidenceCap = Math.min(confidenceCap || 100, 55);
+      reason = reason || 'Liquidity analysis mentioned but no heatmap data available';
+      corrections.push('Liquidity cluster mismatch - no real heatmap data');
+    }
+
+    // 3. Check orderbook extreme imbalance vs bias
+    const obRatio = orderbookData.bids && orderbookData.asks ? 
+      orderbookData.bids / orderbookData.asks : 1;
+    
+    // If orderbook heavily favors opposite direction, reduce confidence or neutralize
+    if (obRatio > 3 && originalBias === 'short') {
+      confidenceCap = Math.min(confidenceCap || 100, 50);
+      reason = reason || `Orderbook shows 3:1 bid dominance conflicting with ${originalBias} bias`;
+      corrections.push('Orderbook imbalance conflicts with directional bias');
+    } else if (obRatio < 0.33 && originalBias === 'long') {
+      confidenceCap = Math.min(confidenceCap || 100, 50);
+      reason = reason || `Orderbook shows 3:1 ask dominance conflicting with ${originalBias} bias`;
+      corrections.push('Orderbook imbalance conflicts with directional bias');
+    }
+
+    // 4. Check ATR vs stop loss reasonableness
+    if (atr > 0 && currentPrice > 0) {
+      const atrPercent = (atr / currentPrice) * 100;
+      // If ATR is very high (>5%) but confidence is high, reduce it
+      if (atrPercent > 5 && originalConfidence > 70) {
+        confidenceCap = Math.min(confidenceCap || 100, 65);
+        reason = reason || `High volatility (ATR ${atrPercent.toFixed(1)}%) reduces confidence in directional bias`;
+        corrections.push('High volatility detected - confidence reduced');
+      }
+    }
+
+    // 5. Multiple corrections = neutralize bias
+    if (corrections.length >= 2 && originalBias !== 'neutral') {
+      biasOverride = 'neutral';
+      confidenceCap = 50;
+      reason = `Multiple data mismatches detected: ${corrections.join(', ')}`;
+    }
+
+    // Add corrections to risk factors
+    const correctedReasoning = {
+      ...reasoning,
+      risk_factors: [
+        ...reasoning.risk_factors,
+        ...corrections.map(c => `Reality Check: ${c}`)
+      ]
+    };
+
+    // Log significant corrections
+    if (confidenceCap || biasOverride) {
+      console.log(`🛡️ Reality Check Applied: ${reason}`);
+      console.log(`   - Original: ${originalBias} @ ${originalConfidence}% confidence`);
+      console.log(`   - Corrected: ${biasOverride || originalBias} @ ${confidenceCap || originalConfidence}% confidence`);
+    }
+
+    return {
+      correctedReasoning,
+      confidenceCap,
+      biasOverride,
+      reason
+    };
   }
 
   /**
