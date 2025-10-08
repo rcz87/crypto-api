@@ -1,0 +1,500 @@
+openapi: 3.1.0
+info:
+  title: CryptoSat Intelligence API
+  description: API trading crypto real-time dengan 30 endpoint
+  version: 5.3.2-final
+  contact:
+    email: admin@guardiansofthegreentoken.com
+
+servers:
+  - url: https://guardiansofthegreentoken.com
+
+paths:
+  /api/pairs/supported:
+    get:
+      operationId: getSupportedTradingPairs
+      summary: Daftar trading pair
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/{pair}/complete:
+    get:
+      operationId: getCompleteAnalysis
+      summary: Analisis lengkap pair
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/{pair}/smc:
+    get:
+      operationId: getSmartMoneyConcepts
+      summary: Smart Money analysis
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/{pair}/cvd:
+    get:
+      operationId: getCVDAnalysis
+      summary: Cumulative Volume Delta
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/{pair}/technical:
+    get:
+      operationId: getTechnicalIndicators
+      summary: Indikator teknikal
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/{pair}/funding:
+    get:
+      operationId: getFundingRates
+      summary: Funding rates
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/{pair}/open-interest:
+    get:
+      operationId: getOpenInterest
+      summary: Open interest data
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/ai/signal:
+    get:
+      operationId: getAISignal
+      summary: AI trading signal
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/ai/enhanced-signal:
+    get:
+      operationId: getEnhancedAISignal
+      summary: Enhanced AI signal
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/ai/enhanced-performance:
+    get:
+      operationId: getEnhancedAIPerformance
+      summary: AI performance metrics
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/ai/tracking/execution:
+    post:
+      operationId: recordAITradeExecution
+      summary: Record AI trade execution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/ai/tracking/outcome:
+    post:
+      operationId: recordAITradeOutcome
+      summary: Record trade outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/ai/tracking/overall-performance:
+    get:
+      operationId: getAIOverallPerformance
+      summary: Overall AI performance
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/premium/institutional-analytics:
+    get:
+      operationId: getPremiumInstitutionalAnalytics
+      summary: Institutional analytics
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/sol/funding/enhanced:
+    get:
+      operationId: getSOLEnhancedFunding
+      summary: SOL funding rate
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/sol/volume-profile:
+    get:
+      operationId: getSOLVolumeProfile
+      summary: SOL volume profile
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/sol/fibonacci:
+    get:
+      operationId: getSOLFibonacci
+      summary: SOL Fibonacci levels
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/sol/order-flow:
+    get:
+      operationId: getSOLOrderFlow
+      summary: SOL order flow
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/sol/liquidation-heatmap:
+    get:
+      operationId: getSOLLiquidationHeatmap
+      summary: SOL liquidation heatmap
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /health:
+    get:
+      operationId: getHealthStatus
+      summary: System health check
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /py/advanced/etf/bitcoin:
+    get:
+      operationId: getCoinGlassBitcoinETFs
+      summary: Bitcoin ETF data
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /py/advanced/market/sentiment:
+    get:
+      operationId: getCoinGlassMarketSentiment
+      summary: Market sentiment
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /py/advanced/market/coins:
+    get:
+      operationId: getCoinGlassSupportedCoins
+      summary: Supported coins
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /py/advanced/technical/atr:
+    get:
+      operationId: getCoinGlassATRData
+      summary: ATR volatility
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /py/advanced/ticker/{symbol}:
+    get:
+      operationId: getCoinGlassTickerData
+      summary: Real-time ticker
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /py/advanced/liquidation/heatmap/{symbol}:
+    get:
+      operationId: getCoinGlassLiquidationHeatmap
+      summary: Liquidation heatmap
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /py/advanced/spot/orderbook/{symbol}:
+    get:
+      operationId: getCoinGlassSpotOrderbook
+      summary: Spot orderbook
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /py/advanced/options/oi/{symbol}:
+    get:
+      operationId: getCoinGlassOptionsOpenInterest
+      summary: Options OI
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /gpts/unified/symbols:
+    get:
+      operationId: getGPTsUnifiedSymbols
+      summary: All supported symbols
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /gpts/unified/advanced:
+    post:
+      operationId: unifiedAdvancedEndpoint
+      summary: Unified advanced analytics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
