@@ -1516,16 +1516,20 @@ export const confluenceScreeningResponseSchema = z.object({
   }),
 });
 
-// Layer weight configuration schema
+// Layer weight configuration schema (Enhanced 13-Layer System)
 export const layerWeightsSchema = z.object({
-  smc: z.number().default(0.20), // Smart Money Concepts - 20%
-  cvd: z.number().default(0.15), // CVD - 15%
-  momentum: z.number().default(0.15), // Momentum indicators - 15%
-  market_structure: z.number().default(0.10), // Market Structure - 10%
-  open_interest: z.number().default(0.15), // Open Interest - 15%
-  funding_rate: z.number().default(0.10), // Funding Rate - 10%
-  institutional_flow: z.number().default(0.10), // Institutional Flow - 10%
-  fibonacci: z.number().default(0.05), // Fibonacci & Key Levels - 5%
+  smc: z.number().default(0.18), // Smart Money Concepts - 18%
+  cvd: z.number().default(0.13), // CVD - 13%
+  momentum: z.number().default(0.13), // Momentum indicators - 13%
+  market_structure: z.number().default(0.09), // Market Structure - 9%
+  open_interest: z.number().default(0.13), // Open Interest - 13%
+  funding_rate: z.number().default(0.09), // Funding Rate - 9%
+  institutional_flow: z.number().default(0.09), // Institutional Flow - 9%
+  fibonacci: z.number().default(0.04), // Fibonacci & Key Levels - 4%
+  // Enhanced layers (optional for backward compatibility)
+  volatility: z.number().default(0.06).optional(), // ATR Volatility Scoring - 6%
+  liquidity: z.number().default(0.03).optional(), // Volume/Liquidity Filter - 3%
+  divergence: z.number().default(0.03).optional(), // Momentum Divergence - 3%
 });
 
 // TypeScript types for 8-layer confluence system

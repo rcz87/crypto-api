@@ -14,30 +14,36 @@ import { SMCService } from "./smc";
 import { CVDService } from "./cvd";
 import { TechnicalIndicatorsService } from "./technicalIndicators";
 import { ConfluenceService } from "./confluence";
+import { EnhancedScreeningLayersService, EnhancedLayerData } from "./enhancedScreeningLayers";
 
 /**
- * Advanced 8-Layer Confluence Scoring System
+ * Enhanced 13-Layer Confluence Scoring System
  * 
- * Implements sophisticated multi-layer analysis for cryptocurrency trading signals
- * with weighted scoring and institutional-grade confluence detection.
+ * Implements sophisticated multi-layer analysis with enhanced institutional features:
+ * - Original 8 layers (SMC, CVD, Momentum, etc.)
+ * - 5 Enhanced layers (Volatility ATR, Liquidity, Divergence, Time-based, Sentiment)
  */
 export class EightLayerConfluenceService {
   private smcService: SMCService;
   private cvdService: CVDService;
   private technicalService: TechnicalIndicatorsService;
   private confluenceService: ConfluenceService;
+  private enhancedService: EnhancedScreeningLayersService;
   
-  // Layer weights as specified: SMC(20%), CVD(15%), Momentum(15%), Market Structure(10%), 
-  // Open Interest(15%), Funding Rate(10%), Institutional Flow(10%), Fibonacci(5%)
+  // Enhanced layer weights (13 layers total, normalized to 100%)
   private readonly LAYER_WEIGHTS: LayerWeights = {
-    smc: 0.20,                    // Smart Money Concepts - 20%
-    cvd: 0.15,                    // Cumulative Volume Delta - 15%
-    momentum: 0.15,               // RSI/EMA/MACD indicators - 15%
-    market_structure: 0.10,       // Market Structure analysis - 10%
-    open_interest: 0.15,          // Open Interest analysis - 15%
-    funding_rate: 0.10,           // Funding Rate analysis - 10%
-    institutional_flow: 0.10,     // Institutional Flow detection - 10%
-    fibonacci: 0.05,              // Fibonacci & Key Levels - 5%
+    smc: 0.18,                    // Smart Money Concepts - 18%
+    cvd: 0.13,                    // Cumulative Volume Delta - 13%
+    momentum: 0.13,               // RSI/EMA/MACD indicators - 13%
+    market_structure: 0.09,       // Market Structure analysis - 9%
+    open_interest: 0.13,          // Open Interest analysis - 13%
+    funding_rate: 0.09,           // Funding Rate analysis - 9%
+    institutional_flow: 0.09,     // Institutional Flow detection - 9%
+    fibonacci: 0.04,              // Fibonacci & Key Levels - 4%
+    // Enhanced layers
+    volatility: 0.06,             // ATR Volatility Scoring - 6%
+    liquidity: 0.03,              // Volume/Liquidity Filter - 3%
+    divergence: 0.03,             // Momentum Divergence - 3%
   };
 
   constructor(
@@ -50,6 +56,7 @@ export class EightLayerConfluenceService {
     this.cvdService = cvdService;
     this.technicalService = technicalService;
     this.confluenceService = confluenceService;
+    this.enhancedService = new EnhancedScreeningLayersService();
   }
 
   /**
