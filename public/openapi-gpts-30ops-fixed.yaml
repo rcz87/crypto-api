@@ -1,0 +1,526 @@
+openapi: 3.1.0
+info:
+  title: CryptoSat Intelligence - Multi-Pair Trading Data Gateway API
+  description: API intelijen trading crypto dengan 30 endpoint real-time. Kompatibel dengan GPT Actions.
+  version: 5.3.1-gpts-fixed
+  contact:
+    email: admin@guardiansofthegreentoken.com
+    url: https://guardiansofthegreentoken.com
+
+servers:
+  - url: https://guardiansofthegreentoken.com
+    description: Production server
+
+tags:
+  - name: Market Data
+  - name: AI Signals
+  - name: Technical Analysis
+  - name: Premium Analytics
+
+paths:
+  /api/pairs/supported:
+    get:
+      operationId: getSupportedTradingPairs
+      summary: Mendapatkan semua trading pair yang didukung
+      tags: [Market Data]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pairs:
+                    type: array
+                    items:
+                      type: string
+
+  /api/{pair}/complete:
+    get:
+      operationId: getCompleteAnalysis
+      summary: Mendapatkan analisis lengkap untuk satu pair
+      tags: [Market Data]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+            example: BTC
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pair:
+                    type: string
+                  price:
+                    type: number
+
+  /api/{pair}/smc:
+    get:
+      operationId: getSmartMoneyConcepts
+      summary: Analisis Smart Money Concepts
+      tags: [Technical Analysis]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/{pair}/cvd:
+    get:
+      operationId: getCVDAnalysis
+      summary: Cumulative Volume Delta analysis
+      tags: [Technical Analysis]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/{pair}/technical:
+    get:
+      operationId: getTechnicalIndicators
+      summary: Indikator teknikal (RSI, MACD, dll)
+      tags: [Technical Analysis]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/{pair}/funding:
+    get:
+      operationId: getFundingRates
+      summary: Funding rates untuk pair tertentu
+      tags: [Market Data]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/{pair}/open-interest:
+    get:
+      operationId: getOpenInterest
+      summary: Open interest data
+      tags: [Market Data]
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/ai/signal:
+    get:
+      operationId: getAISignal
+      summary: Sinyal trading AI
+      tags: [AI Signals]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/ai/enhanced-signal:
+    get:
+      operationId: getEnhancedAISignal
+      summary: Sinyal AI lanjutan
+      tags: [AI Signals]
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/ai/enhanced-performance:
+    get:
+      operationId: getEnhancedAIPerformance
+      summary: Performa AI
+      tags: [AI Signals]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/ai/tracking/execution:
+    post:
+      operationId: recordAITradeExecution
+      summary: Catat eksekusi trade AI
+      tags: [AI Signals]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/ai/tracking/outcome:
+    post:
+      operationId: recordAITradeOutcome
+      summary: Catat hasil trade AI
+      tags: [AI Signals]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/ai/tracking/overall-performance:
+    get:
+      operationId: getAIOverallPerformance
+      summary: Performa overall AI
+      tags: [AI Signals]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/premium/institutional-analytics:
+    get:
+      operationId: getPremiumInstitutionalAnalytics
+      summary: Analitik institusional premium
+      tags: [Premium Analytics]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/sol/funding/enhanced:
+    get:
+      operationId: getSOLEnhancedFunding
+      summary: Funding rate SOL enhanced
+      tags: [Market Data]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/sol/volume-profile:
+    get:
+      operationId: getSOLVolumeProfile
+      summary: Volume profile SOL
+      tags: [Technical Analysis]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/sol/fibonacci:
+    get:
+      operationId: getSOLFibonacci
+      summary: Fibonacci SOL
+      tags: [Technical Analysis]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/sol/order-flow:
+    get:
+      operationId: getSOLOrderFlow
+      summary: Order flow SOL
+      tags: [Market Data]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/sol/liquidation-heatmap:
+    get:
+      operationId: getSOLLiquidationHeatmap
+      summary: Liquidation heatmap SOL
+      tags: [Market Data]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /health:
+    get:
+      operationId: getHealthStatus
+      summary: Status sistem dan ETF Bitcoin
+      tags: [Market Data]
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/etf/bitcoin:
+    get:
+      operationId: getCoinGlassBitcoinETFs
+      summary: ETF Bitcoin data
+      tags: [Premium Analytics]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/market/sentiment:
+    get:
+      operationId: getCoinGlassMarketSentiment
+      summary: Market sentiment score
+      tags: [Premium Analytics]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/market/coins:
+    get:
+      operationId: getCoinGlassSupportedCoins
+      summary: Supported coins list
+      tags: [Market Data]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/technical/atr:
+    get:
+      operationId: getCoinGlassATRData
+      summary: ATR volatility data
+      tags: [Technical Analysis]
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/ticker/{symbol}:
+    get:
+      operationId: getCoinGlassTickerData
+      summary: Real-time ticker data
+      tags: [Market Data]
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/liquidation/heatmap/{symbol}:
+    get:
+      operationId: getCoinGlassLiquidationHeatmap
+      summary: Liquidation heatmap
+      tags: [Premium Analytics]
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/spot/orderbook/{symbol}:
+    get:
+      operationId: getCoinGlassSpotOrderbook
+      summary: Spot orderbook data
+      tags: [Market Data]
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/options/oi/{symbol}:
+    get:
+      operationId: getCoinGlassOptionsOpenInterest
+      summary: Options open interest
+      tags: [Premium Analytics]
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /gpts/unified/symbols:
+    get:
+      operationId: getGPTsUnifiedSymbols
+      summary: Semua simbol yang didukung
+      tags: [Market Data]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /gpts/unified/advanced:
+    post:
+      operationId: unifiedAdvancedEndpoint
+      summary: Unified endpoint untuk analisis premium
+      tags: [Premium Analytics]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operation:
+                  type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
