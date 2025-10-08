@@ -21,7 +21,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/{pair}/complete:
     get:
@@ -40,7 +40,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/{pair}/smc:
     get:
@@ -59,7 +59,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/{pair}/cvd:
     get:
@@ -78,7 +78,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/{pair}/technical:
     get:
@@ -97,7 +97,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/{pair}/funding:
     get:
@@ -116,7 +116,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/{pair}/open-interest:
     get:
@@ -135,7 +135,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/ai/signal:
     get:
@@ -148,7 +148,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/ai/enhanced-signal:
     get:
@@ -167,7 +167,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/ai/enhanced-performance:
     get:
@@ -180,7 +180,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/ai/tracking/execution:
     post:
@@ -192,7 +192,7 @@ paths:
           application/json:
             schema:
               type: object
-              additionalProperties: true
+              properties: {}
       responses:
         '200':
           description: Success
@@ -200,7 +200,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/ai/tracking/outcome:
     post:
@@ -212,7 +212,7 @@ paths:
           application/json:
             schema:
               type: object
-              additionalProperties: true
+              properties: {}
       responses:
         '200':
           description: Success
@@ -220,7 +220,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/ai/tracking/overall-performance:
     get:
@@ -233,7 +233,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/premium/institutional-analytics:
     get:
@@ -246,7 +246,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/sol/funding/enhanced:
     get:
@@ -259,7 +259,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/sol/volume-profile:
     get:
@@ -272,7 +272,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/sol/fibonacci:
     get:
@@ -285,7 +285,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/sol/order-flow:
     get:
@@ -298,7 +298,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /api/sol/liquidation-heatmap:
     get:
@@ -311,7 +311,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /health:
     get:
@@ -330,7 +330,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /py/advanced/etf/bitcoin:
     get:
@@ -343,7 +343,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /py/advanced/market/sentiment:
     get:
@@ -356,7 +356,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /py/advanced/market/coins:
     get:
@@ -369,7 +369,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /py/advanced/technical/atr:
     get:
@@ -388,7 +388,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /py/advanced/ticker/{symbol}:
     get:
@@ -407,7 +407,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /py/advanced/liquidation/heatmap/{symbol}:
     get:
@@ -426,7 +426,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /py/advanced/spot/orderbook/{symbol}:
     get:
@@ -445,7 +445,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /py/advanced/options/oi/{symbol}:
     get:
@@ -464,7 +464,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /gpts/unified/symbols:
     get:
@@ -477,7 +477,7 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
 
   /gpts/unified/advanced:
     post:
@@ -489,7 +489,7 @@ paths:
           application/json:
             schema:
               type: object
-              additionalProperties: true
+              properties: {}
       responses:
         '200':
           description: Success
@@ -497,4 +497,4 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                properties: {}
