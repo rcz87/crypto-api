@@ -171,21 +171,92 @@ paths:
   /api/ai/enhanced-signal:
     get:
       operationId: getEnhancedAISignal
-      summary: Enhanced AI signal
+      summary: "🧠 Enhanced AI Signal - GPT-4o Deep Analysis"
+      description: |
+        **Institutional-grade AI signal dengan GPT-4o reasoning**
+        
+        Analisis mendalam dengan:
+        - 25-feature neural network vector
+        - Enhanced market context (liquidity heatmap, orderbook imbalance, liquidation zones)
+        - GPT-4o institutional reasoning dengan validation layer
+        - Evidence-based analysis dengan object mapping
+        - Pattern performance tracking & confidence auto-adjustment
+        - 3-layer fallback protection (zero downtime)
+        
+        **Output:** Direction, confidence, sniper timing dengan trigger conditions objektif, supporting evidence
       parameters:
         - name: symbol
           in: query
           required: false
+          description: "Trading pair symbol (default: SOL-USDT-SWAP)"
           schema:
             type: string
+            example: "SOL-USDT-SWAP"
+            enum: ["BTC-USDT-SWAP", "ETH-USDT-SWAP", "SOL-USDT-SWAP"]
       responses:
         '200':
-          description: Success
+          description: Enhanced AI signal dengan GPT-4o reasoning
           content:
             application/json:
               schema:
                 type: object
-                properties: {}
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      signal_id:
+                        type: string
+                        description: Unique signal ID
+                      timestamp:
+                        type: string
+                        format: date-time
+                      symbol:
+                        type: string
+                      direction:
+                        type: string
+                        enum: ["bullish", "bearish", "neutral"]
+                      strength:
+                        type: number
+                        description: Signal strength 0-100
+                      confidence:
+                        type: number
+                        description: GPT confidence 0-100
+                      reasoning:
+                        type: object
+                        description: GPT-4o institutional reasoning with evidence-based analysis
+                        properties:
+                          primary_factors:
+                            type: array
+                            items:
+                              type: string
+                            description: Key institutional patterns detected (e.g., Predictive Institutional Flow, Liquidity Hunt)
+                          supporting_evidence:
+                            type: array
+                            items:
+                              type: string
+                            description: Evidence for each factor with confidence and R:R ratios
+                          risk_factors:
+                            type: array
+                            items:
+                              type: string
+                            description: Risk considerations and market uncertainties
+                          market_context:
+                            type: string
+                            description: Comprehensive market context analysis
+                          neural_analysis:
+                            type: string
+                            description: Neural network analysis insights
+                          pattern_confluence:
+                            type: number
+                            description: Pattern confluence score 0-1
+                      neural_prediction:
+                        type: object
+                        description: Neural network prediction
+                      detected_patterns:
+                        type: array
+                        description: AI-detected trading patterns
 
   /api/ai/enhanced-performance:
     get:
