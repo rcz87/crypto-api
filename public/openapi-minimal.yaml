@@ -1,0 +1,67 @@
+openapi: 3.1.0
+info:
+  title: CryptoSat Intelligence API - GPT Actions
+  version: 5.0-minimal
+  description: Cryptocurrency trading intelligence with real-time data and AI signals
+servers:
+  - url: https://guardiansofthegreentoken.com
+
+paths:
+  /gpts/unified/advanced:
+    post:
+      operationId: advancedGateway
+      summary: Advanced multi-operation gateway
+      description: Execute whale_alerts, etf_flows, market_sentiment, ticker, liquidation_heatmap, alpha_screening, new_listings, volume_spikes, opportunities, and micro_caps operations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                op:
+                  type: string
+                  enum: [whale_alerts, whale_positions, etf_flows, market_sentiment, ticker, liquidation_heatmap, alpha_screening, new_listings, volume_spikes, opportunities, micro_caps]
+                params:
+                  type: object
+              required: [op]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/pairs/supported:
+    get:
+      operationId: getSupportedPairs
+      summary: Get supported trading pairs
+      responses:
+        '200':
+          description: List of 65+ supported pairs
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/{pair}/complete:
+    get:
+      operationId: getCompleteAnalysis
+      summary: Get complete trading analysis
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Complete analysis
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  schemas: {}
