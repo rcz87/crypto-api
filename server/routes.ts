@@ -220,6 +220,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/alpha', alphaRouter);
   console.log('📊 Alpha screening routes registered successfully');
 
+  // 📄 OpenAPI Schema Endpoint (for GPT Actions import)
+  app.get('/api/openapi', async (req: Request, res: Response) => {
+    try {
+      const yaml = await import('js-yaml');
+      const schemaPath = path.join(process.cwd(), 'public', 'openapi-4.0.1-gpts-compat.yaml');
+      const yamlContent = fs.readFileSync(schemaPath, 'utf8');
+      const jsonSchema = yaml.load(yamlContent);
+      
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.json(jsonSchema);
+    } catch (error) {
+      console.error('❌ OpenAPI schema error:', error);
+      res.status(500).json({
+        error: 'Failed to load OpenAPI schema',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+  console.log('📄 OpenAPI schema endpoint registered: /api/openapi');
+
   // 📱 Telegram Interactive Webhook Routes
   try {
     const { telegramRouter } = await import("./observability/telegram-webhook");
