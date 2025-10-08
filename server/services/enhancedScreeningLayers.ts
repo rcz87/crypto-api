@@ -212,9 +212,9 @@ export class EnhancedScreeningLayersService {
     const swingLows = this.findSwingLows(prices, 5);
     
     // Detect divergences
-    const cvdRsiDivergence = this.detectDivergence(prices, recentRSI, swingHighs, swingLows);
-    const cvdObvDivergence = this.detectDivergence(prices, obv, swingHighs, swingLows);
-    const rsiPriceDivergence = this.detectDivergence(prices, recentRSI, swingHighs, swingLows);
+    const cvdRsiDivergence = this.detectDivergence(prices, recentCVD, swingHighs, swingLows);  // CVD vs Price
+    const cvdObvDivergence = this.detectDivergence(prices, obv, swingHighs, swingLows);        // OBV vs Price
+    const rsiPriceDivergence = this.detectDivergence(prices, recentRSI, swingHighs, swingLows); // RSI vs Price
     
     const has_divergence = cvdRsiDivergence.detected || cvdObvDivergence.detected || rsiPriceDivergence.detected;
     

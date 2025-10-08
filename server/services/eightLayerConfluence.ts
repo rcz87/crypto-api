@@ -86,7 +86,7 @@ export class EightLayerConfluenceService {
         this.getOpenInterestData(symbol)
       ]);
 
-      // Initialize layer scores
+      // Initialize layer scores (8 original layers)
       const layers: ConfluenceAnalysis['layers'] = {
         smc: await this.analyzeSMCLayer(smcAnalysis),
         cvd: await this.analyzeCVDLayer(cvdAnalysis),
@@ -98,8 +98,42 @@ export class EightLayerConfluenceService {
         fibonacci: await this.analyzeFibonacciLayer(candles)
       };
 
-      // Calculate weighted overall score
-      const overallScore = this.calculateWeightedScore(layers);
+      // Add enhanced layers (volatility, liquidity, divergence, sentiment)
+      try {
+        console.log(`[Enhanced Layers] Analyzing ${symbol} with timeframe ${timeframe}...`);
+        
+        const volatilityLayer = await this.analyzeEnhancedVolatility(symbol, timeframe);
+        console.log(`[Enhanced Layers] Volatility layer:`, volatilityLayer ? 'SUCCESS' : 'NULL');
+        
+        const liquidityLayer = await this.analyzeEnhancedLiquidity(candles);
+        console.log(`[Enhanced Layers] Liquidity layer:`, liquidityLayer ? 'SUCCESS' : 'NULL');
+        
+        const divergenceLayer = await this.analyzeEnhancedDivergence(technicalIndicators, cvdAnalysis);
+        console.log(`[Enhanced Layers] Divergence layer:`, divergenceLayer ? 'SUCCESS' : 'NULL');
+        
+        const sentimentLayer = await this.analyzeEnhancedSentiment(symbol);
+        console.log(`[Enhanced Layers] Sentiment layer:`, sentimentLayer ? 'SUCCESS' : 'NULL');
+        
+        if (volatilityLayer) layers.volatility = volatilityLayer;
+        if (liquidityLayer) layers.liquidity = liquidityLayer;
+        if (divergenceLayer) layers.divergence = divergenceLayer;
+        if (sentimentLayer) layers.sentiment = sentimentLayer;
+        
+        console.log(`[Enhanced Layers] Final layers added:`, Object.keys(layers).filter(k => ['volatility', 'liquidity', 'divergence', 'sentiment'].includes(k)));
+      } catch (error) {
+        console.error(`[Enhanced Layers] Error analyzing ${symbol}:`, error);
+      }
+
+      // Apply timeframe-based weight adjustment (dynamic weighting)
+      // Apply timeframe-based weight adjustment
+      const baseWeights = Object.fromEntries(
+        Object.entries(layers).map(([key, layer]) => [key, layer.weight])
+      );
+      const adjustedWeights = this.enhancedService.applyTimebasedWeights(baseWeights, timeframe || '4h');
+      console.log(`[Enhanced Layers] Timeframe-based weights applied for ${timeframe}:`, adjustedWeights);
+
+      // Calculate weighted overall score (includes enhanced layers with adjusted weights)
+      const overallScore = this.calculateWeightedScoreWithAdjustment(layers, adjustedWeights);
       
       // Determine signal and confluence strength
       const signal = this.determineSignal(overallScore, layers);
@@ -548,6 +582,145 @@ export class EightLayerConfluenceService {
   }
 
   /**
+   * Analyze Enhanced Volatility Layer (ATR-based)
+   */
+  private async analyzeEnhancedVolatility(symbol: string, timeframe: string): Promise<ConfluenceLayer | null> {
+    try {
+      const volatilityData = await this.enhancedService.analyzeVolatility(symbol, timeframe);
+      
+      return {
+        name: 'ATR Volatility',
+        score: volatilityData.score,
+        weight: this.LAYER_WEIGHTS.volatility || 0.06,
+        signal: volatilityData.signal,
+        confidence: volatilityData.confidence,
+        details: {
+          trend: volatilityData.signal === 'BUY' ? 'bullish' : volatilityData.signal === 'SELL' ? 'bearish' : 'neutral',
+          strength: volatilityData.confidence > 70 ? 'strong' : volatilityData.confidence > 40 ? 'moderate' : 'weak',
+          key_metrics: {
+            atr_percentage: volatilityData.atr_percentage,
+            volatility_trend: volatilityData.volatility_trend,
+            risk_adjusted_score: volatilityData.risk_adjusted_score
+          },
+          notes: `ATR: ${volatilityData.atr_percentage}% - ${volatilityData.notes}`
+        }
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Analyze Enhanced Liquidity Layer
+   */
+  private async analyzeEnhancedLiquidity(candles: CandleData[]): Promise<ConfluenceLayer | null> {
+    try {
+      const liquidityData = await this.enhancedService.analyzeLiquidity(candles);
+      
+      return {
+        name: 'Volume/Liquidity',
+        score: liquidityData.score,
+        weight: this.LAYER_WEIGHTS.liquidity || 0.03,
+        signal: liquidityData.signal,
+        confidence: liquidityData.confidence,
+        details: {
+          trend: liquidityData.signal === 'BUY' ? 'bullish' : liquidityData.signal === 'SELL' ? 'bearish' : 'neutral',
+          strength: liquidityData.confidence > 70 ? 'strong' : liquidityData.confidence > 40 ? 'moderate' : 'weak',
+          key_metrics: {
+            avg_volume_24h: liquidityData.avg_volume_24h,
+            current_volume: liquidityData.current_volume,
+            volume_spike: liquidityData.volume_spike,
+            liquidity_health: liquidityData.liquidity_health
+          },
+          notes: liquidityData.notes
+        }
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Analyze Enhanced Divergence Layer (CVD + RSI + OBV)
+   */
+  private async analyzeEnhancedDivergence(
+    technicalResult: PromiseSettledResult<any>,
+    cvdResult: PromiseSettledResult<any>
+  ): Promise<ConfluenceLayer | null> {
+    try {
+      if (technicalResult.status === 'rejected') {
+        return null;
+      }
+
+      const rsiValues = technicalResult.value?.rsi || [];
+      const obvValues = technicalResult.value?.obv || []; // Get OBV from technical indicators
+      
+      // Get CVD values if available (CVD might fail, handle gracefully)
+      const cvdValues = cvdResult.status === 'fulfilled' ? 
+        (cvdResult.value?.data?.map((d: any) => d.cvd) || []) : [];
+      
+      // Need at least RSI data to proceed (CVD and OBV are bonus)
+      if (rsiValues.length === 0) {
+        return null;
+      }
+
+      const divergenceData = await this.enhancedService.analyzeDivergence(
+        rsiValues,
+        cvdValues.length > 0 ? cvdValues : [], // Use CVD if available
+        obvValues.length > 0 ? obvValues : []   // Use OBV if available
+      );
+      
+      return {
+        name: 'Momentum Divergence',
+        score: divergenceData.score,
+        weight: this.LAYER_WEIGHTS.divergence || 0.03,
+        signal: divergenceData.signal,
+        confidence: divergenceData.confidence,
+        details: {
+          trend: divergenceData.signal === 'BUY' ? 'bullish' : divergenceData.signal === 'SELL' ? 'bearish' : 'neutral',
+          strength: divergenceData.confidence > 70 ? 'strong' : divergenceData.confidence > 40 ? 'moderate' : 'weak',
+          key_metrics: {
+            divergence_type: divergenceData.divergence_type,
+            rsi_cvd_correlation: divergenceData.rsi_cvd_correlation,
+            strength: divergenceData.strength
+          },
+          notes: divergenceData.notes
+        }
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Analyze Enhanced Sentiment Layer (placeholder)
+   */
+  private async analyzeEnhancedSentiment(symbol: string): Promise<ConfluenceLayer | null> {
+    try {
+      const sentimentData = await this.enhancedService.analyzeSentiment(symbol);
+      
+      return {
+        name: 'AI Sentiment',
+        score: sentimentData.score,
+        weight: 0.02, // 2% weight for sentiment
+        signal: sentimentData.signal,
+        confidence: sentimentData.confidence,
+        details: {
+          trend: sentimentData.signal === 'BUY' ? 'bullish' : sentimentData.signal === 'SELL' ? 'bearish' : 'neutral',
+          strength: sentimentData.confidence > 70 ? 'strong' : sentimentData.confidence > 40 ? 'moderate' : 'weak',
+          key_metrics: {
+            sentiment_score: sentimentData.score,
+            market_phase: 'accumulation'
+          },
+          notes: sentimentData.notes
+        }
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
    * Calculate weighted overall score from all layers
    */
   private calculateWeightedScore(layers: ConfluenceAnalysis['layers']): number {
@@ -557,6 +730,26 @@ export class EightLayerConfluenceService {
     Object.entries(layers).forEach(([layerName, layer]) => {
       weightedSum += layer.score * layer.weight;
       totalWeight += layer.weight;
+    });
+
+    return totalWeight > 0 ? weightedSum / totalWeight : 50;
+  }
+
+  /**
+   * Calculate weighted score with timeframe-based weight adjustment
+   */
+  private calculateWeightedScoreWithAdjustment(
+    layers: ConfluenceAnalysis['layers'], 
+    adjustedWeights: Record<string, number>
+  ): number {
+    let weightedSum = 0;
+    let totalWeight = 0;
+
+    Object.entries(layers).forEach(([layerName, layer]) => {
+      // Use adjusted weight if available, otherwise use layer's default weight
+      const weight = adjustedWeights[layerName] ?? layer.weight;
+      weightedSum += layer.score * weight;
+      totalWeight += weight;
     });
 
     return totalWeight > 0 ? weightedSum / totalWeight : 50;
