@@ -1,0 +1,722 @@
+openapi: 3.1.0
+info:
+  title: CryptoSat Intelligence - Multi-Pair Trading Data Gateway API (GPTs Compat)
+  description: API intelijen trading crypto dengan 31+ endpoint. Kompatibel dengan GPT Actions.
+  version: 5.2.0-gpts-coinglass
+  contact:
+    email: admin@guardiansofthegreentoken.com
+    url: https://guardiansofthegreentoken.com
+
+servers:
+  - url: https://guardiansofthegreentoken.com
+    description: Production server with SSL
+
+tags:
+  - name: Market Data - Real-time
+    description: Real-time Market Data Endpoints
+  - name: Market Data - Multi-Pair
+    description: Multi-Pair Analysis & Cross-Asset Data
+  - name: Market Data - Derivatives
+    description: Derivatives & Futures Market Data
+  - name: Technical Analysis
+    description: Technical Indicators & Chart Analysis
+  - name: Smart Money Concepts
+    description: Institutional Flow & Smart Money Analysis
+  - name: Volume Analysis
+    description: Volume Profile & Order Flow Analysis
+  - name: AI Signals - Standard
+    description: AI Signals dengan GPT-5
+  - name: AI Signals - Enhanced
+    description: Enhanced AI Engine with Neural Networks
+  - name: AI Performance
+    description: AI Performance Tracking & Learning Analytics
+  - name: Premium Analytics
+    description: VIP8 Institutional-Grade Analytics
+  - name: System Monitoring
+    description: System Health & API Monitoring
+  - name: CoinGlass - ETF Intelligence
+    description: ETF Flow Analysis
+  - name: CoinGlass - Market Intelligence
+    description: Market Sentiment & Coins Data
+  - name: CoinGlass - Technical Analysis
+    description: Technical Indicators from CoinGlass
+  - name: CoinGlass - Advanced Analytics
+    description: Advanced CoinGlass Analytics
+  - name: Enhanced Features
+    description: Enhanced SOL-specific Features
+
+paths:
+  /api/pairs/supported:
+    get:
+      operationId: getSupportedTradingPairs
+      summary: Mendapatkan semua trading pair yang didukung (akses publik)
+      tags:
+        - Market Data - Multi-Pair
+      responses:
+        '200':
+          description: Daftar pair berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/{pair}/complete:
+    get:
+      operationId: getCompleteAnalysis
+      summary: Mendapatkan data analisis lengkap untuk satu pair
+      tags:
+        - Market Data - Multi-Pair
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Kode trading pair, contoh BTC, ETH, SOL
+          schema:
+            type: string
+            example: BTC
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/{pair}/smc:
+    get:
+      operationId: getSmartMoneyConcepts
+      summary: Mendapatkan analisis Smart Money Concepts untuk pair tertentu
+      tags:
+        - Smart Money Concepts
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Simbol pair (e.g., BTC)
+          schema:
+            type: string
+            example: BTC
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/{pair}/cvd:
+    get:
+      operationId: getCVDAnalysis
+      summary: Mendapatkan analisa Cumulative Volume Delta
+      tags:
+        - Volume Analysis
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Pair yang ingin dianalisis (contoh ETH)
+          schema:
+            type: string
+            example: ETH
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/{pair}/technical:
+    get:
+      operationId: getTechnicalIndicators
+      summary: Mendapatkan indikator teknikal untuk suatu pair
+      tags:
+        - Technical Analysis
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Pair kripto (misal SOL)
+          schema:
+            type: string
+            example: SOL
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/{pair}/funding:
+    get:
+      operationId: getFundingRates
+      summary: Mendapatkan funding rates untuk pair tertentu
+      tags:
+        - Market Data - Derivatives
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Simbol trading (contoh BTC, ETH)
+          schema:
+            type: string
+            example: BTC
+        - name: start
+          in: query
+          required: false
+          description: Waktu mulai (format RFC3339)
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: false
+          description: Waktu akhir (format RFC3339)
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          required: false
+          description: Jumlah data per halaman (default 100, max 1000)
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: cursor
+          in: query
+          required: false
+          description: Cursor untuk pagination
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data funding berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/{pair}/open-interest:
+    get:
+      operationId: getOpenInterest
+      summary: Mendapatkan data open interest untuk pair tertentu
+      tags:
+        - Market Data - Derivatives
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Simbol pair (contoh ETH)
+          schema:
+            type: string
+            example: ETH
+        - name: start
+          in: query
+          required: false
+          description: Waktu mulai (RFC3339)
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: false
+          description: Waktu akhir (RFC3339)
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          required: false
+          description: Jumlah data per halaman
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: cursor
+          in: query
+          required: false
+          description: Cursor untuk pagination
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/ai/signal:
+    get:
+      operationId: getAISignal
+      summary: Mendapatkan sinyal trading AI dari GPT-5
+      tags:
+        - AI Signals - Standard
+      responses:
+        '200':
+          description: Sinyal AI berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/ai/enhanced-signal:
+    get:
+      operationId: getEnhancedAISignal
+      summary: Mendapatkan sinyal AI lanjutan dengan 10 pattern canggih (Phase 2)
+      tags:
+        - AI Signals - Enhanced
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          description: Simbol trading (default SOL-USDT-SWAP)
+          schema:
+            type: string
+            example: SOL-USDT-SWAP
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/ai/enhanced-performance:
+    get:
+      operationId: getEnhancedAIPerformance
+      summary: Mendapatkan performa sinyal AI lanjutan (Phase 2)
+      tags:
+        - AI Performance
+      responses:
+        '200':
+          description: Data performa berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/ai/tracking/execution:
+    post:
+      operationId: recordAITradeExecution
+      summary: Mencatat eksekusi sinyal AI untuk pelacakan performa (Phase 2)
+      tags:
+        - AI Performance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Eksekusi tercatat
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/ai/tracking/outcome:
+    post:
+      operationId: recordAITradeOutcome
+      summary: Mencatat hasil trading dari sinyal AI untuk pembelajaran (Phase 2)
+      tags:
+        - AI Performance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Outcome tercatat
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/ai/tracking/overall-performance:
+    get:
+      operationId: getAIOverallPerformance
+      summary: Mendapatkan performa keseluruhan sistem AI (Phase 2)
+      tags:
+        - AI Performance
+      responses:
+        '200':
+          description: Performa AI berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/premium/institutional-analytics:
+    get:
+      operationId: getPremiumInstitutionalAnalytics
+      summary: Mendapatkan analitik institusional premium (VIP8)
+      tags:
+        - Premium Analytics
+      responses:
+        '200':
+          description: Data premium berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/sol/funding/enhanced:
+    get:
+      operationId: getSOLEnhancedFunding
+      summary: Analisis funding rate SOL lanjutan
+      tags:
+        - Enhanced Features
+      responses:
+        '200':
+          description: Data funding SOL berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/sol/volume-profile:
+    get:
+      operationId: getSOLVolumeProfile
+      summary: Analisis volume profile SOL
+      tags:
+        - Enhanced Features
+      responses:
+        '200':
+          description: Data volume profile berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/sol/fibonacci:
+    get:
+      operationId: getSOLFibonacci
+      summary: Analisis Fibonacci retracement untuk SOL
+      tags:
+        - Enhanced Features
+      responses:
+        '200':
+          description: Analisis Fibonacci berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/sol/order-flow:
+    get:
+      operationId: getSOLOrderFlow
+      summary: Mendapatkan data order flow SOL secara real-time
+      tags:
+        - Enhanced Features
+      responses:
+        '200':
+          description: Order flow SOL berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/sol/liquidation-heatmap:
+    get:
+      operationId: getSOLLiquidationHeatmap
+      summary: Mendapatkan peta panas likuidasi (heatmap) SOL
+      tags:
+        - Enhanced Features
+      responses:
+        '200':
+          description: Heatmap berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /health:
+    get:
+      operationId: getHealthStatus
+      summary: Mengecek status sistem dan analisa aliran ETF Bitcoin (Premium Access)
+      tags:
+        - System Monitoring
+      parameters:
+        - name: days
+          in: query
+          description: Jumlah hari data historis ETF (1–365)
+          required: false
+          schema:
+            type: integer
+            default: 30
+            minimum: 1
+            maximum: 365
+            example: 30
+        - name: asset
+          in: query
+          description: Aset untuk filter (default BTC)
+          required: false
+          schema:
+            type: string
+            default: BTC
+            example: BTC
+      responses:
+        '200':
+          description: Status berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/etf/bitcoin:
+    get:
+      operationId: getCoinGlassBitcoinETFs
+      summary: Data ETF Bitcoin dan listing lengkap (Premium Access)
+      tags:
+        - CoinGlass - ETF Intelligence
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/market/sentiment:
+    get:
+      operationId: getCoinGlassMarketSentiment
+      summary: Mendapatkan skor sentimen pasar lanjutan (Premium Access)
+      tags:
+        - CoinGlass - Market Intelligence
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/market/coins:
+    get:
+      operationId: getCoinGlassSupportedCoins
+      summary: Mendapatkan daftar koin yang didukung (Premium Access)
+      tags:
+        - CoinGlass - Market Intelligence
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/technical/atr:
+    get:
+      operationId: getCoinGlassATRData
+      summary: Data volatilitas ATR untuk simbol tertentu (Premium Access)
+      tags:
+        - CoinGlass - Technical Analysis
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: Simbol trading (contoh BTC, ETH)
+          schema:
+            type: string
+            example: BTC
+        - name: timeframe
+          in: query
+          required: false
+          description: Timeframe ATR
+          schema:
+            type: string
+            enum: [5m, 15m, 30m, 1H, 4H, 1D]
+            default: 1H
+        - name: period
+          in: query
+          required: false
+          description: Periode kalkulasi ATR (1-200)
+          schema:
+            type: integer
+            default: 14
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/ticker/{symbol}:
+    get:
+      operationId: getCoinGlassTickerData
+      summary: Data ticker real-time untuk simbol tertentu (Premium Access)
+      tags:
+        - CoinGlass - Technical Analysis
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          description: Simbol trading (contoh BTC, ETH, SOL)
+          schema:
+            type: string
+            example: BTC
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/liquidation/heatmap/{symbol}:
+    get:
+      operationId: getCoinGlassLiquidationHeatmap
+      summary: Heatmap klaster likuidasi (Premium Access)
+      tags:
+        - CoinGlass - Advanced Analytics
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          description: Simbol trading
+          schema:
+            type: string
+            example: BTC
+        - name: range
+          in: query
+          required: false
+          description: Rentang persen harga (1–20%)
+          schema:
+            type: number
+            default: 10
+            minimum: 1
+            maximum: 20
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/spot/orderbook/{symbol}:
+    get:
+      operationId: getCoinGlassSpotOrderbook
+      summary: Data orderbook spot untuk simbol tertentu (Premium Access)
+      tags:
+        - CoinGlass - Advanced Analytics
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          description: Simbol trading
+          schema:
+            type: string
+            example: BTC
+        - name: depth
+          in: query
+          required: false
+          description: Kedalaman orderbook (5–100)
+          schema:
+            type: integer
+            enum: [5, 10, 20, 50, 100]
+            default: 20
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /py/advanced/options/oi/{symbol}:
+    get:
+      operationId: getCoinGlassOptionsOpenInterest
+      summary: Data open interest untuk options dari simbol tertentu (Premium Access)
+      tags:
+        - CoinGlass - Advanced Analytics
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          description: Simbol trading
+          schema:
+            type: string
+            example: BTC
+        - name: expiry
+          in: query
+          required: false
+          description: Filter tanggal kedaluwarsa (format YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+            example: 2025-01-31
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /gpts/health:
+    get:
+      operationId: getGPTsHealth
+      summary: Cek status GPT Actions service
+      tags:
+        - System Monitoring
+      responses:
+        '200':
+          description: Service GPTs aktif
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /gpts/unified/symbols:
+    get:
+      operationId: getGPTsUnifiedSymbols
+      summary: Ambil semua simbol yang didukung oleh GPT Actions
+      tags:
+        - System Monitoring
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /gpts/unified/advanced:
+    post:
+      operationId: unifiedAdvancedEndpoint
+      summary: Endpoint unified GPT Actions untuk semua analisis premium CoinGlass
+      tags:
+        - Premium Analytics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API Key untuk autentikasi (opsional untuk endpoint publik)
