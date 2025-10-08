@@ -31,8 +31,11 @@ paths:
         - name: pair
           in: path
           required: true
+          description: "Symbol only: BTC, ETH, SOL, ADA, AVAX, DOGE (NO suffix like -USDT-SWAP)"
           schema:
             type: string
+            example: BTC
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, XRP, MATIC, DOT, LINK, UNI, ATOM, LTC, BCH, ETC, FIL, AAVE, ALGO, NEAR, FTM]
       responses:
         '200':
           description: Success
@@ -50,8 +53,11 @@ paths:
         - name: pair
           in: path
           required: true
+          description: "Symbol only: BTC, ETH, SOL, ADA, AVAX, DOGE (NO suffix like -USDT-SWAP)"
           schema:
             type: string
+            example: BTC
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, XRP, MATIC, DOT, LINK, UNI, ATOM, LTC, BCH, ETC, FIL, AAVE, ALGO, NEAR, FTM]
       responses:
         '200':
           description: Success
@@ -69,8 +75,11 @@ paths:
         - name: pair
           in: path
           required: true
+          description: "Symbol only: BTC, ETH, SOL, ADA, AVAX, DOGE (NO suffix like -USDT-SWAP)"
           schema:
             type: string
+            example: BTC
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, XRP, MATIC, DOT, LINK, UNI, ATOM, LTC, BCH, ETC, FIL, AAVE, ALGO, NEAR, FTM]
       responses:
         '200':
           description: Success
@@ -88,8 +97,11 @@ paths:
         - name: pair
           in: path
           required: true
+          description: "Symbol only: BTC, ETH, SOL, ADA, AVAX, DOGE (NO suffix like -USDT-SWAP)"
           schema:
             type: string
+            example: BTC
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, XRP, MATIC, DOT, LINK, UNI, ATOM, LTC, BCH, ETC, FIL, AAVE, ALGO, NEAR, FTM]
       responses:
         '200':
           description: Success
@@ -107,8 +119,11 @@ paths:
         - name: pair
           in: path
           required: true
+          description: "Symbol only: BTC, ETH, SOL, ADA, AVAX, DOGE (NO suffix like -USDT-SWAP)"
           schema:
             type: string
+            example: BTC
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, XRP, MATIC, DOT, LINK, UNI, ATOM, LTC, BCH, ETC, FIL, AAVE, ALGO, NEAR, FTM]
       responses:
         '200':
           description: Success
@@ -126,8 +141,11 @@ paths:
         - name: pair
           in: path
           required: true
+          description: "Symbol only: BTC, ETH, SOL, ADA, AVAX, DOGE (NO suffix like -USDT-SWAP)"
           schema:
             type: string
+            example: BTC
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, XRP, MATIC, DOT, LINK, UNI, ATOM, LTC, BCH, ETC, FIL, AAVE, ALGO, NEAR, FTM]
       responses:
         '200':
           description: Success
@@ -379,8 +397,11 @@ paths:
         - name: symbol
           in: query
           required: true
+          description: "Symbol only: BTC, ETH, SOL (NO suffix like -USDT-SWAP)"
           schema:
             type: string
+            example: BTC
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, XRP, MATIC, DOT, LINK, UNI, ATOM, LTC, BCH, ETC, FIL, AAVE, ALGO, NEAR, FTM]
       responses:
         '200':
           description: Success
@@ -398,8 +419,11 @@ paths:
         - name: symbol
           in: path
           required: true
+          description: "Symbol only: BTC, ETH, SOL (NO suffix like -USDT-SWAP)"
           schema:
             type: string
+            example: BTC
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, XRP, MATIC, DOT, LINK, UNI, ATOM, LTC, BCH, ETC, FIL, AAVE, ALGO, NEAR, FTM]
       responses:
         '200':
           description: Success
@@ -417,8 +441,11 @@ paths:
         - name: symbol
           in: path
           required: true
+          description: "Symbol only: BTC, ETH, SOL (NO suffix like -USDT-SWAP)"
           schema:
             type: string
+            example: BTC
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, XRP, MATIC, DOT, LINK, UNI, ATOM, LTC, BCH, ETC, FIL, AAVE, ALGO, NEAR, FTM]
       responses:
         '200':
           description: Success
@@ -436,8 +463,11 @@ paths:
         - name: symbol
           in: path
           required: true
+          description: "Symbol only: BTC, ETH, SOL (NO suffix like -USDT-SWAP)"
           schema:
             type: string
+            example: BTC
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, XRP, MATIC, DOT, LINK, UNI, ATOM, LTC, BCH, ETC, FIL, AAVE, ALGO, NEAR, FTM]
       responses:
         '200':
           description: Success
@@ -455,8 +485,11 @@ paths:
         - name: symbol
           in: path
           required: true
+          description: "Symbol only: BTC, ETH, SOL (NO suffix like -USDT-SWAP)"
           schema:
             type: string
+            example: BTC
+            enum: [BTC, ETH, SOL, ADA, AVAX, DOGE, XRP, MATIC, DOT, LINK, UNI, ATOM, LTC, BCH, ETC, FIL, AAVE, ALGO, NEAR, FTM]
       responses:
         '200':
           description: Success
