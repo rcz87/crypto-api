@@ -201,15 +201,113 @@ def institutional_bias_root(symbol: str = "BTC"):
 # Stub endpoints removed - real implementations loaded from app.api.advanced
 
 @app.get("/advanced/technical/atr")
-def technical_atr(symbol: str = "BTC", timeframe: str = "1h"):
-    # Placeholder ATR calculation - replace with real implementation
-    atr_percent = 0.8 if symbol == "SOL" else 1.2 if symbol == "BTC" else 1.0
-    return {
-        "symbol": symbol, 
-        "timeframe": timeframe,
-        "atr_percent": atr_percent,
-        "status": "stub-ok"
+async def technical_atr(symbol: str = "BTC", timeframe: str = "1h"):
+    """
+    Real-time ATR (Average True Range) calculation from OKX API
+    
+    ATR Formula:
+    1. True Range (TR) = max(high - low, |high - close_prev|, |low - close_prev|)
+    2. ATR = average(TR) over 14 periods
+    3. ATR% = (ATR / current_price) * 100
+    """
+    import httpx
+    
+    # Convert symbol to OKX format (BTC → BTC-USDT)
+    internal_sym = normalize_symbol_for_internal(symbol)
+    okx_symbol = f"{internal_sym}-USDT-SWAP"
+    
+    # Map timeframe to OKX format
+    okx_timeframe_map = {
+        "1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m",
+        "1h": "1H", "4h": "4H", "1d": "1D"
     }
+    okx_bar = okx_timeframe_map.get(timeframe.lower(), "1H")
+    
+    try:
+        # Fetch last 15 candles from OKX API
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            okx_url = f"https://www.okx.com/api/v5/market/candles"
+            params = {
+                "instId": okx_symbol,
+                "bar": okx_bar,
+                "limit": "15"
+            }
+            
+            response = await client.get(okx_url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("code") != "0" or not data.get("data"):
+                raise Exception(f"OKX API error: {data.get('msg', 'No data')}")
+            
+            # OKX candles format: [ts, open, high, low, close, volume, ...]
+            candles = data["data"]
+            
+            if len(candles) < 2:
+                raise Exception("Insufficient candle data")
+            
+            # Reverse to chronological order (oldest first)
+            candles = list(reversed(candles))
+            
+            # Calculate True Range for each candle
+            true_ranges = []
+            for i in range(1, len(candles)):
+                high = float(candles[i][2])    # High
+                low = float(candles[i][3])     # Low
+                prev_close = float(candles[i-1][4])  # Previous close
+                
+                # True Range = max(H-L, |H-PC|, |L-PC|)
+                tr = max(
+                    high - low,
+                    abs(high - prev_close),
+                    abs(low - prev_close)
+                )
+                true_ranges.append(tr)
+            
+            # Calculate ATR (average of last 14 True Ranges)
+            atr_periods = min(14, len(true_ranges))
+            atr = sum(true_ranges[-atr_periods:]) / atr_periods
+            
+            # Get current price (latest close)
+            current_price = float(candles[-1][4])
+            
+            # ATR as percentage of current price
+            atr_percent = (atr / current_price) * 100
+            
+            return {
+                "symbol": normalize_symbol_for_internal(symbol).upper(),
+                "original_symbol": symbol,
+                "timeframe": timeframe,
+                "atr_percent": round(atr_percent, 2),
+                "atr_absolute": round(atr, 2),
+                "current_price": round(current_price, 2),
+                "candles_analyzed": len(candles),
+                "source": "OKX",
+                "status": "real-time"
+            }
+        
+    except Exception as e:
+        # Enhanced fallback with realistic estimates
+        internal_symbol = normalize_symbol_for_internal(symbol).upper()
+        
+        # Realistic ATR estimates based on recent market volatility (Oct 2025)
+        volatility_map = {
+            "BTC": 1.2, "ETH": 1.6, "SOL": 2.1,
+            "DOGE": 3.2, "XRP": 2.4, "ADA": 2.8,
+            "AVAX": 2.5, "MATIC": 2.9, "DOT": 2.6,
+            "LINK": 2.3, "UNI": 2.7, "ATOM": 2.5
+        }
+        
+        fallback_atr = volatility_map.get(internal_symbol, 2.0)
+        
+        return {
+            "symbol": internal_symbol,
+            "timeframe": timeframe,
+            "atr_percent": fallback_atr,
+            "status": "fallback-estimated",
+            "note": "OKX API unavailable, using recent volatility estimate",
+            "error": str(e)
+        }
 
 @app.get("/advanced/ticker/{symbol}")
 async def ticker_data(symbol: str):

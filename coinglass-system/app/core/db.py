@@ -17,11 +17,8 @@ engine = create_engine(
     echo=False,  # Set to True for SQL debugging
     connect_args={
         "connect_timeout": 10,
-        "command_timeout": 30,
-        "server_settings": {
-            "application_name": "coinglass_system",
-            "jit": "off"  # Disable JIT for faster query execution
-        }
+        "options": "-c statement_timeout=30000",  # 30 seconds timeout (psycopg2 compatible)
+        "application_name": "coinglass_system"
     } if settings.DB_URL.startswith('postgresql') else {}
 )
 
