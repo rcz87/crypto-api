@@ -988,7 +988,10 @@ export class EnhancedAISignalEngine {
     const divergenceSummary = this.detectFeatureDivergences(features);
 
     // GPT-enhanced reasoning if available
+    console.log(`🔍 GPT Check: this.openai = ${this.openai ? 'ACTIVE' : 'NULL'}`);
+    
     if (this.openai) {
+      console.log(`🚀 Calling GPT-4o for ${symbol} analysis...`);
       try {
         const featureContext = features.map((val, idx) => `f${idx}:${val.toFixed(4)}`).join(', ');
         const patternContext = patterns.map(p => 
@@ -1060,6 +1063,7 @@ Do not output anything else. JSON only.`;
         
         try {
           reasoningParsed = JSON.parse(reasoningRaw);
+          console.log('📋 GPT Raw Output:', JSON.stringify(reasoningParsed, null, 2));
         } catch (err) {
           console.warn('🚨 GPT output parse error, using fallback:', reasoningRaw);
           return this.localReasoningFallback();
@@ -1067,6 +1071,7 @@ Do not output anything else. JSON only.`;
 
         // Validate GPT output
         const { validated, metadata } = this.validateReasoning(reasoningParsed);
+        console.log('✅ Validation Result:', JSON.stringify(metadata, null, 2));
         
         console.log(`🤖 Enhanced AI: GPT-4o analysis completed - bias=${metadata.bias}, confidence=${(metadata.confidence * 100).toFixed(1)}%, valid=${metadata.valid}`);
         
@@ -1164,16 +1169,43 @@ Do not output anything else. JSON only.`;
     }
     
     // Filter faktor yang tidak punya evidence
+    // Handle both string arrays and object arrays from GPT
     const pf: string[] = [];
     const ev: string[] = [];
+    
+    console.log(`🔍 Validation: primary_factors count=${r.primary_factors.length}, evidence count=${r.supporting_evidence.length}`);
+    
     for (let i = 0; i < r.primary_factors.length; i++) {
       const fact = r.primary_factors[i];
-      const evidence = r.supporting_evidence[i];
-      if (evidence && typeof evidence === 'string' && evidence.length > 0) {
+      const evidenceItem = r.supporting_evidence[i];
+      
+      console.log(`🔍 Validation [${i}]: evidenceItem type=${typeof evidenceItem}, value=`, evidenceItem);
+      
+      let evidence: string | null = null;
+      
+      // Handle object format: {factor: "", evidence: ""}
+      if (evidenceItem && typeof evidenceItem === 'object' && 'evidence' in evidenceItem) {
+        evidence = evidenceItem.evidence;
+        console.log(`✅ Extracted from object: "${evidence}"`);
+      }
+      // Handle string format
+      else if (evidenceItem && typeof evidenceItem === 'string') {
+        evidence = evidenceItem;
+        console.log(`✅ Using string directly: "${evidence}"`);
+      } else {
+        console.log(`❌ Could not extract evidence from evidenceItem`);
+      }
+      
+      if (evidence && evidence.length > 0) {
         pf.push(fact);
         ev.push(evidence);
+        console.log(`✅ Added to valid list: factor="${fact}"`);
+      } else {
+        console.log(`❌ Skipped - no valid evidence for factor="${fact}"`);
       }
     }
+    
+    console.log(`🔍 Validation Result: ${pf.length} valid factors out of ${r.primary_factors.length}`);
     
     if (pf.length === 0) {
       return { 
