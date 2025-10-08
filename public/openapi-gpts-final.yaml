@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: CryptoSat Intelligence API
-  description: API trading crypto real-time dengan 30 endpoint
-  version: 5.3.2-final
+  description: API trading crypto real-time dengan 30+ endpoint termasuk coin tracker (new listings, volume spikes, whale alerts, opportunities)
+  version: 5.4.0-coin-tracker
   contact:
     email: admin@guardiansofthegreentoken.com
 
@@ -514,20 +514,79 @@ paths:
 
   /gpts/unified/advanced:
     post:
-      operationId: unifiedAdvancedEndpoint
-      summary: Unified advanced analytics
+      operationId: unifiedCoinTracker
+      summary: Unified coin tracker - new listings, volume spikes, whale alerts & opportunities
+      description: "Deteksi listing coin baru, volume spike, whale alerts, dan trading opportunities dengan AI scoring"
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              properties: {}
+              required:
+                - op
+              properties:
+                op:
+                  type: string
+                  enum: [new_listings, volume_spikes, opportunities, whale_alerts, alpha_screening, micro_caps, market_sentiment]
+                  description: "Jenis operasi: new_listings (coin baru), volume_spikes (spike volume), opportunities (trading signals), whale_alerts (aktivitas whale), alpha_screening (4-layer CoinMarketCap analysis), micro_caps (micro-cap gems), market_sentiment (sentimen pasar)"
+                  example: new_listings
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 20
+                  description: "Jumlah hasil maksimal"
+                  example: 20
+                symbol:
+                  type: string
+                  description: "Symbol crypto (optional, untuk operations tertentu)"
+                  example: BTC
+                timeframe:
+                  type: string
+                  enum: ["1h", "4h", "1d"]
+                  description: "Timeframe analysis (optional)"
+                  example: "4h"
       responses:
         '200':
-          description: Success
+          description: Success - hasil coin tracker
           content:
             application/json:
               schema:
                 type: object
-                properties: {}
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        symbol:
+                          type: string
+                          description: "Crypto symbol"
+                        name:
+                          type: string
+                          description: "Crypto name"
+                        score:
+                          type: number
+                          description: "AI opportunity score (0-100)"
+                        price:
+                          type: number
+                          description: "Current price"
+                        volumeChange24h:
+                          type: number
+                          description: "24h volume change %"
+                        marketCap:
+                          type: number
+                          description: "Market capitalization"
+                        detectedAt:
+                          type: string
+                          format: date-time
+                          description: "Detection timestamp"
+                        recommendation:
+                          type: string
+                          description: "Trading recommendation"
+                  timestamp:
+                    type: string
+                    format: date-time
