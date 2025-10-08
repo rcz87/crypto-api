@@ -1051,6 +1051,41 @@ export class EnhancedAISignalEngine {
     const histSummary = this.getPatternWinRates(patterns);
     const divergenceSummary = this.detectFeatureDivergences(features);
 
+    // 📊 LOG JSON CONTEXT BEFORE GPT PROMPT
+    console.log('📊 === MARKET CONTEXT BEFORE GPT PROMPT ===');
+    console.log(JSON.stringify({
+      symbol,
+      liquidityZones: {
+        count: this.liquidityZones.length,
+        top5: this.liquidityZones.slice(0, 5),
+        summary: heatmapSummary
+      },
+      orderbookData: {
+        raw: this.orderbookData,
+        imbalance: obImbalance
+      },
+      liquidations: {
+        count: this.liquidations.length,
+        top5: liqZones
+      },
+      patterns: {
+        count: patterns.length,
+        detected: patterns.map(p => ({ 
+          name: p.name, 
+          confidence: p.confidence, 
+          rr: p.risk_reward_ratio 
+        }))
+      },
+      neuralPrediction: {
+        direction: neuralPrediction.direction,
+        confidence: neuralPrediction.confidence,
+        risk: neuralPrediction.risk_level
+      },
+      divergences: divergenceSummary,
+      histSummary
+    }, null, 2));
+    console.log('📊 === END CONTEXT ===\n');
+
     // GPT-enhanced reasoning if available
     console.log(`🔍 GPT Check: this.openai = ${this.openai ? 'ACTIVE' : 'NULL'}`);
     
