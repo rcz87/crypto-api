@@ -791,31 +791,33 @@ async function tryNodeFallback(requestBody: any): Promise<any> {
           }
 
         case 'new_listings':
-          console.log('[Node Fallback] Handling new_listings operation');
+          console.log('[Node Fallback] Handling new_listings operation with CoinMarketCap API');
           try {
             const limit = params.limit || 20;
-            const listings = await listingsService.getActiveListings(limit);
+            const coins = await cmcService.getNewListings(limit);
             
-            const formattedListings = listings.map(listing => {
-              const listingTime = new Date(listing.listingTime);
-              const timeElapsed = Date.now() - listingTime.getTime();
+            const formattedListings = coins.map(coin => {
+              const dateAdded = new Date(coin.date_added);
+              const timeElapsed = Date.now() - dateAdded.getTime();
               const hoursElapsed = Math.floor(timeElapsed / (1000 * 60 * 60));
-              const minutesElapsed = Math.floor((timeElapsed % (1000 * 60 * 60)) / (1000 * 60));
-              
-              const initialPrice = parseFloat(listing.initialPrice);
-              const currentPrice = listing.currentPrice ? parseFloat(listing.currentPrice) : initialPrice;
-              const priceChangeNum = ((currentPrice - initialPrice) / initialPrice * 100);
+              const daysElapsed = Math.floor(hoursElapsed / 24);
               
               return {
-                symbol: listing.symbol,
-                exchange: listing.exchange,
-                listingTime: listingTime.toISOString(),
-                initialPrice: listing.initialPrice,
-                currentPrice: listing.currentPrice || listing.initialPrice,
-                priceChange: `${priceChangeNum > 0 ? '+' : ''}${priceChangeNum.toFixed(2)}%`,
-                volume24h: listing.volume24h,
-                timeElapsed: hoursElapsed > 0 ? `${hoursElapsed}h ${minutesElapsed}m` : `${minutesElapsed}m`,
-                status: listing.status,
+                symbol: coin.symbol,
+                name: coin.name,
+                price: coin.quote.USD.price,
+                priceUsd: `$${coin.quote.USD.price.toFixed(coin.quote.USD.price < 1 ? 6 : 2)}`,
+                volumeChange24h: coin.quote.USD.volume_change_24h,
+                volumeChange24hFormatted: `${coin.quote.USD.volume_change_24h > 0 ? '+' : ''}${coin.quote.USD.volume_change_24h.toFixed(2)}%`,
+                marketCap: coin.quote.USD.market_cap,
+                marketCapFormatted: coin.quote.USD.market_cap > 1000000 ? `$${(coin.quote.USD.market_cap / 1000000).toFixed(2)}M` : `$${(coin.quote.USD.market_cap / 1000).toFixed(2)}K`,
+                percentChange24h: coin.quote.USD.percent_change_24h,
+                percentChange24hFormatted: `${coin.quote.USD.percent_change_24h > 0 ? '+' : ''}${coin.quote.USD.percent_change_24h.toFixed(2)}%`,
+                dateAdded: dateAdded.toISOString(),
+                timeElapsed: daysElapsed > 0 ? `${daysElapsed}d ${hoursElapsed % 24}h` : `${hoursElapsed}h`,
+                cmcRank: coin.cmc_rank,
+                platform: coin.platform?.name || 'Native',
+                tags: coin.tags.slice(0, 3),
               };
             });
             
@@ -826,9 +828,9 @@ async function tryNodeFallback(requestBody: any): Promise<any> {
               data: {
                 module: 'new_listings',
                 listings: formattedListings,
-                total: listings.length,
-                used_sources: ['okx_api', 'listings_service', 'real_time_monitoring'],
-                summary: `Found ${listings.length} new cryptocurrency listings`
+                total: formattedListings.length,
+                used_sources: ['coinmarketcap_api', '300+_exchanges', 'real_time_data'],
+                summary: `Found ${formattedListings.length} new cryptocurrency listings from CoinMarketCap (300+ exchanges aggregated)`
               }
             };
           } catch (listingsError) {
