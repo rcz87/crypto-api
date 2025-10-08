@@ -172,18 +172,7 @@ paths:
     get:
       operationId: getEnhancedAISignal
       summary: "🧠 Enhanced AI Signal - GPT-4o Deep Analysis"
-      description: |
-        **Institutional-grade AI signal dengan GPT-4o reasoning**
-        
-        Analisis mendalam dengan:
-        - 25-feature neural network vector
-        - Enhanced market context (liquidity heatmap, orderbook imbalance, liquidation zones)
-        - GPT-4o institutional reasoning dengan validation layer
-        - Evidence-based analysis dengan object mapping
-        - Pattern performance tracking & confidence auto-adjustment
-        - 3-layer fallback protection (zero downtime)
-        
-        **Output:** Direction, confidence, sniper timing dengan trigger conditions objektif, supporting evidence
+      description: "Institutional-grade AI signal with GPT-4o reasoning, 25-feature neural network, enhanced market context (heatmap, orderbook, liquidation zones), evidence-based analysis, and pattern tracking. Returns direction, confidence, and institutional insights."
       parameters:
         - name: symbol
           in: query
