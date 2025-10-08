@@ -109,6 +109,11 @@ export class EnhancedAISignalEngine {
   private cvdService: CVDService;
   private confluenceService: ConfluenceService;
   
+  // Enhanced market data context for GPT analysis
+  private liquidityZones: Array<{ price: number; liquidity: number }> = [];
+  private orderbookData: { bids: number; asks: number } = { bids: 0, asks: 0 };
+  private liquidations: Array<{ price: number; size: number }> = [];
+  
   // Memory management
   private intervals: NodeJS.Timeout[] = [];
   private isInitialized = false;
@@ -821,7 +826,8 @@ export class EnhancedAISignalEngine {
       detectedPatterns, 
       neuralPrediction, 
       features,
-      degradationContext
+      degradationContext,
+      symbol  // Pass symbol for proper context
     );
 
     // Create degradation notice
@@ -966,130 +972,113 @@ export class EnhancedAISignalEngine {
     return fallbackSignal;
   }
 
-  // Enhanced reasoning generation with GPT-4o deep analysis
+  // Enhanced reasoning generation with GPT-4o deep analysis + validation
   private async generateEnhancedReasoning(
     patterns: EnhancedMarketPattern[],
     neuralPrediction: NeuralNetworkPrediction,
     features: number[],
-    degradationContext?: any
+    degradationContext?: any,
+    symbol: string = 'SOL-USDT-SWAP'
   ): Promise<EnhancedAISignal['reasoning']> {
-    // Build rich context for GPT analysis
-    const featureLabels = [
-      'MTF Confidence', 'MTF Agreement', 'MTF Signal Strength', '1m Strength', '5m Strength', 
-      '15m Strength', '1h Strength', '4h Strength', 'Timeframe Risk', 'Signal Count',
-      'RSI', 'Momentum', 'EMA Trend', 'MACD Histogram', 'BB Position',
-      'Stochastic K', 'Stochastic D', 'CCI', 'Parabolic SAR', 'Ichimoku',
-      'OBV', 'Williams %R', 'ATR', 'Volatility', 'Volume',
-      'CVD Value', 'CVD Confidence', 'Flow Phase', 'Active Divergences', 'Buyer Aggression',
-      'Dominant Side', 'Avg Trade Size', 'Trade Count', 'Smart Money Accumulation', 'Smart Money Distribution',
-      'Confluence Overall', 'Confluence Confidence', 'Confluence Trend', 'Confluence Strength', 'Risk Level',
-      'Funding Rate', 'Funding Direction', 'Funding Sentiment', 'Funding Confidence', 'Funding OI Correlation',
-      'Premium Price Correlation', 'Funding Squeeze Alert', 'Manipulation Alert', 'Overall Sentiment', 'Liquidation Pressure'
-    ];
+    // Prepare enhanced context data
+    const heatmapSummary = this.compressHeatmapTopClusters(this.liquidityZones, 20);
+    const obImbalance = this.computeOBImbalance(this.orderbookData);
+    const liqZones = this.getTopLiquidationZones(this.liquidations, 5);
+    const histSummary = this.getPatternWinRates(patterns);
+    const divergenceSummary = this.detectFeatureDivergences(features);
 
     // GPT-enhanced reasoning if available
     if (this.openai) {
       try {
-        const featureContext = features.map((val, idx) => 
-          `${featureLabels[idx] || `Feature ${idx}`}: ${val.toFixed(3)}`
-        ).join('\n');
-
+        const featureContext = features.map((val, idx) => `f${idx}:${val.toFixed(4)}`).join(', ');
         const patternContext = patterns.map(p => 
-          `- ${p.name} (${(p.confidence * 100).toFixed(1)}% conf, ${p.pattern_complexity} complexity, R:R ${p.risk_reward_ratio})`
-        ).join('\n');
+          `${p.name}(${(p.confidence * 100).toFixed(1)}%,R:R=${p.risk_reward_ratio})`
+        ).join(' | ');
 
-        const prompt = `Analyze SOL-USDT-SWAP with institutional-grade depth using this comprehensive market intelligence:
+        const prompt = `Analyze ${symbol} with institutional-grade intelligence.
 
-═══════════════════════════════════════
-📊 NEURAL NETWORK PREDICTION
-═══════════════════════════════════════
+-- NEURAL PREDICTION --
 Direction: ${neuralPrediction.direction.toUpperCase()}
 Confidence: ${neuralPrediction.confidence}%
-Risk Level: ${neuralPrediction.risk_level}
-Price Target: ${neuralPrediction.price_target}
 Time Horizon: ${neuralPrediction.time_horizon}
+Risk Level: ${neuralPrediction.risk_level}
 
-═══════════════════════════════════════
-🧠 25-FEATURE VECTOR ANALYSIS (Normalized 0-1)
-═══════════════════════════════════════
+-- FEATURE VECTOR (25 normalized 0-1) --
 ${featureContext}
 
-Key Insights from Features:
-- Bullish signals (>0.7): ${features.filter(f => f > 0.7).length} indicators
-- Bearish signals (<0.3): ${features.filter(f => f < 0.3).length} indicators
-- Neutral zone (0.3-0.7): ${features.filter(f => f >= 0.3 && f <= 0.7).length} indicators
+-- ENHANCED MARKET CONTEXT --
+Liquidity heatmap clusters (top 20): ${heatmapSummary}
+Orderbook imbalance (bid/ask ratio): ${obImbalance}
+Top liquidation zones: ${liqZones}
+Pattern historical performance: ${histSummary}
+Cross-feature divergences: ${divergenceSummary}
 
-═══════════════════════════════════════
-🎯 DETECTED MARKET PATTERNS
-═══════════════════════════════════════
-${patterns.length > 0 ? patternContext : 'No significant patterns detected'}
-
-═══════════════════════════════════════
-📈 MARKET STRUCTURE INTELLIGENCE
-═══════════════════════════════════════
-Multi-Timeframe Confluence: ${features[0] > 0.7 ? 'STRONG' : features[0] < 0.3 ? 'WEAK' : 'MODERATE'} (${(features[0] * 100).toFixed(1)}%)
-Institutional Flow (CVD): ${features[30] > 0.7 ? 'HEAVY BUYING' : features[30] < 0.3 ? 'HEAVY SELLING' : 'BALANCED'} (${(features[30] * 100).toFixed(1)}%)
-Smart Money Activity: ${features[38] > 0.7 ? 'ACCUMULATION' : features[39] > 0.7 ? 'DISTRIBUTION' : 'NEUTRAL'}
-Funding Rate Regime: ${Math.abs(features[45]) > 0.7 ? 'EXTREME' : 'NORMAL'} (${(features[45] * 100).toFixed(1)}%)
-Volatility State: ${features[28] > 0.7 ? 'HIGH' : features[28] < 0.3 ? 'LOW' : 'MODERATE'}
+-- DETECTED PATTERNS --
+${patterns.length > 0 ? patternContext : 'No significant patterns'}
 
 ${degradationContext?.degraded ? `\n⚠️ DATA QUALITY NOTICE: ${degradationContext.message}\nData Source: ${degradationContext.data_source} (degraded mode)\n` : ''}
 
-═══════════════════════════════════════
-🤖 YOUR TASK - INSTITUTIONAL ANALYSIS
-═══════════════════════════════════════
-As an institutional trading AI, provide deep market intelligence in JSON format with these keys:
-
+TASK:
+As an institutional AI, output precise JSON with keys:
 {
-  "primary_factors": [
-    "List 3-5 PRIMARY drivers for this signal (specific, actionable)",
-    "Focus on WHAT is happening in the market RIGHT NOW"
-  ],
-  "supporting_evidence": [
-    "List 3-5 SUPPORTING data points from features",
-    "Include specific indicator readings and confluence"
-  ],
-  "risk_factors": [
-    "List 3-5 KEY risks traders MUST monitor",
-    "Include contrarian signals and potential invalidation points"
-  ],
-  "market_context": "Single paragraph explaining the NARRATIVE - WHY this is happening, what institutional players are doing, market psychology",
-  "neural_analysis": "Explain what the 25-feature vector reveals that human traders might miss - hidden patterns, cross-indicator confluence, regime changes",
-  "hidden_insights": "What does GPT see that algorithms miss? Contrarian views, narrative shifts, psychological factors"
+  "bias":"long|short|neutral",
+  "confidence":0-1,
+  "primary_factors":[],
+  "supporting_evidence":[],
+  "risk_factors":[],
+  "market_context": "",
+  "hidden_insights": "",
+  "sniper_timing_5m": { "triggerLong":"", "triggerShort":"", "alert":"" }
 }
 
-Be precise, numeric, and institutional-grade. Avoid generic statements.`;
+RULES:
+1. Every primary_factor MUST have matching supporting_evidence from data above
+2. If divergence or conflict detected, degrade confidence or neutralize bias
+3. Use evidence from: heatmap clusters, orderbook imbalance, liq zones, divergences, patterns, features
+4. Be numeric, precise, actionable - avoid generic statements
+5. If no strong factor with evidence, bias = neutral
+6. Validate internal consistency - conflicting evidence → neutral bias
+
+Do not output anything else. JSON only.`;
 
         const response = await this.openai.chat.completions.create({
           model: 'gpt-4o',
           messages: [
             { 
               role: 'system', 
-              content: 'You are an elite institutional trading AI with deep market microstructure expertise. Provide precise, data-driven analysis with specific numeric insights. Never be generic.' 
+              content: 'You are an institutional trading AI with deep market structure expertise. Output precise, evidence-backed JSON analysis.' 
             },
             { role: 'user', content: prompt }
           ],
           response_format: { type: 'json_object' },
           temperature: 0.3,
-          max_tokens: 2000
+          max_tokens: 1500
         });
 
-        const gptReasoning = JSON.parse(response.choices[0]?.message?.content || '{}');
+        const reasoningRaw = response.choices[0]?.message?.content || '{}';
+        let reasoningParsed: any;
         
-        console.log('🤖 Enhanced AI: GPT-4o deep analysis completed');
+        try {
+          reasoningParsed = JSON.parse(reasoningRaw);
+        } catch (err) {
+          console.warn('🚨 GPT output parse error, using fallback:', reasoningRaw);
+          return this.localReasoningFallback();
+        }
+
+        // Validate GPT output
+        const { validated, metadata } = this.validateReasoning(reasoningParsed);
         
-        return {
-          primary_factors: gptReasoning.primary_factors || ['Neural network analysis suggests neutral conditions'],
-          supporting_evidence: gptReasoning.supporting_evidence || ['Limited market signals detected'],
-          risk_factors: gptReasoning.risk_factors || ['Standard market risk applies'],
-          market_context: gptReasoning.market_context || `Neural network confidence: ${neuralPrediction.confidence}%`,
-          neural_analysis: gptReasoning.neural_analysis || `Feature vector indicates ${features.filter(f => f > 0.7).length} strong bullish signals and ${features.filter(f => f < 0.3).length} strong bearish signals.`,
-          pattern_confluence: patterns.length > 0 ? 
-            patterns.reduce((sum, p) => sum + p.confidence, 0) / patterns.length : 0
-        };
+        console.log(`🤖 Enhanced AI: GPT-4o analysis completed - bias=${metadata.bias}, confidence=${(metadata.confidence * 100).toFixed(1)}%, valid=${metadata.valid}`);
+        
+        // Add pattern confluence
+        validated.pattern_confluence = patterns.length > 0 ? 
+          patterns.reduce((sum, p) => sum + p.confidence, 0) / patterns.length : 0;
+        
+        return validated;
 
       } catch (error) {
         console.warn('🚨 Enhanced AI: GPT analysis failed, using local reasoning:', error);
+        return this.localReasoningFallback();
       }
     }
 
@@ -1133,6 +1122,162 @@ Be precise, numeric, and institutional-grade. Avoid generic statements.`;
       pattern_confluence: patterns.length > 0 ? 
         patterns.reduce((sum, p) => sum + p.confidence, 0) / patterns.length : 0
     };
+  }
+
+  // ==================== VALIDATION & UTILITY FUNCTIONS ====================
+  
+  /**
+   * Validate GPT output untuk sanity checks dan prevent hallucination
+   * Returns validated reasoning in EnhancedAISignal['reasoning'] format
+   */
+  private validateReasoning(r: any): { validated: EnhancedAISignal['reasoning'], metadata: any } {
+    // Pastikan r adalah objek
+    if (typeof r !== 'object' || r === null) {
+      return { 
+        validated: this.localReasoningFallback(),
+        metadata: { bias: 'neutral', confidence: 0.5, valid: false }
+      };
+    }
+    
+    // Bias valid
+    const validBias = ['long', 'short', 'neutral'];
+    if (!validBias.includes(r.bias)) {
+      r.bias = 'neutral';
+    }
+    
+    // Confidence valid numeric dalam [0,1]
+    if (typeof r.confidence !== 'number' || isNaN(r.confidence) || r.confidence < 0 || r.confidence > 1) {
+      r.confidence = 0.5;
+    }
+    
+    // Pastikan primary_factors ada dan non-kosong
+    if (!Array.isArray(r.primary_factors) || r.primary_factors.length === 0) {
+      return { 
+        validated: this.localReasoningFallback(),
+        metadata: { bias: 'neutral', confidence: 0.5, valid: false }
+      };
+    }
+    
+    // Pastikan supporting_evidence koheren
+    if (!Array.isArray(r.supporting_evidence)) {
+      r.supporting_evidence = [];
+    }
+    
+    // Filter faktor yang tidak punya evidence
+    const pf: string[] = [];
+    const ev: string[] = [];
+    for (let i = 0; i < r.primary_factors.length; i++) {
+      const fact = r.primary_factors[i];
+      const evidence = r.supporting_evidence[i];
+      if (evidence && typeof evidence === 'string' && evidence.length > 0) {
+        pf.push(fact);
+        ev.push(evidence);
+      }
+    }
+    
+    if (pf.length === 0) {
+      return { 
+        validated: this.localReasoningFallback(),
+        metadata: { bias: 'neutral', confidence: 0.5, valid: false }
+      };
+    }
+    
+    r.primary_factors = pf;
+    r.supporting_evidence = ev;
+    
+    // Konflik detection: jika ada kata "bullish" & "bearish" di evidence, neutralize
+    const evText = ev.join(' ').toLowerCase();
+    if (evText.includes('bullish') && evText.includes('bearish')) {
+      r.bias = 'neutral';
+      r.confidence = Math.min(r.confidence, 0.5);
+      console.log('⚠️ GPT validation: Conflicting evidence detected, bias neutralized');
+    }
+    
+    // Return validated reasoning in expected format + metadata
+    return {
+      validated: {
+        primary_factors: r.primary_factors,
+        supporting_evidence: r.supporting_evidence,
+        risk_factors: r.risk_factors || ['Standard market risk'],
+        market_context: r.market_context || 'GPT analysis context unavailable',
+        neural_analysis: r.hidden_insights || r.neural_analysis || 'Deep insights unavailable',
+        pattern_confluence: 0  // Will be calculated separately
+      },
+      metadata: {
+        bias: r.bias,
+        confidence: r.confidence,
+        sniper_timing: r.sniper_timing_5m || {},
+        valid: true
+      }
+    };
+  }
+
+  /**
+   * Local reasoning fallback jika GPT gagal - returns EnhancedAISignal['reasoning'] format
+   */
+  private localReasoningFallback(): EnhancedAISignal['reasoning'] {
+    return {
+      primary_factors: ['Fallback: GPT validation failed'],
+      supporting_evidence: ['Using local reasoning due to invalid GPT output'],
+      risk_factors: ['High uncertainty due to validation failure'],
+      market_context: 'Fallback mode: insufficient data or invalid GPT output',
+      neural_analysis: 'Unable to generate deep insights - using conservative stance',
+      pattern_confluence: 0
+    };
+  }
+
+  /**
+   * Compress top clusters dari heatmap
+   */
+  private compressHeatmapTopClusters(zones: Array<{ price: number; liquidity: number }>, topN: number): string {
+    if (!zones || zones.length === 0) return 'No heatmap data';
+    const sorted = zones.sort((a, b) => b.liquidity - a.liquidity).slice(0, topN);
+    return sorted.map(z => `${z.price.toFixed(2)}:${z.liquidity.toFixed(0)}`).join(', ');
+  }
+
+  /**
+   * Compute orderbook imbalance ratio
+   */
+  private computeOBImbalance(ob: { bids: number; asks: number }): number {
+    const bids = ob.bids || 1;
+    const asks = ob.asks || 1;
+    return parseFloat((bids / asks).toFixed(3));
+  }
+
+  /**
+   * Get top liquidation zones
+   */
+  private getTopLiquidationZones(liqs: Array<{ price: number; size: number }>, topN: number): string {
+    if (!liqs || liqs.length === 0) return 'No liquidation data';
+    const sorted = liqs.sort((a, b) => b.size - a.size).slice(0, topN);
+    return sorted.map(l => `${l.price.toFixed(2)}:${l.size.toFixed(0)}`).join(', ');
+  }
+
+  /**
+   * Pattern win rates summary
+   */
+  private getPatternWinRates(patterns: any[]): string {
+    if (!patterns || patterns.length === 0) return 'No patterns detected';
+    return patterns.map(p => {
+      const wr = p.historical_accuracy != null ? (p.historical_accuracy * 100).toFixed(1) : 'NA';
+      const last = p.last_seen != null ? new Date(p.last_seen).toISOString().slice(0, 16) : 'NA';
+      return `${p.name}(wr:${wr}%, last:${last})`;
+    }).join(' | ');
+  }
+
+  /**
+   * Detect divergences antar fitur
+   */
+  private detectFeatureDivergences(features: number[]): string {
+    const idxMTF = 0;   // MTF confidence
+    const idxCVD = 15;  // CVD value (adjusted for 25-feature vector)
+    
+    if (!features || features.length < 20) return 'Insufficient feature data';
+    
+    const diff = features[idxMTF] - features[idxCVD];
+    if (diff > 0.4) return `MTF >> CVD (structure strong vs flow weak, divergence: ${diff.toFixed(2)})`;
+    if (diff < -0.4) return `CVD >> MTF (flow strong vs structure weak, divergence: ${diff.toFixed(2)})`;
+    return 'No strong divergence detected';
   }
 
   // Calculate position size based on confidence and risk
