@@ -3709,6 +3709,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // ADAPTIVE THRESHOLD ROUTES
+  // ========================================
+
+  // Get adaptive threshold stats
+  app.get('/api/adaptive-threshold/stats', async (req: Request, res: Response) => {
+    try {
+      const { adaptiveThresholdManager } = await import('./services/adaptiveThreshold');
+      await adaptiveThresholdManager.initialize();
+      
+      const stats = adaptiveThresholdManager.getStats();
+      
+      res.json({
+        success: true,
+        data: stats,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get stats',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Update signal outcome (for testing/manual correction)
+  app.post('/api/adaptive-threshold/update-outcome', async (req: Request, res: Response) => {
+    try {
+      const { signal_id, outcome, pnl_pct } = req.body;
+      
+      if (!signal_id || !outcome) {
+        return res.status(400).json({
+          success: false,
+          error: 'signal_id and outcome are required',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      if (!['win', 'loss'].includes(outcome)) {
+        return res.status(400).json({
+          success: false,
+          error: 'outcome must be "win" or "loss"',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      const { adaptiveThresholdManager } = await import('./services/adaptiveThreshold');
+      await adaptiveThresholdManager.initialize();
+      await adaptiveThresholdManager.updateOutcome(signal_id, outcome, pnl_pct);
+      
+      res.json({
+        success: true,
+        message: `Outcome updated for ${signal_id}: ${outcome}`,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update outcome',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Trigger manual evaluation (for testing)
+  app.post('/api/adaptive-threshold/evaluate', async (req: Request, res: Response) => {
+    try {
+      const { adaptiveThresholdScheduler } = await import('./schedulers/adaptiveThresholdScheduler');
+      await adaptiveThresholdScheduler.triggerEvaluation();
+      
+      const { adaptiveThresholdManager } = await import('./services/adaptiveThreshold');
+      const stats = adaptiveThresholdManager.getStats();
+      
+      res.json({
+        success: true,
+        message: 'Manual evaluation completed',
+        current_threshold: stats.current_threshold,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to evaluate',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+
   // Start Enhanced AI Signal Engine schedulers for strategy evolution
   aiSignalEngine.startSchedulers();
   console.log("🚀 Enhanced AI Signal Engine schedulers started - auto evolution & cleanup enabled");
@@ -3717,6 +3807,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { startListingScheduler } = await import('./services/listing-scheduler');
   startListingScheduler();
   console.log("🚀 New Listing Detection Scheduler started - 5min interval monitoring enabled");
+  
+  // Start Adaptive Threshold Scheduler (24h evaluation cycle)
+  const { adaptiveThresholdScheduler } = await import('./schedulers/adaptiveThresholdScheduler');
+  await adaptiveThresholdScheduler.start();
+  console.log("🎯 Adaptive Threshold Scheduler started - daily auto-tuning based on 7-day accuracy");
   
   return httpServer;
 }

@@ -1120,15 +1120,30 @@ export class EnhancedAISignalEngine {
       console.error('Enhanced AI: Event logging failed:', error);
     }
 
-    // Telegram Alert for Priority Coins (HIGH-CONFIDENCE FILTER: ≥65%)
+    // Telegram Alert for Priority Coins (ADAPTIVE THRESHOLD)
     const priorityCoins = ['BTC', 'ETH', 'SOL', 'AVAX', 'RENDER', 'BNB', 'HYPE', 'XRP', 'TRUMP', 'DOGE'];
     const cleanSymbol = symbol.replace('-USDT-SWAP', '').replace('USDT', '');
-    const HIGH_CONFIDENCE_THRESHOLD = 65; // 🎯 Raised from 50% to 65% for quality signals
     
-    console.log(`🔔 Telegram Check: ${cleanSymbol} (${correctedConfidence}%) - Priority: ${priorityCoins.includes(cleanSymbol)}, Threshold: ${correctedConfidence >= HIGH_CONFIDENCE_THRESHOLD}`);
+    // 🎯 Use adaptive threshold (dynamically adjusted based on 7-day accuracy)
+    const { adaptiveThresholdManager } = await import('../services/adaptiveThreshold');
+    if (!adaptiveThresholdManager['isInitialized']) {
+      await adaptiveThresholdManager.initialize();
+    }
+    const ADAPTIVE_THRESHOLD = adaptiveThresholdManager.getCurrentThreshold();
     
-    if (priorityCoins.includes(cleanSymbol) && correctedConfidence >= HIGH_CONFIDENCE_THRESHOLD) {
-      console.log(`📱 Telegram Alert: Preparing to send HIGH-CONFIDENCE signal for ${cleanSymbol} (${correctedConfidence}% ≥ ${HIGH_CONFIDENCE_THRESHOLD}%)...`);
+    console.log(`🔔 Telegram Check: ${cleanSymbol} (${correctedConfidence}%) - Priority: ${priorityCoins.includes(cleanSymbol)}, Threshold: ${correctedConfidence >= ADAPTIVE_THRESHOLD} (adaptive=${ADAPTIVE_THRESHOLD}%)`);
+    
+    if (priorityCoins.includes(cleanSymbol) && correctedConfidence >= ADAPTIVE_THRESHOLD) {
+      console.log(`📱 Telegram Alert: Preparing to send HIGH-CONFIDENCE signal for ${cleanSymbol} (${correctedConfidence}% ≥ ${ADAPTIVE_THRESHOLD}%)...`);
+      
+      // 📊 Record signal outcome as pending (will be updated later based on performance)
+      await adaptiveThresholdManager.recordOutcome({
+        signal_id: signal.signal_id,
+        timestamp: signal.timestamp,
+        symbol: cleanSymbol,
+        confidence: correctedConfidence,
+        outcome: 'pending'
+      });
       try {
         // Defensive checks untuk prevent undefined/NaN
         const safeConfidence = typeof neuralPrediction.confidence === 'number' && !isNaN(neuralPrediction.confidence) 
