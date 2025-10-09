@@ -21,6 +21,7 @@ import {
 } from '../utils/degradationNotice';
 import { EventEmitter } from '../observability/eventEmitter.js';
 import { v4 as uuid } from 'uuid';
+import { sendTelegram } from '../observability/telegram';
 
 // Enhanced AI Signal Engine dengan Neural Networks dan Advanced Pattern Recognition
 export interface EnhancedMarketPattern {
@@ -968,6 +969,49 @@ export class EnhancedAISignalEngine {
     } catch (error) {
       // Event logging failure should not break signal generation
       console.error('Enhanced AI: Event logging failed:', error);
+    }
+
+    // Telegram Alert for Priority Coins
+    const priorityCoins = ['BTC', 'ETH', 'SOL', 'AVAX', 'RENDER', 'BNB', 'HYPE', 'XRP', 'TRUMP', 'DOGE'];
+    const cleanSymbol = symbol.replace('-USDT-SWAP', '').replace('USDT', '');
+    
+    if (priorityCoins.includes(cleanSymbol) && correctedConfidence >= 60) {
+      try {
+        const directionEmoji = correctedDirection === 'long' ? '🟢' : correctedDirection === 'short' ? '🔴' : '⚪';
+        const riskEmoji = neuralPrediction.risk_level === 'low' ? '🟢' : neuralPrediction.risk_level === 'medium' ? '🟡' : '🔴';
+        
+        const message = `
+🤖 *Enhanced AI Signal*
+
+${directionEmoji} *${cleanSymbol}* | ${correctedDirection.toUpperCase()}
+📊 Confidence: *${correctedConfidence}%*
+💪 Strength: ${strength}/100
+${riskEmoji} Risk: ${neuralPrediction.risk_level.toUpperCase()}
+
+🎯 *Analysis*
+• Neural Prediction: ${neuralPrediction.confidence}%
+• Patterns Detected: ${detectedPatterns.length}
+• Pattern Confluence: ${(patternConfluence * 100).toFixed(1)}%
+• Risk/Reward: ${signal.execution_details.risk_reward_ratio.toFixed(1)}x
+
+📈 *Execution*
+• Stop Loss: ${(signal.execution_details.stop_loss * 100).toFixed(1)}%
+• Take Profit: ${signal.execution_details.take_profit.map(tp => (tp * 100).toFixed(1) + '%').join(', ')}
+• Max Holding: ${signal.execution_details.max_holding_time}
+• Entry Window: ${signal.execution_details.optimal_entry_window}
+
+💡 *Key Factors*
+${reasoning.primary_factors.slice(0, 3).map((f: string) => `• ${f}`).join('\n')}
+
+⚡ Signal ID: \`${signal.signal_id.substring(0, 8)}\`
+🕐 ${new Date(signal.timestamp).toLocaleString('en-US', { timeZone: 'UTC', hour12: false })} UTC
+        `.trim();
+
+        await sendTelegram(message, { parseMode: 'Markdown', disablePreview: true });
+        console.log(`📱 Telegram alert sent for ${cleanSymbol} signal`);
+      } catch (telegramError) {
+        console.error('Telegram alert failed:', telegramError);
+      }
     }
 
     return signal;
