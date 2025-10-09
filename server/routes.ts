@@ -3824,5 +3824,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await adaptiveThresholdScheduler.start();
   console.log("🎯 Adaptive Threshold Scheduler started - daily auto-tuning based on 7-day accuracy");
   
+  // Start Enhanced AI Signal Monitor (event-driven, no loop - alerts ONLY on valid signals)
+  const { startEnhancedSignalMonitor } = await import('./schedulers/enhancedSignalMonitor');
+  startEnhancedSignalMonitor();
+  console.log("🎯 Enhanced AI Signal Monitor started - event-driven monitoring for 10 priority coins");
+  
   return httpServer;
 }
