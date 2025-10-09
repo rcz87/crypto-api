@@ -263,6 +263,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (error) {
     console.warn('⚠️ Telegram webhook routes not available:', (error as Error).message);
   }
+
+  // 🚨 Telegram Alerting System
+  try {
+    const { alertingSystem } = await import("./observability/alerting");
+    
+    // Alerting system health endpoint
+    app.get('/api/alerting/health', (req: Request, res: Response) => {
+      const status = alertingSystem.getStatus();
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        alerting: status
+      });
+    });
+    
+    console.log('🚨 Telegram Alerting System initialized');
+  } catch (error) {
+    console.warn('⚠️ Telegram alerting system not available:', (error as Error).message);
+  }
   
   // Mount the screening-module router at different path to avoid conflicts
   try {
