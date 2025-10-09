@@ -325,7 +325,8 @@ function isExemptRoute(path: string): boolean {
     '/openapi',
     '/favicon.ico',
     '/robots.txt',
-    '/sitemap.xml'
+    '/sitemap.xml',
+    '/api/admin/' // Admin endpoints always exempt
   ];
   
   return exemptPaths.some(exemptPath => path.startsWith(exemptPath));
@@ -535,6 +536,11 @@ export class InputSanitizer {
     
     // Skip validation for loopback addresses to prevent self-blocking
     if (isLoopback(clientIP)) {
+      return next();
+    }
+    
+    // Skip validation for admin endpoints
+    if (req.path.startsWith('/api/admin/')) {
       return next();
     }
     let hasViolation = false;

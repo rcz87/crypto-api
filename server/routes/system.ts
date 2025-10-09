@@ -474,4 +474,90 @@ export function registerSystemRoutes(app: Express): void {
       });
     }
   });
+
+  // 🔐 Admin Security Management Endpoints
+  app.get('/api/admin/security-stats', async (req: Request, res: Response) => {
+    try {
+      const { getEnhancedSecurityMetrics } = await import('../middleware/security');
+      const securityMetrics = getEnhancedSecurityMetrics();
+      
+      res.json({
+        success: true,
+        data: securityMetrics,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Failed to get security stats:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve security statistics',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  app.post('/api/admin/unblock-all', async (req: Request, res: Response) => {
+    try {
+      const { securityMonitor } = await import('../middleware/security');
+      const stats = securityMonitor.getSecurityMetrics();
+      
+      let unblocked = 0;
+      if (stats.blockedIPs && Array.isArray(stats.blockedIPs)) {
+        for (const ip of stats.blockedIPs) {
+          if (securityMonitor.unblockIP(ip)) {
+            unblocked++;
+          }
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: `Successfully unblocked ${unblocked} IP(s)`,
+        unblocked_count: unblocked,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Failed to unblock IPs:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to unblock IPs',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  app.post('/api/admin/unblock/:ip', async (req: Request, res: Response) => {
+    try {
+      const { ip } = req.params;
+      const { securityMonitor } = await import('../middleware/security');
+      
+      const unblocked = securityMonitor.unblockIP(ip);
+      
+      if (unblocked) {
+        res.json({
+          success: true,
+          message: `Successfully unblocked IP: ${ip}`,
+          ip,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          error: `IP not found or not blocked: ${ip}`,
+          ip,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('Failed to unblock IP:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to unblock IP',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
 }
