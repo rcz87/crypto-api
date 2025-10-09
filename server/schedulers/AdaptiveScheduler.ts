@@ -263,9 +263,13 @@ export class AdaptiveScheduler {
       delay = this.config.baseInterval + this.generateJitter();
     }
     
-    // Enforce minimum interval if configured (prevents sub-second bursts)
+    // CRITICAL FIX: Always enforce minInterval, even for overrides (prevents rate limit bursts)
     if (this.config.minInterval && delay < this.config.minInterval) {
+      const originalDelay = delay;
       delay = this.config.minInterval;
+      if (overrideDelay !== undefined) {
+        console.log(`⚠️ [${this.config.name}] Override ${originalDelay}ms capped to minInterval ${delay}ms`);
+      }
     }
     
     this.state.nextRunAt = Date.now() + delay;

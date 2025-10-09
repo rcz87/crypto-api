@@ -120,6 +120,12 @@ export class EnhancedAISignalEngine {
   private isInitialized = false;
   private isDestroyed = false;
 
+  // Telegram rate limiting protection (prevent concurrent bursts)
+  private telegramSending = false;
+  private telegramQueue: Array<() => Promise<void>> = [];
+  private lastTelegramSent = 0;
+  private readonly TELEGRAM_MIN_INTERVAL = 1000; // 1s minimum between Telegram messages
+
   // Optimized constants for memory efficiency
   private readonly FEATURE_VECTOR_SIZE = 25; // Reduced from 50 to optimize memory
   private readonly PATTERN_MEMORY_SIZE = 500; // Reduced from 1000 to optimize memory  
@@ -980,6 +986,26 @@ export class EnhancedAISignalEngine {
     if (priorityCoins.includes(cleanSymbol) && correctedConfidence >= 50) {
       console.log(`📱 Telegram Alert: Preparing to send for ${cleanSymbol}...`);
       try {
+        // Defensive checks untuk prevent undefined/NaN
+        const safeConfidence = typeof neuralPrediction.confidence === 'number' && !isNaN(neuralPrediction.confidence) 
+          ? neuralPrediction.confidence 
+          : correctedConfidence;
+        const safeRR = typeof signal.execution_details.risk_reward_ratio === 'number' && !isNaN(signal.execution_details.risk_reward_ratio)
+          ? signal.execution_details.risk_reward_ratio.toFixed(1)
+          : 'N/A';
+        const safeStopLoss = typeof signal.execution_details.stop_loss === 'number' && !isNaN(signal.execution_details.stop_loss)
+          ? (signal.execution_details.stop_loss * 100).toFixed(1)
+          : 'N/A';
+        const safeTakeProfit = Array.isArray(signal.execution_details.take_profit) && signal.execution_details.take_profit.length > 0
+          ? signal.execution_details.take_profit
+              .filter(tp => typeof tp === 'number' && !isNaN(tp))
+              .map(tp => (tp * 100).toFixed(1) + '%')
+              .join(', ')
+          : 'N/A';
+        const safeFactors = Array.isArray(reasoning.primary_factors) && reasoning.primary_factors.length > 0
+          ? reasoning.primary_factors.slice(0, 3).filter(f => f != null && f !== '').map((f: string) => `• ${f}`).join('\n')
+          : '• No specific factors identified';
+        
         const directionEmoji = correctedDirection === 'long' ? '🟢' : correctedDirection === 'short' ? '🔴' : '⚪';
         const riskEmoji = neuralPrediction.risk_level === 'low' ? '🟢' : neuralPrediction.risk_level === 'medium' ? '🟡' : '🔴';
         
@@ -992,32 +1018,97 @@ ${directionEmoji} *${cleanSymbol}* | ${correctedDirection.toUpperCase()}
 ${riskEmoji} Risk: ${neuralPrediction.risk_level.toUpperCase()}
 
 🎯 *Analysis*
-• Neural Prediction: ${neuralPrediction.confidence}%
+• Neural Prediction: ${safeConfidence}%
 • Patterns Detected: ${detectedPatterns.length}
 • Pattern Confluence: ${(patternConfluence * 100).toFixed(1)}%
-• Risk/Reward: ${signal.execution_details.risk_reward_ratio.toFixed(1)}x
+• Risk/Reward: ${safeRR}x
 
 📈 *Execution*
-• Stop Loss: ${(signal.execution_details.stop_loss * 100).toFixed(1)}%
-• Take Profit: ${signal.execution_details.take_profit.map(tp => (tp * 100).toFixed(1) + '%').join(', ')}
-• Max Holding: ${signal.execution_details.max_holding_time}
-• Entry Window: ${signal.execution_details.optimal_entry_window}
+• Stop Loss: ${safeStopLoss}%
+• Take Profit: ${safeTakeProfit}
+• Max Holding: ${signal.execution_details.max_holding_time || 'N/A'}
+• Entry Window: ${signal.execution_details.optimal_entry_window || 'N/A'}
 
 💡 *Key Factors*
-${reasoning.primary_factors.slice(0, 3).map((f: string) => `• ${f}`).join('\n')}
+${safeFactors}
 
 ⚡ Signal ID: \`${signal.signal_id.substring(0, 8)}\`
 🕐 ${new Date(signal.timestamp).toLocaleString('en-US', { timeZone: 'UTC', hour12: false })} UTC
         `.trim();
 
-        await sendTelegram(message, { parseMode: 'Markdown', disablePreview: true });
-        console.log(`📱 Telegram alert sent for ${cleanSymbol} signal`);
+        // Use rate-limited Telegram sender (prevents concurrent bursts)
+        await this.sendTelegramWithRateLimit(message, cleanSymbol);
       } catch (telegramError) {
         console.error('Telegram alert failed:', telegramError);
       }
     }
 
     return signal;
+  }
+
+  /**
+   * Rate-limited Telegram sender to prevent 429 errors from concurrent bursts
+   */
+  private async sendTelegramWithRateLimit(message: string, symbol: string): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastSent = now - this.lastTelegramSent;
+    
+    // If another message is being sent or minimum interval not met, queue this one
+    if (this.telegramSending || timeSinceLastSent < this.TELEGRAM_MIN_INTERVAL) {
+      console.log(`⏳ [Telegram] Queueing ${symbol} alert (concurrent=${this.telegramSending}, interval=${timeSinceLastSent}ms)`);
+      
+      return new Promise((resolve, reject) => {
+        this.telegramQueue.push(async () => {
+          try {
+            await this.executeTelegramSend(message, symbol);
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+    }
+    
+    // Send immediately if no conflicts
+    await this.executeTelegramSend(message, symbol);
+    
+    // Process queue if any
+    this.processQueueNext();
+  }
+
+  /**
+   * Execute actual Telegram send with proper timing
+   */
+  private async executeTelegramSend(message: string, symbol: string): Promise<void> {
+    this.telegramSending = true;
+    
+    try {
+      await sendTelegram(message, { parseMode: 'Markdown', disablePreview: true });
+      this.lastTelegramSent = Date.now();
+      console.log(`✅ [Telegram] Alert sent for ${symbol} signal`);
+    } finally {
+      this.telegramSending = false;
+    }
+  }
+
+  /**
+   * Process next queued Telegram message with proper delay
+   */
+  private processQueueNext(): void {
+    if (this.telegramQueue.length === 0 || this.telegramSending) {
+      return;
+    }
+    
+    const timeSinceLastSent = Date.now() - this.lastTelegramSent;
+    const delay = Math.max(0, this.TELEGRAM_MIN_INTERVAL - timeSinceLastSent);
+    
+    setTimeout(async () => {
+      const nextSend = this.telegramQueue.shift();
+      if (nextSend) {
+        await nextSend();
+        this.processQueueNext(); // Continue processing queue
+      }
+    }, delay);
   }
 
   // Fallback signal generator for never-blank guarantee

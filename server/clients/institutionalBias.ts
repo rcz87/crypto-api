@@ -21,7 +21,7 @@ export type BiasOk = {
 export type BiasUnavailable = { 
   ok: false; 
   unavailable: true; 
-  status: 404; 
+  status: 404 | 408 | 500 | 503; // Support multiple error status codes
   symbol: string; 
   reason?: string; 
 };
@@ -72,10 +72,39 @@ async function getOnce(base: string, symbol: string): Promise<BiasOk | BiasUnava
       symbol: norm 
     };
   } catch (error: any) {
+    // Graceful handling untuk timeout errors
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-      throw new Error(`Request timeout after 10000ms for ${url}`);
+      console.warn(`[BiasClient] Timeout after 10000ms for ${url}`);
+      return {
+        ok: false,
+        unavailable: true,
+        status: 408,
+        symbol: norm,
+        reason: 'Request timeout'
+      };
     }
-    throw error;
+    
+    // Graceful handling untuk network errors
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+      console.warn(`[BiasClient] Network error (${error.code}) for ${url}`);
+      return {
+        ok: false,
+        unavailable: true,
+        status: 503,
+        symbol: norm,
+        reason: `Network error: ${error.code}`
+      };
+    }
+    
+    // Fallback untuk other errors - log dan return unavailable instead of throw
+    console.error(`[BiasClient] Unexpected error for ${url}:`, error.message);
+    return {
+      ok: false,
+      unavailable: true,
+      status: 500,
+      symbol: norm,
+      reason: error.message || 'Unknown error'
+    };
   }
 }
 
