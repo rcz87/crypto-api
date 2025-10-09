@@ -975,7 +975,10 @@ export class EnhancedAISignalEngine {
     const priorityCoins = ['BTC', 'ETH', 'SOL', 'AVAX', 'RENDER', 'BNB', 'HYPE', 'XRP', 'TRUMP', 'DOGE'];
     const cleanSymbol = symbol.replace('-USDT-SWAP', '').replace('USDT', '');
     
-    if (priorityCoins.includes(cleanSymbol) && correctedConfidence >= 60) {
+    console.log(`🔔 Telegram Check: ${cleanSymbol} (${correctedConfidence}%) - Priority: ${priorityCoins.includes(cleanSymbol)}, Threshold: ${correctedConfidence >= 50}`);
+    
+    if (priorityCoins.includes(cleanSymbol) && correctedConfidence >= 50) {
+      console.log(`📱 Telegram Alert: Preparing to send for ${cleanSymbol}...`);
       try {
         const directionEmoji = correctedDirection === 'long' ? '🟢' : correctedDirection === 'short' ? '🔴' : '⚪';
         const riskEmoji = neuralPrediction.risk_level === 'low' ? '🟢' : neuralPrediction.risk_level === 'medium' ? '🟡' : '🔴';

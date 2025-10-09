@@ -3085,10 +3085,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
-      console.log('🧠 Enhanced AI Signal request received');
+      const symbol = (req.query.symbol as string) || 'SOL-USDT-SWAP';
+      console.log(`🧠 Enhanced AI Signal request received for ${symbol}`);
       
       // Generate enhanced AI signal with neural networks
-      const enhancedSignal = await enhancedAISignalEngine.generateEnhancedAISignal('SOL-USDT-SWAP');
+      const enhancedSignal = await enhancedAISignalEngine.generateEnhancedAISignal(symbol);
       
       const responseTime = Date.now() - startTime;
       

@@ -104,16 +104,29 @@ The system now uses **100% real market data** with zero placeholders or mock val
 **Fallback Frequency**: <1%
 **Production Status**: ✅ LIVE
 
+**Telegram Auto-Alert Integration (2025-10-09)** ✅ COMPLETE
+1. **Symbol Parameter Fix** - Enhanced AI endpoint `/api/ai/enhanced-signal` fixed dari hardcoded SOL-USDT-SWAP ke dynamic symbol query parameter support
+2. **Auto-Forward Alerts** - Enhanced AI signals automatically forward ke Telegram untuk 10 priority coins dengan 50% confidence threshold
+3. **Priority Coins** - BTC, ETH, SOL, AVAX, RENDER, BNB, HYPE, XRP, TRUMP, DOGE
+4. **Signal Format** - Professional Telegram message dengan:
+   - Symbol & Direction (LONG/SHORT/NEUTRAL with emoji)
+   - Confidence percentage & strength score
+   - Risk level dengan emoji indicators
+   - Neural prediction & pattern analysis
+   - Execution details (stop loss, take profit, max holding time)
+   - Key factors dari GPT-4o reasoning
+   - Signal ID & timestamp
+5. **Production Status** - ✅ VERIFIED WORKING (tested dengan DOGE & BTC signals)
+
 ### 🔄 IN PROGRESS
 - Frontend dashboard untuk real-time signal monitoring
 - Advanced pattern backtesting dengan historical data
 
 ### 📋 PLANNED - Not Yet Implemented
-1. **Telegram Enhanced Signal Alerts** - Infrastructure sudah ada (`server/observability/telegram.ts`), perlu wiring untuk automated AI signal notifications
-2. **Multi-Symbol Concurrent Analysis** - Parallel processing untuk multiple crypto pairs simultaneously
-3. **Custom Alert Rules** - Per-user customizable alert thresholds dan notification preferences
-4. **Advanced Pattern Performance Analytics** - Deep dive historical analysis untuk pattern win rates across different market conditions
-5. **Real-Time Dashboard Widgets** - Live signal cards dengan price comparison dan confidence visualization
+1. **Multi-Symbol Concurrent Analysis** - Parallel processing untuk multiple crypto pairs simultaneously
+2. **Custom Alert Rules** - Per-user customizable alert thresholds dan notification preferences
+3. **Advanced Pattern Performance Analytics** - Deep dive historical analysis untuk pattern win rates across different market conditions
+4. **Real-Time Dashboard Widgets** - Live signal cards dengan price comparison dan confidence visualization
 
 ### 🧪 Testing & Validation
 - **Unit Tests**: `server/tests/enhanced-ai-validation.ts` (25 tests passing)
