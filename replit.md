@@ -106,6 +106,33 @@ The system features **institutional-grade GPT reasoning** with deep market intel
    - ✅ BiasClient graceful degradation ready (timeout/network error handlers)
    - ✅ Scheduler minInterval enforced (override 1000ms → 1500ms logged)
 
+**Adaptive Threshold Auto-Tuning System (2025-10-09)** ✅ COMPLETE
+1. **Signal Outcome Tracking** - Persistent win/loss history dengan signal_stats.json storage:
+   - Tracks signal_id, outcome (win/loss), pnl_pct, symbol, confidence, timestamp
+   - 30-day data retention dengan automatic pruning (older outcomes removed)
+   - 7-day rolling window untuk accuracy evaluation (minimum 10 signals required)
+   - API endpoint: POST /api/adaptive-threshold/update-outcome
+2. **Adaptive Threshold Logic** - Self-optimizing confidence filter based on 7-day performance:
+   - If accuracy <60%: raise threshold +2% (reduce noise dari low-quality signals)
+   - If accuracy >75%: lower threshold -2% (catch more high-quality signals)
+   - If accuracy 60-75%: no adjustment (optimal range maintained)
+   - Threshold bounds: 50% minimum, 80% maximum (safety limits)
+3. **Daily Evaluation Scheduler** - Automatic threshold adjustment every 24h:
+   - Evaluates 7-day performance window at startup dan every 24h
+   - Minimum 10 signals required sebelum adjustment (prevent premature tuning)
+   - Comprehensive logging: threshold changes, accuracy stats, adjustment reasons
+   - Example: "Updated threshold → 67% (+2%), Reason: Low accuracy 53.3% <60% → raise threshold to reduce noise"
+4. **API Endpoints** - Full control dan visibility untuk adaptive system:
+   - GET /api/adaptive-threshold/stats: View current threshold, 7-day/30-day accuracy
+   - POST /api/adaptive-threshold/update-outcome: Record signal win/loss results
+   - POST /api/adaptive-threshold/evaluate: Manual evaluation trigger (bypasses 24h wait)
+5. **Production Validation** - ✅ VERIFIED WORKING (tested dengan 15 signals):
+   - ✅ Signal outcomes tracked correctly (8W/7L = 53.3% accuracy)
+   - ✅ Threshold adjustment logic triggered: accuracy <60% → +2% increase (65% → 67%)
+   - ✅ Logging shows full transparency: "7-Day Stats: 8W/7L (53.3% accuracy)"
+   - ✅ Daily scheduler initialized with 24h interval evaluation
+   - ✅ Telegram filter now uses adaptive threshold (dynamic adjustment active)
+
 ### 🔄 IN PROGRESS
 - Frontend dashboard untuk real-time signal monitoring
 - Advanced pattern backtesting dengan historical data
@@ -119,4 +146,5 @@ The system features **institutional-grade GPT reasoning** with deep market intel
 ### 🧪 Testing & Validation
 - **Market Context Calibration**: Verified with SOL & DOGE (funding=0, OI=0%, volumeΔ=2.7% → no boost applied correctly)
 - **High-Confidence Filter**: 65% threshold active (55% signal correctly blocked from Telegram)
+- **Adaptive Threshold Auto-Tuning**: Verified dengan 15 signals (8W/7L = 53.3% accuracy → threshold raised 65% → 67%)
 - **Production Monitoring**: Console logging active dengan market context breakdown sebelum/sesudah boost
