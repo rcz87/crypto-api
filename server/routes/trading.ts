@@ -991,6 +991,143 @@ export function registerTradingRoutes(app: Express): void {
     }
   });
 
+  // Ticker endpoint - returns just ticker data from complete endpoint
+  app.get('/api/:pair/ticker', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const tradingSymbol = validation.symbol;
+      const completeData = await okxService.getCompleteData(tradingSymbol);
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Ticker request completed',
+        details: `GET /api/${pair}/ticker - ${responseTime}ms - price=${completeData.ticker.price}`,
+      });
+      
+      res.json({
+        success: true,
+        data: completeData.ticker,
+        metadata: {
+          response_time_ms: responseTime,
+          source: 'OKX'
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/ticker:`, error);
+      
+      // Log error
+      await storage.addLog({
+        level: 'error',
+        message: 'Ticker request failed',
+        details: `GET /api/${pair}/ticker - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Orderbook endpoint - returns just orderbook data from complete endpoint
+  app.get('/api/:pair/orderbook', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      // Sanitize depth parameter: clamp between 1 and 200
+      const rawDepth = parseInt(req.query.depth as string) || 50;
+      const depth = Math.max(1, Math.min(200, rawDepth));
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const tradingSymbol = validation.symbol;
+      const completeData = await okxService.getCompleteData(tradingSymbol);
+      const responseTime = Date.now() - startTime;
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Orderbook request completed',
+        details: `GET /api/${pair}/orderbook - ${responseTime}ms - depth=${depth}`,
+      });
+      
+      // Limit orderbook depth as requested
+      const limitedOrderbook = {
+        ...completeData.orderBook,
+        asks: completeData.orderBook.asks.slice(0, depth),
+        bids: completeData.orderBook.bids.slice(0, depth)
+      };
+      
+      res.json({
+        success: true,
+        data: limitedOrderbook,
+        metadata: {
+          response_time_ms: responseTime,
+          depth: depth,
+          source: 'OKX'
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/orderbook:`, error);
+      
+      // Log error
+      await storage.addLog({
+        level: 'error',
+        message: 'Orderbook request failed',
+        details: `GET /api/${pair}/orderbook - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // Multi-pair Funding Rate endpoint - supports all 65 coins
   app.get('/api/:pair/funding', async (req: Request, res: Response) => {
     const startTime = Date.now();
@@ -1718,6 +1855,73 @@ export function registerTradingRoutes(app: Express): void {
         level: 'error',
         message: 'Open interest request failed',
         details: `GET /api/sol/open-interest - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Alias for Open Interest - /api/:pair/oi redirects to open-interest
+  app.get('/api/:pair/oi', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    try {
+      const { pair } = req.params;
+      
+      // Validate and format the trading pair
+      const validation = validateAndFormatPair(pair);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trading pair: ${pair}`,
+          details: validation.error,
+          suggestion: 'Call /api/pairs/supported to see available pairs',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      const tradingSymbol = validation.symbol;
+      const openInterestData = await okxService.getOpenInterest(tradingSymbol);
+      const responseTime = Date.now() - startTime;
+      
+      // Validate the response data
+      const validated = openInterestSchema.parse(openInterestData);
+      
+      // Update metrics
+      await storage.updateMetrics(responseTime);
+      
+      // Log successful request
+      await storage.addLog({
+        level: 'info',
+        message: 'Open interest (OI) request completed',
+        details: `GET /api/${pair}/oi - ${responseTime}ms`,
+      });
+      
+      res.json({
+        success: true,
+        data: validated,
+        metadata: {
+          response_time_ms: responseTime,
+          source: 'OKX',
+          note: 'Use /api/:pair/open-interest for full endpoint name'
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const { pair } = req.params;
+      console.error(`Error in /api/${pair}/oi:`, error);
+      
+      // Log error
+      await storage.addLog({
+        level: 'error',
+        message: 'Open interest (OI) request failed',
+        details: `GET /api/${pair}/oi - ${responseTime}ms - Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
       
       res.status(500).json({
