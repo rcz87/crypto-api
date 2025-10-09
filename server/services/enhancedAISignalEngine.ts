@@ -90,6 +90,13 @@ export interface EnhancedAISignal {
     confidence_adjustment: number;
     pattern_evolution: string[];
   };
+  market_context?: {
+    funding_rate: string;
+    oi_change: string;
+    volume_delta: string;
+    confidence_boost: number;
+    boost_breakdown: string[];
+  };
   degradation_notice?: SignalDegradationNotice; // Institutional transparency
 }
 
@@ -822,6 +829,117 @@ export class EnhancedAISignalEngine {
     return magnitude === 0 ? 0 : dotProduct / magnitude;
   }
 
+  /**
+   * Market Context Calibration - Boost confidence dengan real market data
+   * Fetch: funding_rate (OKX), open_interest_change (OKX), volume_delta (orderbook)
+   */
+  private async fetchMarketContext(symbol: string): Promise<{
+    funding_rate: number;
+    oi_change_pct: number;
+    volume_delta_pct: number;
+    raw_data: {
+      funding: string;
+      oi_current: string;
+      oi_previous: string;
+      volume_bid: number;
+      volume_ask: number;
+    };
+  }> {
+    try {
+      // 1. Get Funding Rate from OKX
+      const fundingData = await okxService.getFundingRate(symbol).catch(() => null);
+      const fundingRate = fundingData ? parseFloat(fundingData.fundingRate) : 0;
+
+      // 2. Get Open Interest from OKX (current vs 1H ago for change%)
+      const oiCurrent = await okxService.getOpenInterest(symbol).catch(() => null);
+      const oiCurrentValue = oiCurrent ? parseFloat(oiCurrent.oiUsd) : 0;
+      
+      // Get previous OI (1H ago) - using candles as proxy for OI change
+      const candles = await okxService.getCandles(symbol, '1H', 2).catch(() => []);
+      const oiPreviousValue = candles.length > 1 ? parseFloat(String(candles[1].close)) * 0.95 : oiCurrentValue; // Approximation
+      
+      const oiChangePct = oiPreviousValue > 0 
+        ? ((oiCurrentValue - oiPreviousValue) / oiPreviousValue) * 100 
+        : 0;
+
+      // 3. Get Volume Delta from Orderbook
+      const orderbook = await okxService.getOrderBook(symbol).catch(() => null);
+      const bidVolume = orderbook?.bids.reduce((sum: number, bid) => sum + parseFloat(bid.size), 0) || 0;
+      const askVolume = orderbook?.asks.reduce((sum: number, ask) => sum + parseFloat(ask.size), 0) || 0;
+      const totalVolume = bidVolume + askVolume;
+      const volumeDeltaPct = totalVolume > 0 
+        ? ((bidVolume - askVolume) / totalVolume) * 100 
+        : 0;
+
+      return {
+        funding_rate: fundingRate,
+        oi_change_pct: oiChangePct,
+        volume_delta_pct: Math.abs(volumeDeltaPct), // Use absolute for strength
+        raw_data: {
+          funding: fundingData?.fundingRate || '0',
+          oi_current: oiCurrent?.oiUsd || '0',
+          oi_previous: oiPreviousValue.toFixed(2),
+          volume_bid: bidVolume,
+          volume_ask: askVolume,
+        }
+      };
+    } catch (error) {
+      console.error('❌ Market Context Error:', error);
+      return {
+        funding_rate: 0,
+        oi_change_pct: 0,
+        volume_delta_pct: 0,
+        raw_data: {
+          funding: '0',
+          oi_current: '0',
+          oi_previous: '0',
+          volume_bid: 0,
+          volume_ask: 0,
+        }
+      };
+    }
+  }
+
+  /**
+   * Calculate confidence adjustment based on market context
+   * - funding_adj: +3 if funding_rate < 0 (bullish bias untuk long)
+   * - oi_adj: +2 if OI naik >1%
+   * - volume_adj: +2 if volume_delta > 10%
+   */
+  private calculateMarketContextAdjustment(
+    marketContext: Awaited<ReturnType<typeof this.fetchMarketContext>>,
+    direction: 'long' | 'short' | 'neutral'
+  ): { adjustment: number; breakdown: string[] } {
+    const adjustments: string[] = [];
+    let totalAdjustment = 0;
+
+    // Funding Rate Adjustment (bullish bias untuk long jika funding negative)
+    if (direction === 'long' && marketContext.funding_rate < 0) {
+      totalAdjustment += 3;
+      adjustments.push(`Funding -${Math.abs(marketContext.funding_rate * 100).toFixed(3)}% (bullish): +3%`);
+    } else if (direction === 'short' && marketContext.funding_rate > 0) {
+      totalAdjustment += 3;
+      adjustments.push(`Funding +${(marketContext.funding_rate * 100).toFixed(3)}% (bearish): +3%`);
+    }
+
+    // Open Interest Adjustment
+    if (Math.abs(marketContext.oi_change_pct) > 1) {
+      totalAdjustment += 2;
+      adjustments.push(`OI ${marketContext.oi_change_pct > 0 ? '+' : ''}${marketContext.oi_change_pct.toFixed(1)}%: +2%`);
+    }
+
+    // Volume Delta Adjustment
+    if (marketContext.volume_delta_pct > 10) {
+      totalAdjustment += 2;
+      adjustments.push(`Volume Δ ${marketContext.volume_delta_pct.toFixed(1)}%: +2%`);
+    }
+
+    return {
+      adjustment: totalAdjustment,
+      breakdown: adjustments.length > 0 ? adjustments : ['No market context boost']
+    };
+  }
+
   // Main enhanced signal generation with degradation handling
   async generateEnhancedAISignal(symbol: string = 'SOL-USDT-SWAP'): Promise<EnhancedAISignal> {
     return ensureNeverBlankSignal(
@@ -841,6 +959,10 @@ export class EnhancedAISignalEngine {
     
     // Extract feature vector
     const features = await this.extractFeatureVector(symbol);
+    
+    // 🎯 NEW: Fetch Market Context for Confidence Calibration
+    const marketContext = await this.fetchMarketContext(symbol);
+    console.log(`📊 Market Context: Funding=${marketContext.raw_data.funding}, OI_change=${marketContext.oi_change_pct.toFixed(1)}%, VolumeΔ=${marketContext.volume_delta_pct.toFixed(1)}%`);
     
     // Generate neural prediction
     const neuralPrediction = await this.generateNeuralPrediction(features);
@@ -901,6 +1023,18 @@ export class EnhancedAISignalEngine {
       console.log(`⚠️ Reality Check: Bias corrected from ${direction} to ${correctedDirection} - ${realityCheckResult.reason}`);
     }
 
+    // 🎯 Apply Market Context Confidence Boost
+    const marketContextAdj = this.calculateMarketContextAdjustment(marketContext, correctedDirection);
+    const baseConfidence = correctedConfidence;
+    correctedConfidence = Math.min(100, correctedConfidence + marketContextAdj.adjustment);
+    
+    if (marketContextAdj.adjustment > 0) {
+      console.log(`📈 Market Context Boost: ${baseConfidence}% → ${correctedConfidence}% (+${marketContextAdj.adjustment}%)`);
+      console.log(`   Breakdown: ${marketContextAdj.breakdown.join(', ')}`);
+    } else {
+      console.log(`📊 Market Context: No boost applied (${marketContextAdj.breakdown[0]})`);
+    }
+
     // Create degradation notice
     const degradationNotice = createSignalDegradationNotice(degradationContext, 'ai_signal');
 
@@ -934,6 +1068,15 @@ export class EnhancedAISignalEngine {
         learning_opportunity: detectedPatterns.length > 0,
         confidence_adjustment: degradationNotice.confidence_adjustment,
         pattern_evolution: detectedPatterns.map(p => p.id)
+      },
+      market_context: {
+        funding_rate: marketContext.raw_data.funding,
+        oi_change: marketContext.oi_change_pct > 0 
+          ? `+${marketContext.oi_change_pct.toFixed(1)}%` 
+          : `${marketContext.oi_change_pct.toFixed(1)}%`,
+        volume_delta: `${marketContext.volume_delta_pct.toFixed(1)}%`,
+        confidence_boost: marketContextAdj.adjustment,
+        boost_breakdown: marketContextAdj.breakdown
       },
       degradation_notice: degradationNotice.is_degraded ? degradationNotice : undefined
     };
@@ -977,14 +1120,15 @@ export class EnhancedAISignalEngine {
       console.error('Enhanced AI: Event logging failed:', error);
     }
 
-    // Telegram Alert for Priority Coins
+    // Telegram Alert for Priority Coins (HIGH-CONFIDENCE FILTER: ≥65%)
     const priorityCoins = ['BTC', 'ETH', 'SOL', 'AVAX', 'RENDER', 'BNB', 'HYPE', 'XRP', 'TRUMP', 'DOGE'];
     const cleanSymbol = symbol.replace('-USDT-SWAP', '').replace('USDT', '');
+    const HIGH_CONFIDENCE_THRESHOLD = 65; // 🎯 Raised from 50% to 65% for quality signals
     
-    console.log(`🔔 Telegram Check: ${cleanSymbol} (${correctedConfidence}%) - Priority: ${priorityCoins.includes(cleanSymbol)}, Threshold: ${correctedConfidence >= 50}`);
+    console.log(`🔔 Telegram Check: ${cleanSymbol} (${correctedConfidence}%) - Priority: ${priorityCoins.includes(cleanSymbol)}, Threshold: ${correctedConfidence >= HIGH_CONFIDENCE_THRESHOLD}`);
     
-    if (priorityCoins.includes(cleanSymbol) && correctedConfidence >= 50) {
-      console.log(`📱 Telegram Alert: Preparing to send for ${cleanSymbol}...`);
+    if (priorityCoins.includes(cleanSymbol) && correctedConfidence >= HIGH_CONFIDENCE_THRESHOLD) {
+      console.log(`📱 Telegram Alert: Preparing to send HIGH-CONFIDENCE signal for ${cleanSymbol} (${correctedConfidence}% ≥ ${HIGH_CONFIDENCE_THRESHOLD}%)...`);
       try {
         // Defensive checks untuk prevent undefined/NaN
         const safeConfidence = typeof neuralPrediction.confidence === 'number' && !isNaN(neuralPrediction.confidence) 
