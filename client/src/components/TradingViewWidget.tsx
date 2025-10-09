@@ -119,7 +119,7 @@ function ensureTvJs(timeoutMs = 12000): Promise<void> {
 export function TradingViewWidget({
   data,
   isConnected,
-  tvSymbol = "BINANCE:SOLUSDTPERP", // Changed to known working symbol
+  tvSymbol = "BINANCE:SOLUSDT", // Default to SOL if not provided
   displaySymbol = "SOL/USDT-PERP",
 }: TradingViewWidgetProps) {
   const isMobile = useIsMobile();
@@ -212,16 +212,10 @@ export function TradingViewWidget({
       if (!window.TradingView?.widget) {
         throw new Error("TradingView.widget belum tersedia");
       }
-
-      // Map OKX symbol to TradingView compatible symbol
-      let tvSymbol = symbol;
-      if (symbol === "SOL-USDT-SWAP") {
-        // Use working TradingView symbol for SOL
-        tvSymbol = "BINANCE:SOLUSDT"; // Binance SOL/USDT spot pair
-      }
       
+      // Use the symbol directly as it's already in TradingView format (e.g., "BINANCE:BTCUSDT")
       const cfg = {
-        symbol: tvSymbol,
+        symbol: symbol,
         interval: "60",
         container_id: mountIdRef.current,
         timezone: "Etc/UTC",

@@ -32,8 +32,9 @@ export default function Dashboard() {
   useEffect(() => {
     document.title = `CRYPTOSATX | Crypto Dashboard`;
   }, []);
-  // Don't hardcode OKX symbol - let TradingView widget handle symbol mapping
-  const selectedTvSymbol = undefined; // Will use fallback: "BINANCE:SOLUSDT"
+  
+  // Map to TradingView compatible symbol
+  const selectedTvSymbol = `BINANCE:${selectedPair}USDT`; // e.g., "BINANCE:BTCUSDT", "BINANCE:SOLUSDT"
 
   const { data: healthData, isLoading: healthLoading, error: healthError } = useQuery({
     queryKey: ["/health"],
