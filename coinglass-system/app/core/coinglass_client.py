@@ -21,13 +21,16 @@ class CoinglassClient:
         # SMART CACHE: Reduce API calls with intelligent caching
         self.cache = {}  # Format: {cache_key: {"data": response, "timestamp": time, "ttl": seconds}}
         self.cache_ttl = {
-            "liquidation": 30,     # 30 seconds for liquidation data
+            "liquidation": 60,     # 1 minute for liquidation data (increased from 30s to reduce API calls)
             "open_interest": 60,   # 1 minute for OI data
             "funding_rate": 120,   # 2 minutes for funding rates
             "etf": 300,           # 5 minutes for ETF data
             "whale": 60,          # 1 minute for whale positions
             "default": 120        # 2 minutes default
         }
+        
+        # INTERVAL FALLBACK CACHE: Remember which intervals failed to avoid repeated attempts
+        self.interval_fallback_failures = {}  # {endpoint_key: {"timestamp": time, "failed_intervals": ["4h", "1d"]}}
         
         # Endpoint pattern validation for CoinGlass v4 compliance
         self.forbidden_path_patterns = [
@@ -253,7 +256,7 @@ class CoinglassClient:
             logger.debug(f"🧹 CACHE CLEANED: Removed {len(to_remove)} expired entries")
 
     def _try_interval_fallback(self, endpoint: str, params: dict, original_interval: str):
-        """Try higher interval fallback (1h→4h→1d)"""
+        """Try higher interval fallback (1h→4h→1d) with smart caching to avoid repeated attempts"""
         fallback_intervals = []
         
         if original_interval == "1h":
@@ -261,8 +264,22 @@ class CoinglassClient:
         elif original_interval == "4h":
             fallback_intervals = ["1d"]
         
+        # Create cache key for this endpoint
+        pair_coin = params.get('pair') or params.get('coin') or params.get('symbol', 'unknown')
+        endpoint_key = f"{endpoint}_{pair_coin}"
+        
+        # Check if we recently tried and failed with these intervals
+        current_time = time.time()
+        if endpoint_key in self.interval_fallback_failures:
+            cached_failure = self.interval_fallback_failures[endpoint_key]
+            # If the failure cache is less than 60 seconds old, skip the attempts
+            if (current_time - cached_failure["timestamp"]) < 60:
+                logger.debug(f"⏭️ SKIPPING INTERVAL FALLBACK: Recently failed for {pair_coin} (cache valid for {60 - int(current_time - cached_failure['timestamp'])}s)")
+                return None
+        
+        failed_intervals = []
         for fallback_interval in fallback_intervals:
-            logger.info(f"🔄 INTERVAL FALLBACK: Trying {fallback_interval}...")
+            logger.debug(f"🔄 INTERVAL FALLBACK: Trying {fallback_interval} for {pair_coin}...")
             
             fallback_params = params.copy()
             fallback_params['interval'] = fallback_interval
@@ -272,12 +289,25 @@ class CoinglassClient:
                 if fallback_response.status_code == 200:
                     fallback_data = fallback_response.json()
                     if fallback_data and fallback_data.get('data'):
-                        logger.info(f"✅ INTERVAL FALLBACK SUCCESS: Got data with {fallback_interval}")
+                        logger.info(f"✅ INTERVAL FALLBACK SUCCESS: Got data with {fallback_interval} for {pair_coin}")
+                        # Clear failure cache on success
+                        if endpoint_key in self.interval_fallback_failures:
+                            del self.interval_fallback_failures[endpoint_key]
                         return fallback_data
                     else:
-                        logger.warning(f"⚠️ INTERVAL FALLBACK FAILED: Still empty data with {fallback_interval}")
+                        logger.debug(f"⚠️ INTERVAL FALLBACK: Empty data with {fallback_interval} for {pair_coin}")
+                        failed_intervals.append(fallback_interval)
             except Exception as e:
-                logger.error(f"🚫 INTERVAL FALLBACK ERROR: {e}")
+                logger.debug(f"🚫 INTERVAL FALLBACK ERROR for {fallback_interval}: {e}")
+                failed_intervals.append(fallback_interval)
+        
+        # Cache the failure to avoid repeated attempts
+        if failed_intervals:
+            self.interval_fallback_failures[endpoint_key] = {
+                "timestamp": current_time,
+                "failed_intervals": failed_intervals
+            }
+            logger.debug(f"📝 CACHED INTERVAL FAILURES for {pair_coin}: {failed_intervals}")
         
         return None
 
