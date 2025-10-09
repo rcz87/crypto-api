@@ -44,6 +44,10 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
+  const { symbol } = useSymbol();
+  
+  // Extract coin name from symbol (e.g., "SOLUSDT" -> "SOL", "BTCUSDT" -> "BTC")
+  const coinName = symbol.replace('USDT', '').replace('PERP', '').replace('-', '');
 
   const menuItems = [
     {
@@ -170,7 +174,7 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
                 <Database className="w-4 h-4" />
               </div>
               <DialogTitle className="text-base font-semibold text-gray-900">
-                CryptoSat Intelligence
+                {coinName} Trading Intelligence
               </DialogTitle>
             </div>
             <button
@@ -216,8 +220,6 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
     </Dialog>
   );
 
-  const { symbol } = useSymbol();
-
   return (
     <nav className="bg-white border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -228,8 +230,12 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
               <Database className="w-5 h-5" />
             </div>
             <div className="flex items-center space-x-3">
-              <h1 className="text-lg font-semibold text-gray-900 hidden sm:block">CryptoSat Intelligence</h1>
-              <h1 className="text-base font-semibold text-gray-900 sm:hidden">CryptoSat</h1>
+              <h1 className="text-lg font-semibold text-gray-900 hidden sm:block">
+                {coinName} Trading Intelligence
+              </h1>
+              <h1 className="text-base font-semibold text-gray-900 sm:hidden">
+                {coinName}
+              </h1>
               <SymbolSearch />
             </div>
           </div>
