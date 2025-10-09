@@ -174,7 +174,7 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
                 <Database className="w-4 h-4" />
               </div>
               <DialogTitle className="text-base font-semibold text-gray-900">
-                {coinName} Trading Intelligence
+                CRYPTOSATX
               </DialogTitle>
             </div>
             <button
@@ -231,10 +231,10 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
             </div>
             <div className="flex items-center space-x-3">
               <h1 className="text-lg font-semibold text-gray-900 hidden sm:block">
-                {coinName} Trading Intelligence
+                CRYPTOSATX
               </h1>
               <h1 className="text-base font-semibold text-gray-900 sm:hidden">
-                {coinName}
+                CRYPTOSATX
               </h1>
               <SymbolSearch />
             </div>

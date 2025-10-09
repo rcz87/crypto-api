@@ -28,11 +28,10 @@ export default function Dashboard() {
   const selectedPair = urlSymbol.replace('USDT', '');
   const selectedSymbol = `${selectedPair}/USDT-PERP`;
   
-  // Update document title based on selected coin
+  // Update document title
   useEffect(() => {
-    const coinName = selectedPair; // BTC, ETH, SOL, etc
-    document.title = `${coinName} Trading Intelligence | Crypto Dashboard`;
-  }, [selectedPair]);
+    document.title = `CRYPTOSATX | Crypto Dashboard`;
+  }, []);
   // Don't hardcode OKX symbol - let TradingView widget handle symbol mapping
   const selectedTvSymbol = undefined; // Will use fallback: "BINANCE:SOLUSDT"
 
