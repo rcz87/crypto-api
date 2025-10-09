@@ -536,17 +536,13 @@ app.use((req, res, next) => {
 
   log(`🤖 GPTs Gateway fallback proxy configured: Node.js routes first, then → ${PY_BASE}`);
 
-  // Serve OpenAPI schema explicitly BEFORE error handlers
+  // Serve OpenAPI schema explicitly
   const path = await import('path');
   app.get('/openapi-4.0.1-gpts-compat.yaml', (req, res) => {
     res.setHeader('Content-Type', 'text/yaml');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.sendFile(path.resolve(process.cwd(), 'public/openapi-4.0.1-gpts-compat.yaml'));
   });
-
-  // Enhanced error handlers with Telegram alerting and monitoring
-  app.use(notFoundHandler);  // Handle 404 errors
-  app.use(globalErrorHandler);  // Handle all errors (5xx) with production alerts
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
@@ -556,6 +552,11 @@ app.use((req, res, next) => {
   } else {
     serveStatic(app);
   }
+
+  // Enhanced error handlers with Telegram alerting and monitoring
+  // IMPORTANT: Place AFTER Vite setup so frontend routes are served first
+  app.use(notFoundHandler);  // Handle 404 errors
+  app.use(globalErrorHandler);  // Handle all errors (5xx) with production alerts
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
