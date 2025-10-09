@@ -32,7 +32,7 @@ export type BiasUnavailable = {
 async function getOnce(base: string, symbol: string): Promise<BiasOk | BiasUnavailable> {
   const norm = normalizePerp(symbol);
   const url = base === PY_BASE
-    ? `${PY_BASE}/institutional/bias?symbol=${encodeURIComponent(norm)}`
+    ? `${PY_BASE}/advanced/institutional/bias?symbol=${encodeURIComponent(norm)}`
     : `${API_BASE}/gpts/institutional/bias?symbol=${encodeURIComponent(norm)}`;
 
   console.log(`[BiasClient] Fetching from: ${url}`);

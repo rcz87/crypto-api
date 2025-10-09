@@ -128,9 +128,9 @@ export class RateBudgetManager extends EventEmitter {
         total: parseInt(process.env.RATE_COINGLASS_PER_MIN || '100'),
         window: 60000, // 1 minute
         allocation: {
-          scheduler: 40,  // 40% for scheduled tasks
+          scheduler: 60,  // 60/min for scheduled tasks (increased to handle 3-call bursts)
           gpt: 30,       // 30% for GPT Actions
-          manual: 30,    // 30% for manual requests
+          manual: 10,    // 10% for manual requests
           realtime: 0,
           orderbook: 0,
           trades: 0,

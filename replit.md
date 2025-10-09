@@ -118,6 +118,16 @@ The system now uses **100% real market data** with zero placeholders or mock val
    - Signal ID & timestamp
 5. **Production Status** - ✅ VERIFIED WORKING (tested dengan DOGE & BTC signals)
 
+**Critical Bug Fixes - Institutional Bias Scheduler (2025-10-09)** ✅ COMPLETE
+1. **404 Endpoint Fix** - BiasClient updated dari `/institutional/bias` → `/advanced/institutional/bias` untuk match Python router prefix. Eliminated all 404 errors.
+2. **Rate Budget Optimization** - Increased CoinGlass scheduler allocation dari 40 → 60/min untuk handle 3-call bursts. Manual quota reduced 30 → 10 untuk balance.
+3. **Scheduler Throttling** - Added `minInterval: 1500ms` (1.5s) to prevent sub-second bursts. Eliminated rate depletion dalam 13 runs.
+4. **Production Validation** - All fixes verified working:
+   - ✅ BiasClient returns 200 OK (no 404s)
+   - ✅ Rate budget: 57/60 remaining (stable)
+   - ✅ Scheduler interval: 307s normal, 1.5s minimum enforced (no 0.003s bursts)
+5. **Impact** - Zero rate violations, institutional bias check running smoothly, exponential backoff working as designed
+
 ### 🔄 IN PROGRESS
 - Frontend dashboard untuk real-time signal monitoring
 - Advanced pattern backtesting dengan historical data

@@ -127,12 +127,28 @@ export class RetryHandler {
       return status >= 500 || status === 408 || status === 429;
     }
 
+    // Check error message for OKX-specific transient errors
+    const errorMessage = error.message || '';
+    const okxTransientErrors = [
+      'System error',
+      'Try again later',
+      'Service temporarily unavailable',
+      'timeout',
+      'ECONNABORTED',
+      'ETIMEDOUT',
+      'ECONNRESET',
+      'ENOTFOUND'
+    ];
+    
+    if (okxTransientErrors.some(msg => errorMessage.includes(msg))) {
+      return true;
+    }
+
     // Retry on network errors
     return error.code === 'ECONNABORTED' || 
            error.code === 'ETIMEDOUT' || 
            error.code === 'ECONNRESET' ||
-           error.code === 'ENOTFOUND' ||
-           error.message?.includes('timeout');
+           error.code === 'ENOTFOUND';
   }
 
   private calculateDelay(attempt: number): number {

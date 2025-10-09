@@ -8,6 +8,7 @@ import { metricsCollector } from '../utils/metrics';
 import { getSymbolFor, logSymbolMapping } from '@shared/symbolMapping';
 import { consumeQuota, checkQuota } from '../services/rateBudget';
 import { DataQuality, ValidatedTickerData, CachedDataWithQuality } from './coinapi';
+import { RetryHandler, RetryConfig } from '../utils/resilience';
 
 interface CacheEntry<T> {
   data: T;
@@ -36,12 +37,25 @@ export class OKXService {
   // Last-good cache for critical data (30 seconds TTL as specified)
   private lastGoodCache = new Map<string, CachedDataWithQuality<any>>();
   private lastGoodCacheTTL = 30000; // 30 seconds
+  
+  // Retry handler for transient OKX API failures
+  private retryHandler: RetryHandler;
 
   constructor() {
     this.apiKey = process.env.OKX_API_KEY || '';
     this.secretKey = process.env.OKX_SECRET_KEY || '';
     this.passphrase = process.env.OKX_PASSPHRASE || '';
     this.smcService = new SMCService();
+    
+    // Conservative retry config for financial APIs
+    const okxRetryConfig: RetryConfig = {
+      maxRetries: 2,
+      baseDelay: 750,
+      maxDelay: 4000,
+      backoffMultiplier: 2,
+      retryableErrors: ['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET', 'ENOTFOUND', 'System error']
+    };
+    this.retryHandler = new RetryHandler(okxRetryConfig);
 
     this.client = axios.create({
       baseURL: this.baseURL,
@@ -314,6 +328,7 @@ export class OKXService {
     logSymbolMapping(userSymbol, 'okx', !!mappedSymbol);
 
     const cacheKey = this.getCacheKey('orderBook', { symbol: mappedSymbol, depth });
+    const lastGoodKey = `orderbook_${mappedSymbol}_${depth}`;
     
     return cache.getSingleFlight(cacheKey, async () => {
       try {
@@ -323,38 +338,65 @@ export class OKXService {
           throw new Error(`[OKX] Unable to consume rate quota for orderbook: ${consumeResult.violation?.provider}`);
         }
 
-        metricsCollector.updateOkxRestStatus('up');
-        const response = await this.client.get(`/api/v5/market/books?instId=${mappedSymbol}&sz=${depth}`);
-        
-        if (response.data.code !== '0') {
-          throw new Error(`OKX API Error: ${response.data.msg}`);
-        }
+        // Wrap API call with retry handler
+        const result = await this.retryHandler.execute<OrderBookData>(async () => {
+          metricsCollector.updateOkxRestStatus('up');
+          const response = await this.client.get(`/api/v5/market/books?instId=${mappedSymbol}&sz=${depth}`);
+          
+          if (response.data.code !== '0') {
+            throw new Error(`OKX API Error: ${response.data.msg}`);
+          }
 
-        const orderBookData = response.data.data[0];
-        
-        const asks = orderBookData.asks.map((ask: string[]) => ({
-          price: ask[0],
-          size: ask[1],
-        }));
+          const orderBookData = response.data.data[0];
+          
+          const asks = orderBookData.asks.map((ask: string[]) => ({
+            price: ask[0],
+            size: ask[1],
+          }));
 
-        const bids = orderBookData.bids.map((bid: string[]) => ({
-          price: bid[0],
-          size: bid[1],
-        }));
+          const bids = orderBookData.bids.map((bid: string[]) => ({
+            price: bid[0],
+            size: bid[1],
+          }));
 
-        const spread = (parseFloat(asks[0]?.price || '0') - parseFloat(bids[0]?.price || '0')).toFixed(4);
+          const spread = (parseFloat(asks[0]?.price || '0') - parseFloat(bids[0]?.price || '0')).toFixed(4);
 
-        const result: OrderBookData = {
-          asks,
-          bids,
-          spread,
-        };
+          return {
+            asks,
+            bids,
+            spread,
+          };
+        }, `OKX OrderBook ${mappedSymbol}`);
+
+        // Cache successful result as last-good
+        this.lastGoodCache.set(lastGoodKey, {
+          data: result,
+          timestamp: new Date().toISOString(),
+          quality: {
+            is_valid: true,
+            quality: 'good',
+            validation_errors: [],
+            timestamp: new Date().toISOString()
+          },
+          source: 'api'
+        });
 
         console.log(`[OKX] OrderBook fetched successfully - Rate budget remaining: ${consumeResult.status.remaining}`);
         return result;
       } catch (error) {
         console.error('Error fetching order book:', error);
         metricsCollector.updateOkxRestStatus('down');
+        
+        // Try last-good cache fallback
+        const lastGood = this.lastGoodCache.get(lastGoodKey);
+        if (lastGood) {
+          const cacheAge = Date.now() - new Date(lastGood.timestamp).getTime();
+          if (cacheAge < this.lastGoodCacheTTL) {
+            console.warn(`[OKX] Using last-good orderbook cache for ${mappedSymbol} (${Math.floor(cacheAge / 1000)}s old)`);
+            return lastGood.data;
+          }
+        }
+        
         throw new Error('Failed to fetch order book data from OKX');
       }
     }, TTL_CONFIG.ORDERBOOK);

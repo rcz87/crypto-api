@@ -16,6 +16,7 @@
 export interface AdaptiveSchedulerConfig {
   name: string;
   baseInterval: number;          // Normal interval in ms (e.g. 5min = 300000)
+  minInterval?: number;          // Minimum interval between runs in ms (e.g. 1500ms)
   minBackoff: number;            // Minimum backoff time in ms (e.g. 5s = 5000)
   maxBackoff: number;            // Maximum backoff time in ms (e.g. 2min = 120000)
   jitterRange: [number, number]; // Jitter range in ms (e.g. [5000, 15000])
@@ -262,6 +263,11 @@ export class AdaptiveScheduler {
       delay = this.config.baseInterval + this.generateJitter();
     }
     
+    // Enforce minimum interval if configured (prevents sub-second bursts)
+    if (this.config.minInterval && delay < this.config.minInterval) {
+      delay = this.config.minInterval;
+    }
+    
     this.state.nextRunAt = Date.now() + delay;
     
     console.log(`⏰ [${this.config.name}] Next run scheduled in ${delay/1000}s (at ${new Date(this.state.nextRunAt).toLocaleTimeString()})`);
@@ -279,6 +285,7 @@ export function createInstitutionalScheduler(taskFn: () => Promise<SchedulerResu
   return new AdaptiveScheduler({
     name: 'InstitutionalBias',
     baseInterval: 5 * 60 * 1000,  // 5 minutes
+    minInterval: 1500,            // 1.5s minimum to prevent rate depletion
     minBackoff: 5 * 1000,         // 5 seconds
     maxBackoff: 2 * 60 * 1000,    // 2 minutes  
     jitterRange: [5000, 15000],   // 5-15 seconds
