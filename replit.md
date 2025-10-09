@@ -1,7 +1,9 @@
 # Enhanced Intelligent Screening System
 
 ## Overview
-The Enhanced Intelligent Screening System is an institutional-grade perpetual futures trading data gateway for over 65 crypto assets. It leverages an 8-layer SharpSignalEngine with advanced derivatives trading intelligence, including real-time whale detection, smart money analysis, CVD analysis, and GPT integration. The system aims for institutional standards with sub-50ms response times and 99.5%+ uptime, providing 21+ API endpoints for comprehensive market analysis, real-time data, a professional UI, and TradingView integration. Its vision is to be a leading data provider for institutional and high-tier retail traders, using AI-enhanced signal processing for superior market insights.
+The Enhanced Intelligent Screening System is an institutional-grade perpetual futures trading data gateway for over 68+ crypto assets. It leverages an 8-layer SharpSignalEngine with advanced derivatives trading intelligence, including real-time whale detection, smart money analysis, CVD analysis, and GPT integration. The system aims for institutional standards with sub-50ms response times and 99.5%+ uptime, providing 21+ API endpoints for comprehensive market analysis, real-time data, a professional UI, and TradingView integration. Its vision is to be a leading data provider for institutional and high-tier retail traders, using AI-enhanced signal processing for superior market insights.
+
+**Supported Assets**: Major coins (BTC, ETH, SOL), Layer 1 protocols (ADA, AVAX, DOT, ATOM, NEAR), DeFi tokens (UNI, AAVE, SUSHI, COMP, MKR), Meme coins (DOGE, SHIB, PEPE, FLOKI, TRUMP), AI & Infrastructure (FET, OCEAN, AGIX, RENDER), Exchange tokens (BNB, CRO), Trending assets (HYPE, APT, SUI), and major altcoins (XRP, LTC, BCH, LINK, MATIC).
 
 ## User Preferences
 - **Preferred Communication Style**: Simple, everyday language (Indonesian/Bahasa Indonesia)
