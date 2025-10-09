@@ -38,7 +38,7 @@ export function registerGptsRoutes(app: Express): void {
         // DeFi tokens
         'UNI', 'SUSHI', 'AAVE', 'COMP', 'MKR', 'SNX', 'CRV', '1INCH', 'YFI',
         // Meme coins
-        'DOGE', 'SHIB', 'PEPE', 'FLOKI',
+        'DOGE', 'SHIB', 'PEPE', 'FLOKI', 'TRUMP',
         // Exchange tokens
         'BNB', 'CRO', 'FTT', 'LEO',
         // Privacy coins
@@ -48,9 +48,9 @@ export function registerGptsRoutes(app: Express): void {
         // Gaming & NFT tokens
         'AXS', 'SAND', 'MANA', 'ENJ', 'CHZ',
         // AI & Infrastructure tokens
-        'FET', 'OCEAN', 'AGIX', 'AR', 'FIL',
+        'FET', 'OCEAN', 'AGIX', 'AR', 'FIL', 'RENDER',
         // Other major altcoins
-        'LTC', 'BCH', 'XRP', 'ETC', 'BSV', 'FLOW', 'APT', 'SUI', 'DYDX', 'GMX',
+        'LTC', 'BCH', 'XRP', 'ETC', 'BSV', 'FLOW', 'APT', 'SUI', 'DYDX', 'GMX', 'HYPE',
         // Stablecoins
         'USDT', 'USDC', 'DAI', 'BUSD'
       ];
@@ -64,7 +64,9 @@ export function registerGptsRoutes(app: Express): void {
             major: ['BTC', 'ETH', 'SOL'],
             layer1: ['ADA', 'AVAX', 'DOT', 'ATOM', 'NEAR'],
             defi: ['UNI', 'SUSHI', 'AAVE', 'COMP', 'MKR'],
-            meme: ['DOGE', 'SHIB', 'PEPE', 'FLOKI'],
+            meme: ['DOGE', 'SHIB', 'PEPE', 'FLOKI', 'TRUMP'],
+            ai_infrastructure: ['FET', 'OCEAN', 'AGIX', 'RENDER'],
+            trending: ['HYPE', 'APT', 'SUI'],
             stablecoins: ['USDT', 'USDC', 'DAI', 'BUSD']
           }
         },
@@ -115,7 +117,7 @@ export function registerGptsRoutes(app: Express): void {
           for (const line of lines) {
             if (line.includes('WHALE') && (line.includes('ACCUMULATION') || line.includes('DISTRIBUTION'))) {
               // Extract whale signal info
-              const signalMatch = line.match(/(BTC|ETH|SOL|AVAX|BNB|ADA|DOGE|LINK|MATIC|DOT)/);
+              const signalMatch = line.match(/(BTC|ETH|SOL|AVAX|BNB|ADA|DOGE|RENDER|HYPE|TRUMP|LINK|MATIC|DOT|XRP)/);
               const typeMatch = line.match(/(ACCUMULATION|DISTRIBUTION)/);
               const confidenceMatch = line.match(/(WATCH|ACTION)/);
               
