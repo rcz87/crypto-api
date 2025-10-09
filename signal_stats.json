@@ -1,0 +1,138 @@
+{
+  "current_threshold": 67,
+  "last_evaluation": "2025-10-09T04:28:15.721Z",
+  "outcomes": [
+    {
+      "signal_id": "win_1",
+      "timestamp": "2025-10-09T04:28:14.924Z",
+      "symbol": "BTC",
+      "confidence": 68,
+      "outcome": "win",
+      "pnl_pct": 2.5
+    },
+    {
+      "signal_id": "win_2",
+      "timestamp": "2025-10-09T04:28:14.970Z",
+      "symbol": "BTC",
+      "confidence": 68,
+      "outcome": "win",
+      "pnl_pct": 2.5
+    },
+    {
+      "signal_id": "win_3",
+      "timestamp": "2025-10-09T04:28:15.040Z",
+      "symbol": "BTC",
+      "confidence": 68,
+      "outcome": "win",
+      "pnl_pct": 2.5
+    },
+    {
+      "signal_id": "win_4",
+      "timestamp": "2025-10-09T04:28:15.099Z",
+      "symbol": "BTC",
+      "confidence": 68,
+      "outcome": "win",
+      "pnl_pct": 2.5
+    },
+    {
+      "signal_id": "win_5",
+      "timestamp": "2025-10-09T04:28:15.165Z",
+      "symbol": "BTC",
+      "confidence": 68,
+      "outcome": "win",
+      "pnl_pct": 2.5
+    },
+    {
+      "signal_id": "win_6",
+      "timestamp": "2025-10-09T04:28:15.208Z",
+      "symbol": "BTC",
+      "confidence": 68,
+      "outcome": "win",
+      "pnl_pct": 2.5
+    },
+    {
+      "signal_id": "win_7",
+      "timestamp": "2025-10-09T04:28:15.252Z",
+      "symbol": "BTC",
+      "confidence": 68,
+      "outcome": "win",
+      "pnl_pct": 2.5
+    },
+    {
+      "signal_id": "win_8",
+      "timestamp": "2025-10-09T04:28:15.296Z",
+      "symbol": "BTC",
+      "confidence": 68,
+      "outcome": "win",
+      "pnl_pct": 2.5
+    },
+    {
+      "signal_id": "loss_1",
+      "timestamp": "2025-10-09T04:28:15.345Z",
+      "symbol": "ETH",
+      "confidence": 64,
+      "outcome": "loss",
+      "pnl_pct": -1.5
+    },
+    {
+      "signal_id": "loss_2",
+      "timestamp": "2025-10-09T04:28:15.392Z",
+      "symbol": "ETH",
+      "confidence": 64,
+      "outcome": "loss",
+      "pnl_pct": -1.5
+    },
+    {
+      "signal_id": "loss_3",
+      "timestamp": "2025-10-09T04:28:15.447Z",
+      "symbol": "ETH",
+      "confidence": 64,
+      "outcome": "loss",
+      "pnl_pct": -1.5
+    },
+    {
+      "signal_id": "loss_4",
+      "timestamp": "2025-10-09T04:28:15.492Z",
+      "symbol": "ETH",
+      "confidence": 64,
+      "outcome": "loss",
+      "pnl_pct": -1.5
+    },
+    {
+      "signal_id": "loss_5",
+      "timestamp": "2025-10-09T04:28:15.538Z",
+      "symbol": "ETH",
+      "confidence": 64,
+      "outcome": "loss",
+      "pnl_pct": -1.5
+    },
+    {
+      "signal_id": "loss_6",
+      "timestamp": "2025-10-09T04:28:15.585Z",
+      "symbol": "ETH",
+      "confidence": 64,
+      "outcome": "loss",
+      "pnl_pct": -1.5
+    },
+    {
+      "signal_id": "loss_7",
+      "timestamp": "2025-10-09T04:28:15.624Z",
+      "symbol": "ETH",
+      "confidence": 64,
+      "outcome": "loss",
+      "pnl_pct": -1.5
+    }
+  ],
+  "evaluation_history": [
+    {
+      "date": "2025-10-09T04:28:15.721Z",
+      "accuracy": 53.333333333333336,
+      "total_signals": 15,
+      "wins": 8,
+      "losses": 7,
+      "threshold_before": 65,
+      "threshold_after": 67,
+      "adjustment": 2
+    }
+  ]
+}

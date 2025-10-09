@@ -3735,10 +3735,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update signal outcome (for testing/manual correction)
+  // Record signal outcome (for testing/production tracking)
   app.post('/api/adaptive-threshold/update-outcome', async (req: Request, res: Response) => {
     try {
-      const { signal_id, outcome, pnl_pct } = req.body;
+      const { signal_id, outcome, pnl_pct, symbol, confidence } = req.body;
       
       if (!signal_id || !outcome) {
         return res.status(400).json({
@@ -3748,27 +3748,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      if (!['win', 'loss'].includes(outcome)) {
+      if (!['win', 'loss', 'pending'].includes(outcome)) {
         return res.status(400).json({
           success: false,
-          error: 'outcome must be "win" or "loss"',
+          error: 'outcome must be "win", "loss", or "pending"',
           timestamp: new Date().toISOString()
         });
       }
 
       const { adaptiveThresholdManager } = await import('./services/adaptiveThreshold');
       await adaptiveThresholdManager.initialize();
-      await adaptiveThresholdManager.updateOutcome(signal_id, outcome, pnl_pct);
+      
+      // Create SignalOutcome object
+      const signalOutcome = {
+        signal_id,
+        timestamp: new Date().toISOString(),
+        symbol: symbol || 'TEST',
+        confidence: confidence || 65,
+        outcome,
+        pnl_pct
+      };
+      
+      await adaptiveThresholdManager.recordOutcome(signalOutcome);
       
       res.json({
         success: true,
-        message: `Outcome updated for ${signal_id}: ${outcome}`,
+        message: `Outcome recorded for ${signal_id}: ${outcome}`,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
       res.status(500).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to update outcome',
+        error: error instanceof Error ? error.message : 'Failed to record outcome',
         timestamp: new Date().toISOString()
       });
     }
