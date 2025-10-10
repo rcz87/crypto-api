@@ -83,6 +83,10 @@
     {
       "name": "System Monitoring",
       "description": "**🔧 System Health & API Monitoring**\n\nSystem health endpoints, API status monitoring, performance metrics,\nand infrastructure monitoring for API reliability and performance tracking.\n\n**Monitoring Features:**\n- Real-time system health and uptime monitoring\n- API performance metrics and response times\n- Rate limit status and quota tracking\n- Memory usage and system resource monitoring\n- Error tracking and alert systems\n\n**Reliability:** 99.9% uptime SLA\n**Monitoring Frequency:** Real-time with sub-second updates\n**Use Cases:** API health checks, performance optimization, debugging\n"
+    },
+    {
+      "name": "Brain Intelligence",
+      "description": "**🧠 Central Brain Orchestrator - Meta-Level Intelligence**\n\nAutonomous intelligence layer combining regime detection, smart money analysis, and correlation tracking\nto deliver unified market insights with automated strategy switching.\n\n**Intelligence Modules:**\n- Regime Detection: Hidden Markov Models to classify market states (TRENDING, RANGING, MEAN_REVERT, HIGH_VOL)\n- Smart Money Analysis: Track institutional flow and whale movements with price/volume analysis\n- Correlation Matrix: Multi-asset correlation analysis (BTC, ETH, SOL) for rotation detection\n- Auto-Strategy Switching: Dynamic strategy enable/disable based on market regime\n\n**Features:**\n- Real-time market regime detection with confidence scoring\n- Institutional bias detection and positioning analysis\n- Multi-asset correlation tracking for synchronized/decoupled movements\n- Automated trading strategy recommendations\n- Risk assessment and decision confidence metrics\n\n**Update Frequency:** Every 15 minutes\n**Accuracy:** 85%+ regime classification\n**Use Cases:** Strategy automation, market condition assessment, institutional positioning\n"
     }
   ],
   "security": [{ "ApiKeyAuth": ["read-only"] }],
@@ -828,6 +832,79 @@
         "responses": {
           "200": {
             "description": "Success",
+            "content": {
+              "application/json": { "schema": { "type": "object" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/brain/insights": {
+      "get": {
+        "operationId": "getBrainInsights",
+        "summary": "Get Central Brain Orchestrator insights with regime detection, smart money analysis, and correlation matrix",
+        "tags": ["Brain Intelligence"],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of recent insights to retrieve (default: 10, max: 50)",
+            "required": false,
+            "schema": { "type": "integer", "default": 10, "minimum": 1, "maximum": 50 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Brain orchestrator insights with regime state, smart money signals, correlation matrix, and trading decisions",
+            "content": {
+              "application/json": { "schema": { "type": "object" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/brain/stats": {
+      "get": {
+        "operationId": "getBrainStats",
+        "summary": "Get Central Brain Orchestrator statistics and performance metrics",
+        "tags": ["Brain Intelligence"],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Brain orchestrator statistics including regime stability, rotation trends, and overall performance",
+            "content": {
+              "application/json": { "schema": { "type": "object" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/brain/analyze": {
+      "post": {
+        "operationId": "triggerBrainAnalysis",
+        "summary": "Trigger immediate Brain Orchestrator analysis for specific symbols",
+        "tags": ["Brain Intelligence"],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "symbols": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Array of symbols to analyze (default: ['BTC', 'ETH', 'SOL'])",
+                    "example": ["BTC", "ETH", "SOL"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fresh brain analysis with current market regime, smart money signals, and trading decision",
             "content": {
               "application/json": { "schema": { "type": "object" } }
             }
