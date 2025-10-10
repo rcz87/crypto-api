@@ -1,6 +1,6 @@
 {
   "current_threshold": 80,
-  "last_evaluation": "2025-10-10T04:44:50.743Z",
+  "last_evaluation": "2025-10-10T05:15:19.892Z",
   "outcomes": [
     {
       "signal_id": "win_1",
@@ -124,16 +124,6 @@
     }
   ],
   "evaluation_history": [
-    {
-      "date": "2025-10-09T07:54:23.319Z",
-      "accuracy": 53.333333333333336,
-      "total_signals": 15,
-      "wins": 8,
-      "losses": 7,
-      "threshold_before": 80,
-      "threshold_after": 80,
-      "adjustment": 2
-    },
     {
       "date": "2025-10-09T08:06:04.206Z",
       "accuracy": 53.333333333333336,
@@ -416,6 +406,16 @@
     },
     {
       "date": "2025-10-10T04:44:50.743Z",
+      "accuracy": 53.333333333333336,
+      "total_signals": 15,
+      "wins": 8,
+      "losses": 7,
+      "threshold_before": 80,
+      "threshold_after": 80,
+      "adjustment": 2
+    },
+    {
+      "date": "2025-10-10T05:15:19.892Z",
       "accuracy": 53.333333333333336,
       "total_signals": 15,
       "wins": 8,
