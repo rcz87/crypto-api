@@ -37,6 +37,12 @@ export class OKXService {
   // Last-good cache for critical data (30 seconds TTL as specified)
   private lastGoodCache = new Map<string, CachedDataWithQuality<any>>();
   private lastGoodCacheTTL = 30000; // 30 seconds
+  private readonly MAX_CACHE_SIZE = 50; // MEMORY LEAK FIX: Bounded cache size
+  
+  // MEMORY LEAK FIX: Track timers for proper cleanup
+  private cleanupTimers = new Set<NodeJS.Timeout>();
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private resetReconnectTimer: NodeJS.Timeout | null = null;
   
   // Retry handler for transient OKX API failures
   private retryHandler: RetryHandler;
@@ -59,7 +65,7 @@ export class OKXService {
 
     this.client = axios.create({
       baseURL: this.baseURL,
-      timeout: 10000,
+      timeout: 5000, // MEMORY LEAK FIX: Reduced from 10s→5s to fail faster
       headers: {
         'Content-Type': 'application/json',
         'OK-ACCESS-KEY': this.apiKey,
@@ -103,6 +109,15 @@ export class OKXService {
   }
   
   private setLastGoodCache<T>(key: string, data: T, quality: DataQuality): void {
+    // MEMORY LEAK FIX: Enforce max cache size with LRU eviction
+    if (this.lastGoodCache.size >= this.MAX_CACHE_SIZE) {
+      // Remove oldest entry (first entry in Map iteration order)
+      const firstKey = this.lastGoodCache.keys().next().value;
+      if (firstKey) {
+        this.lastGoodCache.delete(firstKey);
+      }
+    }
+    
     const cachedItem: CachedDataWithQuality<T> = {
       data,
       quality,
@@ -111,10 +126,12 @@ export class OKXService {
     };
     this.lastGoodCache.set(key, cachedItem);
     
-    // Cleanup old entries periodically
-    setTimeout(() => {
+    // MEMORY LEAK FIX: Track cleanup timer for proper disposal
+    const timer = setTimeout(() => {
       this.cleanupLastGoodCache();
+      this.cleanupTimers.delete(timer);
     }, this.lastGoodCacheTTL);
+    this.cleanupTimers.add(timer);
   }
   
   private getLastGoodCache<T>(key: string): CachedDataWithQuality<T> | null {
@@ -436,6 +453,22 @@ export class OKXService {
   initWebSocket(onMessage?: (data: any) => void): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
+        // MEMORY LEAK FIX: Remove all listeners from old WebSocket before creating new one
+        if (this.ws) {
+          this.ws.removeAllListeners('open');
+          this.ws.removeAllListeners('message');
+          this.ws.removeAllListeners('error');
+          this.ws.removeAllListeners('close');
+          this.ws.removeAllListeners('ping');
+          this.ws.removeAllListeners('pong');
+          
+          // Close old WebSocket if still connected
+          if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+            this.ws.close();
+          }
+          this.ws = null;
+        }
+        
         this.ws = new WebSocket(this.wsUrl);
         
         this.ws.on('open', () => {
@@ -510,6 +543,12 @@ export class OKXService {
   }
   
   private attemptReconnect(onMessage?: (data: any) => void): void {
+    // MEMORY LEAK FIX: Clear existing reconnect timer before creating new one
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
@@ -517,17 +556,27 @@ export class OKXService {
       // Exponential backoff: 3s, 6s, 12s, 24s, etc.
       const backoffDelay = Math.min(this.reconnectInterval * Math.pow(2, this.reconnectAttempts - 1), 30000);
       
-      setTimeout(() => {
+      // MEMORY LEAK FIX: Track reconnect timer for cleanup
+      this.reconnectTimer = setTimeout(() => {
         this.initWebSocket(onMessage).catch(error => {
           console.error('Reconnection failed:', error);
         });
+        this.reconnectTimer = null;
       }, backoffDelay);
     } else {
       console.error('Max reconnection attempts reached');
+      
+      // MEMORY LEAK FIX: Clear existing reset timer before creating new one
+      if (this.resetReconnectTimer) {
+        clearTimeout(this.resetReconnectTimer);
+        this.resetReconnectTimer = null;
+      }
+      
       // Reset after 5 minutes to allow fresh reconnection attempts
-      setTimeout(() => {
+      this.resetReconnectTimer = setTimeout(() => {
         this.reconnectAttempts = 0;
         console.log('Reconnection attempts reset, allowing new attempts');
+        this.resetReconnectTimer = null;
       }, 300000);
     }
   }
@@ -1013,10 +1062,62 @@ export class OKXService {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
     }
+    
+    // MEMORY LEAK FIX: Remove all event listeners before closing
     if (this.ws) {
+      this.ws.removeAllListeners('open');
+      this.ws.removeAllListeners('message');
+      this.ws.removeAllListeners('error');
+      this.ws.removeAllListeners('close');
+      this.ws.removeAllListeners('ping');
+      this.ws.removeAllListeners('pong');
       this.ws.close();
       this.ws = null;
     }
+  }
+  
+  // MEMORY LEAK FIX: Comprehensive cleanup method for proper resource disposal
+  cleanup(): void {
+    console.log('[OKX] 🧹 Performing comprehensive resource cleanup...');
+    
+    // 1. Clear all cleanup timers
+    this.cleanupTimers.forEach(timer => clearTimeout(timer));
+    this.cleanupTimers.clear();
+    
+    // 2. Clear reconnect timers
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.resetReconnectTimer) {
+      clearTimeout(this.resetReconnectTimer);
+      this.resetReconnectTimer = null;
+    }
+    
+    // 3. Clear ping interval
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+    
+    // 4. Close WebSocket with proper listener cleanup
+    if (this.ws) {
+      this.ws.removeAllListeners();
+      if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+        this.ws.close();
+      }
+      this.ws = null;
+    }
+    
+    // 5. Clear cache (keep for graceful degradation, but limit size)
+    if (this.lastGoodCache.size > 10) {
+      const entriesToKeep = Array.from(this.lastGoodCache.entries()).slice(-10);
+      this.lastGoodCache.clear();
+      entriesToKeep.forEach(([key, value]) => this.lastGoodCache.set(key, value));
+      console.log('[OKX] 🧹 Trimmed cache to 10 most recent entries');
+    }
+    
+    console.log('[OKX] ✅ Cleanup completed successfully');
   }
   
   isWebSocketConnected(): boolean {

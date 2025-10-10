@@ -661,7 +661,9 @@ app.use((req, res, next) => {
       }
     })();
     
-    // Initialize CoinAPI WebSocket - Real-time Order Book Streaming (non-blocking)
+    // MEMORY LEAK FIX TEST: CoinAPI WebSocket DISABLED temporarily to isolate leak source
+    // Issue: Message queue fills (1000), drops messages → sequence gaps → REST recovery → memory exhaustion
+    /*
     (async () => {
       try {
         const { coinAPIWebSocket } = await import("./services/coinapiWebSocket");
@@ -680,6 +682,8 @@ app.use((req, res, next) => {
         log(`⚠️ CoinAPI WebSocket init failed: ${error?.message || String(error)}`);
       }
     })();
+    */
+    log("⚠️ CoinAPI WebSocket DISABLED for memory leak isolation test");
     
     log(`🚀 Total startup time: ${Date.now() - startTime}ms`);
   });

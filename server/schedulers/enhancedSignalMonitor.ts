@@ -202,6 +202,11 @@ async function processEvent(event: PriceChangeEvent): Promise<void> {
  */
 let monitorInterval: NodeJS.Timeout | null = null;
 
+// MEMORY LEAK FIX: Prevent concurrent sweeps from overlapping
+let isProcessing = false;
+let sweepCount = 0;
+let lastSweepDuration = 0;
+
 export function startEnhancedSignalMonitor() {
   if (monitorInterval) {
     console.warn('[EnhancedSignalMonitor] Already running');
@@ -216,9 +221,20 @@ export function startEnhancedSignalMonitor() {
     console.error('[EnhancedSignalMonitor] Initial price check failed:', err);
   });
 
-  // Lightweight price check every 10 seconds
-  // HANYA trigger Enhanced AI kalau ada significant movement
+  // MEMORY LEAK FIX: Guard against concurrent sweeps
+  // Old: setInterval spawns new sweep every 10s regardless of completion
+  // New: Only start new sweep if previous one finished
   monitorInterval = setInterval(async () => {
+    // Skip if previous sweep still running
+    if (isProcessing) {
+      console.warn(`⏭️ [EnhancedSignalMonitor] Skipping sweep #${sweepCount + 1} - previous sweep still in progress (${lastSweepDuration}ms)`);
+      return;
+    }
+
+    isProcessing = true;
+    sweepCount++;
+    const sweepStart = Date.now();
+
     try {
       const events = await checkPriceChanges();
       
@@ -230,12 +246,22 @@ export function startEnhancedSignalMonitor() {
           await processEvent(event);
         }
       }
+
+      lastSweepDuration = Date.now() - sweepStart;
+      
+      // Log sweep stats for performance monitoring
+      if (sweepCount % 6 === 0) { // Every minute (6 x 10s)
+        console.log(`📊 [EnhancedSignalMonitor] Sweep stats: ${sweepCount} total, last=${lastSweepDuration}ms, avgLoad=${(lastSweepDuration / 10000 * 100).toFixed(1)}%`);
+      }
     } catch (error) {
       console.error('[EnhancedSignalMonitor] Monitor cycle failed:', error);
+      lastSweepDuration = Date.now() - sweepStart;
+    } finally {
+      isProcessing = false;
     }
   }, 10000); // Check every 10 seconds (lightweight)
 
-  console.log('✅ [EnhancedSignalMonitor] Event-driven monitor started - alerts ONLY on valid signals');
+  console.log('✅ [EnhancedSignalMonitor] Event-driven monitor started - alerts ONLY on valid signals (with concurrency guard)');
 }
 
 export function stopEnhancedSignalMonitor() {
