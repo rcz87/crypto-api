@@ -19,7 +19,7 @@ interface Metrics {
   };
   okx: {
     restStatus: 'up' | 'down' | 'degraded';
-    wsStatus: 'up' | 'down' | 'connecting';
+    wsStatus: 'up' | 'down' | 'connecting' | 'degraded';
     lastRestCall: number;
     lastWsMessage: number;
   };

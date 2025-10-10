@@ -42,11 +42,17 @@ export class MemoryGuard {
   // Hourly trend tracking
   private hourlyStats: MemoryStats[] = [];
   
+  // Recovery timer tracking
+  private recoveryStartTime = Date.now(); // Start tracking from server startup
+  private isRecovering = true; // Assume recovering until stable
+  private readonly RECOVERY_THRESHOLD = 80; // Heap % considered stable
+  
   // Prometheus Gauges for SRE-grade metrics
   private gaugeHeapUsed: client.Gauge;
   private gaugeHeapTotal: client.Gauge;
   private gaugeRSS: client.Gauge;
   private gaugeHeapPercent: client.Gauge;
+  private gaugeRecoveryTime: client.Gauge;
 
   constructor() {
     // Ensure log file exists
@@ -59,6 +65,7 @@ export class MemoryGuard {
     this.gaugeHeapTotal = this.getOrCreateGauge("memoryguard_heap_total_mb", "Heap total in MB");
     this.gaugeRSS = this.getOrCreateGauge("memoryguard_rss_mb", "RSS memory in MB");
     this.gaugeHeapPercent = this.getOrCreateGauge("memoryguard_heap_percent", "Heap usage percentage");
+    this.gaugeRecoveryTime = this.getOrCreateGauge("memoryguard_recovery_time_seconds", "Time to recover from restart (seconds)");
 
     console.log("📊 MemoryGuard: Prometheus metrics registered (SRE-grade)");
   }
@@ -76,6 +83,9 @@ export class MemoryGuard {
 
   public startMonitoring() {
     console.log(`🧠 MemoryGuard: SRE-grade monitoring started (adaptive sampling: ${this.checkInterval/1000}s)`);
+    
+    // Run first check immediately (critical for recovery timer on startup)
+    this.monitor().catch(err => console.error("MemoryGuard: Initial monitor failed:", err));
     
     // Start adaptive monitoring
     this.interval = setInterval(() => this.monitor(), this.checkInterval);
@@ -125,6 +135,9 @@ export class MemoryGuard {
 
     // Always log memory trends
     this.logMemoryTrend(stats);
+
+    // Recovery Timer: Track time from restart to stable state
+    this.trackRecoveryTime(heapPercent);
 
     // Adaptive Sampling: Adjust interval based on memory pressure
     this.adjustSamplingInterval(heapPercent);
@@ -178,6 +191,28 @@ export class MemoryGuard {
         this.interval = setInterval(() => this.monitor(), this.checkInterval);
         console.log(`🔄 MemoryGuard: Adaptive sampling adjusted to ${newInterval/1000}s (heap: ${heapPercent}%)`);
       }
+    }
+  }
+
+  /**
+   * Track recovery time from startup/restart to stable state
+   */
+  private trackRecoveryTime(heapPercent: number) {
+    // Check if system reached stable state (heap below threshold)
+    if (this.isRecovering && heapPercent < this.RECOVERY_THRESHOLD) {
+      const recoveryTime = (Date.now() - this.recoveryStartTime) / 1000; // Convert to seconds
+      
+      // Update Prometheus metric
+      this.gaugeRecoveryTime.set(recoveryTime);
+      
+      // Log recovery time
+      const logEntry = `[${new Date().toISOString()}] ✅ Recovery complete: ${recoveryTime.toFixed(1)}s (heap stable at ${heapPercent}%)\n`;
+      fs.appendFileSync(this.logFile, logEntry);
+      
+      console.log(`✅ MemoryGuard: System recovered in ${recoveryTime.toFixed(1)}s (heap: ${heapPercent}%)`);
+      
+      // Mark recovery as complete (don't reset until next restart)
+      this.isRecovering = false;
     }
   }
 
