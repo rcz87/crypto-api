@@ -615,8 +615,11 @@ app.use((req, res, next) => {
       try {
         const { startInstitutionalScheduler, startSniperScheduler } = await import("./schedulers/institutional");
         startInstitutionalScheduler();
-        startSniperScheduler();
-        log("✅ Institutional Alert System initialized");
+        
+        // 🔬 MEMORY LEAK INVESTIGATION: Temporarily disabled Enhanced Sniper
+        // Testing if this is the source of heap growth 87%→91%+ in 20s
+        // startSniperScheduler();
+        log("✅ Institutional Alert System initialized (⚠️ Enhanced Sniper DISABLED for leak test)");
       } catch (error: any) {
         log(`⚠️ Institutional alerts init failed: ${error?.message || String(error)}`);
       }
@@ -659,6 +662,9 @@ app.use((req, res, next) => {
     })();
     
     // Initialize CoinAPI WebSocket - Real-time Order Book Streaming (non-blocking)
+    // 🔬 MEMORY LEAK INVESTIGATION: Temporarily disabled CoinAPI WebSocket
+    // Testing if WebSocket message accumulation is causing heap growth 81%→97% in 20s
+    /*
     (async () => {
       try {
         const { coinAPIWebSocket } = await import("./services/coinapiWebSocket");
@@ -677,6 +683,8 @@ app.use((req, res, next) => {
         log(`⚠️ CoinAPI WebSocket init failed: ${error?.message || String(error)}`);
       }
     })();
+    */
+    log("⚠️ CoinAPI WebSocket DISABLED for memory leak investigation");
     
     log(`🚀 Total startup time: ${Date.now() - startTime}ms`);
   });
