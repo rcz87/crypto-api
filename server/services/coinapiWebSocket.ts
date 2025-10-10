@@ -444,12 +444,23 @@ class CoinAPIWebSocketService {
   }
   
   /**
+   * Get gap detection statistics
+   */
+  getGapStats() {
+    return {
+      totalGapsDetected: this.gapDetectionStats.totalGapsDetected,
+      recoveryTriggered: this.gapDetectionStats.recoveryTriggered,
+      lastGapTime: this.gapDetectionStats.lastGapTime
+    };
+  }
+  
+  /**
    * Get health status with gap detection stats
    */
   getHealth() {
     return { 
       ...this.health,
-      gapStats: { ...this.gapDetectionStats }
+      gapStats: this.getGapStats()
     };
   }
   
