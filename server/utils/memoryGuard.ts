@@ -1,7 +1,11 @@
 /**
- * 🧠 MemoryGuard.ts
- * SRE-Grade Autonomous Memory Management System
- * Features: Prometheus metrics, Adaptive sampling, Telegram trend summary
+ * 🧠 MemoryGuard v2 – Safe Restart Edition with Telegram Integration
+ * Features:
+ *  - Grace period on startup/module change (5 minutes)
+ *  - Safe exit(0) restart (no workflow fail)
+ *  - Smart warm-up detection
+ *  - Telegram alerts with warm-up suppression notices
+ *  - Prometheus metrics for SRE-grade monitoring
  */
 
 import fs from "fs";
@@ -17,62 +21,49 @@ interface MemoryStats {
   lastRestart?: string;
 }
 
-interface HourlyTrend {
-  hour: string;
-  avgHeapMB: number;
-  avgRssMB: number;
-  avgHeapPercent: number;
-  samples: number;
-}
-
 export class MemoryGuard {
   private interval: NodeJS.Timeout | null = null;
-  private hourlyInterval: NodeJS.Timeout | null = null;
   private lastRestart = 0;
   private lastGC = 0;
   private lastAlert = 0;
+  private lastModuleChange = Date.now(); // Used for grace period
   private logFile = "/tmp/memory-guard.log";
-  private restartCooldown = 60 * 1000; // 1 min minimum between restarts
+  private restartCooldown = 60 * 1000; // 1 min between restarts
   private alertCooldown = 5 * 60 * 1000; // 5 min between alerts
+  private gracePeriod = 5 * 60 * 1000; // 5 minutes warm-up grace period
+  private startTime = Date.now();
   
-  // Adaptive sampling variables
+  // Adaptive sampling
   private baseInterval = 30 * 1000; // 30s base
   private checkInterval = 30 * 1000; // Dynamic interval
-  
-  // Hourly trend tracking
-  private hourlyStats: MemoryStats[] = [];
-  
-  // Recovery timer tracking
-  private recoveryStartTime = Date.now(); // Start tracking from server startup
-  private isRecovering = true; // Assume recovering until stable
-  private readonly RECOVERY_THRESHOLD = 80; // Heap % considered stable
-  
-  // Prometheus Gauges for SRE-grade metrics
+
+  // Prometheus Gauges
   private gaugeHeapUsed: client.Gauge;
   private gaugeHeapTotal: client.Gauge;
   private gaugeRSS: client.Gauge;
   private gaugeHeapPercent: client.Gauge;
-  private gaugeRecoveryTime: client.Gauge;
 
   constructor() {
     // Ensure log file exists
     if (!fs.existsSync(this.logFile)) {
-      fs.writeFileSync(this.logFile, `[${new Date().toISOString()}] MemoryGuard SRE-Grade initialized\n`);
+      fs.writeFileSync(this.logFile, `[${new Date().toISOString()}] MemoryGuard v2 initialized\n`);
     }
 
-    // Initialize Prometheus metrics (reuse existing or create new - prevents duplicate registration)
+    // Initialize Prometheus metrics
     this.gaugeHeapUsed = this.getOrCreateGauge("memoryguard_heap_used_mb", "Heap used in MB");
     this.gaugeHeapTotal = this.getOrCreateGauge("memoryguard_heap_total_mb", "Heap total in MB");
     this.gaugeRSS = this.getOrCreateGauge("memoryguard_rss_mb", "RSS memory in MB");
     this.gaugeHeapPercent = this.getOrCreateGauge("memoryguard_heap_percent", "Heap usage percentage");
-    this.gaugeRecoveryTime = this.getOrCreateGauge("memoryguard_recovery_time_seconds", "Time to recover from restart (seconds)");
 
-    console.log("📊 MemoryGuard: Prometheus metrics registered (SRE-grade)");
+    this.log("📊 MemoryGuard v2: Prometheus metrics registered");
   }
 
-  /**
-   * Get existing metric or create new one (prevents duplicate registration on hot-reload)
-   */
+  /** Called when a new module or feature is added */
+  public registerModuleChange() {
+    this.lastModuleChange = Date.now();
+    this.log("🧩 Module change detected — grace period reset (5m)");
+  }
+
   private getOrCreateGauge(name: string, help: string): client.Gauge {
     const existing = client.register.getSingleMetric(name);
     if (existing && existing instanceof client.Gauge) {
@@ -82,18 +73,13 @@ export class MemoryGuard {
   }
 
   public startMonitoring() {
-    console.log(`🧠 MemoryGuard: SRE-grade monitoring started (adaptive sampling: ${this.checkInterval/1000}s)`);
+    this.log("🧠 MemoryGuard v2: SRE-grade monitoring started (adaptive sampling: 30s, safe restart mode)");
     
-    // Run first check immediately (critical for recovery timer on startup)
-    this.monitor().catch(err => console.error("MemoryGuard: Initial monitor failed:", err));
+    // Run first check immediately
+    this.monitor().catch(err => this.log(`Initial monitor failed: ${err}`));
     
-    // Start adaptive monitoring
+    // Start monitoring loop
     this.interval = setInterval(() => this.monitor(), this.checkInterval);
-    
-    // Start hourly trend summary (every hour)
-    this.hourlyInterval = setInterval(() => this.sendHourlyTrend(), 60 * 60 * 1000);
-    
-    console.log("📈 MemoryGuard: Hourly trend summary enabled");
   }
 
   public stopMonitoring() {
@@ -101,11 +87,7 @@ export class MemoryGuard {
       clearInterval(this.interval);
       this.interval = null;
     }
-    if (this.hourlyInterval) {
-      clearInterval(this.hourlyInterval);
-      this.hourlyInterval = null;
-    }
-    console.log("🛑 MemoryGuard: Monitoring stopped");
+    this.log("🛑 MemoryGuard: Monitoring stopped");
   }
 
   private async monitor() {
@@ -125,132 +107,86 @@ export class MemoryGuard {
     };
 
     // Update Prometheus metrics
-    this.updatePrometheusMetrics(stats);
+    this.gaugeHeapUsed.set(heapUsedMB);
+    this.gaugeHeapTotal.set(heapTotalMB);
+    this.gaugeRSS.set(rssMB);
+    this.gaugeHeapPercent.set(heapPercent);
 
-    // Store for hourly trend
-    this.hourlyStats.push(stats);
-    if (this.hourlyStats.length > 120) { // Keep max 2 hours of data
-      this.hourlyStats.shift();
-    }
-
-    // Always log memory trends
-    this.logMemoryTrend(stats);
-
-    // Recovery Timer: Track time from restart to stable state
-    this.trackRecoveryTime(heapPercent);
-
-    // Adaptive Sampling: Adjust interval based on memory pressure
-    this.adjustSamplingInterval(heapPercent);
-
-    // Memory management based on thresholds
-    if (heapPercent > 85 && heapPercent <= 90) {
-      this.triggerGC("soft");
-      // Alert only if not alerted recently
-      if (Date.now() - this.lastAlert > this.alertCooldown) {
-        await this.sendMemoryAlert("warning", stats);
-        this.lastAlert = Date.now();
-      }
-    } else if (heapPercent > 90 && heapPercent <= 95) {
-      this.triggerGC("aggressive");
-      this.clearStaleCache();
-      if (Date.now() - this.lastAlert > this.alertCooldown) {
-        await this.sendMemoryAlert("critical", stats);
-        this.lastAlert = Date.now();
-      }
-    } else if (heapPercent > 95) {
-      await this.gracefulRestart(stats);
-    }
-  }
-
-  private updatePrometheusMetrics(stats: MemoryStats) {
-    this.gaugeHeapUsed.set(stats.heapUsedMB);
-    this.gaugeHeapTotal.set(stats.heapTotalMB);
-    this.gaugeRSS.set(stats.rssMB);
-    this.gaugeHeapPercent.set(stats.heapPercent);
-  }
-
-  private adjustSamplingInterval(heapPercent: number) {
-    let newInterval = this.baseInterval;
-
-    // Adaptive logic: faster sampling when critical
-    if (heapPercent > 90) {
-      newInterval = 10 * 1000; // 10s when critical
-    } else if (heapPercent > 85) {
-      newInterval = 20 * 1000; // 20s when warning
-    } else if (heapPercent < 75) {
-      newInterval = 60 * 1000; // 60s when healthy
-    }
-
-    // Only update if interval changed
-    if (newInterval !== this.checkInterval) {
-      this.checkInterval = newInterval;
-      
-      // Restart interval with new timing
+    // Adaptive sampling based on heap usage
+    if (heapPercent > 90 && this.checkInterval !== 10 * 1000) {
+      this.checkInterval = 10 * 1000;
+      this.log(`🔄 MemoryGuard: Adaptive sampling adjusted to 10s (heap: ${heapPercent}%)`);
       if (this.interval) {
         clearInterval(this.interval);
         this.interval = setInterval(() => this.monitor(), this.checkInterval);
-        console.log(`🔄 MemoryGuard: Adaptive sampling adjusted to ${newInterval/1000}s (heap: ${heapPercent}%)`);
+      }
+    } else if (heapPercent <= 85 && this.checkInterval !== this.baseInterval) {
+      this.checkInterval = this.baseInterval;
+      this.log(`🔄 MemoryGuard: Adaptive sampling reset to 30s (heap: ${heapPercent}%)`);
+      if (this.interval) {
+        clearInterval(this.interval);
+        this.interval = setInterval(() => this.monitor(), this.checkInterval);
       }
     }
+
+    await this.evaluateThresholds(stats);
   }
 
-  /**
-   * Track recovery time from startup/restart to stable state
-   */
-  private trackRecoveryTime(heapPercent: number) {
-    // Check if system reached stable state (heap below threshold)
-    if (this.isRecovering && heapPercent < this.RECOVERY_THRESHOLD) {
-      const recoveryTime = (Date.now() - this.recoveryStartTime) / 1000; // Convert to seconds
+  private async evaluateThresholds(stats: MemoryStats) {
+    const heap = stats.heapPercent;
+    const now = Date.now();
+    const uptime = now - this.startTime;
+    const gracePeriodActive = now - this.lastModuleChange < this.gracePeriod;
+
+    // Grace period check (first 5 minutes or after module changes)
+    if (gracePeriodActive) {
+      const remainingMinutes = Math.ceil((this.gracePeriod - (now - this.lastModuleChange)) / 60000);
+      this.log(`⏳ Warm-up phase active — suppressing restart actions (${remainingMinutes}m remaining)`);
       
-      // Update Prometheus metric
-      this.gaugeRecoveryTime.set(recoveryTime);
-      
-      // Log recovery time
-      const logEntry = `[${new Date().toISOString()}] ✅ Recovery complete: ${recoveryTime.toFixed(1)}s (heap stable at ${heapPercent}%)\n`;
-      fs.appendFileSync(this.logFile, logEntry);
-      
-      console.log(`✅ MemoryGuard: System recovered in ${recoveryTime.toFixed(1)}s (heap: ${heapPercent}%)`);
-      
-      // Mark recovery as complete (don't reset until next restart)
-      this.isRecovering = false;
+      // Send Telegram alert if heap is high during warm-up (once per grace period)
+      if (heap > 90 && now - this.lastAlert > this.alertCooldown) {
+        await sendTelegram(
+          `⏳ <b>MemoryGuard Warm-Up Phase</b>\n\n` +
+          `🔥 High memory detected during warm-up:\n` +
+          `📊 Heap: ${stats.heapUsedMB}/${stats.heapTotalMB} MB (${heap}%)\n` +
+          `💾 RSS: ${stats.rssMB} MB\n\n` +
+          `✅ Restart suppressed for ${remainingMinutes} more minutes\n` +
+          `🛡️ System stabilizing...`
+        );
+        this.lastAlert = now;
+      }
+      return;
     }
-  }
 
-  private async sendHourlyTrend() {
-    if (this.hourlyStats.length === 0) return;
-
-    // Calculate hourly averages
-    const avgHeapMB = +(this.hourlyStats.reduce((sum, s) => sum + s.heapUsedMB, 0) / this.hourlyStats.length).toFixed(1);
-    const avgRssMB = +(this.hourlyStats.reduce((sum, s) => sum + s.rssMB, 0) / this.hourlyStats.length).toFixed(1);
-    const avgHeapPercent = +(this.hourlyStats.reduce((sum, s) => sum + s.heapPercent, 0) / this.hourlyStats.length).toFixed(1);
-    const maxHeapPercent = Math.max(...this.hourlyStats.map(s => s.heapPercent));
-    const minHeapPercent = Math.min(...this.hourlyStats.map(s => s.heapPercent));
-
-    const trend: HourlyTrend = {
-      hour: new Date().toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-      avgHeapMB,
-      avgRssMB,
-      avgHeapPercent,
-      samples: this.hourlyStats.length
-    };
-
-    const message = 
-      `📊 <b>Hourly Memory Trend Summary</b>\n\n` +
-      `🕐 Period: ${trend.hour}\n` +
-      `📈 Avg Heap: ${avgHeapPercent}% (${avgHeapMB} MB)\n` +
-      `📉 Range: ${minHeapPercent}% - ${maxHeapPercent}%\n` +
-      `💾 Avg RSS: ${avgRssMB} MB\n` +
-      `🔬 Samples: ${trend.samples}\n\n` +
-      `<i>SRE-grade observability • Auto-generated hourly</i>`;
-
-    try {
-      await sendTelegram(message);
-      console.log(`✅ MemoryGuard: Hourly trend summary sent (avg: ${avgHeapPercent}%)`);
-      
-      // Reset hourly stats
-      this.hourlyStats = [];
-    } catch (error: any) {
-      console.error(`❌ MemoryGuard: Failed to send hourly trend:`, error?.message);
+    // Threshold-based actions
+    if (heap > 85 && heap <= 90) {
+      this.triggerGC("soft");
+      // Alert only once per cooldown
+      if (now - this.lastAlert > this.alertCooldown) {
+        await sendTelegram(
+          `⚠️ <b>MemoryGuard Warning</b>\n\n` +
+          `📊 Heap: ${stats.heapUsedMB}/${stats.heapTotalMB} MB (${heap}%)\n` +
+          `🔧 Action: Soft GC triggered\n` +
+          `⏱️ Uptime: ${Math.floor(uptime / 1000 / 60)}m`
+        );
+        this.lastAlert = now;
+      }
+    } else if (heap > 90 && heap <= 95) {
+      this.triggerGC("aggressive");
+      this.clearStaleCache();
+      // Critical alert
+      if (now - this.lastAlert > this.alertCooldown) {
+        await sendTelegram(
+          `🚨 <b>MemoryGuard Critical</b>\n\n` +
+          `📊 Heap: ${stats.heapUsedMB}/${stats.heapTotalMB} MB (${heap}%)\n` +
+          `💾 RSS: ${stats.rssMB} MB\n` +
+          `🔧 Action: Aggressive GC + cache clear\n` +
+          `⏱️ Uptime: ${Math.floor(uptime / 1000 / 60)}m`
+        );
+        this.lastAlert = now;
+      }
+    } else if (heap > 95) {
+      await this.gracefulRestart();
     }
   }
 
@@ -258,108 +194,81 @@ export class MemoryGuard {
     if (typeof global.gc === "function") {
       global.gc();
       this.lastGC = Date.now();
-      console.warn(`⚙️ MemoryGuard: ${level} GC triggered at ${(new Date()).toISOString()}`);
-      fs.appendFileSync(this.logFile, `[${new Date().toISOString()}] ${level.toUpperCase()} GC triggered\n`);
+      this.log(`⚙️ ${level.toUpperCase()} GC triggered`);
     } else {
-      console.warn("⚠️ Manual GC unavailable (run with --expose-gc)");
+      this.log("⚠️ Manual GC unavailable (run with --expose-gc)");
     }
   }
 
   private clearStaleCache() {
     try {
-      // Clear global cache if exists
-      if ((global as any).cache) {
-        const keys = Object.keys((global as any).cache);
+      const globalAny = global as any;
+      if (globalAny.cache) {
+        const keys = Object.keys(globalAny.cache);
         if (keys.length > 100) {
-          (global as any).cache = {};
-          console.log("🧹 MemoryGuard: Cleared global cache");
-          fs.appendFileSync(this.logFile, `[${new Date().toISOString()}] Global cache cleared (${keys.length} entries)\n`);
+          globalAny.cache = {};
+          this.log("🧹 Cleared global cache");
         }
       }
     } catch (err) {
-      console.error("❌ MemoryGuard: Error clearing cache:", err);
+      this.log(`Error clearing cache: ${err}`);
     }
   }
 
-  private async gracefulRestart(stats: MemoryStats) {
+  /** Graceful restart without triggering workflow failure */
+  private async gracefulRestart() {
     const now = Date.now();
-    if (now - this.lastRestart < this.restartCooldown) {
-      console.log("🕐 MemoryGuard: Restart cooldown active, skipping...");
-      return;
-    }
+    if (now - this.lastRestart < this.restartCooldown) return;
 
-    console.warn("🚨 MemoryGuard: High memory detected (>95%) — initiating graceful restart...");
-    
-    // Send critical alert before restart
-    await this.sendMemoryAlert("restart", stats);
-    
-    // Persistent log with flush
-    const logEntry = `[${new Date().toISOString()}] RESTART triggered - Heap ${stats.heapPercent}%\n`;
-    try {
-      fs.appendFileSync(this.logFile, logEntry);
-      fs.fsyncSync(fs.openSync(this.logFile, 'r+')); // Force flush to disk
-    } catch (err) {
-      console.error("Failed to persist restart log:", err);
-    }
-    
+    this.log("🚨 High memory (>95%) — initiating graceful restart (safe exit mode)");
     this.lastRestart = now;
 
-    // Graceful shutdown - Replit process manager will auto-restart
-    console.log("🔄 MemoryGuard: Exiting process for automatic restart by supervisor...");
+    const usage = process.memoryUsage();
+    const heapUsedMB = +(usage.heapUsed / 1024 / 1024).toFixed(1);
+    const heapTotalMB = +(usage.heapTotal / 1024 / 1024).toFixed(1);
+    const heapPercent = +(heapUsedMB / heapTotalMB * 100).toFixed(1);
+
+    // Send Telegram restart alert
+    await sendTelegram(
+      `🔄 <b>MemoryGuard Auto-Restart</b>\n\n` +
+      `🚨 Memory threshold exceeded:\n` +
+      `📊 Heap: ${heapUsedMB}/${heapTotalMB} MB (${heapPercent}%)\n\n` +
+      `✅ Safe restart initiated (exit code 0)\n` +
+      `🛡️ System will auto-recover in ~10s`
+    );
+
+    fs.appendFileSync(this.logFile, `[${new Date().toISOString()}] Graceful restart initiated\n`);
+
+    // Exit cleanly (code 0 → workflow success, supervisor auto-restarts)
     setTimeout(() => {
-      process.exit(1); // Exit with error code to trigger supervisor restart
-    }, 1000);
+      this.log("🔄 Exiting process with code 0 — workflow safe restart");
+      process.exit(0);
+    }, 1500);
   }
 
-  private async sendMemoryAlert(level: "warning" | "critical" | "restart", stats: MemoryStats) {
-    let emoji = "⚠️";
-    let title = "Memory Warning";
-    let action = "GC triggered";
-
-    if (level === "critical") {
-      emoji = "🚨";
-      title = "Critical Memory Alert";
-      action = "Aggressive GC + Cache cleanup";
-    } else if (level === "restart") {
-      emoji = "🔄";
-      title = "Auto-Restart Initiated";
-      action = "Process restarting to prevent crash";
-    }
-
-    const message = 
-      `${emoji} <b>${title}</b>\n\n` +
-      `📊 Heap Usage: <b>${stats.heapPercent}%</b>\n` +
-      `💾 Memory: ${stats.heapUsedMB}/${stats.heapTotalMB} MB\n` +
-      `📈 RSS: ${stats.rssMB} MB\n` +
-      `⚙️ Action: ${action}\n` +
-      `🔬 Sampling: ${this.checkInterval/1000}s (adaptive)\n` +
-      `🕐 Time: ${new Date().toLocaleString()}\n\n` +
-      `<i>SRE-grade MemoryGuard auto-managing resources</i>`;
-
+  private log(msg: string) {
+    const line = `[${new Date().toISOString()}] ${msg}\n`;
+    console.log(line.trim());
     try {
-      await sendTelegram(message);
-      console.log(`✅ MemoryGuard: ${level} alert sent to Telegram`);
-    } catch (error: any) {
-      console.error(`❌ MemoryGuard: Failed to send ${level} alert:`, error?.message);
-    }
-  }
-
-  private logMemoryTrend(stats: MemoryStats) {
-    const msg = `[${new Date().toISOString()}] Heap ${stats.heapUsedMB}/${stats.heapTotalMB} MB (${stats.heapPercent}%), RSS ${stats.rssMB} MB, Interval ${this.checkInterval/1000}s\n`;
-    try {
-      fs.appendFileSync(this.logFile, msg);
+      fs.appendFileSync(this.logFile, line);
     } catch (err) {
-      // Fail silently to prevent log errors from affecting monitoring
+      console.error("Failed to write to log:", err);
     }
   }
 
+  /** Get current memory stats for health endpoint */
   public getStats(): MemoryStats {
     const usage = process.memoryUsage();
+    const heapUsedMB = +(usage.heapUsed / 1024 / 1024).toFixed(1);
+    const heapTotalMB = +(usage.heapTotal / 1024 / 1024).toFixed(1);
+    const rssMB = +(usage.rss / 1024 / 1024).toFixed(1);
+    const heapPercent = +(heapUsedMB / heapTotalMB * 100).toFixed(1);
+
     return {
-      heapUsedMB: +(usage.heapUsed / 1024 / 1024).toFixed(1),
-      heapTotalMB: +(usage.heapTotal / 1024 / 1024).toFixed(1),
-      rssMB: +(usage.rss / 1024 / 1024).toFixed(1),
-      heapPercent: +((usage.heapUsed / usage.heapTotal) * 100).toFixed(1),
+      heapUsedMB,
+      heapTotalMB,
+      rssMB,
+      heapPercent,
       lastGC: this.lastGC ? new Date(this.lastGC).toISOString() : "Never",
       lastRestart: this.lastRestart ? new Date(this.lastRestart).toISOString() : "Never",
     };

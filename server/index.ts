@@ -631,6 +631,9 @@ app.use((req, res, next) => {
     // Initialize Brain Orchestrator - Central Intelligence Layer (non-blocking)
     (async () => {
       try {
+        // Register module change to trigger 5-minute grace period
+        memoryGuard.registerModuleChange();
+        
         const { brainOrchestrator } = await import("./brain/orchestrator");
         
         // Run immediately on startup
