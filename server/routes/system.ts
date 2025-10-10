@@ -84,7 +84,8 @@ export function registerSystemRoutes(app: Express): void {
             ? Date.now() - health.lastWsMessageTime 
             : null,
           reconnectAttempts: health.reconnectAttempts,
-          totalMessagesReceived: health.totalMessagesReceived
+          totalMessagesReceived: health.totalMessagesReceived,
+          gapDetection: health.gapStats // P0: Gap detection stats
         },
         rest: {
           operational: health.restOrderbookOk

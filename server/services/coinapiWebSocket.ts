@@ -28,6 +28,7 @@ export interface OrderBookSnapshot {
 export interface OrderBookUpdate {
   type: 'book' | 'book5' | 'book20';
   symbol_id: string;
+  sequence?: number; // Monotonically increasing sequence number
   bids?: OrderBookLevel[];
   asks?: OrderBookLevel[];
   time_exchange: string;
@@ -61,6 +62,14 @@ class CoinAPIWebSocketService {
   
   // Track actively subscribed symbols to prevent eviction
   private subscribedSymbols = new Set<string>();
+  
+  // Sequence tracking for gap detection (P0 Critical)
+  private lastSequence = new Map<string, number>();
+  private gapDetectionStats = {
+    totalGapsDetected: 0,
+    recoveryTriggered: 0,
+    lastGapTime: null as number | null
+  };
   
   // Callback for order book updates
   private updateCallbacks: Array<(update: OrderBookUpdate) => void> = [];
@@ -164,11 +173,37 @@ class CoinAPIWebSocketService {
   
   /**
    * Process order book update and store in memory
+   * P0: Implements sequence tracking & gap detection
    */
-  private processOrderBookUpdate(update: OrderBookUpdate) {
-    const { symbol_id, bids, asks, time_exchange, time_coinapi } = update;
+  private async processOrderBookUpdate(update: OrderBookUpdate) {
+    const { symbol_id, sequence, bids, asks, time_exchange, time_coinapi } = update;
     
-    // Update local order book
+    // P0: Sequence gap detection
+    if (sequence !== undefined) {
+      const lastSeq = this.lastSequence.get(symbol_id);
+      
+      if (lastSeq !== undefined) {
+        const expectedSeq = lastSeq + 1;
+        
+        // Gap detected - missed updates!
+        if (sequence !== expectedSeq) {
+          const gap = sequence - lastSeq;
+          this.gapDetectionStats.totalGapsDetected++;
+          this.gapDetectionStats.lastGapTime = Date.now();
+          
+          console.warn(`🚨 [CoinAPI-WS] SEQUENCE GAP DETECTED - ${symbol_id}: expected ${expectedSeq}, got ${sequence} (gap: ${gap})`);
+          
+          // Trigger REST snapshot recovery
+          await this.recoverFromGap(symbol_id);
+          this.gapDetectionStats.recoveryTriggered++;
+        }
+      }
+      
+      // Update last sequence
+      this.lastSequence.set(symbol_id, sequence);
+    }
+    
+    // Update local order book (book5 = always full snapshot, no merge needed)
     if (bids || asks) {
       const snapshot: OrderBookSnapshot = {
         symbol_id,
@@ -193,6 +228,29 @@ class CoinAPIWebSocketService {
       if (this.health.totalMessagesReceived % 100 === 0) {
         console.log(`📊 [CoinAPI-WS] Order book update: ${symbol_id} - ${bids?.length || 0} bids, ${asks?.length || 0} asks`);
       }
+    }
+  }
+  
+  /**
+   * Recover from sequence gap by fetching REST snapshot
+   * P0: Auto-recovery mechanism
+   */
+  private async recoverFromGap(symbol_id: string): Promise<void> {
+    try {
+      console.log(`🔄 [CoinAPI-WS] Recovering ${symbol_id} via REST snapshot...`);
+      
+      // Fetch fresh snapshot via REST API
+      const snapshot = await this.getOrderBook(symbol_id);
+      
+      if (snapshot) {
+        // Replace stale data with fresh snapshot
+        this.orderBooks.set(symbol_id, snapshot);
+        console.log(`✅ [CoinAPI-WS] Recovery successful: ${symbol_id} - ${snapshot.bids.length} bids, ${snapshot.asks.length} asks`);
+      } else {
+        console.error(`❌ [CoinAPI-WS] Recovery failed: ${symbol_id} - REST snapshot unavailable`);
+      }
+    } catch (error) {
+      console.error(`❌ [CoinAPI-WS] Recovery error for ${symbol_id}:`, error);
     }
   }
   
@@ -386,10 +444,13 @@ class CoinAPIWebSocketService {
   }
   
   /**
-   * Get health status
+   * Get health status with gap detection stats
    */
-  getHealth(): CoinAPIWebSocketHealth {
-    return { ...this.health };
+  getHealth() {
+    return { 
+      ...this.health,
+      gapStats: { ...this.gapDetectionStats }
+    };
   }
   
   /**
