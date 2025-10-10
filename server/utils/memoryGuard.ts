@@ -236,8 +236,9 @@ export class MemoryGuard {
         await sendTelegram(alertMsg);
         this.lastAlert = now;
       }
-    } else if (heap > 85) {
-      // SAFER THRESHOLD: Restart at 85% instead of 95% for more buffer
+    } else if (heap > 98) {
+      // TEMPORARY: Raised to 98% to break crash loop (was 85%)
+      // After system stabilizes, will analyze base memory and adjust accordingly
       await this.gracefulRestart();
     }
   }

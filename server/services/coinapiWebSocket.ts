@@ -2,6 +2,11 @@ import WebSocket from 'ws';
 import axios from 'axios';
 import { componentMemoryTracker } from '../utils/componentMemoryTracker.js';
 
+// 🚨 MEMORY LEAK FIX: EMERGENCY DISABLE CoinAPI WebSocket
+// Issue: Message queue backlog → sequence gaps → REST recovery storm → memory exhaustion
+// This MUST be at top to prevent any execution
+const COINAPI_WS_ENABLED = false; // Set to true to re-enable
+
 // Health status tracking
 export interface CoinAPIWebSocketHealth {
   wsConnected: boolean;
@@ -83,6 +88,12 @@ class CoinAPIWebSocketService {
   private updateCallbacks: Array<(update: OrderBookUpdate) => void> = [];
   
   constructor() {
+    // 🚨 MEMORY LEAK FIX: Check if service is disabled
+    if (!COINAPI_WS_ENABLED) {
+      console.log('⚠️ [CoinAPI-WS] Service DISABLED by COINAPI_WS_ENABLED flag (memory leak isolation)');
+      return;
+    }
+    
     if (!this.API_KEY) {
       console.error('❌ [CoinAPI-WS] COINAPI_KEY not found in environment');
       return;
