@@ -104,6 +104,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GPT Actions gateway routes (unified endpoints)
   registerGptsRoutes(app);
 
+  // Test endpoints (development only - DO NOT ENABLE IN PRODUCTION)
+  if (process.env.NODE_ENV !== 'production') {
+    const testEndpoints = await import('./routes/test-endpoints');
+    app.use('/test', testEndpoints.default);
+    console.log('⚠️ Test endpoints enabled at /test/* (DEVELOPMENT ONLY)');
+  }
+
   // 🔧 ALIAS FIX: /api/gpts/* → /gpts/* (per testing specification)
   app.use('/api/gpts', (req: Request, res: Response, next: Function) => {
     req.url = req.originalUrl.replace(/^\/api\/gpts/, '/gpts');
