@@ -26,7 +26,7 @@ import { PositionCalculatorService } from "./services/positionCalculator";
 import { RiskManagementService, type PortfolioPosition } from "./services/riskManagement";
 import { LiquidationHeatMapService } from "./services/liquidationHeatMap";
 import { multiTimeframeService } from "./services/multiTimeframeAnalysis";
-import { EnhancedAISignalEngine } from "./services/enhancedAISignalEngine";
+import { getEnhancedAISignalEngine } from "./services/enhancedAISignalEngine";
 import { aiSignalEngine } from "./services/aiSignalEngine";
 import { executionRecorder } from "./services/executionRecorder";
 import { solCompleteDataSchema, healthCheckSchema, apiResponseSchema, fundingRateSchema, openInterestSchema, volumeProfileSchema, smcAnalysisSchema, cvdResponseSchema, positionCalculatorSchema, positionParamsSchema, riskDashboardSchema } from "@shared/schema";
@@ -36,24 +36,9 @@ const sharedTechnicalService = new TechnicalIndicatorsService();
 const sharedCVDService = new CVDService();
 const sharedConfluenceService = new ConfluenceService();
 
-// 🚨 MEMORY LEAK FIX: Lazy-load Enhanced AI to reduce base memory from 86.6% → <70%
-// DO NOT initialize at startup - only load when API endpoint called
-let enhancedAISignalEngine: EnhancedAISignalEngine | null = null;
-
-function getEnhancedAIEngine(): EnhancedAISignalEngine {
-  if (!enhancedAISignalEngine) {
-    console.log('🔧 [LAZY-LOAD] Initializing Enhanced AI engine on first use...');
-    enhancedAISignalEngine = EnhancedAISignalEngine.getInstance({
-      technicalService: sharedTechnicalService,
-      cvdService: sharedCVDService,
-      confluenceService: sharedConfluenceService
-    });
-    console.log('✅ [LAZY-LOAD] Enhanced AI engine initialized successfully');
-  }
-  return enhancedAISignalEngine;
-}
-
-console.log('🎯 Routes: Enhanced AI engine will be lazy-loaded on first API call (memory optimization)');
+// 🚨 MEMORY LEAK FIX #2: Import ONLY factory function, not the class
+// This prevents TensorFlow from loading at startup (was loading at 10:11:32.710 before routes init)
+console.log('🎯 Routes: Enhanced AI engine will be lazy-loaded on first API call (TensorFlow deferred)');
 import { metricsCollector } from "./utils/metrics";
 import { cache, TTL_CONFIG } from "./utils/cache";
 import { backpressureManager } from "./utils/websocket";
@@ -3133,7 +3118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🧠 Enhanced AI Signal request received for ${symbol}`);
       
       // Generate enhanced AI signal with neural networks (lazy-loaded)
-      const enhancedSignal = await getEnhancedAIEngine().generateEnhancedAISignal(symbol);
+      const enhancedSignal = await getEnhancedAISignalEngine().generateEnhancedAISignal(symbol);
       
       const responseTime = Date.now() - startTime;
       
@@ -3240,7 +3225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? sanitizedSymbols[0] 
             : `${sanitizedSymbols[0]}-USDT-SWAP`;
           
-          const enhancedSignal = await getEnhancedAIEngine().generateEnhancedAISignal(okxSymbol);
+          const enhancedSignal = await getEnhancedAISignalEngine().generateEnhancedAISignal(okxSymbol);
           
           // Normalize signal mapping with case handling
           const direction = enhancedSignal.direction.toLowerCase();
@@ -3331,7 +3316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             limit(async () => {
               try {
                 const okxSymbol = symbol.includes('-') ? symbol : `${symbol}-USDT-SWAP`;
-                const enhancedSignal = await getEnhancedAIEngine().generateEnhancedAISignal(okxSymbol);
+                const enhancedSignal = await getEnhancedAISignalEngine().generateEnhancedAISignal(okxSymbol);
                 
                 // Normalize signal mapping with case handling
                 const direction = enhancedSignal.direction.toLowerCase();
@@ -3425,7 +3410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('📊 Enhanced AI Performance metrics request');
       
       // Get enhanced strategy performance with neural network stats (lazy-loaded)
-      const enhancedPerformance = await getEnhancedAIEngine().getEnhancedStrategyPerformance();
+      const enhancedPerformance = await getEnhancedAISignalEngine().getEnhancedStrategyPerformance();
       
       const responseTime = Date.now() - startTime;
       

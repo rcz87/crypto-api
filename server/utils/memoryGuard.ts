@@ -153,8 +153,8 @@ export class MemoryGuard {
     const gracePeriodActive = now - this.lastModuleChange < this.gracePeriod;
 
     // Grace period check (first 2 minutes or after module changes)
-    // EMERGENCY: Allow restart if heap > 90% even during grace period (memory leak safety)
-    if (gracePeriodActive && heap <= 90) {
+    // TEMPORARY: Raised to 99% to break crash loop (was 90%)
+    if (gracePeriodActive && heap <= 99) {
       const remainingMinutes = Math.ceil((this.gracePeriod - (now - this.lastModuleChange)) / 60000);
       this.log(`⏳ Warm-up phase active — suppressing restart actions (${remainingMinutes}m remaining)`);
       
@@ -181,8 +181,8 @@ export class MemoryGuard {
       return;
     }
     
-    // Emergency override: restart immediately if heap > 90% (even during grace period)
-    if (gracePeriodActive && heap > 90) {
+    // Emergency override: TEMPORARY raised to 99% to break crash loop (was 90%)
+    if (gracePeriodActive && heap > 99) {
       this.log(`🚨 EMERGENCY: Memory critical (${heap}%) during grace period - override restart!`);
       await this.gracefulRestart();
       return;
