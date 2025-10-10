@@ -58,6 +58,13 @@ class CoinAPIWebSocketService {
   private readonly MAX_AGE_MS = 3600000; // 1 hour stale data threshold
   private readonly CLEANUP_INTERVAL_MS = 60000; // Cleanup every minute
   
+  // 🔧 FIX #1: Message queue with rate limiting (prevents overwhelming processing)
+  private readonly MESSAGE_QUEUE_MAX_SIZE = 1000; // Circular buffer - prevents unlimited growth
+  private readonly MESSAGE_PROCESS_BATCH_SIZE = 10; // Process max 10 messages per tick
+  private readonly MESSAGE_PROCESS_INTERVAL_MS = 100; // Process every 100ms (10 batches/sec max)
+  private messageQueue: any[] = []; // Circular buffer for incoming messages
+  private queueProcessorInterval: NodeJS.Timeout | null = null;
+  
   // In-memory order book storage
   private orderBooks = new Map<string, OrderBookSnapshot>();
   
@@ -93,6 +100,46 @@ class CoinAPIWebSocketService {
     setInterval(() => {
       this.cleanupStaleData();
     }, this.CLEANUP_INTERVAL_MS);
+    
+    // 🔧 FIX #1: Start message queue processor (rate-limited processing)
+    this.startMessageQueueProcessor();
+  }
+  
+  /**
+   * 🔧 FIX #1: Start message queue processor with rate limiting
+   * Prevents memory overflow from processing too many messages at once
+   */
+  private startMessageQueueProcessor() {
+    this.queueProcessorInterval = setInterval(() => {
+      this.processMessageQueue();
+    }, this.MESSAGE_PROCESS_INTERVAL_MS);
+  }
+  
+  /**
+   * 🔧 FIX #1: Process message queue in batches
+   * Limits processing to MESSAGE_PROCESS_BATCH_SIZE messages per tick
+   */
+  private processMessageQueue() {
+    if (this.messageQueue.length === 0) return;
+    
+    // Process up to BATCH_SIZE messages
+    const batch = this.messageQueue.splice(0, this.MESSAGE_PROCESS_BATCH_SIZE);
+    
+    for (const message of batch) {
+      try {
+        // Handle different message types
+        if (message.type === 'book' || message.type === 'book5' || message.type === 'book20') {
+          this.processOrderBookUpdate(message as OrderBookUpdate);
+        }
+      } catch (error) {
+        console.error('❌ [CoinAPI-WS] Queue processing error:', error);
+      }
+    }
+    
+    // Log if queue is building up (potential bottleneck)
+    if (this.messageQueue.length > 100 && this.messageQueue.length % 50 === 0) {
+      console.warn(`⚠️ [CoinAPI-WS] Message queue backlog: ${this.messageQueue.length} messages pending`);
+    }
   }
   
   /**
@@ -123,16 +170,17 @@ class CoinAPIWebSocketService {
     this.health.wsConnected = true;
     this.health.reconnectAttempts = 0;
     
-    // Send hello message and subscribe to order book updates
-    // Extended symbol list for comprehensive coverage
+    // 🔧 FIX #4: Subscription optimization - Reduce from 7 pairs to 3 priority pairs
+    // This reduces message volume by ~57% (7→3 pairs), lowering memory pressure
     const symbolList = [
       'BINANCE_SPOT_BTC_USDT',
       'BINANCE_SPOT_ETH_USDT',
-      'BINANCE_SPOT_SOL_USDT',
-      'BINANCE_SPOT_BNB_USDT',
-      'BINANCE_SPOT_XRP_USDT',
-      'BINANCE_SPOT_DOGE_USDT',
-      'BINANCE_SPOT_AVAX_USDT'
+      'BINANCE_SPOT_SOL_USDT'
+      // REMOVED for memory optimization (can re-enable if needed):
+      // 'BINANCE_SPOT_BNB_USDT',
+      // 'BINANCE_SPOT_XRP_USDT',
+      // 'BINANCE_SPOT_DOGE_USDT',
+      // 'BINANCE_SPOT_AVAX_USDT'
     ];
     
     const helloMessage = {
@@ -147,12 +195,13 @@ class CoinAPIWebSocketService {
     
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(helloMessage));
-      console.log('📡 [CoinAPI-WS] Subscription sent:', helloMessage.subscribe_filter_symbol_id);
+      console.log('📡 [CoinAPI-WS] Subscription sent (OPTIMIZED for memory):', helloMessage.subscribe_filter_symbol_id);
     }
   }
   
   /**
    * Handle incoming WebSocket messages
+   * 🔧 FIX #1 & #2: Enqueue messages instead of immediate processing (circular buffer)
    */
   private handleMessage(data: WebSocket.Data) {
     try {
@@ -162,18 +211,25 @@ class CoinAPIWebSocketService {
       this.health.lastWsMessage = message;
       this.health.totalMessagesReceived++;
       
-      // MEMORY TRACKING: Register WebSocket message for leak analysis
+      // 🔧 FIX #2: Circular buffer - if queue is full, remove oldest message
+      if (this.messageQueue.length >= this.MESSAGE_QUEUE_MAX_SIZE) {
+        const dropped = this.messageQueue.shift(); // Remove oldest
+        if (this.health.totalMessagesReceived % 100 === 0) {
+          console.warn(`⚠️ [CoinAPI-WS] Queue full (${this.MESSAGE_QUEUE_MAX_SIZE}), dropped oldest message: ${dropped?.symbol_id || 'unknown'}`);
+        }
+      }
+      
+      // 🔧 FIX #1: Enqueue message for rate-limited processing
+      this.messageQueue.push(message);
+      
+      // 🔧 FIX #3: MEMORY TRACKING with circular buffer limit (max 1000 tracked messages)
+      // componentMemoryTracker now has internal limit to prevent unlimited growth
       componentMemoryTracker.registerData('coinapi_ws_messages', {
         type: message.type,
         symbol: message.symbol_id,
         timestamp: Date.now(),
         size: data.toString().length
       });
-      
-      // Handle different message types
-      if (message.type === 'book' || message.type === 'book5' || message.type === 'book20') {
-        this.processOrderBookUpdate(message as OrderBookUpdate);
-      }
       
     } catch (error) {
       console.error('❌ [CoinAPI-WS] Message parsing error:', error);
