@@ -628,6 +628,29 @@ app.use((req, res, next) => {
       }
     })();
     
+    // Initialize Brain Orchestrator - Central Intelligence Layer (non-blocking)
+    (async () => {
+      try {
+        const { brainOrchestrator } = await import("./brain/orchestrator");
+        
+        // Run immediately on startup
+        brainOrchestrator.run(['BTC', 'ETH', 'SOL']).catch(err => {
+          log(`⚠️ Brain initial run failed: ${err.message}`);
+        });
+        
+        // Schedule every 15 minutes
+        setInterval(() => {
+          brainOrchestrator.run(['BTC', 'ETH', 'SOL']).catch(err => {
+            log(`⚠️ Brain orchestrator run failed: ${err.message}`);
+          });
+        }, 15 * 60 * 1000); // 15 minutes
+        
+        log("🧠 Brain Orchestrator initialized - monitoring every 15min");
+      } catch (error: any) {
+        log(`⚠️ Brain orchestrator init failed: ${error?.message || String(error)}`);
+      }
+    })();
+    
     log(`🚀 Total startup time: ${Date.now() - startTime}ms`);
   });
 })();
