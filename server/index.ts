@@ -328,7 +328,12 @@ const startPythonService = () => {
     '--timeout-keep-alive', '75'
   ], {
     cwd: 'coinglass-system',
-    env: { ...process.env, PORT: '8000', COINGLASS_API_KEY: process.env.CG_API_KEY },
+    env: { 
+      ...process.env, 
+      PORT: '8000', 
+      COINGLASS_API_KEY: process.env.COINGLASS_API_KEY,
+      CG_API_KEY: process.env.COINGLASS_API_KEY  // Also set CG_API_KEY for backward compat
+    },
     stdio: ['pipe', 'pipe', 'pipe']
   });
 

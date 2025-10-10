@@ -105,7 +105,14 @@ export function registerGptsRoutes(app: Express): void {
           
           const { stdout, stderr } = await execAsync(
             `cd "${COINGLASS_SYSTEM_PATH}" && python ${pythonScript}`,
-            { timeout: 15000 }
+            { 
+              timeout: 15000,
+              env: {
+                ...process.env,  // Pass all Node.js env vars to Python subprocess
+                COINGLASS_API_KEY: process.env.COINGLASS_API_KEY,
+                CG_API_KEY: process.env.COINGLASS_API_KEY,  // Backward compatibility
+              }
+            }
           );
           
           if (stderr && !stderr.includes('INFO:')) {
