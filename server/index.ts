@@ -5,6 +5,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { globalErrorHandler, responseErrorInterceptor, notFoundHandler } from "./middleware/errorHandler";
+import { memoryGuard } from "./utils/memoryGuard.js";
+import { memoryMonitor } from "./middleware/memoryMonitor.js";
 
 const app = express();
 
@@ -544,6 +546,9 @@ app.use((req, res, next) => {
     res.sendFile(path.resolve(process.cwd(), 'public/openapi-4.0.1-gpts-compat.yaml'));
   });
 
+  // Memory monitoring endpoint
+  app.get('/health/memory', memoryMonitor);
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
@@ -575,6 +580,10 @@ app.use((req, res, next) => {
     
     // 🚀 START BACKGROUND SERVICES AFTER SERVER IS LISTENING
     // This ensures health checks pass quickly while services initialize in background
+    
+    // Start Memory Guard - monitors memory and prevents OOM crashes
+    memoryGuard.startMonitoring();
+    log("🧠 MemoryGuard: Auto-recovery system active");
     
     // Start Python service (non-blocking) - runs in all environments
     try {

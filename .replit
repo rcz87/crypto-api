@@ -4,17 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = [
-  "cargo",
-  "glibcLocales",
-  "jq",
-  "libiconv",
-  "libxcrypt",
-  "openssh",
-  "postgresql",
-  "redis",
-  "rustc",
-]
+packages = ["cargo", "glibcLocales", "jq", "libiconv", "libxcrypt", "openssh", "postgresql", "redis", "rustc", "tree"]
 
 [deployment]
 deploymentTarget = "vm"
@@ -38,6 +28,10 @@ exposeLocalhost = true
 [[ports]]
 localPort = 41041
 externalPort = 3001
+
+[[ports]]
+localPort = 42313
+externalPort = 3002
 
 [env]
 PORT = "5000"
