@@ -94,8 +94,8 @@ export class BrainOrchestrator {
           return null;
         }),
         
-        // 2. Correlation Matrix
-        coinAPIService.getCorrelationMatrix(symbols, 7).catch(err => {
+        // 2. Correlation Matrix (REDUCED from 7 to 3 days to reduce memory pressure)
+        coinAPIService.getCorrelationMatrix(symbols, 3).catch(err => {
           console.warn(`⚠️ [BrainOrchestrator] Correlation matrix failed: ${err.message}`);
           return null;
         }),

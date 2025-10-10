@@ -641,10 +641,9 @@ app.use((req, res, next) => {
         
         const { brainOrchestrator } = await import("./brain/orchestrator");
         
-        // Run immediately on startup
-        brainOrchestrator.run(['BTC', 'ETH', 'SOL']).catch(err => {
-          log(`⚠️ Brain initial run failed: ${err.message}`);
-        });
+        // MEMORY OPTIMIZATION: Skip initial run to reduce startup memory pressure
+        // Brain will run after 15min when system is stable
+        log("🧠 Brain Orchestrator: Initial run skipped (memory optimization)");
         
         // Schedule every 15 minutes
         setInterval(() => {
