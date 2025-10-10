@@ -75,7 +75,7 @@ export class BrainOrchestrator {
     
     try {
       // Parallel data gathering for speed
-      const [regimeData, correlationData] = await Promise.all([
+      const [regimeData, correlationData, priceData] = await Promise.all([
         // 1. Regime Detection
         regimeDetectionService.detectRegime(`BINANCE_SPOT_${primarySymbol}_USDT`).catch(err => {
           console.warn(`⚠️ [BrainOrchestrator] Regime detection failed: ${err.message}`);
@@ -86,12 +86,17 @@ export class BrainOrchestrator {
         coinAPIService.getCorrelationMatrix(symbols, 7).catch(err => {
           console.warn(`⚠️ [BrainOrchestrator] Correlation matrix failed: ${err.message}`);
           return null;
+        }),
+        
+        // 3. Price data for simple smart money detection
+        coinAPIService.getHistoricalData(`BINANCE_SPOT_${primarySymbol}_USDT`, '1HRS', undefined, undefined, 24).catch(err => {
+          console.warn(`⚠️ [BrainOrchestrator] Price data failed: ${err.message}`);
+          return null;
         })
       ]);
       
-      // Note: CVD analysis removed - requires candles/trades data which adds complexity
-      // Smart money analysis will be done via existing CVD route if needed
-      const cvdData = null;
+      // Simple smart money detection using price/volume patterns
+      const smartMoneyData = this.detectSimpleSmartMoney(priceData);
       
       // Handle regime data
       let regimeState: MarketRegime = MarketRegime.RANGING;
@@ -116,7 +121,7 @@ export class BrainOrchestrator {
       }
       
       // Handle smart money flow
-      const smartFlow = this.analyzeSmartMoneyFlow(cvdData);
+      const smartFlow = smartMoneyData;
       
       // Handle rotation detection
       let rotation: RotationPattern;
@@ -177,10 +182,11 @@ export class BrainOrchestrator {
   }
   
   /**
-   * Analyze smart money flow from CVD data
+   * Simple smart money detection using price/volume patterns
+   * Alternative to complex CVD analysis - uses basic accumulation/distribution logic
    */
-  private analyzeSmartMoneyFlow(cvdData: any): SmartMoneyFlow {
-    if (!cvdData || !cvdData.smartMoneySignals) {
+  private detectSimpleSmartMoney(priceData: any): SmartMoneyFlow {
+    if (!priceData || !priceData.data || !Array.isArray(priceData.data) || priceData.data.length < 10) {
       return {
         signal: 'NEUTRAL',
         strength: 'weak',
@@ -193,30 +199,49 @@ export class BrainOrchestrator {
       };
     }
     
-    const signals = cvdData.smartMoneySignals;
-    const accumulation = signals.accumulation?.active || false;
-    const distribution = signals.distribution?.active || false;
-    const manipulation = signals.manipulation?.detected || false;
+    const candles = priceData.data;
+    const recentCandles = candles.slice(-10); // Last 10 hours
     
-    // Determine primary signal
+    // Calculate price momentum
+    const firstPrice = parseFloat(recentCandles[0].price_close);
+    const lastPrice = parseFloat(recentCandles[recentCandles.length - 1].price_close);
+    const priceChange = ((lastPrice - firstPrice) / firstPrice) * 100;
+    
+    // Calculate volume trend
+    const avgVolume = recentCandles.slice(0, -3).reduce((sum: number, c: any) => sum + c.volume_traded, 0) / (recentCandles.length - 3);
+    const recentVolume = recentCandles.slice(-3).reduce((sum: number, c: any) => sum + c.volume_traded, 0) / 3;
+    const volumeIncrease = ((recentVolume - avgVolume) / avgVolume) * 100;
+    
+    // Determine smart money pattern - ORDER MATTERS!
     let signal: 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' = 'NEUTRAL';
     let strength: 'weak' | 'medium' | 'strong' = 'weak';
     let confidence = 0.5;
+    let accumulation = false;
+    let distribution = false;
     
-    if (accumulation && !distribution) {
+    // 1. Strong ACCUMULATION: Sharp price rise with massive volume (breakout buying) - CHECK FIRST!
+    if (priceChange > 3 && volumeIncrease > 40) {
       signal = 'ACCUMULATION';
-      strength = signals.accumulation.strength || 'medium';
-      confidence = 0.75;
-    } else if (distribution && !accumulation) {
-      signal = 'DISTRIBUTION';
-      strength = signals.distribution.strength || 'medium';
-      confidence = 0.75;
-    } else if (accumulation && distribution) {
-      // Conflicting signals - check which is stronger
-      signal = 'NEUTRAL';
-      strength = 'weak';
-      confidence = 0.4;
+      accumulation = true;
+      strength = 'strong';
+      confidence = 0.85;
     }
+    // 2. DISTRIBUTION: Price up/stable + volume increasing (smart money selling rallies)
+    else if (priceChange >= 0 && volumeIncrease > 25) {
+      signal = 'DISTRIBUTION';
+      distribution = true;
+      strength = volumeIncrease > 50 ? 'strong' : 'medium';
+      confidence = priceChange > 2 ? 0.8 : 0.7; // Higher confidence on price rally
+    }
+    // 3. ACCUMULATION: Price down + volume increasing (smart money buying dips)
+    else if (priceChange < 0 && volumeIncrease > 20) {
+      signal = 'ACCUMULATION';
+      accumulation = true;
+      strength = volumeIncrease > 50 ? 'strong' : 'medium';
+      confidence = priceChange < -2 ? 0.8 : 0.7; // Higher confidence on deeper dip
+    }
+    
+    console.log(`💰 [BrainOrchestrator] Smart Money Detection: price=${priceChange.toFixed(2)}%, volume=${volumeIncrease.toFixed(1)}%, signal=${signal}`);
     
     return {
       signal,
@@ -225,7 +250,7 @@ export class BrainOrchestrator {
       details: {
         accumulation,
         distribution,
-        manipulation
+        manipulation: false // Simple detection doesn't detect manipulation
       }
     };
   }
