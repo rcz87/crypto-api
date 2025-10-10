@@ -4,6 +4,7 @@
  */
 
 import { sendTelegram } from './telegram.js';
+import { coinAPIWebSocket } from '../services/coinapiWebSocket.js';
 
 /**
  * ErrorRateAlerter - Monitor HTTP error rates
@@ -173,12 +174,139 @@ export class SystemHealthAlerter {
 }
 
 /**
+ * CoinAPIAlerter - Monitor CoinAPI WebSocket gap detection and recovery
+ */
+export class CoinAPIAlerter {
+  private timer: NodeJS.Timeout | null = null;
+  private isRunning = false;
+  private lastGapCount = 0;
+  private lastRecoveryCount = 0;
+  
+  constructor(private config: {
+    intervalMs: number;
+  }) {}
+
+  start(): void {
+    if (this.isRunning) {
+      console.log('⚠️ CoinAPIAlerter already running');
+      return;
+    }
+    
+    this.isRunning = true;
+    console.log(`✅ Starting CoinAPIAlerter (interval: ${this.config.intervalMs/1000}s)`);
+    
+    this.timer = setInterval(async () => {
+      try {
+        await this.checkCoinAPIHealth();
+      } catch (error: any) {
+        console.error('Error in CoinAPIAlerter check:', error?.message);
+      }
+    }, this.config.intervalMs);
+  }
+
+  stop(): void {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+    this.isRunning = false;
+    console.log('🛑 CoinAPIAlerter stopped');
+  }
+
+  private async checkCoinAPIHealth(): Promise<void> {
+    try {
+      const health = coinAPIWebSocket.getHealth();
+      const gapStats = health.gapStats;
+      
+      if (!gapStats) {
+        console.log('🔍 [CoinAPIAlerter] Gap stats not available');
+        return;
+      }
+      
+      // Check for new gaps detected
+      if (gapStats.totalGapsDetected > this.lastGapCount) {
+        const newGaps = gapStats.totalGapsDetected - this.lastGapCount;
+        const message = `🚨 <b>CoinAPI Sequence Gap Detected!</b>\n\n` +
+                       `📊 Total Gaps: <b>${gapStats.totalGapsDetected}</b> (+${newGaps})\n` +
+                       `🔄 Recovery Triggered: ${gapStats.recoveryTriggered} times\n` +
+                       `🕐 Last Gap: ${gapStats.lastGapTime ? new Date(gapStats.lastGapTime).toLocaleString() : 'N/A'}\n` +
+                       `📈 Total Messages: ${health.totalMessagesReceived}\n` +
+                       `🌐 WS Connected: ${health.wsConnected ? '✅' : '❌'}\n\n` +
+                       `<i>System auto-recovered via REST fallback</i>`;
+        
+        await sendTelegram(message, { parseMode: 'HTML' });
+        this.lastGapCount = gapStats.totalGapsDetected;
+      }
+      
+      // Check for new recovery triggers
+      if (gapStats.recoveryTriggered > this.lastRecoveryCount) {
+        const newRecoveries = gapStats.recoveryTriggered - this.lastRecoveryCount;
+        const message = `🔄 <b>CoinAPI Gap Recovery Triggered</b>\n\n` +
+                       `✅ Recovery Count: <b>${gapStats.recoveryTriggered}</b> (+${newRecoveries})\n` +
+                       `📊 Total Gaps: ${gapStats.totalGapsDetected}\n` +
+                       `📈 Total Messages: ${health.totalMessagesReceived}\n` +
+                       `🕐 Time: ${new Date().toLocaleString()}\n\n` +
+                       `<i>System auto-recovered via REST snapshot fallback</i>`;
+        
+        await sendTelegram(message, { parseMode: 'HTML' });
+        console.log(`🔄 [CoinAPIAlerter] Recovery alert sent: ${newRecoveries} new recoveries`);
+        this.lastRecoveryCount = gapStats.recoveryTriggered;
+      }
+      
+      // Check for latency spikes (message delay)
+      const latencyThreshold = Number(process.env.COINAPI_LATENCY_THRESHOLD_MS || 10000); // Default 10s
+      const timeSinceLastMessage = health.lastWsMessageTime 
+        ? Date.now() - health.lastWsMessageTime 
+        : null;
+      
+      if (timeSinceLastMessage && timeSinceLastMessage > latencyThreshold && health.wsConnected) {
+        const message = `⚠️ <b>CoinAPI Latency Spike Detected</b>\n\n` +
+                       `⏱️ Message Delay: <b>${Math.round(timeSinceLastMessage / 1000)}s</b>\n` +
+                       `⚙️ Threshold: ${latencyThreshold / 1000}s\n` +
+                       `📊 Total Messages: ${health.totalMessagesReceived}\n` +
+                       `🌐 WS Connected: ${health.wsConnected ? '✅' : '❌'}\n` +
+                       `🕐 Time: ${new Date().toLocaleString()}\n\n` +
+                       `<i>No messages received for ${Math.round(timeSinceLastMessage / 1000)}s</i>`;
+        
+        await sendTelegram(message, { parseMode: 'HTML' });
+      }
+      
+      // Alert if WebSocket disconnected
+      if (!health.wsConnected) {
+        const message = `⚠️ <b>CoinAPI WebSocket Disconnected</b>\n\n` +
+                       `🔌 Connection Status: <b>Disconnected</b>\n` +
+                       `🔄 Reconnect Attempts: ${health.reconnectAttempts}\n` +
+                       `📊 REST Fallback: ${health.restOrderbookOk ? '✅ Active' : '❌ Failed'}\n` +
+                       `🕐 Time: ${new Date().toLocaleString()}\n\n` +
+                       `<i>System attempting auto-reconnection</i>`;
+        
+        await sendTelegram(message, { parseMode: 'HTML' });
+      }
+      
+      console.log(`🌐 [CoinAPIAlerter] Health check - Gaps: ${gapStats.totalGapsDetected}, Recovery: ${gapStats.recoveryTriggered}, WS: ${health.wsConnected ? 'Connected' : 'Disconnected'}`);
+      
+    } catch (error: any) {
+      console.error('❌ [CoinAPIAlerter] Health check failed:', error?.message);
+    }
+  }
+
+  getStatus(): { running: boolean; lastGapCount: number; lastRecoveryCount: number } {
+    return { 
+      running: this.isRunning,
+      lastGapCount: this.lastGapCount,
+      lastRecoveryCount: this.lastRecoveryCount
+    };
+  }
+}
+
+/**
  * Master Alerting System Coordinator
  */
 class AlertingSystem {
   private errorAlerter: ErrorRateAlerter | null = null;
   private tradingAlerter: TradingAlerter | null = null;
   private healthAlerter: SystemHealthAlerter | null = null;
+  private coinapiAlerter: CoinAPIAlerter | null = null;
   private initialized = false;
 
   async initialize(): Promise<void> {
@@ -229,6 +357,14 @@ class AlertingSystem {
       });
       this.healthAlerter.start();
 
+      // CoinAPI WebSocket alerter
+      const coinapiWindowMs = Number(process.env.COINAPI_ALERT_WINDOW_MS || 30000);
+      
+      this.coinapiAlerter = new CoinAPIAlerter({
+        intervalMs: coinapiWindowMs
+      });
+      this.coinapiAlerter.start();
+
       this.initialized = true;
       console.log('✅ Telegram Alerting System initialized successfully');
 
@@ -237,10 +373,11 @@ class AlertingSystem {
                      `📊 Error Rate Monitor: Active\n` +
                      `💹 Trading Metrics Monitor: Active\n` +
                      `💚 System Health Monitor: Active\n` +
+                     `🌐 CoinAPI Gap Monitor: Active\n` +
                      `🕐 ${new Date().toLocaleString()}\n\n` +
                      `<i>Real-time monitoring active</i>`;
       
-      await sendTelegram(message);
+      await sendTelegram(message, { parseMode: 'HTML' });
 
     } catch (error: any) {
       console.error('❌ Failed to initialize alerting system:', error?.message);
@@ -253,12 +390,14 @@ class AlertingSystem {
     error_alerter: { running: boolean };
     trading_alerter: { running: boolean };
     health_alerter: { running: boolean };
+    coinapi_alerter: { running: boolean; lastGapCount: number; lastRecoveryCount: number };
   } {
     return {
       initialized: this.initialized,
       error_alerter: this.errorAlerter?.getStatus() || { running: false },
       trading_alerter: this.tradingAlerter?.getStatus() || { running: false },
-      health_alerter: this.healthAlerter?.getStatus() || { running: false }
+      health_alerter: this.healthAlerter?.getStatus() || { running: false },
+      coinapi_alerter: this.coinapiAlerter?.getStatus() || { running: false, lastGapCount: 0, lastRecoveryCount: 0 }
     };
   }
 
@@ -278,6 +417,11 @@ class AlertingSystem {
     if (this.healthAlerter) {
       this.healthAlerter.stop();
       this.healthAlerter = null;
+    }
+
+    if (this.coinapiAlerter) {
+      this.coinapiAlerter.stop();
+      this.coinapiAlerter = null;
     }
 
     this.initialized = false;
