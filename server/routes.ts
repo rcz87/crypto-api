@@ -14,6 +14,7 @@ import { registerGptsRoutes } from "./routes/gpts";
 import brainRoutes from "./routes/brain";
 import { screenerRouter } from "./modules/screener/screener.routes.js";
 import alphaRouter from "./routes/alpha";
+import { memoryDashboardRouter } from "./routes/memoryDashboard.js";
 import { CVDService } from "./services/cvd";
 import { ConfluenceService } from "./services/confluence";
 import { TechnicalIndicatorsService } from "./services/technicalIndicators";
@@ -94,6 +95,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Brain Orchestrator routes (intelligence layer insights)
   app.use('/api/brain', brainRoutes);
+  
+  // Memory Dashboard routes (v3 Enhanced monitoring & profiling)
+  app.use('/api/memory', memoryDashboardRouter);
   
   // SOL trading routes (complete, funding, technical analysis, etc.)
   registerTradingRoutes(app);

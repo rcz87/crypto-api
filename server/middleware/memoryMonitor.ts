@@ -27,9 +27,10 @@ export const memoryMonitor = (req: Request, res: Response, next: NextFunction) =
       statusColor,
       memory: stats,
       thresholds: {
-        warning: 85,
-        critical: 90,
-        restart: 95
+        warning: 70,
+        critical: 80,
+        restart: 85,
+        note: "v3 Enhanced: Safer thresholds with buffer margin (old restart was 95%)"
       },
       gc_enabled: typeof global.gc === "function",
       timestamp: new Date().toISOString()
