@@ -5,7 +5,6 @@
  */
 
 import fs from "fs";
-import { exec } from "child_process";
 import { sendTelegram } from "../observability/telegram.js";
 
 interface MemoryStats {
@@ -119,19 +118,26 @@ export class MemoryGuard {
       return;
     }
 
-    console.warn("🚨 MemoryGuard: High memory detected (>95%) — restarting process...");
+    console.warn("🚨 MemoryGuard: High memory detected (>95%) — initiating graceful restart...");
     
     // Send critical alert before restart
     await this.sendMemoryAlert("restart", stats);
     
-    fs.appendFileSync(this.logFile, `[${new Date().toISOString()}] RESTART triggered - Heap ${stats.heapPercent}%\n`);
+    // Persistent log with flush
+    const logEntry = `[${new Date().toISOString()}] RESTART triggered - Heap ${stats.heapPercent}%\n`;
+    try {
+      fs.appendFileSync(this.logFile, logEntry);
+      fs.fsyncSync(fs.openSync(this.logFile, 'r+')); // Force flush to disk
+    } catch (err) {
+      console.error("Failed to persist restart log:", err);
+    }
+    
     this.lastRestart = now;
 
-    // Give time for alert to send
+    // Graceful shutdown - Replit process manager will auto-restart
+    console.log("🔄 MemoryGuard: Exiting process for automatic restart by supervisor...");
     setTimeout(() => {
-      exec("kill 1", (err) => {
-        if (err) console.error("❌ MemoryGuard: Failed to restart:", err);
-      });
+      process.exit(1); // Exit with error code to trigger supervisor restart
     }, 1000);
   }
 
