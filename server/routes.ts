@@ -11,6 +11,7 @@ import { registerSystemRoutes } from "./routes/system";
 import { registerTradingRoutes } from "./routes/trading";
 import { registerGhostRoutes } from "./routes/ghost";
 import { registerGptsRoutes } from "./routes/gpts";
+import brainRoutes from "./routes/brain";
 import { screenerRouter } from "./modules/screener/screener.routes.js";
 import alphaRouter from "./routes/alpha";
 import { CVDService } from "./services/cvd";
@@ -90,6 +91,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // System routes (health, metrics, logs) - registered early
   registerSystemRoutes(app);
+  
+  // Brain Orchestrator routes (intelligence layer insights)
+  app.use('/api/brain', brainRoutes);
   
   // SOL trading routes (complete, funding, technical analysis, etc.)
   registerTradingRoutes(app);
