@@ -148,7 +148,13 @@ export class SmartCacheManager<T = any> {
     };
 
     this.cache.set(key, entry);
-    this.accessOrder.push(key);
+    // DEDUP FIX: Only push if not already in accessOrder (prevent duplicates)
+    if (!this.accessOrder.includes(key)) {
+      this.accessOrder.push(key);
+    } else {
+      // Update position
+      this.updateAccessOrder(key);
+    }
     this.stats.currentSize += estimatedSize;
 
     this.updateMetrics();
@@ -251,11 +257,27 @@ export class SmartCacheManager<T = any> {
   }
 
   private updateAccessOrder(key: string): void {
+    // QUICK FIX: Use Set for dedup, then rebuild array periodically
     const index = this.accessOrder.indexOf(key);
     if (index > -1) {
       this.accessOrder.splice(index, 1);
-      this.accessOrder.push(key);
     }
+    this.accessOrder.push(key);
+    
+    // Safety: Rebuild accessOrder if it grows beyond cache size (memory leak prevention)
+    if (this.accessOrder.length > this.cache.size * 1.5) {
+      this.rebuildAccessOrder();
+    }
+  }
+  
+  private rebuildAccessOrder(): void {
+    // Rebuild accessOrder from cache entries, sorted by lastAccessed
+    const entries = Array.from(this.cache.entries())
+      .sort((a, b) => a[1].lastAccessed - b[1].lastAccessed)
+      .map(([key]) => key);
+    
+    this.accessOrder = entries;
+    console.log(`🗄️ Smart Cache [${this.name}]: Rebuilt accessOrder (${this.accessOrder.length} items, was oversized)`);
   }
 
   private removeFromAccessOrder(key: string): void {
@@ -291,6 +313,11 @@ export class SmartCacheManager<T = any> {
     if (cleanedCount > 0) {
       console.log(`🗄️ Smart Cache [${this.name}]: Cleaned up ${cleanedCount} expired entries`);
       this.updateMetrics();
+    }
+    
+    // MEMORY LEAK FIX: Rebuild accessOrder if significantly larger than cache
+    if (this.accessOrder.length > this.cache.size * 1.3) {
+      this.rebuildAccessOrder();
     }
   }
 

@@ -45,6 +45,7 @@ export class MemoryProfiler {
   private snapshotInterval = 60 * 1000; // 1 minute
   private interval: NodeJS.Timeout | null = null;
   private leakPatterns: LeakPattern[] = [];
+  private maxLeakPatterns = 50; // MEMORY LEAK FIX: Limit leak patterns array
   private lastLeakAlert = 0;
   private alertCooldown = 15 * 60 * 1000; // 15 minutes
   private profilingEnabled = true;
@@ -242,9 +243,9 @@ export class MemoryProfiler {
       }
     }
 
-    // Keep only last 50 leak patterns
-    if (this.leakPatterns.length > 50) {
-      this.leakPatterns = this.leakPatterns.slice(-50);
+    // Keep only last N leak patterns (prevent memory leak)
+    if (this.leakPatterns.length > this.maxLeakPatterns) {
+      this.leakPatterns = this.leakPatterns.slice(-this.maxLeakPatterns);
     }
   }
 

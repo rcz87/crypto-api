@@ -35,7 +35,7 @@ export class MemoryGuard {
   private logFile = "/tmp/memory-guard.log";
   private restartCooldown = 60 * 1000; // 1 min between restarts
   private alertCooldown = 5 * 60 * 1000; // 5 min between alerts
-  private gracePeriod = 5 * 60 * 1000; // 5 minutes warm-up grace period
+  private gracePeriod = 2 * 60 * 1000; // 2 minutes warm-up grace period (REDUCED from 5min - memory leak fix)
   private startTime = Date.now();
   
   // Adaptive sampling
@@ -80,6 +80,7 @@ export class MemoryGuard {
   public startMonitoring() {
     this.log("🧠 MemoryGuard v3: Enhanced monitoring started (safer thresholds: 70/80/85%, adaptive sampling: 30s)");
     this.log("📊 New thresholds: 70-80% warning, 80-85% critical, >85% restart (safer with buffer margin)");
+    this.log("🛡️ Grace period: 2 minutes (emergency override at 90% even during grace)");
     
     // Start memory profiler for leak detection
     memoryProfiler.startProfiling();
@@ -147,8 +148,9 @@ export class MemoryGuard {
     const uptime = now - this.startTime;
     const gracePeriodActive = now - this.lastModuleChange < this.gracePeriod;
 
-    // Grace period check (first 5 minutes or after module changes)
-    if (gracePeriodActive) {
+    // Grace period check (first 2 minutes or after module changes)
+    // EMERGENCY: Allow restart if heap > 90% even during grace period (memory leak safety)
+    if (gracePeriodActive && heap <= 90) {
       const remainingMinutes = Math.ceil((this.gracePeriod - (now - this.lastModuleChange)) / 60000);
       this.log(`⏳ Warm-up phase active — suppressing restart actions (${remainingMinutes}m remaining)`);
       
@@ -164,6 +166,21 @@ export class MemoryGuard {
         );
         this.lastAlert = now;
       }
+      
+      // Aggressive cleanup during grace period if heap > 80%
+      if (heap > 80) {
+        this.log(`🧹 Grace period BUT high memory (${heap}%) - triggering aggressive cleanup`);
+        this.triggerGC("aggressive");
+        this.smartCacheEviction("aggressive");
+      }
+      
+      return;
+    }
+    
+    // Emergency override: restart immediately if heap > 90% (even during grace period)
+    if (gracePeriodActive && heap > 90) {
+      this.log(`🚨 EMERGENCY: Memory critical (${heap}%) during grace period - override restart!`);
+      await this.gracefulRestart();
       return;
     }
 
