@@ -682,7 +682,103 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
     }
   });
 
-  console.log(`🤖 GPTs Gateway routes registered: /gpts/unified/* → ${PY_BASE}`);
+  // ==================== BRAIN ORCHESTRATOR ENDPOINTS ====================
+  // Expose Brain Intelligence endpoints for GPT Actions access
+  
+  /**
+   * POST /gpts/brain/analysis
+   * Trigger brain analysis for specific symbols
+   * GPT-accessible endpoint for Central Intelligence insights
+   */
+  app.post('/gpts/brain/analysis', async (req: Request, res: Response) => {
+    try {
+      const { brainOrchestrator } = await import('../brain/orchestrator.js');
+      const symbols = req.body.symbols || ['BTC', 'ETH', 'SOL'];
+      
+      const insight = await brainOrchestrator.run(symbols);
+      
+      res.json({
+        success: true,
+        data: insight,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error('[GPTs Brain] Error running brain analysis:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to run brain analysis'
+      });
+    }
+  });
+
+  /**
+   * GET /gpts/brain/insights
+   * Get recent brain orchestrator insights
+   */
+  app.get('/gpts/brain/insights', async (req: Request, res: Response) => {
+    try {
+      const { brainOrchestrator } = await import('../brain/orchestrator.js');
+      const limit = parseInt(req.query.limit as string) || 10;
+      const insights = brainOrchestrator.getRecentInsights(limit);
+      
+      res.json({
+        success: true,
+        data: {
+          insights,
+          total: insights.length
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error('[GPTs Brain] Error fetching brain insights:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to fetch brain insights'
+      });
+    }
+  });
+
+  /**
+   * GET /gpts/brain/stats
+   * Get brain orchestrator statistics
+   */
+  app.get('/gpts/brain/stats', async (req: Request, res: Response) => {
+    try {
+      const { brainOrchestrator } = await import('../brain/orchestrator.js');
+      const stats = brainOrchestrator.getStats();
+      
+      res.json({
+        success: true,
+        data: stats,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error('[GPTs Brain] Error fetching brain stats:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to fetch brain stats'
+      });
+    }
+  });
+
+  /**
+   * GET /gpts/health/coinapi
+   * CoinAPI health and gap detection stats for GPT monitoring
+   */
+  app.get('/gpts/health/coinapi', async (req: Request, res: Response) => {
+    try {
+      // Forward to internal health endpoint
+      const response = await axios.get('http://localhost:5000/health/coinapi');
+      res.json(response.data);
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to fetch CoinAPI health'
+      });
+    }
+  });
+
+  console.log(`🤖 GPTs Gateway routes registered: /gpts/unified/* + /gpts/brain/* → ${PY_BASE}`);
 }
 
 /**
