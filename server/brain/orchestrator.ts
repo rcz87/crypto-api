@@ -14,6 +14,7 @@ import { CVDService } from '../services/cvd';
 import { RotationDetector, RotationPattern } from './rotationDetector';
 import { RegimeAutoSwitcher, RegimeSwitchEvent } from './regimeAutoSwitcher';
 import { sendTelegram } from '../observability/telegram';
+import { coinAPIWebSocket } from '../services/coinapiWebSocket';
 
 export interface SmartMoneyFlow {
   signal: 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL';
@@ -24,6 +25,16 @@ export interface SmartMoneyFlow {
     distribution: boolean;
     manipulation: boolean;
   };
+}
+
+export interface LiquidityMetrics {
+  bidLiquidity: number;
+  askLiquidity: number;
+  totalLiquidity: number;
+  bidAskImbalance: number;
+  spreadPercentage: number;
+  signal: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  strength: 'weak' | 'medium' | 'strong';
 }
 
 export interface BrainInsight {
@@ -38,6 +49,7 @@ export interface BrainInsight {
   smartMoney: SmartMoneyFlow;
   rotation: RotationPattern;
   switchEvent: RegimeSwitchEvent;
+  liquidity?: LiquidityMetrics;
   decision: {
     action: 'BUY' | 'SELL' | 'HOLD' | 'ROTATE';
     confidence: number;
@@ -75,7 +87,7 @@ export class BrainOrchestrator {
     
     try {
       // Parallel data gathering for speed
-      const [regimeData, correlationData, priceData] = await Promise.all([
+      const [regimeData, correlationData, priceData, orderBookData] = await Promise.all([
         // 1. Regime Detection
         regimeDetectionService.detectRegime(`BINANCE_SPOT_${primarySymbol}_USDT`).catch(err => {
           console.warn(`⚠️ [BrainOrchestrator] Regime detection failed: ${err.message}`);
@@ -91,6 +103,12 @@ export class BrainOrchestrator {
         // 3. Price data for simple smart money detection
         coinAPIService.getHistoricalData(`BINANCE_SPOT_${primarySymbol}_USDT`, '1HRS', undefined, undefined, 24).catch(err => {
           console.warn(`⚠️ [BrainOrchestrator] Price data failed: ${err.message}`);
+          return null;
+        }),
+        
+        // 4. Order book liquidity data
+        coinAPIWebSocket.getOrderBook(`BINANCE_SPOT_${primarySymbol}_USDT`).catch(err => {
+          console.warn(`⚠️ [BrainOrchestrator] Order book fetch failed: ${err.message}`);
           return null;
         })
       ]);
@@ -136,8 +154,11 @@ export class BrainOrchestrator {
         };
       }
       
+      // Analyze liquidity from order book
+      const liquidityMetrics = this.analyzeLiquidity(orderBookData, `BINANCE_SPOT_${primarySymbol}_USDT`);
+      
       // Make decision based on all intelligence
-      const decision = this.makeDecision(regimeState, smartFlow, rotation, switchEvent);
+      const decision = this.makeDecision(regimeState, smartFlow, rotation, switchEvent, liquidityMetrics);
       
       // Build insight
       const insight: BrainInsight = {
@@ -152,6 +173,7 @@ export class BrainOrchestrator {
         smartMoney: smartFlow,
         rotation,
         switchEvent,
+        liquidity: liquidityMetrics,
         decision,
         correlations: correlationData?.correlation_matrix || {}
       };
@@ -167,6 +189,7 @@ export class BrainOrchestrator {
         regime: regimeState,
         smartMoney: smartFlow.signal,
         rotation: rotation.status,
+        liquidity: liquidityMetrics?.signal || 'N/A',
         decision: decision.action
       });
       
@@ -256,13 +279,56 @@ export class BrainOrchestrator {
   }
   
   /**
+   * Analyze liquidity from order book data
+   */
+  private analyzeLiquidity(orderBook: any, symbolId: string): LiquidityMetrics | undefined {
+    if (!orderBook || !orderBook.bids || !orderBook.asks) {
+      return undefined;
+    }
+    
+    const liquidityMetrics = coinAPIWebSocket.calculateLiquidityMetrics(symbolId);
+    if (!liquidityMetrics) {
+      return undefined;
+    }
+    
+    const { bidLiquidity, askLiquidity, totalLiquidity, bidAskImbalance, spreadPercentage } = liquidityMetrics;
+    
+    // Determine liquidity signal based on bid/ask imbalance
+    let signal: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
+    let strength: 'weak' | 'medium' | 'strong' = 'weak';
+    
+    const absImbalance = Math.abs(bidAskImbalance);
+    
+    if (bidAskImbalance > 0.3) {
+      signal = 'BULLISH'; // Strong bid pressure
+      strength = bidAskImbalance > 0.6 ? 'strong' : bidAskImbalance > 0.45 ? 'medium' : 'weak';
+    } else if (bidAskImbalance < -0.3) {
+      signal = 'BEARISH'; // Strong ask pressure
+      strength = bidAskImbalance < -0.6 ? 'strong' : bidAskImbalance < -0.45 ? 'medium' : 'weak';
+    }
+    
+    console.log(`💧 [BrainOrchestrator] Liquidity Analysis: signal=${signal}, imbalance=${bidAskImbalance.toFixed(2)}, spread=${spreadPercentage.toFixed(4)}%`);
+    
+    return {
+      bidLiquidity,
+      askLiquidity,
+      totalLiquidity,
+      bidAskImbalance,
+      spreadPercentage,
+      signal,
+      strength
+    };
+  }
+  
+  /**
    * Make trading decision based on all intelligence
    */
   private makeDecision(
     regime: MarketRegime,
     smartMoney: SmartMoneyFlow,
     rotation: RotationPattern,
-    switchEvent: RegimeSwitchEvent
+    switchEvent: RegimeSwitchEvent,
+    liquidity?: LiquidityMetrics
   ): BrainInsight['decision'] {
     const reasoning: string[] = [];
     let action: 'BUY' | 'SELL' | 'HOLD' | 'ROTATE' = 'HOLD';
@@ -303,7 +369,27 @@ export class BrainOrchestrator {
       reasoning.push(`Strategies enabled: ${switchEvent.strategiesEnabled.join(', ')}`);
     }
     
-    // Factor 4: Smart money manipulation
+    // Factor 4: Liquidity-based confirmation
+    if (liquidity) {
+      if (liquidity.signal === 'BULLISH' && action === 'BUY') {
+        confidence += 0.1;
+        reasoning.push(`Liquidity confirms BUY: ${liquidity.bidAskImbalance > 0 ? '+' : ''}${(liquidity.bidAskImbalance * 100).toFixed(1)}% bid pressure`);
+      } else if (liquidity.signal === 'BEARISH' && action === 'SELL') {
+        confidence += 0.1;
+        reasoning.push(`Liquidity confirms SELL: ${(liquidity.bidAskImbalance * 100).toFixed(1)}% ask pressure`);
+      } else if (liquidity.signal !== 'NEUTRAL' && liquidity.signal !== action.replace('HOLD', 'NEUTRAL') as any) {
+        confidence -= 0.05;
+        reasoning.push(`⚠️ Liquidity divergence: ${liquidity.signal} pressure vs ${action} signal`);
+      }
+      
+      // Wide spread = higher risk
+      if (liquidity.spreadPercentage > 0.1) {
+        riskLevel = 'high';
+        reasoning.push(`⚠️ Wide spread (${liquidity.spreadPercentage.toFixed(3)}%) = high slippage risk`);
+      }
+    }
+    
+    // Factor 5: Smart money manipulation
     if (smartMoney.details.manipulation) {
       riskLevel = 'high';
       confidence -= 0.1;
@@ -377,6 +463,15 @@ export class BrainOrchestrator {
     message += `├ Pattern: ${insight.rotation.pattern}\n`;
     message += `├ Status: ${insight.rotation.status}\n`;
     message += `└ Strength: ${insight.rotation.strength}\n\n`;
+    
+    if (insight.liquidity) {
+      message += `*Order Book Liquidity:*\n`;
+      message += `├ Signal: ${insight.liquidity.signal}\n`;
+      message += `├ Bid/Ask Imbalance: ${(insight.liquidity.bidAskImbalance * 100).toFixed(1)}%\n`;
+      message += `├ Spread: ${insight.liquidity.spreadPercentage.toFixed(4)}%\n`;
+      message += `├ Total Liquidity: $${(insight.liquidity.totalLiquidity / 1000).toFixed(1)}K\n`;
+      message += `└ Strength: ${insight.liquidity.strength}\n\n`;
+    }
     
     message += `*Decision:*\n`;
     message += `├ Action: ${insight.decision.action}\n`;
