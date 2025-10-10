@@ -654,6 +654,26 @@ app.use((req, res, next) => {
       }
     })();
     
+    // Initialize CoinAPI WebSocket - Real-time Order Book Streaming (non-blocking)
+    (async () => {
+      try {
+        const { coinAPIWebSocket } = await import("./services/coinapiWebSocket");
+        log("🌐 CoinAPI WebSocket initialized - real-time order book streaming active");
+        
+        // Log connection status after 3 seconds
+        setTimeout(() => {
+          const health = coinAPIWebSocket.getHealth();
+          if (health.wsConnected) {
+            log(`✅ CoinAPI WebSocket connected - ${health.totalMessagesReceived} messages received`);
+          } else {
+            log(`⚠️ CoinAPI WebSocket not connected - reconnecting... (attempt ${health.reconnectAttempts})`);
+          }
+        }, 3000);
+      } catch (error: any) {
+        log(`⚠️ CoinAPI WebSocket init failed: ${error?.message || String(error)}`);
+      }
+    })();
+    
     log(`🚀 Total startup time: ${Date.now() - startTime}ms`);
   });
 })();

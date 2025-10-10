@@ -9,6 +9,7 @@ import rateLimit from 'express-rate-limit';
 import axios from 'axios';
 import { healthMonitor, healthCheckMiddleware, pythonServiceGuard } from '../middleware/healthMonitor';
 import { circuitBreaker } from '../middleware/circuitBreaker';
+import { coinAPIWebSocket } from '../services/coinapiWebSocket';
 
 /**
  * Register all system and monitoring routes
@@ -66,6 +67,73 @@ export function registerSystemRoutes(app: Express): void {
       overall_status: allClosed ? 'all_circuits_closed' : 'some_circuits_open',
       timestamp: new Date().toISOString()
     });
+  });
+
+  // 🌐 CoinAPI WebSocket Health Endpoint
+  app.get('/health/coinapi', (req: Request, res: Response) => {
+    try {
+      const health = coinAPIWebSocket.getHealth();
+      const isHealthy = health.wsConnected || health.restOrderbookOk;
+      
+      res.status(isHealthy ? 200 : 503).json({
+        success: isHealthy,
+        websocket: {
+          connected: health.wsConnected,
+          lastMessageTime: health.lastWsMessageTime,
+          timeSinceLastMessage: health.lastWsMessageTime 
+            ? Date.now() - health.lastWsMessageTime 
+            : null,
+          reconnectAttempts: health.reconnectAttempts,
+          totalMessagesReceived: health.totalMessagesReceived
+        },
+        rest: {
+          operational: health.restOrderbookOk
+        },
+        overall_status: isHealthy ? 'healthy' : 'degraded',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve CoinAPI health status',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // 📊 CoinAPI Order Book Endpoint
+  app.get('/api/orderbook/:symbol', async (req: Request, res: Response) => {
+    try {
+      const { symbol } = req.params;
+      const symbolId = `BINANCE_SPOT_${symbol.toUpperCase()}_USDT`;
+      
+      const orderBook = await coinAPIWebSocket.getOrderBook(symbolId);
+      
+      if (!orderBook) {
+        return res.status(404).json({
+          success: false,
+          error: `Order book not available for ${symbol}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      const liquidityMetrics = coinAPIWebSocket.calculateLiquidityMetrics(symbolId);
+      
+      res.json({
+        success: true,
+        data: {
+          orderBook,
+          liquidityMetrics
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
   });
 
   // Metrics endpoint for monitoring and observability
