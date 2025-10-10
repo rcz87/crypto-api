@@ -51,8 +51,16 @@ class CoinAPIWebSocketService {
   private readonly RECONNECT_DELAY = 5000; // 5 seconds
   private readonly MAX_RECONNECT_ATTEMPTS = 10;
   
+  // Memory leak prevention constants
+  private readonly MAX_SYMBOLS = 100; // Maximum symbols to cache (supports 65+ pairs with headroom)
+  private readonly MAX_AGE_MS = 3600000; // 1 hour stale data threshold
+  private readonly CLEANUP_INTERVAL_MS = 60000; // Cleanup every minute
+  
   // In-memory order book storage
   private orderBooks = new Map<string, OrderBookSnapshot>();
+  
+  // Track actively subscribed symbols to prevent eviction
+  private subscribedSymbols = new Set<string>();
   
   // Callback for order book updates
   private updateCallbacks: Array<(update: OrderBookUpdate) => void> = [];
@@ -70,6 +78,11 @@ class CoinAPIWebSocketService {
     setInterval(() => {
       this.healthCheck();
     }, 30000); // Every 30 seconds
+    
+    // Periodic memory cleanup (leak prevention)
+    setInterval(() => {
+      this.cleanupStaleData();
+    }, this.CLEANUP_INTERVAL_MS);
   }
   
   /**
@@ -102,20 +115,25 @@ class CoinAPIWebSocketService {
     
     // Send hello message and subscribe to order book updates
     // Extended symbol list for comprehensive coverage
+    const symbolList = [
+      'BINANCE_SPOT_BTC_USDT',
+      'BINANCE_SPOT_ETH_USDT',
+      'BINANCE_SPOT_SOL_USDT',
+      'BINANCE_SPOT_BNB_USDT',
+      'BINANCE_SPOT_XRP_USDT',
+      'BINANCE_SPOT_DOGE_USDT',
+      'BINANCE_SPOT_AVAX_USDT'
+    ];
+    
     const helloMessage = {
       type: 'hello',
       apikey: this.API_KEY,
       subscribe_data_type: ['book5'], // Subscribe to top 5 levels order book
-      subscribe_filter_symbol_id: [
-        'BINANCE_SPOT_BTC_USDT',
-        'BINANCE_SPOT_ETH_USDT',
-        'BINANCE_SPOT_SOL_USDT',
-        'BINANCE_SPOT_BNB_USDT',
-        'BINANCE_SPOT_XRP_USDT',
-        'BINANCE_SPOT_DOGE_USDT',
-        'BINANCE_SPOT_AVAX_USDT'
-      ]
+      subscribe_filter_symbol_id: symbolList
     };
+    
+    // Track subscribed symbols (prevents cleanup eviction)
+    symbolList.forEach(symbol => this.subscribedSymbols.add(symbol));
     
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(helloMessage));
@@ -227,6 +245,84 @@ class CoinAPIWebSocketService {
     if (this.health.wsConnected && timeSinceLastMessage > 60000) {
       console.warn('⚠️ [CoinAPI-WS] No messages in 60s, forcing reconnect');
       this.ws?.close();
+    }
+  }
+  
+  /**
+   * Cleanup stale order book data to prevent memory leaks
+   * CRITICAL: Subscribed symbols are NEVER evicted regardless of age or size
+   */
+  private cleanupStaleData() {
+    const now = Date.now();
+    let staleCount = 0;
+    let sizeLimitCount = 0;
+    let protectedCount = 0;
+    let skippedProtectedStale = 0;
+    
+    // Memory instrumentation
+    const memUsage = process.memoryUsage();
+    const heapUsedMB = (memUsage.heapUsed / 1024 / 1024).toFixed(2);
+    const heapTotalMB = (memUsage.heapTotal / 1024 / 1024).toFixed(2);
+    const heapPercent = ((memUsage.heapUsed / memUsage.heapTotal) * 100).toFixed(1);
+    
+    // 1. Remove stale data (older than MAX_AGE_MS)
+    // PROTECTION: Subscribed symbols are NEVER deleted due to age
+    for (const [symbol, snapshot] of this.orderBooks) {
+      // Skip subscribed symbols ALWAYS (double protection)
+      if (this.subscribedSymbols.has(symbol)) {
+        const age = now - new Date(snapshot.time_coinapi).getTime();
+        if (age > this.MAX_AGE_MS) {
+          skippedProtectedStale++;
+        }
+        continue;
+      }
+      
+      // Only delete non-subscribed stale entries
+      const age = now - new Date(snapshot.time_coinapi).getTime();
+      if (age > this.MAX_AGE_MS) {
+        this.orderBooks.delete(symbol);
+        staleCount++;
+      }
+    }
+    
+    // 2. Enforce size limit using LRU
+    // PROTECTION: Subscribed symbols are NEVER deleted for size limits
+    if (this.orderBooks.size > this.MAX_SYMBOLS) {
+      // Sort by timestamp (oldest first), EXCLUDE subscribed symbols
+      const sorted = Array.from(this.orderBooks.entries())
+        .filter(([symbol]) => !this.subscribedSymbols.has(symbol))
+        .sort((a, b) => {
+          const timeA = new Date(a[1].time_coinapi).getTime();
+          const timeB = new Date(b[1].time_coinapi).getTime();
+          return timeA - timeB;
+        });
+      
+      // Remove oldest non-subscribed entries to stay within limit
+      const excessCount = this.orderBooks.size - this.MAX_SYMBOLS;
+      const toDelete = sorted.slice(0, Math.min(excessCount, sorted.length));
+      toDelete.forEach(([symbol]) => {
+        this.orderBooks.delete(symbol);
+        sizeLimitCount++;
+      });
+    }
+    
+    // Count protected symbols
+    for (const symbol of this.subscribedSymbols) {
+      if (this.orderBooks.has(symbol)) {
+        protectedCount++;
+      }
+    }
+    
+    // Log cleanup activity with enhanced metrics (always log during investigation)
+    const shouldLog = staleCount > 0 || sizeLimitCount > 0 || skippedProtectedStale > 0 || 
+                      this.health.totalMessagesReceived % 500 === 0; // Log every 500 msgs during investigation
+    
+    if (shouldLog) {
+      console.log(`🧹 [CoinAPI-WS] Cleanup: ` +
+        `removed ${staleCount} stale + ${sizeLimitCount} over-limit. ` +
+        `Cache: ${this.orderBooks.size} (${protectedCount}/${this.subscribedSymbols.size} protected${skippedProtectedStale > 0 ? `, ${skippedProtectedStale} stale-but-protected` : ''}). ` +
+        `Heap: ${heapUsedMB}/${heapTotalMB}MB (${heapPercent}%)`
+      );
     }
   }
   
