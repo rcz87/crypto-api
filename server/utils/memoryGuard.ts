@@ -54,25 +54,24 @@ export class MemoryGuard {
       fs.writeFileSync(this.logFile, `[${new Date().toISOString()}] MemoryGuard SRE-Grade initialized\n`);
     }
 
-    // Initialize Prometheus metrics
-    this.gaugeHeapUsed = new client.Gauge({ 
-      name: "memoryguard_heap_used_mb", 
-      help: "Heap used in MB" 
-    });
-    this.gaugeHeapTotal = new client.Gauge({ 
-      name: "memoryguard_heap_total_mb", 
-      help: "Heap total in MB" 
-    });
-    this.gaugeRSS = new client.Gauge({ 
-      name: "memoryguard_rss_mb", 
-      help: "RSS memory in MB" 
-    });
-    this.gaugeHeapPercent = new client.Gauge({ 
-      name: "memoryguard_heap_percent", 
-      help: "Heap usage percentage" 
-    });
+    // Initialize Prometheus metrics (reuse existing or create new - prevents duplicate registration)
+    this.gaugeHeapUsed = this.getOrCreateGauge("memoryguard_heap_used_mb", "Heap used in MB");
+    this.gaugeHeapTotal = this.getOrCreateGauge("memoryguard_heap_total_mb", "Heap total in MB");
+    this.gaugeRSS = this.getOrCreateGauge("memoryguard_rss_mb", "RSS memory in MB");
+    this.gaugeHeapPercent = this.getOrCreateGauge("memoryguard_heap_percent", "Heap usage percentage");
 
     console.log("📊 MemoryGuard: Prometheus metrics registered (SRE-grade)");
+  }
+
+  /**
+   * Get existing metric or create new one (prevents duplicate registration on hot-reload)
+   */
+  private getOrCreateGauge(name: string, help: string): client.Gauge {
+    const existing = client.register.getSingleMetric(name);
+    if (existing && existing instanceof client.Gauge) {
+      return existing as client.Gauge;
+    }
+    return new client.Gauge({ name, help });
   }
 
   public startMonitoring() {

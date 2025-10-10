@@ -86,6 +86,21 @@ export function registerSystemRoutes(app: Express): void {
     }
   });
 
+  // Prometheus metrics endpoint for Grafana/monitoring (SRE-grade)
+  app.get('/metrics/prometheus', async (req: Request, res: Response) => {
+    try {
+      const client = await import('prom-client');
+      res.set('Content-Type', client.register.contentType);
+      res.end(await client.register.metrics());
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve Prometheus metrics',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // 🔧 FIX #2: Enhanced health endpoint with commit field (build verification)
   app.get('/health', async (req: Request, res: Response) => {
     try {
