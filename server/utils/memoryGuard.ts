@@ -16,6 +16,7 @@ import client from "prom-client";
 import { sendTelegram } from "../observability/telegram.js";
 import { cacheRegistry } from "./smartCacheManager.js";
 import { memoryProfiler } from "./memoryProfiler.js";
+import { componentMemoryTracker } from "./componentMemoryTracker.js";
 
 interface MemoryStats {
   heapUsedMB: number;
@@ -121,6 +122,9 @@ export class MemoryGuard {
     this.gaugeHeapTotal.set(heapTotalMB);
     this.gaugeRSS.set(rssMB);
     this.gaugeHeapPercent.set(heapPercent);
+    
+    // MEMORY LEAK ANALYSIS: Take component snapshot for tracking
+    componentMemoryTracker.takeSnapshot();
 
     // Adaptive sampling based on heap usage (adjusted for lower thresholds)
     if (heapPercent > 75 && this.checkInterval !== 10 * 1000) {
@@ -205,19 +209,31 @@ export class MemoryGuard {
       this.triggerGC("aggressive");
       this.smartCacheEviction("aggressive");
       
-      // Critical alert with profiler data
+      // Critical alert with profiler data + component leak analysis
       if (now - this.lastAlert > this.alertCooldown) {
         const profilerReport = memoryProfiler.getProfilingReport();
-        await sendTelegram(
-          `🚨 <b>MemoryGuard Critical (v3 Enhanced)</b>\n\n` +
+        const leakAnalysis = componentMemoryTracker.analyzeLeakTrend();
+        
+        let alertMsg = `🚨 <b>MemoryGuard Critical (v3 Enhanced)</b>\n\n` +
           `📊 Heap: ${stats.heapUsedMB}/${stats.heapTotalMB} MB (${heap}%)\n` +
           `💾 RSS: ${stats.rssMB} MB\n` +
           `🔧 Action: Aggressive GC + cache eviction\n` +
           `📈 Growth: ${profilerReport.trend_analysis.avgGrowthRate.toFixed(2)} MB/min (${profilerReport.trend_analysis.growthPattern})\n` +
           `🔍 Leak Probability: ${profilerReport.trend_analysis.leakProbability.toFixed(1)}%\n` +
-          `⏱️ Uptime: ${Math.floor(uptime / 1000 / 60)}m\n\n` +
-          `⚠️ Restart trigger at 85% (safer threshold with buffer)`
-        );
+          `⏱️ Uptime: ${Math.floor(uptime / 1000 / 60)}m\n\n`;
+        
+        // Add component leak analysis if available
+        if (leakAnalysis.suspectedLeaks.length > 0) {
+          alertMsg += `🔬 <b>Suspected Leak Sources:</b>\n`;
+          leakAnalysis.suspectedLeaks.slice(0, 3).forEach(component => {
+            alertMsg += `  • ${component}\n`;
+          });
+          alertMsg += `\n`;
+        }
+        
+        alertMsg += `⚠️ Restart trigger at 85% (safer threshold with buffer)`;
+        
+        await sendTelegram(alertMsg);
         this.lastAlert = now;
       }
     } else if (heap > 85) {

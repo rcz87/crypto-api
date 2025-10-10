@@ -3843,6 +3843,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 🔬 Component Memory Analysis Endpoint (LEAK INVESTIGATION)
+  app.get('/api/debug/memory/components', async (req: Request, res: Response) => {
+    try {
+      const { componentMemoryTracker } = await import('./utils/componentMemoryTracker');
+      
+      const summary = componentMemoryTracker.getSummaryReport();
+      const currentSnapshot = componentMemoryTracker.getCurrentSnapshot();
+      const allSnapshots = componentMemoryTracker.getAllSnapshots();
+      const leakAnalysis = componentMemoryTracker.analyzeLeakTrend();
+      
+      res.json({
+        success: true,
+        data: {
+          summary_text: summary,
+          current_snapshot: currentSnapshot,
+          snapshot_count: allSnapshots.length,
+          leak_analysis: leakAnalysis,
+          recommendations: leakAnalysis.recommendations
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get component memory analysis',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
 
   // Start Enhanced AI Signal Engine schedulers for strategy evolution
   aiSignalEngine.startSchedulers();

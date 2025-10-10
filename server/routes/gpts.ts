@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from 'express';
 import axios from 'axios';
 import { normalizePerp } from '../utils/symbols.js';
+import { componentMemoryTracker } from '../utils/componentMemoryTracker.js';
 import { getWhaleAlerts } from '../clients/whaleAlerts.js';
 import { getMarketSentiment } from '../clients/marketSentiment.js';
 import { screenerService } from '../modules/screener/screener.service.js';
@@ -350,6 +351,13 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
       // If Python service succeeds, check JSON response
       if (response.status === 200) {
         const data = response.data as any;
+        
+        // MEMORY TRACKING: Register Python bridge response for leak analysis
+        componentMemoryTracker.registerData('python_bridge_data', {
+          op: req.body.op || req.body.ops?.[0]?.op,
+          responseSize: JSON.stringify(data).length,
+          timestamp: Date.now()
+        });
         
         // If Python service returns ok: false for supported operations, use Node.js fallback
         const supportedOps = ['whale_alerts', 'market_sentiment', 'multi_coin_screening', 'new_listings', 'volume_spikes', 'opportunities', 'alpha_screening', 'micro_caps'];

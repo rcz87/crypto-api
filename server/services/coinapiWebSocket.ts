@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import axios from 'axios';
+import { componentMemoryTracker } from '../utils/componentMemoryTracker.js';
 
 // Health status tracking
 export interface CoinAPIWebSocketHealth {
@@ -160,6 +161,14 @@ class CoinAPIWebSocketService {
       this.health.lastWsMessageTime = Date.now();
       this.health.lastWsMessage = message;
       this.health.totalMessagesReceived++;
+      
+      // MEMORY TRACKING: Register WebSocket message for leak analysis
+      componentMemoryTracker.registerData('coinapi_ws_messages', {
+        type: message.type,
+        symbol: message.symbol_id,
+        timestamp: Date.now(),
+        size: data.toString().length
+      });
       
       // Handle different message types
       if (message.type === 'book' || message.type === 'book5' || message.type === 'book20') {
