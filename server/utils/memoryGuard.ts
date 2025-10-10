@@ -1,10 +1,11 @@
 /**
  * 🧠 MemoryGuard.ts
- * Autonomous Memory Management System
- * Integrated with Telegram alerts for proactive monitoring
+ * SRE-Grade Autonomous Memory Management System
+ * Features: Prometheus metrics, Adaptive sampling, Telegram trend summary
  */
 
 import fs from "fs";
+import client from "prom-client";
 import { sendTelegram } from "../observability/telegram.js";
 
 interface MemoryStats {
@@ -16,33 +17,86 @@ interface MemoryStats {
   lastRestart?: string;
 }
 
+interface HourlyTrend {
+  hour: string;
+  avgHeapMB: number;
+  avgRssMB: number;
+  avgHeapPercent: number;
+  samples: number;
+}
+
 export class MemoryGuard {
   private interval: NodeJS.Timeout | null = null;
+  private hourlyInterval: NodeJS.Timeout | null = null;
   private lastRestart = 0;
   private lastGC = 0;
   private lastAlert = 0;
   private logFile = "/tmp/memory-guard.log";
   private restartCooldown = 60 * 1000; // 1 min minimum between restarts
   private alertCooldown = 5 * 60 * 1000; // 5 min between alerts
+  
+  // Adaptive sampling variables
+  private baseInterval = 30 * 1000; // 30s base
+  private checkInterval = 30 * 1000; // Dynamic interval
+  
+  // Hourly trend tracking
+  private hourlyStats: MemoryStats[] = [];
+  
+  // Prometheus Gauges for SRE-grade metrics
+  private gaugeHeapUsed: client.Gauge;
+  private gaugeHeapTotal: client.Gauge;
+  private gaugeRSS: client.Gauge;
+  private gaugeHeapPercent: client.Gauge;
 
-  constructor(private checkInterval = 30 * 1000) {
+  constructor() {
     // Ensure log file exists
     if (!fs.existsSync(this.logFile)) {
-      fs.writeFileSync(this.logFile, `[${new Date().toISOString()}] MemoryGuard initialized\n`);
+      fs.writeFileSync(this.logFile, `[${new Date().toISOString()}] MemoryGuard SRE-Grade initialized\n`);
     }
+
+    // Initialize Prometheus metrics
+    this.gaugeHeapUsed = new client.Gauge({ 
+      name: "memoryguard_heap_used_mb", 
+      help: "Heap used in MB" 
+    });
+    this.gaugeHeapTotal = new client.Gauge({ 
+      name: "memoryguard_heap_total_mb", 
+      help: "Heap total in MB" 
+    });
+    this.gaugeRSS = new client.Gauge({ 
+      name: "memoryguard_rss_mb", 
+      help: "RSS memory in MB" 
+    });
+    this.gaugeHeapPercent = new client.Gauge({ 
+      name: "memoryguard_heap_percent", 
+      help: "Heap usage percentage" 
+    });
+
+    console.log("📊 MemoryGuard: Prometheus metrics registered (SRE-grade)");
   }
 
   public startMonitoring() {
-    console.log("🧠 MemoryGuard: Monitoring started (interval 30s)");
+    console.log(`🧠 MemoryGuard: SRE-grade monitoring started (adaptive sampling: ${this.checkInterval/1000}s)`);
+    
+    // Start adaptive monitoring
     this.interval = setInterval(() => this.monitor(), this.checkInterval);
+    
+    // Start hourly trend summary (every hour)
+    this.hourlyInterval = setInterval(() => this.sendHourlyTrend(), 60 * 60 * 1000);
+    
+    console.log("📈 MemoryGuard: Hourly trend summary enabled");
   }
 
   public stopMonitoring() {
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = null;
-      console.log("🛑 MemoryGuard: Monitoring stopped");
     }
+    if (this.hourlyInterval) {
+      clearInterval(this.hourlyInterval);
+      this.hourlyInterval = null;
+    }
+    console.log("🛑 MemoryGuard: Monitoring stopped");
   }
 
   private async monitor() {
@@ -61,8 +115,20 @@ export class MemoryGuard {
       lastRestart: this.lastRestart ? new Date(this.lastRestart).toISOString() : "Never",
     };
 
+    // Update Prometheus metrics
+    this.updatePrometheusMetrics(stats);
+
+    // Store for hourly trend
+    this.hourlyStats.push(stats);
+    if (this.hourlyStats.length > 120) { // Keep max 2 hours of data
+      this.hourlyStats.shift();
+    }
+
     // Always log memory trends
     this.logMemoryTrend(stats);
+
+    // Adaptive Sampling: Adjust interval based on memory pressure
+    this.adjustSamplingInterval(heapPercent);
 
     // Memory management based on thresholds
     if (heapPercent > 85 && heapPercent <= 90) {
@@ -81,6 +147,76 @@ export class MemoryGuard {
       }
     } else if (heapPercent > 95) {
       await this.gracefulRestart(stats);
+    }
+  }
+
+  private updatePrometheusMetrics(stats: MemoryStats) {
+    this.gaugeHeapUsed.set(stats.heapUsedMB);
+    this.gaugeHeapTotal.set(stats.heapTotalMB);
+    this.gaugeRSS.set(stats.rssMB);
+    this.gaugeHeapPercent.set(stats.heapPercent);
+  }
+
+  private adjustSamplingInterval(heapPercent: number) {
+    let newInterval = this.baseInterval;
+
+    // Adaptive logic: faster sampling when critical
+    if (heapPercent > 90) {
+      newInterval = 10 * 1000; // 10s when critical
+    } else if (heapPercent > 85) {
+      newInterval = 20 * 1000; // 20s when warning
+    } else if (heapPercent < 75) {
+      newInterval = 60 * 1000; // 60s when healthy
+    }
+
+    // Only update if interval changed
+    if (newInterval !== this.checkInterval) {
+      this.checkInterval = newInterval;
+      
+      // Restart interval with new timing
+      if (this.interval) {
+        clearInterval(this.interval);
+        this.interval = setInterval(() => this.monitor(), this.checkInterval);
+        console.log(`🔄 MemoryGuard: Adaptive sampling adjusted to ${newInterval/1000}s (heap: ${heapPercent}%)`);
+      }
+    }
+  }
+
+  private async sendHourlyTrend() {
+    if (this.hourlyStats.length === 0) return;
+
+    // Calculate hourly averages
+    const avgHeapMB = +(this.hourlyStats.reduce((sum, s) => sum + s.heapUsedMB, 0) / this.hourlyStats.length).toFixed(1);
+    const avgRssMB = +(this.hourlyStats.reduce((sum, s) => sum + s.rssMB, 0) / this.hourlyStats.length).toFixed(1);
+    const avgHeapPercent = +(this.hourlyStats.reduce((sum, s) => sum + s.heapPercent, 0) / this.hourlyStats.length).toFixed(1);
+    const maxHeapPercent = Math.max(...this.hourlyStats.map(s => s.heapPercent));
+    const minHeapPercent = Math.min(...this.hourlyStats.map(s => s.heapPercent));
+
+    const trend: HourlyTrend = {
+      hour: new Date().toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      avgHeapMB,
+      avgRssMB,
+      avgHeapPercent,
+      samples: this.hourlyStats.length
+    };
+
+    const message = 
+      `📊 <b>Hourly Memory Trend Summary</b>\n\n` +
+      `🕐 Period: ${trend.hour}\n` +
+      `📈 Avg Heap: ${avgHeapPercent}% (${avgHeapMB} MB)\n` +
+      `📉 Range: ${minHeapPercent}% - ${maxHeapPercent}%\n` +
+      `💾 Avg RSS: ${avgRssMB} MB\n` +
+      `🔬 Samples: ${trend.samples}\n\n` +
+      `<i>SRE-grade observability • Auto-generated hourly</i>`;
+
+    try {
+      await sendTelegram(message);
+      console.log(`✅ MemoryGuard: Hourly trend summary sent (avg: ${avgHeapPercent}%)`);
+      
+      // Reset hourly stats
+      this.hourlyStats = [];
+    } catch (error: any) {
+      console.error(`❌ MemoryGuard: Failed to send hourly trend:`, error?.message);
     }
   }
 
@@ -162,8 +298,9 @@ export class MemoryGuard {
       `💾 Memory: ${stats.heapUsedMB}/${stats.heapTotalMB} MB\n` +
       `📈 RSS: ${stats.rssMB} MB\n` +
       `⚙️ Action: ${action}\n` +
+      `🔬 Sampling: ${this.checkInterval/1000}s (adaptive)\n` +
       `🕐 Time: ${new Date().toLocaleString()}\n\n` +
-      `<i>MemoryGuard auto-managing system resources</i>`;
+      `<i>SRE-grade MemoryGuard auto-managing resources</i>`;
 
     try {
       await sendTelegram(message);
@@ -174,7 +311,7 @@ export class MemoryGuard {
   }
 
   private logMemoryTrend(stats: MemoryStats) {
-    const msg = `[${new Date().toISOString()}] Heap ${stats.heapUsedMB}/${stats.heapTotalMB} MB (${stats.heapPercent}%), RSS ${stats.rssMB} MB\n`;
+    const msg = `[${new Date().toISOString()}] Heap ${stats.heapUsedMB}/${stats.heapTotalMB} MB (${stats.heapPercent}%), RSS ${stats.rssMB} MB, Interval ${this.checkInterval/1000}s\n`;
     try {
       fs.appendFileSync(this.logFile, msg);
     } catch (err) {
