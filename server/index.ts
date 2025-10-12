@@ -1,6 +1,40 @@
 // Set TensorFlow quiet mode to reduce log noise
 process.env.TF_CPP_MIN_LOG_LEVEL = '2';
 
+// 🔧 TASK 7: NODE_OPTIONS Startup Validation
+const requiredNodeOptions = ['--expose-gc', '--max-old-space-size'];
+const currentOptions = process.env.NODE_OPTIONS || '';
+
+const missingOptions: string[] = [];
+if (!currentOptions.includes('--expose-gc')) {
+  missingOptions.push('--expose-gc (enables manual GC)');
+}
+if (!currentOptions.includes('--max-old-space-size')) {
+  missingOptions.push('--max-old-space-size=256 (increases heap to 256MB)');
+}
+
+if (missingOptions.length > 0) {
+  console.error('\n❌ CRITICAL: NODE_OPTIONS not properly configured!\n');
+  console.error('Missing required flags:');
+  missingOptions.forEach(opt => console.error(`  - ${opt}`));
+  console.error('\n📖 SETUP INSTRUCTIONS:');
+  console.error('   Option 1 (Recommended): Set via Replit Secrets');
+  console.error('     1. Open Replit Settings → Secrets');
+  console.error('     2. Add new secret:');
+  console.error('        Key: NODE_OPTIONS');
+  console.error('        Value: --expose-gc --max-old-space-size=256');
+  console.error('     3. Restart the Repl\n');
+  console.error('   Option 2: Use startup script');
+  console.error('     chmod +x START_WITH_INCREASED_HEAP.sh');
+  console.error('     ./START_WITH_INCREASED_HEAP.sh\n');
+  console.error('📄 See SETUP_NODE_OPTIONS.md for detailed instructions\n');
+  console.error('⚠️  Continuing without these flags will result in:');
+  console.error('   - Manual GC unavailable (memory leaks cannot be mitigated)');
+  console.error('   - Heap limited to 57MB (will crash at 95% usage)');
+  console.error('   - /api/debug/gc endpoint non-functional\n');
+  console.error('▶️  Starting anyway... Fix this ASAP to prevent memory crashes!\n');
+}
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -317,6 +351,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Start Python service as managed child process
+let pythonProcessGlobal: any = null;
+
 const startPythonService = () => {
   log("Starting CoinGlass Python service...");
   
@@ -387,70 +423,128 @@ const startPythonService = () => {
       log(`⚠️ CoinGlass Python service not responding - proxy will return 502 errors`);
     }
   });
-
-  // 🔧 MEMORY LEAK FIX: Comprehensive cleanup on shutdown
-  const shutdownHandlers = {
-    pythonProcess,
-    cleanupExecuted: false
-  };
   
-  const performCleanup = async () => {
-    if (shutdownHandlers.cleanupExecuted) return;
-    shutdownHandlers.cleanupExecuted = true;
-    
-    console.log('🧹 [Shutdown] Performing comprehensive cleanup...');
-    
-    // 1. Kill Python process
-    if (shutdownHandlers.pythonProcess) {
-      shutdownHandlers.pythonProcess.kill();
-    }
-    
-    // 2. Stop MemoryGuard monitoring
+  pythonProcessGlobal = pythonProcess;
+  return pythonProcess;
+};
+
+// 🔧 TASK 2: Graceful Shutdown Handler - Comprehensive cleanup with timeout
+let isShuttingDown = false;
+let httpServerGlobal: any = null; // Will be set after app.listen()
+
+const gracefulShutdown = async (signal: string) => {
+  if (isShuttingDown) {
+    console.log('⚠️ [Shutdown] Already shutting down, ignoring signal:', signal);
+    return;
+  }
+  
+  isShuttingDown = true;
+  console.log(`🛑 [Shutdown] Received ${signal}, initiating graceful shutdown...`);
+  
+  // Set 10-second overall timeout
+  const shutdownTimeout = setTimeout(() => {
+    console.error('❌ [Shutdown] Timeout exceeded (10s), forcing exit');
+    process.exit(1);
+  }, 10000);
+  
+  try {
+    // 1. Stop MemoryGuard monitoring
     try {
       const { memoryGuard } = await import('./utils/memoryGuard.js');
       memoryGuard.stopMonitoring();
+      console.log('✅ [Shutdown] MemoryGuard stopped');
     } catch (err) {
-      console.error('Cleanup error (memoryGuard):', err);
+      console.error('⚠️ [Shutdown] MemoryGuard cleanup error:', err);
     }
     
-    // 3. Cleanup OKX service
-    try {
-      const { okxService } = await import('./services/okx.js');
-      okxService.cleanup();
-    } catch (err) {
-      console.error('Cleanup error (okxService):', err);
+    // 2. Close HTTP server
+    if (httpServerGlobal) {
+      await new Promise<void>((resolve, reject) => {
+        httpServerGlobal.close((err: Error | undefined) => {
+          if (err) {
+            console.error('⚠️ [Shutdown] HTTP server close error:', err);
+            reject(err);
+          } else {
+            console.log('✅ [Shutdown] HTTP server closed');
+            resolve();
+          }
+        });
+        // Force close after 3 seconds
+        setTimeout(() => resolve(), 3000);
+      });
     }
     
-    // 4. Shutdown CoinAPI WebSocket
+    // 3. Cleanup CoinAPI WebSocket (use destroy() method)
     try {
       const { coinAPIWebSocket } = await import('./services/coinapiWebSocket.js');
-      coinAPIWebSocket.shutdown();
+      coinAPIWebSocket.destroy();
+      console.log('✅ [Shutdown] CoinAPI WebSocket destroyed');
     } catch (err) {
-      console.error('Cleanup error (coinAPIWebSocket):', err);
+      console.error('⚠️ [Shutdown] CoinAPI cleanup error:', err);
     }
     
-    console.log('✅ [Shutdown] Cleanup complete');
-  };
-  
-  process.on('SIGTERM', async () => {
-    await performCleanup();
-    process.exit(0);
-  });
-  
-  process.on('SIGINT', async () => {
-    await performCleanup();
-    process.exit(0);
-  });
-  
-  process.on('exit', () => {
-    if (!shutdownHandlers.cleanupExecuted) {
-      console.log('⚠️ [Shutdown] Emergency exit - minimal cleanup');
-      shutdownHandlers.pythonProcess?.kill();
+    // 4. Cleanup OKX service
+    try {
+      const { okxService } = await import('./services/okx.js');
+      if (okxService?.cleanup) {
+        okxService.cleanup();
+        console.log('✅ [Shutdown] OKX service cleaned up');
+      }
+    } catch (err) {
+      console.error('⚠️ [Shutdown] OKX cleanup error:', err);
     }
-  });
-  
-  return pythonProcess;
+    
+    // 5. Kill Python process (SIGTERM with 2s timeout, then SIGKILL)
+    if (pythonProcessGlobal) {
+      pythonProcessGlobal.kill('SIGTERM');
+      console.log('📤 [Shutdown] Sent SIGTERM to Python process');
+      
+      await new Promise<void>((resolve) => {
+        const killTimeout = setTimeout(() => {
+          if (pythonProcessGlobal && !pythonProcessGlobal.killed) {
+            pythonProcessGlobal.kill('SIGKILL');
+            console.log('💀 [Shutdown] Sent SIGKILL to Python process (SIGTERM timeout)');
+          }
+          resolve();
+        }, 2000);
+        
+        pythonProcessGlobal.on('exit', () => {
+          clearTimeout(killTimeout);
+          console.log('✅ [Shutdown] Python process terminated');
+          resolve();
+        });
+      });
+    }
+    
+    // 6. Force garbage collection if available
+    if (global.gc) {
+      global.gc();
+      console.log('🗑️ [Shutdown] Manual GC triggered');
+    }
+    
+    clearTimeout(shutdownTimeout);
+    console.log('✅ [Shutdown] Graceful shutdown complete');
+    process.exit(0);
+    
+  } catch (error) {
+    console.error('❌ [Shutdown] Error during shutdown:', error);
+    clearTimeout(shutdownTimeout);
+    process.exit(1);
+  }
 };
+
+// Register comprehensive shutdown handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGQUIT', () => gracefulShutdown('SIGQUIT'));
+process.on('uncaughtException', (err) => {
+  console.error('💥 [Shutdown] Uncaught Exception:', err);
+  gracefulShutdown('uncaughtException');
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('💥 [Shutdown] Unhandled Rejection:', reason);
+  gracefulShutdown('unhandledRejection');
+});
 
 // Python service will be started AFTER app.listen() to prevent blocking startup
 
@@ -551,6 +645,9 @@ app.use((req, res, next) => {
   });
 
   const server = await registerRoutes(app);
+  
+  // Set global server reference for graceful shutdown
+  httpServerGlobal = server;
 
   // 🔄 Backward compatibility aliases
   
@@ -610,6 +707,67 @@ app.use((req, res, next) => {
   // Memory monitoring endpoint
   app.get('/health/memory', memoryMonitor);
 
+  // 🔧 TASK 6: Memory Debug Endpoints
+  app.get('/api/debug/memory', (req, res) => {
+    const usage = process.memoryUsage();
+    const heapUsedMB = usage.heapUsed / 1024 / 1024;
+    const heapTotalMB = usage.heapTotal / 1024 / 1024;
+    const heapPercent = (heapUsedMB / heapTotalMB) * 100;
+    const rssMB = usage.rss / 1024 / 1024;
+    const externalMB = usage.external / 1024 / 1024;
+    const arrayBuffersMB = usage.arrayBuffers / 1024 / 1024;
+    const uptimeMinutes = Math.floor(process.uptime() / 60);
+    
+    res.json({
+      success: true,
+      memory: {
+        heap: {
+          used: heapUsedMB.toFixed(2) + ' MB',
+          total: heapTotalMB.toFixed(2) + ' MB',
+          percent: heapPercent.toFixed(1) + '%'
+        },
+        rss: rssMB.toFixed(2) + ' MB',
+        external: externalMB.toFixed(2) + ' MB',
+        arrayBuffers: arrayBuffersMB.toFixed(2) + ' MB'
+      },
+      uptime: {
+        minutes: uptimeMinutes,
+        formatted: `${Math.floor(uptimeMinutes / 60)}h ${uptimeMinutes % 60}m`
+      },
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  app.post('/api/debug/gc', (req, res) => {
+    if (!global.gc) {
+      return res.status(503).json({
+        success: false,
+        error: 'Manual GC not available',
+        hint: 'Start Node.js with --expose-gc flag'
+      });
+    }
+
+    const before = process.memoryUsage();
+    const beforeHeapMB = before.heapUsed / 1024 / 1024;
+
+    global.gc();
+
+    const after = process.memoryUsage();
+    const afterHeapMB = after.heapUsed / 1024 / 1024;
+    const freedMB = beforeHeapMB - afterHeapMB;
+
+    res.json({
+      success: true,
+      result: {
+        before: beforeHeapMB.toFixed(2) + ' MB',
+        after: afterHeapMB.toFixed(2) + ' MB',
+        freed: freedMB.toFixed(2) + ' MB',
+        freedPercent: ((freedMB / beforeHeapMB) * 100).toFixed(1) + '%'
+      },
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
@@ -655,12 +813,20 @@ app.use((req, res, next) => {
       log(`❌ Python service start error: ${error?.message || String(error)}`);
     }
     
-    // Initialize observability system (non-blocking)
+    // 🔧 TASK 5: Conditional OpenTelemetry (~15MB saved when disabled)
     (async () => {
+      const ENABLE_TELEMETRY = process.env.ENABLE_TELEMETRY === 'true';
+      
+      if (!ENABLE_TELEMETRY) {
+        log("⚠️ OpenTelemetry DISABLED (set ENABLE_TELEMETRY=true to enable)");
+        log("💾 Memory saved: ~15MB (tracing overhead)");
+        return;
+      }
+      
       try {
         const { initObservability } = await import("../screening-module/backend/observability");
         initObservability(app);
-        log("✅ Observability system initialized");
+        log("✅ Observability system initialized (OpenTelemetry enabled)");
       } catch (error: any) {
         log(`⚠️ Observability init failed: ${error?.message || String(error)}`);
       }

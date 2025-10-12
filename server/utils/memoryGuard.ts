@@ -39,6 +39,10 @@ export class MemoryGuard {
   private gracePeriod = 2 * 60 * 1000; // 2 minutes warm-up grace period (REDUCED from 5min - memory leak fix)
   private startTime = Date.now();
   
+  // 🔧 TASK 3: Grace period tracking for critical threshold
+  private inGracePeriod = false;
+  private gracePeriodStart = 0;
+  
   // Adaptive sampling
   private baseInterval = 30 * 1000; // 30s base
   private checkInterval = 30 * 1000; // Dynamic interval
@@ -188,39 +192,66 @@ export class MemoryGuard {
       return;
     }
 
-    // Enhanced threshold-based actions (SAFER: 70-80% warning, 80-85% critical, >85% restart)
-    if (heap > 70 && heap <= 80) {
+    // 🔧 TASK 3: Fixed thresholds per spec (70% warning, 85% critical, 75% recovery)
+    const WARNING_THRESHOLD = 70;
+    const CRITICAL_THRESHOLD = 85;
+    const RECOVERY_THRESHOLD = 75;
+    
+    // Recovery: heap dropped below recovery threshold
+    if (this.inGracePeriod && heap < RECOVERY_THRESHOLD) {
+      this.inGracePeriod = false;
+      this.log(`✅ Memory recovered below ${RECOVERY_THRESHOLD}% - grace period cleared`);
+    }
+    
+    // Warning: 70%+ → trigger GC
+    if (heap > WARNING_THRESHOLD && heap <= CRITICAL_THRESHOLD) {
       this.triggerGC("soft");
       this.smartCacheEviction("light");
       
-      // Alert only once per cooldown
-      if (now - this.lastAlert > this.alertCooldown) {
+      // Log memory status every 60 seconds
+      if (now - this.lastAlert > 60000) {
         const profilerReport = memoryProfiler.getProfilingReport();
-        await sendTelegram(
-          `⚠️ <b>MemoryGuard Warning (v3 Enhanced)</b>\n\n` +
-          `📊 Heap: ${stats.heapUsedMB}/${stats.heapTotalMB} MB (${heap}%)\n` +
-          `🔧 Action: Soft GC + light cache eviction\n` +
-          `📈 Growth Rate: ${profilerReport.trend_analysis.avgGrowthRate.toFixed(2)} MB/min\n` +
-          `⏱️ Uptime: ${Math.floor(uptime / 1000 / 60)}m`
-        );
-        this.lastAlert = now;
+        this.log(`⚠️ Memory Warning: ${heap}% heap (${stats.heapUsedMB}/${stats.heapTotalMB} MB)`);
+        
+        // Telegram alert only for sustained high usage
+        if (heap > 80 && now - this.lastAlert > this.alertCooldown) {
+          await sendTelegram(
+            `⚠️ <b>MemoryGuard Warning</b>\n\n` +
+            `📊 Heap: ${stats.heapUsedMB}/${stats.heapTotalMB} MB (${heap}%)\n` +
+            `🔧 Action: Soft GC + light cache eviction\n` +
+            `📈 Growth Rate: ${profilerReport.trend_analysis.avgGrowthRate.toFixed(2)} MB/min\n` +
+            `⏱️ Uptime: ${Math.floor(uptime / 1000 / 60)}m`
+          );
+          this.lastAlert = now;
+        }
       }
-    } else if (heap > 80 && heap <= 85) {
+    }
+    
+    // Critical: 85%+ → enter grace period, then restart if not recovered
+    if (heap > CRITICAL_THRESHOLD) {
       this.triggerGC("aggressive");
       this.smartCacheEviction("aggressive");
       
-      // Critical alert with profiler data + component leak analysis
+      if (!this.inGracePeriod) {
+        this.inGracePeriod = true;
+        this.gracePeriodStart = now;
+        this.log(`🚨 Critical memory (${heap}%) - entering grace period`);
+      }
+      
+      const graceElapsed = now - this.gracePeriodStart;
+      const graceRemaining = Math.max(0, this.gracePeriod - graceElapsed);
+      
+      // Alert with profiler data + component leak analysis
       if (now - this.lastAlert > this.alertCooldown) {
         const profilerReport = memoryProfiler.getProfilingReport();
         const leakAnalysis = componentMemoryTracker.analyzeLeakTrend();
         
-        let alertMsg = `🚨 <b>MemoryGuard Critical (v3 Enhanced)</b>\n\n` +
+        let alertMsg = `🚨 <b>MemoryGuard Critical</b>\n\n` +
           `📊 Heap: ${stats.heapUsedMB}/${stats.heapTotalMB} MB (${heap}%)\n` +
           `💾 RSS: ${stats.rssMB} MB\n` +
           `🔧 Action: Aggressive GC + cache eviction\n` +
           `📈 Growth: ${profilerReport.trend_analysis.avgGrowthRate.toFixed(2)} MB/min (${profilerReport.trend_analysis.growthPattern})\n` +
-          `🔍 Leak Probability: ${profilerReport.trend_analysis.leakProbability.toFixed(1)}%\n` +
-          `⏱️ Uptime: ${Math.floor(uptime / 1000 / 60)}m\n\n`;
+          `⏱️ Grace period: ${Math.ceil(graceRemaining / 1000)}s remaining\n\n`;
         
         // Add component leak analysis if available
         if (leakAnalysis.suspectedLeaks.length > 0) {
@@ -231,15 +262,17 @@ export class MemoryGuard {
           alertMsg += `\n`;
         }
         
-        alertMsg += `⚠️ Restart trigger at 85% (safer threshold with buffer)`;
+        alertMsg += `⚠️ Will restart if not recovered below ${RECOVERY_THRESHOLD}% within grace period`;
         
         await sendTelegram(alertMsg);
         this.lastAlert = now;
       }
-    } else if (heap > 98) {
-      // TEMPORARY: Raised to 98% to break crash loop (was 85%)
-      // After system stabilizes, will analyze base memory and adjust accordingly
-      await this.gracefulRestart();
+      
+      // Restart if grace period expired and still critical
+      if (graceElapsed > this.gracePeriod) {
+        this.log(`🚨 Grace period expired, memory still at ${heap}% - initiating restart`);
+        await this.gracefulRestart();
+      }
     }
   }
 

@@ -594,8 +594,9 @@ class CoinAPIWebSocketService {
   
   /**
    * 🔧 MEMORY LEAK FIX: Comprehensive cleanup on shutdown
+   * Public destroy() method for graceful cleanup
    */
-  shutdown() {
+  destroy() {
     console.log('🛑 [CoinAPI-WS] Performing comprehensive shutdown...');
     
     // 1. Clear all intervals
@@ -630,7 +631,7 @@ class CoinAPIWebSocketService {
     this.lastSequence.clear();
     this.updateCallbacks = [];
     
-    console.log('✅ [CoinAPI-WS] Shutdown complete');
+    console.log('✅ [CoinAPI-WS] Shutdown complete - all intervals cleared, connections closed');
   }
 }
 
