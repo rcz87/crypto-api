@@ -388,10 +388,66 @@ const startPythonService = () => {
     }
   });
 
-  // Clean shutdown
-  process.on('SIGTERM', () => pythonProcess.kill());
-  process.on('SIGINT', () => pythonProcess.kill());
-  process.on('exit', () => pythonProcess.kill());
+  // 🔧 MEMORY LEAK FIX: Comprehensive cleanup on shutdown
+  const shutdownHandlers = {
+    pythonProcess,
+    cleanupExecuted: false
+  };
+  
+  const performCleanup = async () => {
+    if (shutdownHandlers.cleanupExecuted) return;
+    shutdownHandlers.cleanupExecuted = true;
+    
+    console.log('🧹 [Shutdown] Performing comprehensive cleanup...');
+    
+    // 1. Kill Python process
+    if (shutdownHandlers.pythonProcess) {
+      shutdownHandlers.pythonProcess.kill();
+    }
+    
+    // 2. Stop MemoryGuard monitoring
+    try {
+      const { memoryGuard } = await import('./utils/memoryGuard.js');
+      memoryGuard.stopMonitoring();
+    } catch (err) {
+      console.error('Cleanup error (memoryGuard):', err);
+    }
+    
+    // 3. Cleanup OKX service
+    try {
+      const { okxService } = await import('./services/okx.js');
+      okxService.cleanup();
+    } catch (err) {
+      console.error('Cleanup error (okxService):', err);
+    }
+    
+    // 4. Shutdown CoinAPI WebSocket
+    try {
+      const { coinAPIWebSocket } = await import('./services/coinapiWebSocket.js');
+      coinAPIWebSocket.shutdown();
+    } catch (err) {
+      console.error('Cleanup error (coinAPIWebSocket):', err);
+    }
+    
+    console.log('✅ [Shutdown] Cleanup complete');
+  };
+  
+  process.on('SIGTERM', async () => {
+    await performCleanup();
+    process.exit(0);
+  });
+  
+  process.on('SIGINT', async () => {
+    await performCleanup();
+    process.exit(0);
+  });
+  
+  process.on('exit', () => {
+    if (!shutdownHandlers.cleanupExecuted) {
+      console.log('⚠️ [Shutdown] Emergency exit - minimal cleanup');
+      shutdownHandlers.pythonProcess?.kill();
+    }
+  });
   
   return pythonProcess;
 };

@@ -87,28 +87,31 @@ class CoinAPIWebSocketService {
   // Callback for order book updates
   private updateCallbacks: Array<(update: OrderBookUpdate) => void> = [];
   
+  // 🔧 MEMORY LEAK FIX: Track timers for proper cleanup
+  private healthCheckInterval: NodeJS.Timeout | null = null;
+  private cleanupInterval: NodeJS.Timeout | null = null;
+
   constructor() {
-    // 🚨 MEMORY LEAK FIX: Check if service is disabled
+    // 🚨 MEMORY LEAK FIX: Check if service is disabled - COMPLETE EARLY RETURN
     if (!COINAPI_WS_ENABLED) {
       console.log('⚠️ [CoinAPI-WS] Service DISABLED by COINAPI_WS_ENABLED flag (memory leak isolation)');
-      return;
+      return; // ✅ No timers created if disabled
     }
     
     if (!this.API_KEY) {
       console.error('❌ [CoinAPI-WS] COINAPI_KEY not found in environment');
-      return;
+      return; // ✅ No timers created if no API key
     }
     
     // Auto-start connection
     this.connect();
     
-    // Periodic health check & reconnect
-    setInterval(() => {
+    // 🔧 FIX: Store interval IDs for cleanup
+    this.healthCheckInterval = setInterval(() => {
       this.healthCheck();
-    }, 30000); // Every 30 seconds
+    }, 30000);
     
-    // Periodic memory cleanup (leak prevention)
-    setInterval(() => {
+    this.cleanupInterval = setInterval(() => {
       this.cleanupStaleData();
     }, this.CLEANUP_INTERVAL_MS);
     
@@ -590,14 +593,44 @@ class CoinAPIWebSocketService {
   }
   
   /**
-   * Graceful shutdown
+   * 🔧 MEMORY LEAK FIX: Comprehensive cleanup on shutdown
    */
   shutdown() {
-    console.log('🛑 [CoinAPI-WS] Shutting down WebSocket connection');
+    console.log('🛑 [CoinAPI-WS] Performing comprehensive shutdown...');
+    
+    // 1. Clear all intervals
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = null;
+    }
+    
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    
+    if (this.queueProcessorInterval) {
+      clearInterval(this.queueProcessorInterval);
+      this.queueProcessorInterval = null;
+    }
+    
+    // 2. Clear message queue
+    this.messageQueue = [];
+    
+    // 3. Close WebSocket with cleanup
     if (this.ws) {
+      this.ws.removeAllListeners();
       this.ws.close(1000, 'Graceful shutdown');
       this.ws = null;
     }
+    
+    // 4. Clear all maps and sets
+    this.orderBooks.clear();
+    this.subscribedSymbols.clear();
+    this.lastSequence.clear();
+    this.updateCallbacks = [];
+    
+    console.log('✅ [CoinAPI-WS] Shutdown complete');
   }
 }
 
