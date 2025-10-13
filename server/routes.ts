@@ -88,6 +88,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // System routes (health, metrics, logs) - registered early
   registerSystemRoutes(app);
   
+  // Authentication routes (register, login, API key management)
+  const authRoutes = await import('./routes/auth');
+  app.use('/api/auth', authRoutes.default);
+  
   // Brain Orchestrator routes (intelligence layer insights)
   app.use('/api/brain', brainRoutes);
   
