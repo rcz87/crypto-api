@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { db } from '../db';
 import { users, apiKeys, type User, type ApiKey, type InsertUser } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 interface JWTPayload {
   userId: string;
@@ -136,6 +136,18 @@ export class AuthService {
   }
 
   /**
+   * Get user by ID
+   */
+  async getUserById(userId: string): Promise<User | null> {
+    const [user] = await db.select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    
+    return user || null;
+  }
+
+  /**
    * Verify API key and return associated user
    */
   async verifyApiKey(apiKey: string): Promise<{ user: User; key: ApiKey } | null> {
@@ -178,11 +190,12 @@ export class AuthService {
       return null;
     }
 
-    // Update last used timestamp and quota
+    // SECURITY FIX: Atomic quota update to prevent race conditions
+    // Using SQL increment instead of read-modify-write
     await db.update(apiKeys)
       .set({ 
         lastUsedAt: new Date(),
-        quotaUsed: keyRecord.quotaUsed + 1,
+        quotaUsed: sql`${apiKeys.quotaUsed} + 1`,
       })
       .where(eq(apiKeys.id, keyRecord.id));
 

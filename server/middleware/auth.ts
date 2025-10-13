@@ -42,13 +42,23 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       try {
         const payload = authService.verifyJWT(token);
         
-        // Note: In production, you might want to fetch full user from DB
-        // For now, we trust the JWT payload
-        req.user = {
-          id: payload.userId,
-          email: payload.email,
-          role: payload.role,
-        } as User;
+        // SECURITY FIX: Always fetch fresh user from database to check isActive and current role
+        const user = await authService.getUserById(payload.userId);
+        if (!user) {
+          return res.status(401).json({ 
+            success: false, 
+            error: 'User not found' 
+          });
+        }
+        
+        if (!user.isActive) {
+          return res.status(401).json({ 
+            success: false, 
+            error: 'User account is deactivated' 
+          });
+        }
+        
+        req.user = user;
         req.authMethod = 'jwt';
         return next();
       } catch (error) {
@@ -153,12 +163,11 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
       const token = authHeader.substring(7);
       try {
         const payload = authService.verifyJWT(token);
-        req.user = {
-          id: payload.userId,
-          email: payload.email,
-          role: payload.role,
-        } as User;
-        req.authMethod = 'jwt';
+        const user = await authService.getUserById(payload.userId);
+        if (user && user.isActive) {
+          req.user = user;
+          req.authMethod = 'jwt';
+        }
       } catch (error) {
         // Ignore JWT errors for optional auth
       }
