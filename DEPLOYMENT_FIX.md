@@ -114,7 +114,16 @@ curl https://YOUR-REPL-URL.replit.dev/api/debug/memory
 | Process | Before Fix | After Fix | Purpose |
 |---------|-----------|-----------|---------|
 | **Vite Build** | 254MB (default) | **512MB** | Compile frontend without OOM |
-| **Runtime** | 57MB | **256MB** | Run app with TensorFlow + services |
+| **Runtime** | 57MB | **512MB*** | Run app with TensorFlow + services |
+
+**IMPORTANT:** Setting NODE_OPTIONS via Replit Secret applies to BOTH build and runtime. This is OK since:
+- Build needs 512MB to complete without OOM
+- Runtime benefits from extra headroom (512MB > 256MB originally planned)
+- System graceful restart at 85% still works
+
+For **separate** build vs runtime memory (advanced):
+- Build: Set via deployment UI build command
+- Runtime: Set via Replit Secret (runtime only)
 
 ---
 
@@ -151,24 +160,31 @@ curl https://YOUR-REPL-URL.replit.dev/api/debug/memory
 
 ---
 
-## 🔧 Advanced: Separate Build vs Runtime Memory
+## 🔧 Advanced: Separate Build vs Runtime Memory (Optional)
 
-Jika Option 1 tidak cukup, set 2 environment variables terpisah:
+**DEFAULT BEHAVIOR (Option 1):**
+- NODE_OPTIONS secret applies to BOTH build and runtime = **512MB for both**
+- ✅ This is SAFE and RECOMMENDED (more headroom = better stability)
 
-**Via Replit Secrets:**
+**IF you need separate allocation:**
 
-1. **BUILD_NODE_OPTIONS** = `--max-old-space-size=512`
-2. **RUN_NODE_OPTIONS** = `--expose-gc --max-old-space-size=256`
+Via Deployment Settings UI (not Secrets):
 
-**Update package.json scripts** (need permission):
-```json
-{
-  "scripts": {
-    "build": "NODE_OPTIONS=$BUILD_NODE_OPTIONS vite build && ...",
-    "start": "NODE_OPTIONS=$RUN_NODE_OPTIONS node dist/index.js"
-  }
-}
-```
+1. **Build Command:**
+   ```bash
+   NODE_OPTIONS='--max-old-space-size=512' npm run build
+   ```
+
+2. **Run Command:**
+   ```bash
+   NODE_OPTIONS='--expose-gc --max-old-space-size=256' npm start
+   ```
+
+**Trade-off:**
+- Separate commands: More control, manual deployment config
+- Single secret: Simpler, works automatically, slightly more memory usage
+
+**Recommendation:** Stick with Option 1 (single secret) unless you have strict memory constraints!
 
 ---
 

@@ -20,24 +20,15 @@ echo "💾 Current system memory:"
 free -h 2>/dev/null || echo "  (memory info not available)"
 echo ""
 
-# Run Vite build with increased memory
-echo "⚙️  Step 1/2: Building frontend (Vite)..."
-NODE_OPTIONS="--max-old-space-size=512" npm run build:client || {
-  echo "❌ Vite build failed"
+# Run full build with increased memory
+# Note: npm run build = vite build + esbuild server bundle (from package.json)
+echo "⚙️  Running build (Vite + esbuild)..."
+NODE_OPTIONS="--max-old-space-size=512" npm run build || {
+  echo "❌ Build failed"
   exit 1
 }
 
-echo "✅ Frontend build complete"
-echo ""
-
-# Build server bundle
-echo "⚙️  Step 2/2: Building server (esbuild)..."
-NODE_OPTIONS="--max-old-space-size=512" npm run build:server || {
-  echo "❌ Server build failed"
-  exit 1
-}
-
-echo "✅ Server build complete"
+echo "✅ Build complete"
 echo ""
 
 echo "🎉 Build process completed successfully!"
