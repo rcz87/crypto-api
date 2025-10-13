@@ -181,6 +181,7 @@ export class CoinAPIAlerter {
   private isRunning = false;
   private lastGapCount = 0;
   private lastRecoveryCount = 0;
+  private lastWsConnected = true; // Track previous connection state
   
   constructor(private config: {
     intervalMs: number;
@@ -271,8 +272,11 @@ export class CoinAPIAlerter {
         await sendTelegram(message, { parseMode: 'HTML' });
       }
       
-      // Alert if WebSocket disconnected
-      if (!health.wsConnected) {
+      // Alert if WebSocket disconnected (only when state changes, and only if not intentionally disabled)
+      const wsEnabled = process.env.COINAPI_WS_ENABLED === 'true';
+      
+      if (!health.wsConnected && this.lastWsConnected && wsEnabled) {
+        // WebSocket just disconnected and it's supposed to be enabled
         const message = `⚠️ <b>CoinAPI WebSocket Disconnected</b>\n\n` +
                        `🔌 Connection Status: <b>Disconnected</b>\n` +
                        `🔄 Reconnect Attempts: ${health.reconnectAttempts}\n` +
@@ -283,7 +287,10 @@ export class CoinAPIAlerter {
         await sendTelegram(message, { parseMode: 'HTML' });
       }
       
-      console.log(`🌐 [CoinAPIAlerter] Health check - Gaps: ${gapStats.totalGapsDetected}, Recovery: ${gapStats.recoveryTriggered}, WS: ${health.wsConnected ? 'Connected' : 'Disconnected'}`);
+      // Update last state
+      this.lastWsConnected = health.wsConnected;
+      
+      console.log(`🌐 [CoinAPIAlerter] Health check - Gaps: ${gapStats.totalGapsDetected}, Recovery: ${gapStats.recoveryTriggered}, WS: ${health.wsConnected ? 'Connected' : 'Disconnected'}${!wsEnabled ? ' (Disabled)' : ''}`);
       
     } catch (error: any) {
       console.error('❌ [CoinAPIAlerter] Health check failed:', error?.message);

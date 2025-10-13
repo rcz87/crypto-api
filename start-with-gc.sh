@@ -1,21 +1,15 @@
 #!/bin/bash
-# 🔧 MEMORY FIX STARTUP SCRIPT - COMPILED VERSION
-# Compiles TypeScript first, then runs with proper memory flags
+# 🔧 MEMORY FIX STARTUP SCRIPT
+# Uses NODE_OPTIONS to pass memory flags (guaranteed to work with tsx)
 
-echo "🚀 Memory Fix: Building TypeScript..."
+# Set NODE_OPTIONS for all child processes
+export NODE_OPTIONS="--expose-gc --max-old-space-size=512"
 
-# Build the server (compiles TS to JS)
-npm run build 2>&1 | grep -E "(Built|error|Error)" || echo "Build complete"
-
-echo ""
-echo "🚀 Starting server with 512MB heap limit:"
+echo "🚀 Starting server with memory optimizations:"
 echo "   ✅ GC enabled (--expose-gc)"
 echo "   ✅ Heap size: 512MB (--max-old-space-size=512)"
-echo "   ✅ Running compiled JS (flags WILL work)"
+echo "   ✅ Using tsx with NODE_OPTIONS"
 echo ""
 
-# Run the compiled server with memory flags
-NODE_ENV=development node \
-  --expose-gc \
-  --max-old-space-size=512 \
-  dist/index.js
+# Run development server - tsx will inherit NODE_OPTIONS
+NODE_ENV=development tsx server/index.ts
