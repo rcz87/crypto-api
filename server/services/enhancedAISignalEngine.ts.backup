@@ -1,11 +1,6 @@
 import OpenAI from 'openai';
-// ⚠️ EMERGENCY MEMORY FIX: TensorFlow disabled temporarily (saves 45-50MB)
-// import * as tf from '@tensorflow/tfjs-node';
+import * as tf from '@tensorflow/tfjs-node';
 import { Matrix } from 'ml-matrix';
-
-// 🔧 FEATURE FLAG: Set to true after implementing lazy loading
-const USE_NEURAL_NETWORK = false;
-const NEURAL_NETWORK_DISABLED_REASON = 'Emergency memory optimization - using enhanced rule-based analysis';
 import { standardDeviation, mean, median } from 'simple-statistics';
 import { CandleData } from '@shared/schema';
 import { enhancedFundingRateService } from './enhancedFundingRate';
@@ -114,7 +109,7 @@ export interface EnhancedAIDependencies {
 export class EnhancedAISignalEngine {
   private static instance: EnhancedAISignalEngine | null = null;
   private patterns: Map<string, EnhancedMarketPattern> = new Map();
-  private neuralModel: any | null = null; // tf.LayersModel when enabled
+  private neuralModel: tf.LayersModel | null = null;
   private patternMemory: Map<string, number[]> = new Map();
   private learningHistory: any[] = [];
   private openai: OpenAI | null = null;
@@ -452,20 +447,9 @@ export class EnhancedAISignalEngine {
 
   // Initialize Neural Network
   private async initializeNeuralNetwork(): Promise<void> {
-    if (!USE_NEURAL_NETWORK) {
-      console.log('⚠️ Enhanced AI: Neural Network DISABLED (memory optimization mode)');
-      console.log(`   Reason: ${NEURAL_NETWORK_DISABLED_REASON}`);
-      this.neuralModel = null;
-      return;
-    }
-    
     try {
-      // NOTE: This code is currently unreachable due to USE_NEURAL_NETWORK = false
-      // Will be enabled after implementing lazy TensorFlow loading
-      throw new Error('TensorFlow not loaded - lazy loading not yet implemented');
-      
       // Create enhanced neural network architecture
-      /* const model = tf.sequential({
+      const model = tf.sequential({
         layers: [
           // Input layer - expanded feature vector
           tf.layers.dense({
@@ -521,7 +505,6 @@ export class EnhancedAISignalEngine {
       console.log(`   - Input features: ${this.FEATURE_VECTOR_SIZE}`);
       console.log(`   - Hidden layers: 5 with dropout regularization`);
       console.log(`   - Output predictions: Direction, Confidence, Risk`);
-      */
       
     } catch (error) {
       console.error('Enhanced AI: Failed to initialize Neural Network:', error);
@@ -724,9 +707,6 @@ export class EnhancedAISignalEngine {
       }
 
       try {
-        // NOTE: This code is unreachable when USE_NEURAL_NETWORK = false
-        // Will be re-enabled after lazy loading implementation
-        /*
       const inputTensor = tf.tensor2d([features]);
       const prediction = this.neuralModel.predict(inputTensor) as tf.Tensor;
       const predictionData = await prediction.data();
@@ -753,18 +733,6 @@ export class EnhancedAISignalEngine {
           price_target: 0, // Will be calculated elsewhere
           time_horizon: '1H',
           risk_level: riskLevel,
-          supporting_patterns: [],
-          neural_features: features
-        };
-        */
-        
-        // Fallback when neural network disabled
-        return {
-          direction: 'neutral',
-          confidence: 50,
-          price_target: 0,
-          time_horizon: '1H',
-          risk_level: 'medium',
           supporting_patterns: [],
           neural_features: features
         };
@@ -1981,18 +1949,11 @@ INSTRUCTIONS:
 
   // Retrain neural network with recent data
   private async retrainNeuralNetwork(): Promise<void> {
-    if (!USE_NEURAL_NETWORK || !this.neuralModel || this.learningHistory.length < 50) {
-      if (!USE_NEURAL_NETWORK) {
-        console.log('⚠️ Enhanced AI: Retrain skipped - neural network disabled');
-      }
-      return;
-    }
+    if (!this.neuralModel || this.learningHistory.length < 50) return;
 
     console.log('🧠 Enhanced AI: Retraining neural network...');
     
     try {
-      // NOTE: This code is unreachable when USE_NEURAL_NETWORK = false
-      /*
       // Prepare training data from learning history
       const recentData = this.learningHistory.slice(-200); // Last 200 signals
       const features = recentData.map(d => d.features);
@@ -2018,7 +1979,6 @@ INSTRUCTIONS:
       ys.dispose();
 
       console.log('✅ Enhanced AI: Neural network retrained successfully');
-      */
 
     } catch (error) {
       console.error('Enhanced AI: Retraining failed:', error);
@@ -2202,7 +2162,7 @@ INSTRUCTIONS:
     return this.learningHistory;
   }
   
-  public getNeuralModel(): any | null {
+  public getNeuralModel(): tf.LayersModel | null {
     return this.neuralModel;
   }
 }
