@@ -218,11 +218,18 @@ export class SmartCacheManager<T = any> {
   }
 
   public clear(): void {
+    const size = this.cache.size;
     this.cache.clear();
     this.accessOrder = [];
     this.stats.currentSize = 0;
     this.updateMetrics();
-    console.log(`🗄️ Smart Cache [${this.name}]: Cleared all entries`);
+    console.log(`🗄️ Smart Cache [${this.name}]: Cleared all entries (${size} items removed)`);
+    
+    // 🔧 PATCH 4: Force GC after cache clear to release memory immediately
+    if (global.gc) {
+      global.gc();
+      console.log(`🗄️ Smart Cache [${this.name}]: Forced GC after clear`);
+    }
   }
 
   private evictLRU(): void {
@@ -313,6 +320,12 @@ export class SmartCacheManager<T = any> {
     if (cleanedCount > 0) {
       console.log(`🗄️ Smart Cache [${this.name}]: Cleaned up ${cleanedCount} expired entries`);
       this.updateMetrics();
+      
+      // 🔧 PATCH 4: Force GC after cleanup to release memory
+      if (global.gc) {
+        global.gc();
+        console.log(`🗄️ Smart Cache [${this.name}]: Forced GC after cleanup`);
+      }
     }
     
     // MEMORY LEAK FIX: Rebuild accessOrder if significantly larger than cache

@@ -10,6 +10,32 @@ import { consumeQuota, checkQuota } from '../services/rateBudget';
 import { DataQuality, ValidatedTickerData, CachedDataWithQuality } from './coinapi';
 import { RetryHandler, RetryConfig } from '../utils/resilience';
 
+// 🔧 PATCH 3: OKX RATE LIMITER - Prevent memory leak from concurrent requests
+class OKXRateLimiter {
+  private activeRequests = 0;
+  private readonly MAX_CONCURRENT = 3; // Limit concurrent API calls
+  
+  async execute<T>(fn: () => Promise<T>): Promise<T> {
+    // Wait if too many concurrent requests
+    while (this.activeRequests >= this.MAX_CONCURRENT) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    this.activeRequests++;
+    try {
+      return await fn();
+    } finally {
+      this.activeRequests--;
+      // Trigger GC when all requests complete
+      if (this.activeRequests === 0 && global.gc) {
+        global.gc();
+      }
+    }
+  }
+}
+
+const okxLimiter = new OKXRateLimiter();
+
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
@@ -198,7 +224,8 @@ export class OKXService {
     const cacheKey = this.getCacheKey('ticker', { symbol: mappedSymbol });
     const lastGoodCacheKey = this.getLastGoodCacheKey('ticker', { symbol: mappedSymbol });
     
-    return cache.getSingleFlight(cacheKey, async () => {
+    // 🔧 PATCH 3: Wrap with rate limiter to prevent concurrent request buildup
+    return okxLimiter.execute(() => cache.getSingleFlight(cacheKey, async () => {
       try {
         // Check rate budget before making request
         const quotaCheck = checkQuota('okx', 'realtime');
@@ -301,7 +328,7 @@ export class OKXService {
           source: 'fallback'
         } as ValidatedTickerData;
       }
-    }, TTL_CONFIG.TICKER);
+    }, TTL_CONFIG.TICKER));
   }
 
   async getCandles(symbol: string = 'SOL-USDT-SWAP', bar: string = '1H', limit: number = 24): Promise<CandleData[]> {

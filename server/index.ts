@@ -1,3 +1,30 @@
+// 🔧 PATCH 1: FORCE GC EXPOSURE CHECK
+// This MUST be at the very top to ensure GC is available before any other code runs
+if (typeof global.gc !== 'function') {
+  console.warn('⚠️  GC is not exposed! Attempting to expose...');
+  
+  try {
+    if (process.execArgv.includes('--expose-gc') || 
+        process.env.NODE_OPTIONS?.includes('--expose-gc')) {
+      console.log('✅ --expose-gc flag detected, attempting manual exposure');
+      
+      const v8 = require('v8');
+      v8.setFlagsFromString('--expose_gc');
+      global.gc = require('vm').runInNewContext('gc');
+    }
+  } catch (e: any) {
+    console.error('❌ Could not expose GC manually:', e.message);
+  }
+}
+
+if (typeof global.gc === 'function') {
+  console.log('✅ GC is available and exposed');
+  global.gc();
+  console.log('✅ GC test successful');
+} else {
+  console.error('❌ GC is NOT available - memory management will be limited');
+}
+
 // Set TensorFlow quiet mode to reduce log noise
 process.env.TF_CPP_MIN_LOG_LEVEL = '2';
 

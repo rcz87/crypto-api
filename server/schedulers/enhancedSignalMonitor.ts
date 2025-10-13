@@ -11,6 +11,11 @@
  * 4. Send Telegram alert HANYA kalau pass adaptive threshold
  */
 
+// 🔧 PATCH 2: TEMPORARILY DISABLED FOR MEMORY OPTIMIZATION
+// EnhancedSignalMonitor has a sweep overlap memory leak (accumulation issue)
+// Will be re-enabled after fixing the sweep logic
+const ENABLE_SIGNAL_MONITOR = false;
+
 import { okxService } from '../services/okx';
 import { getEnhancedAISignalEngine } from '../services/enhancedAISignalEngine';
 import { sendTelegram } from '../observability/telegram';
@@ -208,6 +213,11 @@ let sweepCount = 0;
 let lastSweepDuration = 0;
 
 export function startEnhancedSignalMonitor() {
+  if (!ENABLE_SIGNAL_MONITOR) {
+    console.log('⏸️  [EnhancedSignalMonitor] DISABLED (temporary - memory optimization, sweep overlap leak)');
+    return;
+  }
+
   if (monitorInterval) {
     console.warn('[EnhancedSignalMonitor] Already running');
     return;
