@@ -4,7 +4,18 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["cargo", "glibcLocales", "jq", "libiconv", "libxcrypt", "openssh", "postgresql", "redis", "rustc", "tree"]
+packages = [
+  "cargo",
+  "glibcLocales",
+  "jq",
+  "libiconv",
+  "libxcrypt",
+  "openssh",
+  "postgresql",
+  "redis",
+  "rustc",
+  "tree",
+]
 
 [deployment]
 deploymentTarget = "vm"
