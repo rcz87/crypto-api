@@ -2088,6 +2088,51 @@ export const opportunityResponseSchema = z.object({
   timestamp: z.string(),
 });
 
+// Authentication tables
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }),
+  role: varchar("role", { length: 50 }).notNull().default("user"), // 'user', 'admin', 'premium'
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const apiKeys = pgTable("api_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  keyHash: varchar("key_hash", { length: 64 }).notNull().unique(), // SHA256 hash
+  name: varchar("name", { length: 255 }).notNull(), // friendly name for the key
+  scopes: text("scopes").array().notNull().default(sql`'{read}'`), // ['read', 'write', 'admin']
+  quotaLimit: integer("quota_limit").notNull().default(1000), // requests per day
+  quotaUsed: integer("quota_used").notNull().default(0),
+  lastUsedAt: timestamp("last_used_at"),
+  expiresAt: timestamp("expires_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  metadata: jsonb("metadata"), // additional key metadata
+});
+
+// Zod schemas for authentication
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertApiKeySchema = createInsertSchema(apiKeys).omit({
+  id: true,
+  createdAt: true,
+  lastUsedAt: true,
+});
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
+
 export type NewListingResponse = z.infer<typeof newListingResponseSchema>;
 export type VolumeSpikeResponse = z.infer<typeof volumeSpikeResponseSchema>;
 export type OpportunityResponse = z.infer<typeof opportunityResponseSchema>;
