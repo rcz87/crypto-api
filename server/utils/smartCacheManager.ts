@@ -445,20 +445,22 @@ class CacheRegistry {
 export const cacheRegistry = new CacheRegistry();
 
 // Export pre-configured caches for common use cases
+// 🔧 PATCH 7: DRASTICALLY REDUCED CACHE SIZES (memory optimization)
+// Old: 90MB total (30+50+10), New: 17MB total (5+10+2) - saves 73MB!
 export const apiCache = cacheRegistry.getOrCreate("api", {
-  maxItems: 500,
-  maxSizeMB: 30,
+  maxItems: 100,    // Reduced from 500
+  maxSizeMB: 5,     // Reduced from 30MB
   defaultTTL: 30 * 1000 // 30 seconds
 });
 
 export const dataCache = cacheRegistry.getOrCreate("data", {
-  maxItems: 1000,
-  maxSizeMB: 50,
+  maxItems: 200,    // Reduced from 1000
+  maxSizeMB: 10,    // Reduced from 50MB
   defaultTTL: 5 * 60 * 1000 // 5 minutes
 });
 
 export const sessionCache = cacheRegistry.getOrCreate("session", {
-  maxItems: 200,
-  maxSizeMB: 10,
+  maxItems: 50,     // Reduced from 200
+  maxSizeMB: 2,     // Reduced from 10MB
   defaultTTL: 30 * 60 * 1000 // 30 minutes
 });

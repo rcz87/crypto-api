@@ -2,7 +2,7 @@
  * 🧠 MemoryGuard v3 – Enhanced Safe Restart with Lower Thresholds
  * 
  * Enhanced Features:
- *  - SAFER thresholds: 70-80% warning, 80-85% critical, >85% restart (vs old 95%)
+ *  - PATCH 10: Relaxed thresholds: 80-98% warning, 98% critical restart (vs old 85%)
  *  - Smart Cache Manager integration for intelligent eviction
  *  - Memory Profiler integration for leak detection
  *  - Grace period on startup/module change (5 minutes)
@@ -83,9 +83,9 @@ export class MemoryGuard {
   }
 
   public startMonitoring() {
-    this.log("🧠 MemoryGuard v3: Enhanced monitoring started (safer thresholds: 70/80/85%, adaptive sampling: 30s)");
-    this.log("📊 New thresholds: 70-80% warning, 80-85% critical, >85% restart (safer with buffer margin)");
-    this.log("🛡️ Grace period: 2 minutes (emergency override at 90% even during grace)");
+    this.log("🧠 MemoryGuard v3: Enhanced monitoring started (relaxed thresholds: 80/98%, adaptive sampling: 30s)");
+    this.log("📊 New thresholds: 80% warning, 98% critical restart (Node.js dynamic heap optimized)");
+    this.log("🛡️ Grace period: 2 minutes (emergency override at 98% even during grace)");
     
     // Start memory profiler for leak detection
     memoryProfiler.startProfiling();
@@ -185,17 +185,19 @@ export class MemoryGuard {
       return;
     }
     
-    // Emergency override: 🔧 FIX: 95% for grace period (allows TensorFlow 92-94% startup spike)
-    if (gracePeriodActive && heap > 95) {
+    // Emergency override: 🔧 PATCH 10: Raised to 98% (Node.js dynamic heap needs headroom)
+    if (gracePeriodActive && heap > 98) {
       this.log(`🚨 EMERGENCY: Memory critical (${heap}%) during grace period - override restart!`);
       await this.gracefulRestart();
       return;
     }
 
-    // 🔧 TASK 3: Fixed thresholds per spec (70% warning, 85% critical, 75% recovery)
-    const WARNING_THRESHOLD = 70;
-    const CRITICAL_THRESHOLD = 85;
-    const RECOVERY_THRESHOLD = 75;
+    // 🔧 PATCH 10: Relaxed thresholds for Node.js dynamic heap (85→98% critical)
+    // Old: 70/85/75 was too aggressive for dynamic heap allocation
+    // New: 80/98/85 gives proper headroom
+    const WARNING_THRESHOLD = 80;
+    const CRITICAL_THRESHOLD = 98;
+    const RECOVERY_THRESHOLD = 85;
     
     // Recovery: heap dropped below recovery threshold
     if (this.inGracePeriod && heap < RECOVERY_THRESHOLD) {

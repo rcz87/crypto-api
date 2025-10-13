@@ -70,6 +70,7 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "./start-with-gc.sh"
+waitForPort = 5000
 
 [agent]
 integrations = [

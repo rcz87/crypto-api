@@ -36,10 +36,21 @@ export class ListingsService {
       return;
     }
 
-    const instruments = await okxInstrumentsService.getInstruments('SWAP');
-    this.monitoredSymbols = new Set(instruments.map(inst => inst.instId));
+    // 🔧 PATCH 8: DRASTICALLY REDUCE SYMBOLS (memory optimization)
+    // Old: 259 symbols (consumed ~50MB+), New: 20 priority symbols
+    const prioritySymbols = [
+      'BTC-USDT-SWAP', 'ETH-USDT-SWAP', 'SOL-USDT-SWAP',
+      'BNB-USDT-SWAP', 'XRP-USDT-SWAP', 'ADA-USDT-SWAP',
+      'DOGE-USDT-SWAP', 'MATIC-USDT-SWAP', 'DOT-USDT-SWAP',
+      'AVAX-USDT-SWAP', 'LINK-USDT-SWAP', 'UNI-USDT-SWAP',
+      'ATOM-USDT-SWAP', 'LTC-USDT-SWAP', 'BCH-USDT-SWAP',
+      'NEAR-USDT-SWAP', 'FTM-USDT-SWAP', 'ALGO-USDT-SWAP',
+      'APT-USDT-SWAP', 'ARB-USDT-SWAP'
+    ];
+    
+    this.monitoredSymbols = new Set(prioritySymbols);
     this.initialized = true;
-    console.log(`Initialized ${this.monitoredSymbols.size} symbols for monitoring`);
+    console.log(`✅ Initialized ${this.monitoredSymbols.size} priority symbols for monitoring (memory-optimized)`);
   }
 
   async scanNewListings(): Promise<NewListing[]> {

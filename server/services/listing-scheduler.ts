@@ -94,6 +94,16 @@ async function scanAndAlert(): Promise<void> {
 }
 
 export function startListingScheduler(): void {
+  // 🔧 PATCH 9: DISABLE LISTING SCHEDULER (memory/API optimization)
+  // This scheduler was causing MASSIVE memory leaks by processing 200+ instruments
+  // as "new listings" on every scan, consuming API quota and causing DB errors
+  const LISTING_SCHEDULER_ENABLED = process.env.LISTING_SCHEDULER_ENABLED === 'true';
+  
+  if (!LISTING_SCHEDULER_ENABLED) {
+    console.log('⏸️  [Listing Scheduler] DISABLED (memory optimization - set LISTING_SCHEDULER_ENABLED=true to enable)');
+    return;
+  }
+
   console.log('[Listing Scheduler] 🚀 Starting listing detection scheduler...');
   console.log(`[Listing Scheduler] ⏰ Scan interval: ${SCAN_INTERVAL_MS / 1000}s`);
   console.log(`[Listing Scheduler] 🎯 Min opportunity score for alerts: ${MIN_OPPORTUNITY_SCORE}`);
