@@ -735,10 +735,14 @@ app.use((req, res, next) => {
   app.get('/health/memory', memoryMonitor);
 
   // 🔧 TASK 6: Memory Debug Endpoints
-  app.get('/api/debug/memory', (req, res) => {
+  app.get('/api/debug/memory', async (req, res) => {
     const usage = process.memoryUsage();
+    const v8 = await import('v8');
+    const heapStats = v8.getHeapStatistics();
+    
     const heapUsedMB = usage.heapUsed / 1024 / 1024;
     const heapTotalMB = usage.heapTotal / 1024 / 1024;
+    const heapLimitMB = heapStats.heap_size_limit / 1024 / 1024;
     const heapPercent = (heapUsedMB / heapTotalMB) * 100;
     const rssMB = usage.rss / 1024 / 1024;
     const externalMB = usage.external / 1024 / 1024;
@@ -751,6 +755,7 @@ app.use((req, res, next) => {
         heap: {
           used: heapUsedMB.toFixed(2) + ' MB',
           total: heapTotalMB.toFixed(2) + ' MB',
+          limit: heapLimitMB.toFixed(2) + ' MB',
           percent: heapPercent.toFixed(1) + '%'
         },
         rss: rssMB.toFixed(2) + ' MB',
