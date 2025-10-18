@@ -121,7 +121,7 @@ export default function PrivacyPolicy() {
                 For questions about this privacy policy or our data practices, please contact us through:
               </p>
               <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-4">
-                <li>Website: guardiansofthegreentoken.com</li>
+                <li>Website: guardiansofthetoken.com</li>
                 <li>Service: SOL Trading Analyst API</li>
               </ul>
             </section>

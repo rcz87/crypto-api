@@ -14,7 +14,7 @@ app.set('trust proxy', 1);
 const allowedOrigins = [
   'http://localhost:5000',
   'http://localhost:3000',
-  'https://guardiansofthegreentoken.com',
+  'https://guardiansofthetoken.com',
   'https://bb4178d3-c004-4cff-b3e0-e4d013c0e884-00-1n57odq2i0nbm.kirk.replit.dev' // Replit domain
 ];
 

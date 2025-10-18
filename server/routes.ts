@@ -1675,7 +1675,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           "servers": [
             {
-              "url": "https://guardiansofthegreentoken.com",
+              "url": "https://guardiansofthetoken.com",
               "description": "Production server"
             }
           ],
@@ -2032,7 +2032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         "servers": [
           {
-            "url": "https://guardiansofthegreentoken.com",
+            "url": "https://guardiansofthetoken.com",
             "description": "Production server"
           }
         ],

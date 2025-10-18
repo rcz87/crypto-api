@@ -69,15 +69,44 @@ export function registerSystemRoutes(app: Express): void {
     });
   });
 
-  // 🌐 CoinAPI WebSocket Health Endpoint
-  app.get('/health/coinapi', (req: Request, res: Response) => {
+  // 🌐 CoinAPI WebSocket Health Endpoint (Enhanced with fallback)
+  app.get('/health/coinapi', async (req: Request, res: Response) => {
     try {
-      const health = coinAPIWebSocket.getHealth();
-      const isHealthy = health.wsConnected || health.restOrderbookOk;
+      // Try to get WebSocket health
+      let health;
+      let wsAvailable = true;
+      
+      try {
+        health = coinAPIWebSocket.getHealth();
+      } catch (wsError) {
+        console.warn('CoinAPI WebSocket health check failed:', wsError instanceof Error ? wsError.message : 'Unknown error');
+        wsAvailable = false;
+        health = {
+          wsConnected: false,
+          lastWsMessageTime: null,
+          reconnectAttempts: 0,
+          totalMessagesReceived: 0,
+          gapStats: null,
+          restOrderbookOk: false
+        };
+      }
+      
+      // Try to test CoinAPI REST service as fallback
+      let restHealthy = false;
+      try {
+        const { coinAPIService } = await import('../services/coinapi');
+        const healthStatus = await coinAPIService.healthCheck();
+        restHealthy = healthStatus.status === 'healthy' || healthStatus.status === 'degraded';
+      } catch (restError) {
+        console.warn('CoinAPI REST health check failed:', restError instanceof Error ? restError.message : 'Unknown error');
+      }
+      
+      const isHealthy = (wsAvailable && (health.wsConnected || health.restOrderbookOk)) || restHealthy;
       
       res.status(isHealthy ? 200 : 503).json({
         success: isHealthy,
         websocket: {
+          available: wsAvailable,
           connected: health.wsConnected,
           lastMessageTime: health.lastWsMessageTime,
           timeSinceLastMessage: health.lastWsMessageTime 
@@ -88,15 +117,18 @@ export function registerSystemRoutes(app: Express): void {
           gapDetection: health.gapStats // P0: Gap detection stats
         },
         rest: {
-          operational: health.restOrderbookOk
+          operational: health.restOrderbookOk || restHealthy,
+          fallback_used: !wsAvailable && restHealthy
         },
         overall_status: isHealthy ? 'healthy' : 'degraded',
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      res.status(500).json({
+      console.error('CoinAPI health check completely failed:', error);
+      res.status(503).json({
         success: false,
         error: 'Failed to retrieve CoinAPI health status',
+        details: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
       });
     }

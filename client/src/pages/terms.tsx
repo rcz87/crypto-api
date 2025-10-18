@@ -144,7 +144,7 @@ export default function TermsOfService() {
                 For questions about these Terms of Service:
               </p>
               <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-4">
-                <li>Website: guardiansofthegreentoken.com</li>
+                <li>Website: guardiansofthetoken.com</li>
                 <li>Service: SOL Trading Analyst API</li>
               </ul>
             </section>

@@ -13,7 +13,7 @@ const allowedOrigins = [
   'https://localhost:5000',
   'https://guardiansofthetoken.id',  // Domain utama yang bermasalah
   'https://www.guardiansofthetoken.id',
-  'https://guardiansofthegreentoken.com',
+  'https://guardiansofthetoken.com',
   'https://bb4178d3-c004-4cff-b3e0-e4d013c0e884-00-1n57odq2i0nbm.kirk.replit.dev', // Replit domain
   'https://*.replit.dev',
   'https://*.replit.co'

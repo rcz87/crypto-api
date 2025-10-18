@@ -1,67 +1,18 @@
 [Unit]
-Description=Crypto API Python Service (CoinGlass FastAPI)
-Documentation=https://github.com/rcz87/crypto-api
-After=network-online.target postgresql.service redis.service
-Wants=network-online.target
-StartLimitIntervalSec=60
-StartLimitBurst=3
+Description=Crypto API Python Service
+After=network.target
 
 [Service]
-Type=notify
 User=root
-Group=root
 WorkingDirectory=/root/crypto-api/coinglass-system
-
-# Environment Configuration
 EnvironmentFile=/root/crypto-api/.env
-Environment="PYTHONUNBUFFERED=1"
-Environment="PYTHONPATH=/root/crypto-api/coinglass-system"
-Environment="LOG_LEVEL=INFO"
-
-# Service Execution
-ExecStartPre=/bin/sleep 2
-ExecStart=/usr/bin/python3 -m uvicorn app.main:app \
-    --host 0.0.0.0 \
-    --port 8000 \
-    --workers 4 \
-    --log-level info \
-    --access-log \
-    --use-colors
-
-# Graceful Shutdown
-ExecReload=/bin/kill -HUP $MAINPID
-KillMode=mixed
-KillSignal=SIGTERM
-TimeoutStopSec=30
-RestartSec=5
-
-# Auto-restart Configuration
+ExecStart=/usr/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always
-RestartSec=10
-
-# Security Hardening
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=false
-ReadWritePaths=/root/crypto-api/coinglass-system /var/log/crypto-api
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-
-# Resource Limits
-LimitNOFILE=65536
-LimitNPROC=4096
-MemoryMax=2G
-CPUQuota=200%
-
-# Logging
+RestartSec=5
+TimeoutStartSec=180
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=python_service
-
-# Watchdog (auto-restart if service hangs)
-WatchdogSec=60
+Environment="PYTHONUNBUFFERED=1"
 
 [Install]
 WantedBy=multi-user.target

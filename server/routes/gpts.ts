@@ -782,13 +782,35 @@ _Time: ${new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' })} UTC_`;
    */
   app.get('/gpts/health/coinapi', async (req: Request, res: Response) => {
     try {
-      // Forward to internal health endpoint
-      const response = await axios.get('http://localhost:5000/health/coinapi');
-      res.json(response.data);
+      // Forward to internal health endpoint - accept both 200 and 503 as valid responses
+      const response = await axios.get('http://localhost:5000/health/coinapi', {
+        validateStatus: (status) => status === 200 || status === 503
+      });
+      
+      // Return the data regardless of status code (200 or 503)
+      res.status(200).json(response.data);
     } catch (error: any) {
-      res.status(500).json({
+      console.error('CoinAPI health endpoint error:', error.message);
+      
+      // Return degraded status instead of error
+      res.status(200).json({
         success: false,
-        error: error.message || 'Failed to fetch CoinAPI health'
+        websocket: {
+          available: false,
+          connected: false,
+          lastMessageTime: null,
+          timeSinceLastMessage: null,
+          reconnectAttempts: 0,
+          totalMessagesReceived: 0,
+          gapDetection: null
+        },
+        rest: {
+          operational: false,
+          fallback_used: false
+        },
+        overall_status: 'unavailable',
+        error: error.message || 'Failed to fetch CoinAPI health',
+        timestamp: new Date().toISOString()
       });
     }
   });

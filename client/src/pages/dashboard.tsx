@@ -199,7 +199,7 @@ export default function Dashboard() {
                 WebSocket: {wsConnected ? '🔵 Connected' : '⚫ Disconnected'}
               </div>
               <div className="text-sm text-gray-500">
-                Domain: guardiansofthegreentoken.com
+                Domain: guardiansofthetoken.com
               </div>
             </div>
           </div>

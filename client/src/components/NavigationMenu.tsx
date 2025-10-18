@@ -317,7 +317,7 @@ export const NavigationMenu = ({ activeSection, onSectionChange }: NavigationMen
               ) : (
                 <ConnectionStatusIndicator showText={false} className="mr-2" />
               )}
-              <div className="hidden sm:block text-xs text-gray-500 truncate max-w-32">guardiansofthegreentoken.com</div>
+              <div className="hidden sm:block text-xs text-gray-500 truncate max-w-32">guardiansofthetoken.com</div>
             </div>
             
             {/* Mobile Navigation */}

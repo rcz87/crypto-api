@@ -15,7 +15,7 @@ Allow: /
 Allow: /api/
 Allow: /.well-known/
 
-Sitemap: https://guardiansofthegreentoken.com/sitemap.xml
+Sitemap: https://guardiansofthetoken.com/sitemap.xml
 
 # API endpoints for crawlers
 Allow: /api/sol/complete
@@ -119,31 +119,31 @@ Allow: /openapi.json`);
     res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://guardiansofthegreentoken.com/</loc>
+    <loc>https://guardiansofthetoken.com/</loc>
     <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://guardiansofthegreentoken.com/health</loc>
+    <loc>https://guardiansofthetoken.com/health</loc>
     <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
     <changefreq>hourly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://guardiansofthegreentoken.com/api/sol/complete</loc>
+    <loc>https://guardiansofthetoken.com/api/sol/complete</loc>
     <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
     <changefreq>always</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://guardiansofthegreentoken.com/openapi.json</loc>
+    <loc>https://guardiansofthetoken.com/openapi.json</loc>
     <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://guardiansofthegreentoken.com/.well-known/ai-plugin.json</loc>
+    <loc>https://guardiansofthetoken.com/.well-known/ai-plugin.json</loc>
     <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
@@ -165,11 +165,11 @@ Allow: /openapi.json`);
       auth: { type: "none" },
       api: {
         type: "openapi",
-        url: "https://guardiansofthegreentoken.com/openapi.json"
+        url: "https://guardiansofthetoken.com/openapi.json"
       },
-      logo_url: "https://guardiansofthegreentoken.com/logo.png",
-      contact_email: "support@guardiansofthegreentoken.com",
-      legal_info_url: "https://guardiansofthegreentoken.com/legal"
+      logo_url: "https://guardiansofthetoken.com/logo.png",
+      contact_email: "support@guardiansofthetoken.com",
+      legal_info_url: "https://guardiansofthetoken.com/legal"
     });
   });
 

@@ -18,7 +18,7 @@ export function getWsBase(): string {
   const wsProto = protocol === 'https:' ? 'wss:' : 'ws:';
   // Anti-localhost: jika host mengandung 'localhost' → gunakan domain produksi
   const safeHost = /localhost/i.test(host)
-    ? 'guardiansofthegreentoken.com'
+    ? 'guardiansofthetoken.com'
     : host;
   // Default path gateway WS kamu
   return `${wsProto}//${safeHost}/ws`;
