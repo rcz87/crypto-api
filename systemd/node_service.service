@@ -1,0 +1,61 @@
+[Unit]
+Description=Crypto API Node.js Gateway Service
+Documentation=https://github.com/rcz87/crypto-api
+After=network-online.target postgresql.service redis.service python_service.service
+Wants=network-online.target
+Requires=python_service.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/crypto-api
+
+# Environment Configuration
+EnvironmentFile=/root/crypto-api/.env
+Environment="NODE_ENV=production"
+Environment="NODE_OPTIONS=--max-old-space-size=2048"
+Environment="PORT=5000"
+
+# Service Execution
+ExecStartPre=/bin/sleep 5
+ExecStart=/usr/bin/node dist/index.js
+
+# Graceful Shutdown
+ExecReload=/bin/kill -SIGUSR2 $MAINPID
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Auto-restart Configuration
+Restart=always
+RestartSec=10
+
+# Security Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=false
+ReadWritePaths=/root/crypto-api /var/log/crypto-api
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Resource Limits
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryMax=2G
+CPUQuota=200%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=node_service
+
+# Watchdog (auto-restart if service hangs)
+WatchdogSec=60
+
+[Install]
+WantedBy=multi-user.target

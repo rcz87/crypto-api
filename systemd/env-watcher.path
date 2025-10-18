@@ -1,0 +1,10 @@
+[Unit]
+Description=Monitor .env file for changes
+Documentation=https://github.com/rcz87/crypto-api
+
+[Path]
+PathModified=/root/crypto-api/.env
+Unit=env-reload.service
+
+[Install]
+WantedBy=multi-user.target

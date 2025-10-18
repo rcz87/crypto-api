@@ -1,0 +1,19 @@
+[Unit]
+Description=Reload services when .env changes
+Documentation=https://github.com/rcz87/crypto-api
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+
+# Reload both services gracefully
+ExecStart=/bin/bash -c 'echo "[$(date)] .env file changed, reloading services..." >> /var/log/crypto-api/env-reload.log'
+ExecStart=/bin/systemctl reload-or-restart python_service.service
+ExecStart=/bin/systemctl reload-or-restart node_service.service
+ExecStart=/bin/bash -c 'echo "[$(date)] Services reloaded successfully" >> /var/log/crypto-api/env-reload.log'
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=env_reload

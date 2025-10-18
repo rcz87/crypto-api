@@ -1,0 +1,25 @@
+[Unit]
+Description=Crypto API Environment File Watcher
+Documentation=https://github.com/rcz87/crypto-api
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/crypto-api
+
+# Watch .env file and reload services on change
+ExecStart=/root/crypto-api/scripts/watch-env.sh
+
+# Auto-restart Configuration
+Restart=always
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=env_watcher
+
+[Install]
+WantedBy=multi-user.target
