@@ -44,20 +44,20 @@ if (missingOptions.length > 0) {
   console.error('\n❌ CRITICAL: NODE_OPTIONS not properly configured!\n');
   console.error('Missing required flags:');
   missingOptions.forEach(opt => console.error(`  - ${opt}`));
-  console.error('\n📖 SETUP INSTRUCTIONS:');
-  console.error('   Option 1 (Recommended): Set via Replit Secrets');
-  console.error('     1. Open Replit Settings → Secrets');
-  console.error('     2. Add new secret:');
-  console.error('        Key: NODE_OPTIONS');
-  console.error('        Value: --expose-gc --max-old-space-size=256');
-  console.error('     3. Restart the Repl\n');
-  console.error('   Option 2: Use startup script');
-  console.error('     chmod +x START_WITH_INCREASED_HEAP.sh');
-  console.error('     ./START_WITH_INCREASED_HEAP.sh\n');
-  console.error('📄 See SETUP_NODE_OPTIONS.md for detailed instructions\n');
+  console.error('\n📖 VPS SETUP INSTRUCTIONS:');
+  console.error('   Option 1 (Recommended): Update systemd service');
+  console.error('     1. Edit: sudo nano /etc/systemd/system/node_service.service');
+  console.error('     2. Add under [Service]:');
+  console.error('        Environment="NODE_OPTIONS=--expose-gc --max-old-space-size=2048"');
+  console.error('     3. Reload: sudo systemctl daemon-reload');
+  console.error('     4. Restart: sudo systemctl restart node_service\n');
+  console.error('   Option 2: Update .env file');
+  console.error('     Add to .env:');
+  console.error('     NODE_OPTIONS="--expose-gc --max-old-space-size=2048"\n');
+  console.error('📄 See VPS deployment docs for detailed instructions\n');
   console.error('⚠️  Continuing without these flags will result in:');
   console.error('   - Manual GC unavailable (memory leaks cannot be mitigated)');
-  console.error('   - Heap limited to 57MB (will crash at 95% usage)');
+  console.error('   - Limited heap size (may crash under heavy load)');
   console.error('   - /api/debug/gc endpoint non-functional\n');
   console.error('▶️  Starting anyway... Fix this ASAP to prevent memory crashes!\n');
 }
@@ -71,7 +71,7 @@ import { memoryMonitor } from "./middleware/memoryMonitor.js";
 
 const app = express();
 
-// Trust proxy for proper IP detection behind Replit's proxy
+// Trust proxy for proper IP detection behind reverse proxy (Nginx/Apache)
 app.set('trust proxy', true);
 
 // 🔧 FIX #1: ALIAS REWRITE /api/gpts/* → /gpts/* (per testing specification)
@@ -82,30 +82,40 @@ app.use('/api/gpts', (req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
-// Whitelist domains for CORS
+// Whitelist domains for CORS - VPS Configuration
 const allowedOrigins = [
   'http://localhost:5000',
+  'https://localhost:5000',
   'https://guardiansofthetoken.com',
-  'https://bb4178d3-c004-4cff-b3e0-e4d013c0e884-00-1n57odq2i0nbm.kirk.replit.dev' // Replit domain
-];
+  'https://www.guardiansofthetoken.com',
+  process.env.FRONTEND_URL || '',
+  process.env.API_BASE_URL || ''
+].filter(Boolean);
 
 // Enhanced CORS middleware with proper origin validation
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  
-  // Check if origin is in whitelist or if it's a Replit domain
-  if (origin && (allowedOrigins.includes(origin) || origin.includes('.replit.dev'))) {
+
+  // Check if origin is in whitelist
+  if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Vary', 'Origin');
     res.header('Access-Control-Allow-Credentials', 'true');
   } else if (!origin) {
-    // Allow requests without origin (like direct API calls)
+    // Allow requests without origin (like direct API calls, curl, etc.)
     res.header('Access-Control-Allow-Origin', '*');
+  } else if (process.env.NODE_ENV === 'development') {
+    // In development, allow any origin for easier testing
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+  } else {
+    // Production: log rejected origins for monitoring
+    console.warn(`⚠️  CORS rejected origin: ${origin}`);
   }
-  
+
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
-  
+
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -601,7 +611,7 @@ app.use((req, res, next) => {
     // Production: Secure CSP with explicit domain allowlists
     cspPolicy = [
       "default-src 'self'",
-      "connect-src 'self' https://ws.okx.com wss://ws.okx.com https://rest.coinapi.io https://api.coinapi.io https://api.binance.com wss://stream.binance.com wss://*.replit.dev https://*.replit.dev",
+      "connect-src 'self' https://ws.okx.com wss://ws.okx.com https://rest.coinapi.io https://api.coinapi.io https://api.binance.com wss://stream.binance.com",
       "script-src 'self' 'sha256-n8Z7m8gNNvJlTq/Z+o4LH8rTq7PpOLz5Z1oN1eNhK5o=' 'nonce-trading-view'",
       "style-src 'self' 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=' 'sha256-VQAKPRQs+v2o0Z0Q6QJ1FJ0+Z8K3U7W8tKJ7+J3w3tA='",
       "font-src 'self' data:",
