@@ -35,6 +35,24 @@ An institutional-grade perpetual futures trading data gateway supporting 65+ cry
 
 ## 🏗️ Architecture
 
+### Microservices Design
+```
+┌─────────────────────────────────────┐
+│  Node.js Gateway (Port 5000)        │ ← Public API, WebSocket
+│  - Express TypeScript               │
+│  - CORS, Auth, Rate Limiting        │
+│  - Frontend (React)                 │
+└─────────┬───────────────────────────┘
+          │ Internal Proxy
+          ▼
+┌─────────────────────────────────────┐
+│  Python Service (Port 8000)         │ ← Internal Only
+│  - FastAPI                          │
+│  - CoinGlass Integration            │
+│  - Heavy Computation, AI/ML         │
+└─────────────────────────────────────┘
+```
+
 ### Frontend Stack
 - **React 18** with TypeScript and Vite
 - **shadcn/ui** + Tailwind CSS for professional dark-themed UI
@@ -44,10 +62,15 @@ An institutional-grade perpetual futures trading data gateway supporting 65+ cry
 
 ### Backend Stack
 - **Node.js/Express** TypeScript gateway (Port 5000)
-- **Python FastAPI** core engine (Port 8000)  
+- **Python FastAPI** core engine (Port 8000)
 - **PostgreSQL** with Drizzle ORM (Neon Database)
 - **TimescaleDB** for time-series data
 - **Redis** for caching and rate limiting
+
+### Process Management
+- **Systemd** services for auto-restart and monitoring
+- **Nginx** reverse proxy for SSL/TLS termination
+- **Environment-based** configuration (no hardcoded values)
 
 ### Data Sources
 - **OKX API**: Live pricing and order flow
@@ -231,16 +254,34 @@ crypto-api/
 
 ## 🚢 Deployment
 
+### VPS Deployment (Recommended for Production)
+
+This application is **optimized for VPS deployment** (tested on Hostinger VPS).
+
+#### Quick Deploy
+```bash
+# Automated deployment with health checks
+./deploy-vps-quick.sh
+```
+
+#### Manual VPS Setup
+```bash
+# Initial setup
+./deploy-to-vps.sh
+
+# Or follow comprehensive guide
+# See REPLIT_TO_VPS_MIGRATION.md for detailed instructions
+```
+
+**VPS Documentation:**
+- 📖 [VPS Deployment Guide](./VPS-DEPLOYMENT-GUIDE.md) - Complete VPS setup
+- 📖 [Replit to VPS Migration](./REPLIT_TO_VPS_MIGRATION.md) - Migration guide
+- 📖 [Cleanup Summary](./REPLIT_CLEANUP_SUMMARY.md) - Recent optimizations
+
 ### Docker Deployment
 ```bash
 # Build and run with Docker Compose
 docker-compose up -d
-```
-
-### VPS Deployment
-```bash
-# Automated VPS deployment
-./deploy-to-vps.sh
 ```
 
 ### Environment Variables
