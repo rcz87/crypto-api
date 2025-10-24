@@ -25,6 +25,7 @@ import { enhancedFundingRateService } from "./enhancedFundingRate";
 import { storage } from "../storage";
 import { EventEmitter } from '../observability/eventEmitter.js';
 import { v4 as uuid } from 'uuid';
+import { CVDService } from './cvd';
 
 // === Types ===
 export interface MarketPattern {
@@ -131,6 +132,7 @@ export interface ComprehensiveMarketData {
 export interface Dependencies {
   fundingService?: typeof enhancedFundingRateService;
   exchangeService?: typeof okxService;
+  cvdService?: CVDService;
   storageService?: typeof storage;
   logger?: Pick<Console, "log" | "error" | "warn">;
   openaiApiKey?: string; // override env for testing
@@ -146,6 +148,7 @@ export class AISignalEngine {
 
   private currentGeneration = 1;
   private openai: OpenAI | null = null;
+  private cvdService: CVDService;
 
   // Injectables
   private deps: Required<Pick<Dependencies, "fundingService" | "storageService" | "logger">> &
@@ -161,8 +164,12 @@ export class AISignalEngine {
       storageService: deps.storageService ?? storage,
       logger: deps.logger ?? console,
       exchangeService: deps.exchangeService,
+      cvdService: deps.cvdService,
       openaiApiKey: deps.openaiApiKey,
     };
+
+    // Initialize CVDService with okxService if available
+    this.cvdService = deps.cvdService || new CVDService(deps.exchangeService || okxService);
 
     this.initializeMarketPatterns();
     this.initializeOpenAI();
@@ -204,6 +211,16 @@ export class AISignalEngine {
   // === Public API ===
   async generateAISignal(symbol: string = "SOL-USDT-SWAP"): Promise<AISignal> {
     try {
+      // First, assess data quality
+      const marketData = await this.gatherComprehensiveMarketData();
+      const dataQuality = marketData.confluence.overall; // 0-1 scale
+
+      // Data quality gate: Reject signals if quality < 0.3 (30%)
+      if (dataQuality < 0.3) {
+        this.deps.logger.warn(`Data quality too low (${(dataQuality * 100).toFixed(1)}%) - generating conservative signal`);
+        return this.generateConservativeSignal(dataQuality);
+      }
+
       const [fundingDataRaw, sentimentData] = await Promise.all([
         this.deps.fundingService.getEnhancedFundingRate(symbol),
         this.analyzeSentiment(symbol),
@@ -229,6 +246,17 @@ export class AISignalEngine {
 
       const detectedPatterns = await this.detectMarketPatterns(fundingData, technicalData, sentimentData);
       const aiSignal = await this.generateSignalFromPatterns(detectedPatterns, fundingData, technicalData);
+
+      // Scale confidence by data quality
+      // If data quality is 70%, max confidence should be 70%
+      const maxConfidence = dataQuality * 100;
+      if (aiSignal.confidence > maxConfidence) {
+        aiSignal.confidence = Math.round(maxConfidence);
+        aiSignal.reasoning.risk_factors = [
+          `⚠️ Data quality: ${(dataQuality * 100).toFixed(1)}% (confidence scaled down)`,
+          ...aiSignal.reasoning.risk_factors
+        ];
+      }
 
       this.signalHistory.push(aiSignal);
       await this.storeSignalForLearning(aiSignal);
@@ -447,17 +475,99 @@ export class AISignalEngine {
 
   private async gatherComprehensiveMarketData(): Promise<ComprehensiveMarketData> {
     try {
+      // Get real market data from exchange
+      const exchangeService = this.deps.exchangeService || okxService;
+      const symbol = 'SOL-USDT-SWAP';
+
+      // Fetch candles and trades for CVD analysis
+      const [candles, trades] = await Promise.all([
+        exchangeService.getCandles(symbol, '1H', 24),
+        exchangeService.getRecentTrades(symbol, 100)
+      ]);
+
+      // Get real CVD analysis
+      const cvdAnalysis = await this.cvdService.analyzeCVD(candles, trades, '1H');
+
+      // Calculate real RSI from candles
+      const rsi = this.calculateRSI(candles);
+
+      // Determine trend from CVD and price action
+      const trend = this.determineTrend(candles, cvdAnalysis);
+
       return {
-        technical: { rsi: { current: 45 }, trend: "neutral" },
-        smc: { trend: "neutral", confidence: 60 },
-        cvd: { buyerSellerAggression: { ratio: 1.0, dominantSide: "balanced" } },
-        confluence: { overall: 0 },
+        technical: {
+          rsi: { current: rsi },
+          trend
+        },
+        smc: {
+          trend,
+          confidence: cvdAnalysis.confidence.overall
+        },
+        cvd: {
+          buyerSellerAggression: {
+            ratio: cvdAnalysis.buyerSellerAggression.aggressionRatio,
+            dominantSide: cvdAnalysis.buyerSellerAggression.dominantSide
+          }
+        },
+        confluence: {
+          overall: cvdAnalysis.confidence.overall / 100
+        },
       };
     } catch (err) {
       this.deps.logger.error("Error gathering market data:", err);
       // Provide a safe fallback
-      return { technical: { rsi: { current: 50 }, trend: "unknown" }, smc: { trend: "unknown", confidence: 50 }, cvd: { buyerSellerAggression: { ratio: 1.0, dominantSide: "balanced" } }, confluence: { overall: 0 } };
+      return {
+        technical: { rsi: { current: 50 }, trend: "neutral" },
+        smc: { trend: "neutral", confidence: 50 },
+        cvd: { buyerSellerAggression: { ratio: 1.0, dominantSide: "balanced" } },
+        confluence: { overall: 0 }
+      };
     }
+  }
+
+  // Calculate RSI from candle data
+  private calculateRSI(candles: any[], period: number = 14): number {
+    if (candles.length < period + 1) return 50; // Not enough data
+
+    const closes = candles.map(c => parseFloat(c.close)).slice(-period - 1);
+    let gains = 0;
+    let losses = 0;
+
+    for (let i = 1; i < closes.length; i++) {
+      const change = closes[i] - closes[i - 1];
+      if (change > 0) gains += change;
+      else losses += Math.abs(change);
+    }
+
+    const avgGain = gains / period;
+    const avgLoss = losses / period;
+
+    if (avgLoss === 0) return 100;
+    const rs = avgGain / avgLoss;
+    const rsi = 100 - (100 / (1 + rs));
+
+    return Math.round(rsi);
+  }
+
+  // Determine market trend from price action and CVD
+  private determineTrend(candles: any[], cvdAnalysis: any): string {
+    if (candles.length < 3) return "neutral";
+
+    const recentCandles = candles.slice(-3);
+    const closes = recentCandles.map(c => parseFloat(c.close));
+    const priceUp = closes[2] > closes[0];
+    const priceDown = closes[2] < closes[0];
+
+    const cvdRatio = cvdAnalysis.buyerSellerAggression.aggressionRatio;
+    const buyDominant = cvdRatio > 1.2;
+    const sellDominant = cvdRatio < 0.8;
+
+    if (priceUp && buyDominant) return "bullish";
+    if (priceDown && sellDominant) return "bearish";
+    if (buyDominant) return "bullish";
+    if (sellDominant) return "bearish";
+
+    return "neutral";
   }
 
   private async generateEnhancedReasoning(
@@ -525,16 +635,104 @@ export class AISignalEngine {
     }
   }
 
-  private async analyzeSentiment(_symbol: string): Promise<SentimentData> {
-    // Real sentiment analysis disabled - return neutral values instead of mock data
-    return {
-      overall_sentiment: "neutral",
-      sentiment_score: 0,
-      news_impact: 0,
-      social_sentiment: 0,
-      institutional_flow: "neutral",
-      market_fear_greed: 50,
-    };
+  private async analyzeSentiment(symbol: string): Promise<SentimentData> {
+    try {
+      // 1. Get real funding data
+      const fundingData = await this.deps.fundingService.getEnhancedFundingRate(symbol);
+      const fundingRate = fundingData.current.fundingRate;
+
+      // 2. Get real market data (CVD, volume)
+      const marketData = await this.gatherComprehensiveMarketData();
+      const cvdRatio = marketData.cvd?.buyerSellerAggression?.ratio || 1.0;
+
+      // 3. Calculate sentiment from real data
+      // Funding sentiment: extreme funding indicates overcrowding
+      let fundingSentiment = 0;
+      if (fundingRate > 0.0003) {
+        // Very high positive funding = too many longs = bearish
+        fundingSentiment = -0.4;
+      } else if (fundingRate > 0.0001) {
+        // Moderate positive funding = slight bearish
+        fundingSentiment = -0.2;
+      } else if (fundingRate < -0.0003) {
+        // Very high negative funding = too many shorts = bullish
+        fundingSentiment = 0.4;
+      } else if (fundingRate < -0.0001) {
+        // Moderate negative funding = slight bullish
+        fundingSentiment = 0.2;
+      }
+
+      // CVD sentiment: ratio > 1 = more buying, ratio < 1 = more selling
+      let cvdSentiment = 0;
+      if (cvdRatio > 1.3) {
+        cvdSentiment = 0.5; // Strong buying
+      } else if (cvdRatio > 1.1) {
+        cvdSentiment = 0.3; // Moderate buying
+      } else if (cvdRatio < 0.7) {
+        cvdSentiment = -0.5; // Strong selling
+      } else if (cvdRatio < 0.9) {
+        cvdSentiment = -0.3; // Moderate selling
+      }
+
+      // Combined sentiment (weighted average)
+      const sentimentScore = (fundingSentiment * 0.4 + cvdSentiment * 0.6);
+
+      // 4. Determine institutional flow from real indicators
+      let institutionalFlow: "buying" | "selling" | "neutral" = "neutral";
+
+      // Smart money accumulation: High CVD ratio + negative funding
+      // (Retail shorts getting squeezed, institutions accumulating)
+      if (cvdRatio > 1.3 && fundingRate < -0.0001) {
+        institutionalFlow = "buying";
+      }
+      // Smart money distribution: Low CVD ratio + positive funding
+      // (Retail longs getting dumped on, institutions distributing)
+      else if (cvdRatio < 0.7 && fundingRate > 0.0001) {
+        institutionalFlow = "selling";
+      }
+      // Strong buying pressure alone can indicate institutional interest
+      else if (cvdRatio > 1.4) {
+        institutionalFlow = "buying";
+      }
+      // Strong selling pressure
+      else if (cvdRatio < 0.6) {
+        institutionalFlow = "selling";
+      }
+
+      // 5. Market fear & greed (0-100 scale, based on sentiment)
+      const fearGreed = Math.min(100, Math.max(0, 50 + (sentimentScore * 50)));
+
+      // Determine overall sentiment
+      let overallSentiment: "bullish" | "bearish" | "neutral";
+      if (sentimentScore > 0.25) {
+        overallSentiment = "bullish";
+      } else if (sentimentScore < -0.25) {
+        overallSentiment = "bearish";
+      } else {
+        overallSentiment = "neutral";
+      }
+
+      return {
+        overall_sentiment: overallSentiment,
+        sentiment_score: sentimentScore,
+        news_impact: 0, // Not implemented yet
+        social_sentiment: cvdSentiment, // Use CVD as proxy for market sentiment
+        institutional_flow: institutionalFlow,
+        market_fear_greed: Math.round(fearGreed),
+      };
+
+    } catch (error) {
+      this.deps.logger.error("Error analyzing sentiment:", error);
+      // Fallback to neutral if error
+      return {
+        overall_sentiment: "neutral",
+        sentiment_score: 0,
+        news_impact: 0,
+        social_sentiment: 0,
+        institutional_flow: "neutral",
+        market_fear_greed: 50,
+      };
+    }
   }
 
   private generateNeutralSignal(): AISignal {
@@ -564,6 +762,47 @@ export class AISignalEngine {
         max_drawdown: 0,
         win_rate: 0.5,
         profit_factor: 1.0,
+      },
+    };
+  }
+
+  private generateConservativeSignal(dataQuality: number): AISignal {
+    return {
+      signal_id: `ai_conservative_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      signal_type: "hold",
+      direction: "neutral",
+      strength: 0,
+      confidence: Math.round(dataQuality * 30), // Max 30% confidence for poor data
+      source_patterns: [],
+      reasoning: {
+        primary_factors: [
+          `⚠️ Insufficient data quality: ${(dataQuality * 100).toFixed(1)}%`,
+          "Waiting for better data conditions"
+        ],
+        supporting_evidence: [
+          "Market data reliability below threshold",
+          "Conservative approach recommended"
+        ],
+        risk_factors: [
+          "🔴 LOW DATA QUALITY - DO NOT TRADE",
+          "Exchange connectivity issues or insufficient data",
+          "Wait for data quality to improve above 30%"
+        ],
+        market_context: `Data quality too low (${(dataQuality * 100).toFixed(1)}%) for reliable signal generation. No trading recommended.`,
+      },
+      execution_details: {
+        recommended_size: 0,
+        stop_loss: 0,
+        take_profit: [],
+        max_holding_time: "N/A",
+        optimal_entry_window: "Wait for data quality > 30%",
+      },
+      performance_metrics: {
+        expected_return: 0,
+        max_drawdown: 0,
+        win_rate: 0,
+        profit_factor: 0,
       },
     };
   }
