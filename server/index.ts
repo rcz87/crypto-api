@@ -690,6 +690,16 @@ app.use((req, res, next) => {
   app.use('/api/heatmap', heatmapRoutes);
   log('🔥 Unified Heatmap API registered at /api/heatmap/*');
 
+  // 📊 Register Phase 5 Backtest Routes
+  const backtestRoutes = (await import('./routes/backtest')).default;
+  app.use('/api/backtest', backtestRoutes);
+  log('📊 Phase 5 Backtest API registered at /api/backtest/*');
+
+  // 📱 Register Telegram Test Routes
+  const telegramTestRoutes = (await import('./routes/telegram-test')).default;
+  app.use('/api/telegram', telegramTestRoutes);
+  log('📱 Telegram Bot Test API registered at /api/telegram/*');
+
   // 🔄 Backward compatibility aliases
   
   // /api/gpts/* → /gpts/*

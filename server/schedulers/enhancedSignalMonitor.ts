@@ -22,7 +22,7 @@ const ENABLE_SIGNAL_MONITOR = true;
 
 import { okxService } from '../services/okx';
 import { getEnhancedAISignalEngine } from '../services/enhancedAISignalEngine';
-import { sendTelegram } from '../observability/telegram';
+import { sendTradingSignal } from '../observability/dualTelegram'; // Use signal bot for trading signals
 import { adaptiveThresholdManager } from '../services/adaptiveThreshold';
 
 // 10 Priority Coins untuk monitoring
@@ -159,10 +159,10 @@ ${signal.reasoning?.summary || 'Enhanced AI analysis'}
 ${signal.reasoning?.primary_factors?.slice(0, 3).map((f: string) => `• ${f}`).join('\n') || ''}
     `.trim();
 
-    await sendTelegram(message, { parseMode: 'HTML' });
+    await sendTradingSignal(message, { parseMode: 'HTML' });
     lastTelegramAlert = Date.now();
     alertCooldown.set(signal.symbol, Date.now());
-    console.log(`✅ [EnhancedSignalMonitor] Telegram alert sent for ${signal.symbol}`);
+    console.log(`✅ [EnhancedSignalMonitor] Trading signal sent to Telegram signal bot for ${signal.symbol}`);
     return true;
   } catch (error) {
     console.error(`[EnhancedSignalMonitor] Failed to send Telegram alert:`, error);

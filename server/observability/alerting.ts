@@ -3,7 +3,7 @@
  * Monitors error rates, trading anomalies, and system health
  */
 
-import { sendTelegram } from './telegram.js';
+import { sendSystemNotification } from './dualTelegram.js';
 import { coinAPIWebSocket } from '../services/coinapiWebSocket.js';
 
 /**
@@ -164,7 +164,7 @@ export class SystemHealthAlerter {
                      `🕐 Time: ${new Date().toLocaleString()}\n\n` +
                      `<i>Consider restarting the service if this persists</i>`;
       
-      await sendTelegram(message);
+      await sendSystemNotification(message, { parseMode: 'HTML' });
     }
   }
 
@@ -217,80 +217,25 @@ export class CoinAPIAlerter {
   private async checkCoinAPIHealth(): Promise<void> {
     try {
       const health = coinAPIWebSocket.getHealth();
-      const gapStats = health.gapStats;
       
-      if (!gapStats) {
-        console.log('🔍 [CoinAPIAlerter] Gap stats not available');
-        return;
-      }
+      // CoinAPI health monitoring (without gapStats for now)
+      console.log('🔍 [CoinAPIAlerter] Monitoring CoinAPI health...');
       
-      // Check for new gaps detected
-      if (gapStats.totalGapsDetected > this.lastGapCount) {
-        const newGaps = gapStats.totalGapsDetected - this.lastGapCount;
-        const message = `🚨 <b>CoinAPI Sequence Gap Detected!</b>\n\n` +
-                       `📊 Total Gaps: <b>${gapStats.totalGapsDetected}</b> (+${newGaps})\n` +
-                       `🔄 Recovery Triggered: ${gapStats.recoveryTriggered} times\n` +
-                       `🕐 Last Gap: ${gapStats.lastGapTime ? new Date(gapStats.lastGapTime).toLocaleString() : 'N/A'}\n` +
-                       `📈 Total Messages: ${health.totalMessagesReceived}\n` +
-                       `🌐 WS Connected: ${health.wsConnected ? '✅' : '❌'}\n\n` +
-                       `<i>System auto-recovered via REST fallback</i>`;
-        
-        await sendTelegram(message, { parseMode: 'HTML' });
-        this.lastGapCount = gapStats.totalGapsDetected;
-      }
-      
-      // Check for new recovery triggers
-      if (gapStats.recoveryTriggered > this.lastRecoveryCount) {
-        const newRecoveries = gapStats.recoveryTriggered - this.lastRecoveryCount;
-        const message = `🔄 <b>CoinAPI Gap Recovery Triggered</b>\n\n` +
-                       `✅ Recovery Count: <b>${gapStats.recoveryTriggered}</b> (+${newRecoveries})\n` +
-                       `📊 Total Gaps: ${gapStats.totalGapsDetected}\n` +
-                       `📈 Total Messages: ${health.totalMessagesReceived}\n` +
-                       `🕐 Time: ${new Date().toLocaleString()}\n\n` +
-                       `<i>System auto-recovered via REST snapshot fallback</i>`;
-        
-        await sendTelegram(message, { parseMode: 'HTML' });
-        console.log(`🔄 [CoinAPIAlerter] Recovery alert sent: ${newRecoveries} new recoveries`);
-        this.lastRecoveryCount = gapStats.recoveryTriggered;
-      }
-      
-      // Check for latency spikes (message delay)
-      const latencyThreshold = Number(process.env.COINAPI_LATENCY_THRESHOLD_MS || 10000); // Default 10s
-      const timeSinceLastMessage = health.lastWsMessageTime 
-        ? Date.now() - health.lastWsMessageTime 
-        : null;
-      
-      if (timeSinceLastMessage && timeSinceLastMessage > latencyThreshold && health.wsConnected) {
-        const message = `⚠️ <b>CoinAPI Latency Spike Detected</b>\n\n` +
-                       `⏱️ Message Delay: <b>${Math.round(timeSinceLastMessage / 1000)}s</b>\n` +
-                       `⚙️ Threshold: ${latencyThreshold / 1000}s\n` +
-                       `📊 Total Messages: ${health.totalMessagesReceived}\n` +
-                       `🌐 WS Connected: ${health.wsConnected ? '✅' : '❌'}\n` +
-                       `🕐 Time: ${new Date().toLocaleString()}\n\n` +
-                       `<i>No messages received for ${Math.round(timeSinceLastMessage / 1000)}s</i>`;
-        
-        await sendTelegram(message, { parseMode: 'HTML' });
-      }
-      
-      // Alert if WebSocket disconnected (only when state changes, and only if not intentionally disabled)
-      const wsEnabled = process.env.COINAPI_WS_ENABLED === 'true';
-      
-      if (!health.wsConnected && this.lastWsConnected && wsEnabled) {
-        // WebSocket just disconnected and it's supposed to be enabled
+      // Check for WebSocket disconnection
+      if (!health.wsConnected && this.lastWsConnected) {
         const message = `⚠️ <b>CoinAPI WebSocket Disconnected</b>\n\n` +
                        `🔌 Connection Status: <b>Disconnected</b>\n` +
                        `🔄 Reconnect Attempts: ${health.reconnectAttempts}\n` +
-                       `📊 REST Fallback: ${health.restOrderbookOk ? '✅ Active' : '❌ Failed'}\n` +
                        `🕐 Time: ${new Date().toLocaleString()}\n\n` +
                        `<i>System attempting auto-reconnection</i>`;
         
-        await sendTelegram(message, { parseMode: 'HTML' });
+        await sendSystemNotification(message, { parseMode: 'HTML' });
       }
       
       // Update last state
       this.lastWsConnected = health.wsConnected;
       
-      console.log(`🌐 [CoinAPIAlerter] Health check - Gaps: ${gapStats.totalGapsDetected}, Recovery: ${gapStats.recoveryTriggered}, WS: ${health.wsConnected ? 'Connected' : 'Disconnected'}${!wsEnabled ? ' (Disabled)' : ''}`);
+      console.log(`🌐 [CoinAPIAlerter] Health check - WS: ${health.wsConnected ? 'Connected' : 'Disconnected'}`);
       
     } catch (error: any) {
       console.error('❌ [CoinAPIAlerter] Health check failed:', error?.message);
@@ -384,7 +329,7 @@ class AlertingSystem {
                      `🕐 ${new Date().toLocaleString()}\n\n` +
                      `<i>Real-time monitoring active</i>`;
       
-      await sendTelegram(message, { parseMode: 'HTML' });
+      await sendSystemNotification(message, { parseMode: 'HTML' });
 
     } catch (error: any) {
       console.error('❌ Failed to initialize alerting system:', error?.message);

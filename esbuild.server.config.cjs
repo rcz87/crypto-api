@@ -13,7 +13,7 @@ esbuild.build({
   external: [
     'vite', '@vitejs/plugin-react', '@replit/vite-plugin-runtime-error-modal',
     '@replit/vite-plugin-cartographer', 'express', 'path', 'fs', 'body-parser',
-    'http', 'https', 'zlib', 'stream', 'events', 'module'
+    'http', 'https', 'zlib', 'stream', 'events', 'module', 'better-sqlite3', 'bcrypt'
   ],
   logLevel: 'info'
 });

@@ -220,7 +220,7 @@ jobs:
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
           port: 22
           script: |
-            cd /var/www/crypto-api
+            cd /root/crypto-api
             git pull origin main
             npm ci --production
             npm run build
