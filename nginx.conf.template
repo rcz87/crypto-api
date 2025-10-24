@@ -1,0 +1,255 @@
+# Crypto API - Nginx Reverse Proxy Configuration
+#
+# Installation:
+#   1. Copy to: /etc/nginx/sites-available/crypto-api
+#   2. Update: YOUR_DOMAIN.com with your actual domain
+#   3. Enable: sudo ln -s /etc/nginx/sites-available/crypto-api /etc/nginx/sites-enabled/
+#   4. Test: sudo nginx -t
+#   5. Reload: sudo systemctl reload nginx
+#
+# SSL Certificate (Let's Encrypt):
+#   sudo apt-get install certbot python3-certbot-nginx
+#   sudo certbot --nginx -d YOUR_DOMAIN.com -d www.YOUR_DOMAIN.com
+#
+# After SSL setup, certbot will auto-modify this file for HTTPS
+
+# Upstream servers
+upstream nodejs_backend {
+    server 127.0.0.1:5000;
+    keepalive 32;
+}
+
+upstream python_backend {
+    server 127.0.0.1:8000;
+    keepalive 16;
+}
+
+# Rate limiting zones
+limit_req_zone $binary_remote_addr zone=general_api:10m rate=100r/m;
+limit_req_zone $binary_remote_addr zone=ai_api:10m rate=10r/m;
+limit_req_zone $binary_remote_addr zone=auth_api:10m rate=5r/m;
+
+# Connection limiting
+limit_conn_zone $binary_remote_addr zone=per_ip_conn:10m;
+
+# HTTP Server (will redirect to HTTPS after certbot)
+server {
+    listen 80;
+    listen [::]:80;
+    server_name YOUR_DOMAIN.com www.YOUR_DOMAIN.com;
+
+    # Certbot challenge path
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    # Redirect HTTP to HTTPS (uncomment after SSL setup)
+    # return 301 https://$server_name$request_uri;
+
+    # Temporary: Proxy to Node.js (before SSL)
+    location / {
+        proxy_pass http://nodejs_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+# HTTPS Server (certbot will add SSL config here)
+server {
+    # listen 443 ssl http2;
+    # listen [::]:443 ssl http2;
+    # server_name YOUR_DOMAIN.com www.YOUR_DOMAIN.com;
+
+    # SSL Configuration (certbot will add these)
+    # ssl_certificate /etc/letsencrypt/live/YOUR_DOMAIN.com/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/YOUR_DOMAIN.com/privkey.pem;
+    # include /etc/letsencrypt/options-ssl-nginx.conf;
+    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline' 'unsafe-eval'" always;
+
+    # HSTS (uncomment after SSL works)
+    # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Max upload size
+    client_max_body_size 10M;
+
+    # Connection limits
+    limit_conn per_ip_conn 20;
+
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/json application/javascript;
+
+    # Health check endpoint (no rate limiting)
+    location /health {
+        proxy_pass http://nodejs_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        access_log off;
+    }
+
+    # API endpoints with rate limiting
+    location /api/ {
+        # General API rate limit: 100 req/min
+        limit_req zone=general_api burst=20 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://nodejs_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # AI/Signal endpoints with stricter rate limiting
+    location ~ ^/api/(ai|signal|screening|analysis) {
+        # AI endpoints: 10 req/min
+        limit_req zone=ai_api burst=5 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://nodejs_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Longer timeout for AI processing
+        proxy_connect_timeout 120s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+    }
+
+    # Authentication endpoints with strict rate limiting
+    location ~ ^/api/(auth|login|register) {
+        # Auth endpoints: 5 req/min
+        limit_req zone=auth_api burst=3 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://nodejs_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # WebSocket support
+    location /ws {
+        proxy_pass http://nodejs_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # WebSocket timeout
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # Python service endpoints (internal proxy only)
+    # External clients should NOT access port 8000 directly
+    location /py/ {
+        # Only allow if coming through Node.js gateway
+        # Or add IP whitelist here
+
+        proxy_pass http://python_backend/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # Longer timeout for heavy computation
+        proxy_connect_timeout 180s;
+        proxy_send_timeout 180s;
+        proxy_read_timeout 180s;
+    }
+
+    # Static files (React build)
+    location / {
+        proxy_pass http://nodejs_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Cache static assets
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            proxy_pass http://nodejs_backend;
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+
+    # Deny access to sensitive files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    location ~ /(\.env|\.git|package\.json|node_modules) {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Custom error pages
+    error_page 429 /429.html;
+    location = /429.html {
+        root /var/www/html;
+        internal;
+    }
+
+    error_page 502 503 504 /50x.html;
+    location = /50x.html {
+        root /var/www/html;
+        internal;
+    }
+
+    # Logging
+    access_log /var/log/nginx/crypto-api-access.log combined;
+    error_log /var/log/nginx/crypto-api-error.log warn;
+}
+
+# Block direct access to Python service (port 8000)
+# Only allow localhost and nginx
+server {
+    listen 8000;
+    listen [::]:8000;
+
+    # Allow only local connections
+    allow 127.0.0.1;
+    allow ::1;
+    deny all;
+
+    return 403;
+}
