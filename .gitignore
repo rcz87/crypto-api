@@ -25,3 +25,10 @@ build/
 # Large/temporary review artifacts
 attached_assets/
 *.zip
+.env.backup*
+
+# Ignore backup files with secrets
+.env.backup*
+
+# Ignore backup files with secrets
+.env.backup*

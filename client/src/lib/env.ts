@@ -5,8 +5,8 @@ export function getApiBase(): string {
   if (env) return env;
   if (!isBrowser) return '';
   const { protocol, host } = window.location;
-  const base = `${protocol}//${host}`; // e.g. https://<replit-hash>.replit.dev
-  return base; // fallback aman
+  const base = `${protocol}//${host}`; // fallback to current host
+  return base;
 }
 
 export function getWsBase(): string {

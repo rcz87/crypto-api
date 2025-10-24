@@ -1,0 +1,64 @@
+// PM2 Ecosystem Configuration for crypto-api (CommonJS)
+// This ensures PM2 properly loads .env file and manages the process
+
+require('dotenv').config(); // Load .env file BEFORE exporting config
+
+module.exports = {
+  apps: [
+    {
+      name: 'crypto-api',
+      script: 'node_modules/.bin/tsx',
+      args: 'server/index.ts',
+      instances: 1,
+      exec_mode: 'fork',
+      
+      // Environment variables from .env
+      env: {
+        NODE_ENV: process.env.NODE_ENV || 'production',
+        PORT: process.env.PORT || '5000',
+        DATABASE_URL: process.env.DATABASE_URL,
+        COINAPI_KEY: process.env.COINAPI_KEY,
+        OKX_API_KEY: process.env.OKX_API_KEY,
+        OKX_SECRET_KEY: process.env.OKX_SECRET_KEY,
+        OKX_PASSPHRASE: process.env.OKX_PASSPHRASE,
+        BYBIT_API_KEY: process.env.BYBIT_API_KEY,
+        BYBIT_SECRET_KEY: process.env.BYBIT_SECRET_KEY,
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+        COINGLASS_API_KEY: process.env.COINGLASS_API_KEY,
+        TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+        TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
+        SESSION_SECRET: process.env.SESSION_SECRET,
+        JWT_SECRET: process.env.JWT_SECRET,
+        PY_BASE: process.env.PY_BASE || 'http://127.0.0.1:8000',
+        ENABLE_TELEMETRY: process.env.ENABLE_TELEMETRY || 'false',
+        
+        // Node.js optimization flags
+        NODE_OPTIONS: '--expose-gc --max-old-space-size=512',
+      },
+      
+      // Auto-restart configuration
+      watch: false,
+      max_memory_restart: '600M', // Restart if memory exceeds 600MB
+      min_uptime: '10s', // Minimum uptime before considering process stable
+      max_restarts: 10, // Maximum restart attempts
+      restart_delay: 4000, // Delay between restarts (4 seconds)
+      
+      // Logging
+      error_file: '/var/log/pm2/crypto-api-error-0.log',
+      out_file: '/var/log/pm2/crypto-api-out-0.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      merge_logs: true,
+      
+      // Graceful shutdown
+      kill_timeout: 5000,
+      wait_ready: true,
+      listen_timeout: 10000,
+      
+      // Auto-restart on crashes
+      autorestart: true,
+      
+      // Cron restart (optional - restart every night at 3 AM)
+      // cron_restart: '0 3 * * *',
+    }
+  ]
+};

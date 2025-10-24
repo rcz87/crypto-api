@@ -86,7 +86,7 @@ app.use('/api/gpts', (req: Request, _res: Response, next: NextFunction) => {
 const allowedOrigins = [
   'http://localhost:5000',
   'https://guardiansofthetoken.com',
-  'https://bb4178d3-c004-4cff-b3e0-e4d013c0e884-00-1n57odq2i0nbm.kirk.replit.dev' // Replit domain
+  'https://bb4178d3-c004-4cff-b3e0-e4d013c0e884-00-1n57odq2i0nbm.kirksrv795356' // Replit domain
 ];
 
 // Enhanced CORS middleware with proper origin validation
@@ -94,7 +94,7 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   
   // Check if origin is in whitelist or if it's a Replit domain
-  if (origin && (allowedOrigins.includes(origin) || origin.includes('.replit.dev'))) {
+  if (origin && (allowedOrigins.includes(origin) || origin.includes('srv795356'))) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Vary', 'Origin');
     res.header('Access-Control-Allow-Credentials', 'true');
@@ -521,6 +521,15 @@ const gracefulShutdown = async (signal: string) => {
       console.error('⚠️ [Shutdown] OKX cleanup error:', err);
     }
     
+    // 4b. Cleanup Binance Liquidation WebSocket
+    try {
+      const { binanceLiquidationWS } = await import('./services/binanceLiquidationWebSocket.js');
+      await binanceLiquidationWS.stop();
+      console.log('✅ [Shutdown] Binance Liquidation WebSocket stopped');
+    } catch (err) {
+      console.error('⚠️ [Shutdown] Binance WS cleanup error:', err);
+    }
+    
     // 5. Kill Python process (SIGTERM with 2s timeout, then SIGKILL)
     if (pythonProcessGlobal) {
       pythonProcessGlobal.kill('SIGTERM');
@@ -601,7 +610,7 @@ app.use((req, res, next) => {
     // Production: Secure CSP with explicit domain allowlists
     cspPolicy = [
       "default-src 'self'",
-      "connect-src 'self' https://ws.okx.com wss://ws.okx.com https://rest.coinapi.io https://api.coinapi.io https://api.binance.com wss://stream.binance.com wss://*.replit.dev https://*.replit.dev",
+      "connect-src 'self' https://ws.okx.com wss://ws.okx.com https://rest.coinapi.io https://api.coinapi.io https://api.binance.com wss://stream.binance.com wss://*srv795356 https://*srv795356",
       "script-src 'self' 'sha256-n8Z7m8gNNvJlTq/Z+o4LH8rTq7PpOLz5Z1oN1eNhK5o=' 'nonce-trading-view'",
       "style-src 'self' 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=' 'sha256-VQAKPRQs+v2o0Z0Q6QJ1FJ0+Z8K3U7W8tKJ7+J3w3tA='",
       "font-src 'self' data:",
@@ -675,6 +684,11 @@ app.use((req, res, next) => {
   
   // Set global server reference for graceful shutdown
   httpServerGlobal = server;
+
+  // 🔥 Register Unified Heatmap Routes
+  const heatmapRoutes = (await import('./routes/heatmap')).default;
+  app.use('/api/heatmap', heatmapRoutes);
+  log('🔥 Unified Heatmap API registered at /api/heatmap/*');
 
   // 🔄 Backward compatibility aliases
   
@@ -912,6 +926,40 @@ app.use((req, res, next) => {
         log("🧠 Brain Orchestrator initialized - monitoring every 15min");
       } catch (error: any) {
         log(`⚠️ Brain orchestrator init failed: ${error?.message || String(error)}`);
+      }
+    })();
+    
+    // Initialize Enhanced Signal Monitor - Event-driven Telegram alerts (non-blocking)
+    (async () => {
+      try {
+        const { startEnhancedSignalMonitor } = await import("./schedulers/enhancedSignalMonitor");
+        startEnhancedSignalMonitor();
+        log("✅ Enhanced Signal Monitor initialized - Telegram alerts active");
+      } catch (error: any) {
+        log(`⚠️ Enhanced Signal Monitor init failed: ${error?.message || String(error)}`);
+      }
+    })();
+    
+    // Initialize Binance Liquidation WebSocket - Real-time liquidation tracking (non-blocking)
+    (async () => {
+      try {
+        const { binanceLiquidationWS } = await import("./services/binanceLiquidationWebSocket");
+        const TRACKED_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'ADAUSDT', 'BNBUSDT'];
+        
+        await binanceLiquidationWS.start(TRACKED_SYMBOLS);
+        log(`🔥 Binance Liquidation WebSocket initialized - tracking ${TRACKED_SYMBOLS.length} symbols`);
+        
+        // Log status after 5 seconds
+        setTimeout(() => {
+          const status = binanceLiquidationWS.getStatus();
+          if (status.connected) {
+            log(`✅ Binance Liquidation WS connected - ${status.totalMessages} liquidations received`);
+          } else {
+            log(`⚠️ Binance Liquidation WS not connected - reconnecting...`);
+          }
+        }, 5000);
+      } catch (error: any) {
+        log(`⚠️ Binance Liquidation WebSocket init failed: ${error?.message || String(error)}`);
       }
     })();
     

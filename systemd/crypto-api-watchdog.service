@@ -1,0 +1,27 @@
+[Unit]
+Description=Crypto API Health Watchdog
+Documentation=https://github.com/yourusername/crypto-api
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/crypto-api
+ExecStart=/bin/bash /root/crypto-api/watchdog-health.sh
+StandardOutput=append:/var/log/crypto-api-watchdog.log
+StandardError=append:/var/log/crypto-api-watchdog.log
+
+# Environment variables for Telegram notifications
+Environment="TELEGRAM_BOT_TOKEN="
+Environment="TELEGRAM_CHAT_ID="
+
+# Security settings
+PrivateTmp=true
+NoNewPrivileges=false
+
+# Resource limits
+MemoryLimit=256M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

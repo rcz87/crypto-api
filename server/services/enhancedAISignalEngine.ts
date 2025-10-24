@@ -14,6 +14,7 @@ import { TechnicalIndicatorsService } from './technicalIndicators';
 import { CVDService } from './cvd';
 import { ConfluenceService } from './confluence';
 import { multiTimeframeService } from './multiTimeframeAnalysis';
+import { cacheMonitor } from '../utils/cacheMonitor';
 import { executionRecorder } from './executionRecorder';
 import { cache, TTL_CONFIG } from '../utils/cache';
 import { 
@@ -115,7 +116,7 @@ export class EnhancedAISignalEngine {
   private static instance: EnhancedAISignalEngine | null = null;
   private patterns: Map<string, EnhancedMarketPattern> = new Map();
   private neuralModel: any | null = null; // tf.LayersModel when enabled
-  private patternMemory: Map<string, number[]> = new Map();
+  private patternMemory: Map<string, { features: number[]; timestamp: number }> = new Map();
   private learningHistory: any[] = [];
   private openai: OpenAI | null = null;
   private technicalService: TechnicalIndicatorsService;
@@ -138,12 +139,21 @@ export class EnhancedAISignalEngine {
   private lastTelegramSent = 0;
   private readonly TELEGRAM_MIN_INTERVAL = 1000; // 1s minimum between Telegram messages
 
+  // 🆕 IMPROVEMENT #4: OpenAI health tracking
+  private openaiCallCount = 0;
+  private openaiSuccessCount = 0;
+  private openaiFailureCount = 0;
+  private lastOpenAIError: string | null = null;
+  private lastOpenAIErrorTime: number | null = null;
+
   // Optimized constants for memory efficiency
   private readonly FEATURE_VECTOR_SIZE = 25; // Reduced from 50 to optimize memory
   private readonly PATTERN_MEMORY_SIZE = 500; // Reduced from 1000 to optimize memory  
   private readonly LEARNING_RATE = 0.001;
   private readonly ADAPTATION_THRESHOLD = 0.7;
   private readonly MAX_LEARNING_HISTORY = 100; // Prevent unbounded growth
+  private readonly LEARNING_HISTORY_TTL = 24 * 60 * 60 * 1000; // 24 hours - time-based cleanup
+  private readonly PATTERN_MEMORY_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days - pattern memory TTL
   private readonly MEMORY_CLEANUP_INTERVAL = 300000; // 5 minutes
 
   private constructor(deps: EnhancedAIDependencies = {}) {
@@ -174,9 +184,26 @@ export class EnhancedAISignalEngine {
     return EnhancedAISignalEngine.instance;
   }
   
+  /**
+   * 🆕 IMPROVEMENT #3: Register caches for monitoring
+   */
+  private registerCachesForMonitoring(): void {
+    try {
+      cacheMonitor.registerCache('learning_history', this.learningHistory, this.MAX_LEARNING_HISTORY);
+      cacheMonitor.registerCache('pattern_memory', this.patternMemory, this.PATTERN_MEMORY_SIZE);
+      
+      console.log('📊 Cache monitoring registered for Enhanced AI Engine');
+    } catch (error) {
+      console.error('Failed to register cache monitoring:', error);
+    }
+  }
+
   // Enhanced background processes with proper cleanup
   private startBackgroundProcesses(): void {
     if (this.isDestroyed) return;
+    
+    // 🆕 IMPROVEMENT #3: Register caches for monitoring
+    this.registerCachesForMonitoring();
     
     // Store interval IDs for cleanup
     this.intervals.push(setInterval(() => {
@@ -433,14 +460,18 @@ export class EnhancedAISignalEngine {
     console.log(`🧠 Enhanced AI: Initialized ${enhancedPatterns.length} advanced market patterns`);
   }
 
-  // Initialize OpenAI
+  // Initialize OpenAI with enhanced connection management
   private initializeOpenAI(): void {
     try {
       if (process.env.OPENAI_API_KEY) {
+        // 🆕 IMPROVEMENT #4: Enhanced OpenAI configuration
         this.openai = new OpenAI({ 
-          apiKey: process.env.OPENAI_API_KEY 
+          apiKey: process.env.OPENAI_API_KEY,
+          timeout: 30000, // 30s timeout to prevent hanging
+          maxRetries: 3,  // Retry 3x with exponential backoff
+          // Note: Connection pooling handled by OpenAI SDK internally
         });
-        console.log('🤖 Enhanced AI: OpenAI GPT-5 integration active');
+        console.log('🤖 Enhanced AI: OpenAI GPT-4o integration active (timeout: 30s, retries: 3)');
       } else {
         console.log('⚠️ Enhanced AI: OpenAI API key not found - using local patterns only');
       }
@@ -818,7 +849,8 @@ export class EnhancedAISignalEngine {
         // Add more pattern detection logic...
         default:
           // Generic pattern scoring based on feature similarity
-          const patternFeatures = this.patternMemory.get(patternId) || features;
+          const patternData = this.patternMemory.get(patternId);
+          const patternFeatures = patternData ? patternData.features : features;
           detectionScore = this.calculatePatternSimilarity(features, patternFeatures);
       }
 
@@ -833,8 +865,11 @@ export class EnhancedAISignalEngine {
         
         detectedPatterns.push(enhancedPattern);
         
-        // Update pattern memory
-        this.patternMemory.set(patternId, features.slice());
+        // 🆕 IMPROVEMENT #2: Update pattern memory with timestamp
+        this.patternMemory.set(patternId, {
+          features: features.slice(),
+          timestamp: Date.now()
+        });
         
         console.log(`🔍 Enhanced AI: Detected pattern ${pattern.name} (confidence: ${enhancedPattern.confidence.toFixed(2)})`);
       }
@@ -1420,6 +1455,11 @@ ${safeFactors}
     
     if (this.openai) {
       console.log(`🚀 Calling GPT-4o for ${symbol} analysis...`);
+      
+      // 🆕 IMPROVEMENT #4: Track OpenAI call
+      this.openaiCallCount++;
+      const callStartTime = Date.now();
+      
       try {
         const featureContext = features.map((val, idx) => `f${idx}:${val.toFixed(4)}`).join(', ');
         const patternContext = patterns.map(p => 
@@ -1482,6 +1522,7 @@ INSTRUCTIONS:
 5. Sniper timing must be objective (e.g. "break above 238.7 AND CVD > 0")
 6. Output JSON only. No extra text.`;
 
+        // 🆕 IMPROVEMENT #4: OpenAI call with built-in timeout & retry
         const response = await this.openai.chat.completions.create({
           model: 'gpt-4o',
           messages: [
@@ -1495,6 +1536,11 @@ INSTRUCTIONS:
           temperature: 0.3,
           max_tokens: 1500
         });
+        
+        // 🆕 IMPROVEMENT #4: Track success
+        this.openaiSuccessCount++;
+        const callDuration = Date.now() - callStartTime;
+        console.log(`✅ GPT-4o call successful (${callDuration}ms)`);
 
         const reasoningRaw = response.choices[0]?.message?.content || '{}';
         let reasoningParsed: any;
@@ -1519,8 +1565,24 @@ INSTRUCTIONS:
         
         return validated;
 
-      } catch (error) {
-        console.warn('🚨 Enhanced AI: GPT analysis failed, using local reasoning:', error);
+      } catch (error: any) {
+        // 🆕 IMPROVEMENT #4: Track failure & log details
+        this.openaiFailureCount++;
+        this.lastOpenAIError = error?.message || String(error);
+        this.lastOpenAIErrorTime = Date.now();
+        
+        const callDuration = Date.now() - callStartTime;
+        const errorType = error?.status ? `HTTP ${error.status}` : error?.code || 'UNKNOWN';
+        
+        console.warn(`🚨 Enhanced AI: GPT analysis failed (${errorType}, ${callDuration}ms)`);
+        console.warn(`   Error: ${this.lastOpenAIError}`);
+        console.warn(`   Stats: ${this.openaiSuccessCount}/${this.openaiCallCount} successful`);
+        
+        // Log rate limit specifically
+        if (error?.status === 429) {
+          console.warn('   ⚠️ Rate limit hit - OpenAI SDK will auto-retry with backoff');
+        }
+        
         return this.localReasoningFallback();
       }
     }
@@ -2152,18 +2214,69 @@ INSTRUCTIONS:
   
   private performMemoryCleanup(): void {
     try {
-      // Limit learning history to prevent unbounded growth
-      if (this.learningHistory.length > this.MAX_LEARNING_HISTORY) {
-        this.learningHistory = this.learningHistory.slice(-this.MAX_LEARNING_HISTORY);
+      const now = Date.now();
+      
+      // 🆕 IMPROVEMENT #1: Time-based cleanup for learning history
+      // Remove entries older than 24 hours
+      const beforeCleanup = this.learningHistory.length;
+      this.learningHistory = this.learningHistory.filter(item => {
+        const age = now - new Date(item.timestamp).getTime();
+        return age < this.LEARNING_HISTORY_TTL;
+      });
+      
+      const removedByAge = beforeCleanup - this.learningHistory.length;
+      if (removedByAge > 0) {
+        console.log(`🧹 Removed ${removedByAge} old learning history entries (>24h)`);
       }
       
-      // Clean up pattern memory if too large
+      // Existing: Also limit by count as fallback
+      if (this.learningHistory.length > this.MAX_LEARNING_HISTORY) {
+        const beforeCount = this.learningHistory.length;
+        this.learningHistory = this.learningHistory.slice(-this.MAX_LEARNING_HISTORY);
+        console.log(`🧹 Trimmed learning history from ${beforeCount} to ${this.MAX_LEARNING_HISTORY} entries`);
+      }
+      
+      // 🆕 IMPROVEMENT #2: Age-based cleanup for pattern memory
+      // Remove patterns older than 7 days
+      const beforePatternCleanup = this.patternMemory.size;
+      for (const [key, value] of this.patternMemory.entries()) {
+        const age = now - value.timestamp;
+        if (age > this.PATTERN_MEMORY_TTL) {
+          this.patternMemory.delete(key);
+        }
+      }
+      
+      const removedByPatternAge = beforePatternCleanup - this.patternMemory.size;
+      if (removedByPatternAge > 0) {
+        console.log(`🧹 Removed ${removedByPatternAge} old pattern memory entries (>7d)`);
+      }
+      
+      // 🆕 IMPROVEMENT #3: Log cache stats periodically (every 5 cleanups = 25 minutes)
+      if (Math.random() < 0.2) { // 20% chance = roughly every 5 cleanups
+        try {
+          const learningStats = cacheMonitor.getCacheStats('learning_history');
+          const patternStats = cacheMonitor.getCacheStats('pattern_memory');
+          
+          if (learningStats) {
+            console.log(`📊 Learning History: ${learningStats.size}/${learningStats.maxSize} (${learningStats.utilizationPercent.toFixed(1)}%)`);
+          }
+          if (patternStats) {
+            console.log(`📊 Pattern Memory: ${patternStats.size}/${patternStats.maxSize} (${patternStats.utilizationPercent.toFixed(1)}%)`);
+          }
+        } catch (error) {
+          // Silently fail if monitoring fails
+        }
+      }
+      
+      // Existing: Also limit by size as fallback
       if (this.patternMemory.size > this.PATTERN_MEMORY_SIZE) {
         const entries = Array.from(this.patternMemory.entries());
-        entries.sort((a, b) => a[1].length - b[1].length); // Sort by array size
+        // Sort by timestamp (oldest first)
+        entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
         const toKeep = entries.slice(-this.PATTERN_MEMORY_SIZE);
         this.patternMemory.clear();
         toKeep.forEach(([key, value]) => this.patternMemory.set(key, value));
+        console.log(`🧹 Trimmed pattern memory from ${entries.length} to ${this.PATTERN_MEMORY_SIZE} entries`);
       }
       
       // Force TensorFlow garbage collection if available
@@ -2194,7 +2307,7 @@ INSTRUCTIONS:
     return this.patterns;
   }
   
-  public getPatternMemory(): Map<string, number[]> {
+  public getPatternMemory(): Map<string, { features: number[]; timestamp: number }> {
     return this.patternMemory;
   }
   
@@ -2204,6 +2317,31 @@ INSTRUCTIONS:
   
   public getNeuralModel(): any | null {
     return this.neuralModel;
+  }
+  
+  // 🆕 IMPROVEMENT #4: Getters for OpenAI health stats
+  public getOpenAI(): OpenAI | null {
+    return this.openai;
+  }
+  
+  public getOpenAICallCount(): number {
+    return this.openaiCallCount;
+  }
+  
+  public getOpenAISuccessCount(): number {
+    return this.openaiSuccessCount;
+  }
+  
+  public getOpenAIFailureCount(): number {
+    return this.openaiFailureCount;
+  }
+  
+  public getLastOpenAIError(): string | null {
+    return this.lastOpenAIError;
+  }
+  
+  public getLastOpenAIErrorTime(): number | null {
+    return this.lastOpenAIErrorTime;
   }
 }
 
@@ -2217,6 +2355,14 @@ export class EnhancedAISignalEngineManager {
   
   public static getStatus() {
     const instance = EnhancedAISignalEngine.getInstance();
+    
+    // 🆕 IMPROVEMENT #4: Include OpenAI health stats
+    const openaiCallCount = instance.getOpenAICallCount();
+    const openaiSuccessCount = instance.getOpenAISuccessCount();
+    const openaiSuccessRate = openaiCallCount > 0 
+      ? ((openaiSuccessCount / openaiCallCount) * 100).toFixed(1)
+      : 'N/A';
+    
     return {
       isInitialized: instance.getIsInitialized(),
       isDestroyed: instance.getIsDestroyed(),
@@ -2226,6 +2372,17 @@ export class EnhancedAISignalEngineManager {
         patternMemory: instance.getPatternMemory().size,
         learningHistory: instance.getLearningHistory().length,
         neuralModelLoaded: instance.getNeuralModel() !== null
+      },
+      openaiHealth: {
+        configured: instance.getOpenAI() !== null,
+        totalCalls: openaiCallCount,
+        successfulCalls: openaiSuccessCount,
+        failedCalls: instance.getOpenAIFailureCount(),
+        successRate: openaiSuccessRate,
+        lastError: instance.getLastOpenAIError(),
+        lastErrorTime: instance.getLastOpenAIErrorTime() !== null
+          ? new Date(instance.getLastOpenAIErrorTime()!).toISOString()
+          : null
       }
     };
   }

@@ -926,46 +926,181 @@ async function tryNodeFallback(requestBody: any): Promise<any> {
           }
 
         case 'new_listings':
-          console.log('[Node Fallback] Handling new_listings operation with CoinMarketCap API');
+          console.log('[Node Fallback] Handling new_listings operation with ENHANCED volume & hidden gems analysis');
           try {
-            const limit = params.limit || 20;
+            const limit = params.limit || 50; // Increased to get more candidates
+            const maxMarketCap = params.maxMarketCap || 500000000; // $500M default for "new" coins
+            const minVolumeChange = params.minVolumeChange || 50; // Min 50% volume spike
+            
             const coins = await cmcService.getNewListings(limit);
             
+            // Enhanced formatting with volume spike detection & hidden gems scoring
             const formattedListings = coins.map(coin => {
               const dateAdded = new Date(coin.date_added);
               const timeElapsed = Date.now() - dateAdded.getTime();
               const hoursElapsed = Math.floor(timeElapsed / (1000 * 60 * 60));
               const daysElapsed = Math.floor(hoursElapsed / 24);
               
+              const marketCap = coin.quote.USD.market_cap;
+              const volume24h = coin.quote.USD.volume_24h;
+              const volumeChange = coin.quote.USD.volume_change_24h;
+              const priceChange = coin.quote.USD.percent_change_24h;
+              
+              // Calculate tokenomics score
+              const tokenomics = cmcService.calculateTokenomicsScore(coin);
+              
+              // Hidden Gems Scoring (0-100)
+              let hiddenGemScore = 0;
+              const scoringFactors: string[] = [];
+              
+              // Factor 1: Market Cap (smaller = better for hidden gems)
+              if (marketCap < 10000000) { // <$10M
+                hiddenGemScore += 30;
+                scoringFactors.push('Micro-cap (<$10M)');
+              } else if (marketCap < 50000000) { // <$50M
+                hiddenGemScore += 20;
+                scoringFactors.push('Small-cap (<$50M)');
+              } else if (marketCap < 100000000) { // <$100M
+                hiddenGemScore += 10;
+                scoringFactors.push('Mid-cap (<$100M)');
+              }
+              
+              // Factor 2: Volume Spike (accumulation signal)
+              if (volumeChange > 200) {
+                hiddenGemScore += 25;
+                scoringFactors.push(`Massive volume spike (+${volumeChange.toFixed(0)}%)`);
+              } else if (volumeChange > 100) {
+                hiddenGemScore += 15;
+                scoringFactors.push(`Strong volume spike (+${volumeChange.toFixed(0)}%)`);
+              } else if (volumeChange > 50) {
+                hiddenGemScore += 10;
+                scoringFactors.push(`Volume spike (+${volumeChange.toFixed(0)}%)`);
+              }
+              
+              // Factor 3: Price Action (momentum)
+              if (priceChange > 50 && priceChange < 200) { // Sweet spot: pumping but not parabolic
+                hiddenGemScore += 20;
+                scoringFactors.push('Strong momentum (50-200%)');
+              } else if (priceChange > 20 && priceChange < 50) {
+                hiddenGemScore += 15;
+                scoringFactors.push('Good momentum (20-50%)');
+              } else if (priceChange > 0 && priceChange < 20) {
+                hiddenGemScore += 10;
+                scoringFactors.push('Positive momentum');
+              }
+              
+              // Factor 4: Tokenomics
+              hiddenGemScore += Math.round(tokenomics.score * 0.25); // Max 7.5 points
+              if (tokenomics.score > 20) {
+                scoringFactors.push('Good tokenomics');
+              }
+              
+              // Factor 5: Recency (newer = better for "new listings")
+              if (hoursElapsed < 24) {
+                hiddenGemScore += 10;
+                scoringFactors.push('Listed <24h ago');
+              } else if (hoursElapsed < 72) {
+                hiddenGemScore += 5;
+                scoringFactors.push('Listed <3d ago');
+              }
+              
+              // Factor 6: Trending tags (AI, RWA, DePIN, Gaming, etc.)
+              const trendingTags = ['ai', 'rwa', 'depin', 'gaming', 'metaverse', 'layer-2', 'defi'];
+              const hasTrendingTag = coin.tags.some(tag => 
+                trendingTags.some(trending => tag.toLowerCase().includes(trending))
+              );
+              if (hasTrendingTag) {
+                hiddenGemScore += 7.5;
+                scoringFactors.push('Trending narrative');
+              }
+              
+              // Determine recommendation
+              let recommendation = 'SKIP';
+              if (hiddenGemScore >= 70) {
+                recommendation = 'STRONG BUY';
+              } else if (hiddenGemScore >= 55) {
+                recommendation = 'BUY';
+              } else if (hiddenGemScore >= 40) {
+                recommendation = 'WATCH';
+              }
+              
               return {
                 symbol: coin.symbol,
                 name: coin.name,
                 price: coin.quote.USD.price,
                 priceUsd: `$${coin.quote.USD.price.toFixed(coin.quote.USD.price < 1 ? 6 : 2)}`,
-                volumeChange24h: coin.quote.USD.volume_change_24h,
-                volumeChange24hFormatted: `${coin.quote.USD.volume_change_24h > 0 ? '+' : ''}${coin.quote.USD.volume_change_24h.toFixed(2)}%`,
-                marketCap: coin.quote.USD.market_cap,
-                marketCapFormatted: coin.quote.USD.market_cap > 1000000 ? `$${(coin.quote.USD.market_cap / 1000000).toFixed(2)}M` : `$${(coin.quote.USD.market_cap / 1000).toFixed(2)}K`,
-                percentChange24h: coin.quote.USD.percent_change_24h,
-                percentChange24hFormatted: `${coin.quote.USD.percent_change_24h > 0 ? '+' : ''}${coin.quote.USD.percent_change_24h.toFixed(2)}%`,
+                marketCap,
+                marketCapFormatted: marketCap > 1000000 ? `$${(marketCap / 1000000).toFixed(2)}M` : `$${(marketCap / 1000).toFixed(2)}K`,
+                volume24h,
+                volumeFormatted: `$${(volume24h / 1000000).toFixed(2)}M`,
+                volumeChange24h: volumeChange,
+                volumeChange24hFormatted: `${volumeChange > 0 ? '+' : ''}${volumeChange.toFixed(2)}%`,
+                percentChange24h: priceChange,
+                percentChange24hFormatted: `${priceChange > 0 ? '+' : ''}${priceChange.toFixed(2)}%`,
                 dateAdded: dateAdded.toISOString(),
                 timeElapsed: daysElapsed > 0 ? `${daysElapsed}d ${hoursElapsed % 24}h` : `${hoursElapsed}h`,
+                hoursElapsed,
                 cmcRank: coin.cmc_rank,
                 platform: coin.platform?.name || 'Native',
-                tags: coin.tags.slice(0, 3),
+                tags: coin.tags.slice(0, 5),
+                // Hidden Gems Analysis
+                hiddenGemScore: Math.round(hiddenGemScore),
+                recommendation,
+                scoringFactors,
+                tokenomics: {
+                  score: tokenomics.score,
+                  circulatingRatio: (tokenomics.circulatingRatio * 100).toFixed(1) + '%',
+                  dilutionRisk: tokenomics.dilutionRisk.toFixed(2) + 'x',
+                },
+                // Whale Accumulation Signals
+                volumeToMarketCapRatio: marketCap > 0 ? (volume24h / marketCap * 100).toFixed(2) + '%' : 'N/A',
+                isVolumeSpiking: volumeChange > minVolumeChange,
+                isPumping: priceChange > 20,
+                isHiddenGem: hiddenGemScore >= 55,
               };
             });
+            
+            // Filter & sort by hidden gem score
+            const filteredListings = formattedListings
+              .filter(coin => 
+                coin.marketCap <= maxMarketCap && // Filter by market cap
+                coin.volumeChange24h >= minVolumeChange // Filter by volume spike
+              )
+              .sort((a, b) => b.hiddenGemScore - a.hiddenGemScore) // Sort by score
+              .slice(0, params.limit || 20); // Return top N
+            
+            // Statistics
+            const stats = {
+              totalScanned: formattedListings.length,
+              totalFiltered: filteredListings.length,
+              strongBuys: filteredListings.filter(c => c.recommendation === 'STRONG BUY').length,
+              buys: filteredListings.filter(c => c.recommendation === 'BUY').length,
+              watches: filteredListings.filter(c => c.recommendation === 'WATCH').length,
+              avgHiddenGemScore: filteredListings.length > 0 
+                ? (filteredListings.reduce((sum, c) => sum + c.hiddenGemScore, 0) / filteredListings.length).toFixed(1)
+                : '0',
+              volumeSpikes: filteredListings.filter(c => c.isVolumeSpiking).length,
+              pumping: filteredListings.filter(c => c.isPumping).length,
+            };
             
             return {
               ok: true,
               op: 'new_listings',
-              args: { limit },
+              args: { 
+                limit: params.limit || 20,
+                maxMarketCap,
+                minVolumeChange,
+              },
               data: {
-                module: 'new_listings',
-                listings: formattedListings,
-                total: formattedListings.length,
-                used_sources: ['coinmarketcap_api', '300+_exchanges', 'real_time_data'],
-                summary: `Found ${formattedListings.length} new cryptocurrency listings from CoinMarketCap (300+ exchanges aggregated)`
+                module: 'new_listings_enhanced',
+                listings: filteredListings,
+                stats,
+                filters: {
+                  maxMarketCap: `$${(maxMarketCap / 1000000).toFixed(0)}M`,
+                  minVolumeChange: `${minVolumeChange}%`,
+                },
+                used_sources: ['coinmarketcap_api', '300+_exchanges', 'volume_analysis', 'hidden_gems_scoring'],
+                summary: `Found ${filteredListings.length} hidden gems from ${formattedListings.length} new listings (${stats.strongBuys} STRONG BUY, ${stats.buys} BUY, ${stats.watches} WATCH)`
               }
             };
           } catch (listingsError) {
@@ -1158,27 +1293,133 @@ async function tryNodeFallback(requestBody: any): Promise<any> {
           }
 
         case 'micro_caps':
-          console.log('[Node Fallback] Handling micro_caps operation');
+          console.log('[Node Fallback] Handling micro_caps operation with ENHANCED whale accumulation detection');
           try {
             const maxMarketCap = params.maxMarketCap || 100000000; // $100M default
-            const minScore = params.minScore || 60;
-            const limit = params.limit || 10;
+            const minScore = params.minScore || 50; // Lowered to catch more gems
+            const limit = params.limit || 20; // Increased limit
+            const minVolumeChange = params.minVolumeChange || 30; // Min 30% volume spike for micro-caps
             
             const coins = await cmcService.getMicroCaps(maxMarketCap);
             
-            const opportunities = coins.slice(0, limit).map(coin => {
+            const opportunities = coins.map(coin => {
               const tokenomics = cmcService.calculateTokenomicsScore(coin);
               const marketCap = coin.quote.USD.market_cap;
               const volume24h = coin.quote.USD.volume_24h;
+              const volumeChange = coin.quote.USD.volume_change_24h;
+              const priceChange = coin.quote.USD.percent_change_24h;
+              const priceChange7d = coin.quote.USD.percent_change_7d;
               
-              // Market cap scoring (prefer smaller caps)
-              const marketCapScore = marketCap < 50000000 ? 100 : marketCap < 75000000 ? 80 : 60;
+              // Enhanced Hidden Gems Scoring (0-100)
+              let alphaScore = 0;
+              const scoringFactors: string[] = [];
               
-              // Volume scoring
-              const volumeScore = volume24h > 10000000 ? 100 : volume24h > 5000000 ? 80 : volume24h > 1000000 ? 60 : 40;
+              // Factor 1: Market Cap (smaller = higher potential)
+              if (marketCap < 5000000) { // <$5M - Ultra micro
+                alphaScore += 35;
+                scoringFactors.push('Ultra micro-cap (<$5M) - 100x potential');
+              } else if (marketCap < 10000000) { // <$10M
+                alphaScore += 30;
+                scoringFactors.push('Micro-cap (<$10M) - 50x potential');
+              } else if (marketCap < 25000000) { // <$25M
+                alphaScore += 25;
+                scoringFactors.push('Small micro-cap (<$25M) - 20x potential');
+              } else if (marketCap < 50000000) { // <$50M
+                alphaScore += 20;
+                scoringFactors.push('Mid micro-cap (<$50M) - 10x potential');
+              } else {
+                alphaScore += 10;
+                scoringFactors.push('Large micro-cap (<$100M) - 5x potential');
+              }
               
-              // Calculate alpha score
-              const alphaScore = Math.round((tokenomics.score * 0.3) + (marketCapScore * 0.4) + (volumeScore * 0.3));
+              // Factor 2: Volume Spike (whale accumulation signal)
+              if (volumeChange > 300) {
+                alphaScore += 25;
+                scoringFactors.push(`🐋 MASSIVE whale accumulation (+${volumeChange.toFixed(0)}%)`);
+              } else if (volumeChange > 150) {
+                alphaScore += 20;
+                scoringFactors.push(`🐋 Strong whale accumulation (+${volumeChange.toFixed(0)}%)`);
+              } else if (volumeChange > 75) {
+                alphaScore += 15;
+                scoringFactors.push(`🐋 Whale accumulation detected (+${volumeChange.toFixed(0)}%)`);
+              } else if (volumeChange > 30) {
+                alphaScore += 10;
+                scoringFactors.push(`Volume increase (+${volumeChange.toFixed(0)}%)`);
+              }
+              
+              // Factor 3: Price Momentum (but not parabolic)
+              if (priceChange > 30 && priceChange < 150) {
+                alphaScore += 15;
+                scoringFactors.push('Strong momentum (30-150%)');
+              } else if (priceChange > 10 && priceChange < 30) {
+                alphaScore += 12;
+                scoringFactors.push('Good momentum (10-30%)');
+              } else if (priceChange > 0 && priceChange < 10) {
+                alphaScore += 8;
+                scoringFactors.push('Positive momentum');
+              } else if (priceChange < 0 && priceChange > -20) {
+                alphaScore += 5;
+                scoringFactors.push('Accumulation zone (dip)');
+              }
+              
+              // Factor 4: 7-day trend (sustained momentum)
+              if (priceChange7d > 50) {
+                alphaScore += 10;
+                scoringFactors.push('Strong 7d trend');
+              } else if (priceChange7d > 20) {
+                alphaScore += 7;
+                scoringFactors.push('Good 7d trend');
+              }
+              
+              // Factor 5: Tokenomics (max 10 points)
+              const tokenomicsPoints = Math.round(tokenomics.score * 0.33);
+              alphaScore += tokenomicsPoints;
+              if (tokenomics.score > 20) {
+                scoringFactors.push(`Good tokenomics (${tokenomics.score}/30)`);
+              }
+              
+              // Factor 6: Volume to Market Cap ratio (liquidity & interest)
+              const volumeToMcRatio = marketCap > 0 ? (volume24h / marketCap) : 0;
+              if (volumeToMcRatio > 0.5) { // >50% daily volume
+                alphaScore += 10;
+                scoringFactors.push('Extremely high liquidity');
+              } else if (volumeToMcRatio > 0.25) { // >25%
+                alphaScore += 7;
+                scoringFactors.push('High liquidity');
+              } else if (volumeToMcRatio > 0.1) { // >10%
+                alphaScore += 5;
+                scoringFactors.push('Good liquidity');
+              }
+              
+              // Factor 7: Trending narratives
+              const trendingTags = ['ai', 'rwa', 'depin', 'gaming', 'metaverse', 'layer-2', 'defi', 'meme'];
+              const matchedTags = coin.tags.filter(tag => 
+                trendingTags.some(trending => tag.toLowerCase().includes(trending))
+              );
+              if (matchedTags.length > 0) {
+                alphaScore += 5 * matchedTags.length; // 5 points per trending tag
+                scoringFactors.push(`Trending: ${matchedTags.join(', ')}`);
+              }
+              
+              // Determine recommendation
+              let recommendation = 'SKIP';
+              let riskLevel = 'HIGH';
+              if (alphaScore >= 75) {
+                recommendation = 'STRONG BUY';
+                riskLevel = 'MEDIUM';
+              } else if (alphaScore >= 60) {
+                recommendation = 'BUY';
+                riskLevel = 'MEDIUM-HIGH';
+              } else if (alphaScore >= 45) {
+                recommendation = 'WATCH';
+                riskLevel = 'HIGH';
+              }
+              
+              // Calculate potential multiplier based on market cap
+              let potentialMultiplier = '5-10x';
+              if (marketCap < 5000000) potentialMultiplier = '50-100x';
+              else if (marketCap < 10000000) potentialMultiplier = '20-50x';
+              else if (marketCap < 25000000) potentialMultiplier = '10-20x';
               
               return {
                 symbol: coin.symbol,
@@ -1186,34 +1427,74 @@ async function tryNodeFallback(requestBody: any): Promise<any> {
                 marketCap,
                 marketCapFormatted: `$${(marketCap / 1000000).toFixed(2)}M`,
                 price: coin.quote.USD.price,
+                priceFormatted: `$${coin.quote.USD.price < 0.01 ? coin.quote.USD.price.toFixed(6) : coin.quote.USD.price.toFixed(4)}`,
                 volume24h,
                 volumeFormatted: `$${(volume24h / 1000000).toFixed(2)}M`,
-                percentChange24h: coin.quote.USD.percent_change_24h,
+                volumeChange24h: volumeChange,
+                volumeChange24hFormatted: `${volumeChange > 0 ? '+' : ''}${volumeChange.toFixed(1)}%`,
+                percentChange24h: priceChange,
+                percentChange24hFormatted: `${priceChange > 0 ? '+' : ''}${priceChange.toFixed(1)}%`,
+                percentChange7d: priceChange7d,
+                percentChange7dFormatted: `${priceChange7d > 0 ? '+' : ''}${priceChange7d.toFixed(1)}%`,
+                // Tokenomics
                 circulatingSupply: coin.circulating_supply,
                 totalSupply: coin.total_supply,
-                circulatingRatio: tokenomics.circulatingRatio,
-                dilutionRisk: tokenomics.dilutionRisk,
+                circulatingRatio: (tokenomics.circulatingRatio * 100).toFixed(1) + '%',
+                dilutionRisk: tokenomics.dilutionRisk.toFixed(2) + 'x',
                 tokenomicsScore: tokenomics.score,
-                marketCapScore,
-                volumeScore,
-                alphaScore,
+                tokenomicsDetails: tokenomics.details,
+                // Scoring
+                alphaScore: Math.round(alphaScore),
+                recommendation,
+                riskLevel,
+                potentialMultiplier,
+                scoringFactors,
+                // Whale signals
+                volumeToMarketCapRatio: (volumeToMcRatio * 100).toFixed(1) + '%',
+                isWhaleAccumulating: volumeChange > 75,
+                isVolumeSpiking: volumeChange > minVolumeChange,
+                isPumping: priceChange > 20,
+                isHiddenGem: alphaScore >= 60,
+                // Additional data
                 tags: coin.tags || [],
-                reasoning: tokenomics.details
+                platform: coin.platform?.name || 'Native',
+                cmcRank: coin.cmc_rank,
               };
-            }).filter(opp => opp.alphaScore >= minScore);
+            })
+            .filter(opp => opp.alphaScore >= minScore && opp.volumeChange24h >= minVolumeChange)
+            .sort((a, b) => b.alphaScore - a.alphaScore)
+            .slice(0, limit);
+            
+            // Statistics
+            const stats = {
+              totalScanned: coins.length,
+              totalFiltered: opportunities.length,
+              strongBuys: opportunities.filter(c => c.recommendation === 'STRONG BUY').length,
+              buys: opportunities.filter(c => c.recommendation === 'BUY').length,
+              watches: opportunities.filter(c => c.recommendation === 'WATCH').length,
+              avgAlphaScore: opportunities.length > 0 
+                ? (opportunities.reduce((sum, c) => sum + c.alphaScore, 0) / opportunities.length).toFixed(1)
+                : '0',
+              whaleAccumulation: opportunities.filter(c => c.isWhaleAccumulating).length,
+              volumeSpikes: opportunities.filter(c => c.isVolumeSpiking).length,
+              ultraMicroCaps: opportunities.filter(c => c.marketCap < 5000000).length,
+            };
             
             return {
               ok: true,
               op: 'micro_caps',
-              args: { maxMarketCap, minScore, limit },
+              args: { maxMarketCap, minScore, limit, minVolumeChange },
               data: {
-                module: 'micro_caps',
+                module: 'micro_caps_enhanced',
                 opportunities,
-                total: opportunities.length,
-                maxMarketCap: `$${(maxMarketCap / 1000000).toFixed(0)}M`,
-                minScore,
-                used_sources: ['coinmarketcap_api', 'multi_exchange_aggregation', '300+_exchanges'],
-                summary: `Found ${opportunities.length} micro-cap opportunities <$${(maxMarketCap / 1000000).toFixed(0)}M with alpha score ≥${minScore}`
+                stats,
+                filters: {
+                  maxMarketCap: `$${(maxMarketCap / 1000000).toFixed(0)}M`,
+                  minScore,
+                  minVolumeChange: `${minVolumeChange}%`,
+                },
+                used_sources: ['coinmarketcap_api', 'whale_detection', 'volume_analysis', 'hidden_gems_scoring'],
+                summary: `Found ${opportunities.length} micro-cap gems from ${coins.length} candidates (${stats.strongBuys} STRONG BUY, ${stats.buys} BUY) - ${stats.whaleAccumulation} with whale accumulation`
               }
             };
           } catch (microCapsError) {

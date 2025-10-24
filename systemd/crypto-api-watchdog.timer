@@ -1,0 +1,20 @@
+[Unit]
+Description=Crypto API Health Watchdog Timer
+Documentation=https://github.com/yourusername/crypto-api
+Requires=crypto-api-watchdog.service
+
+[Timer]
+# Run 2 minutes after boot
+OnBootSec=2min
+
+# Run every 3 minutes
+OnUnitActiveSec=3min
+
+# Allow 1 second accuracy
+AccuracySec=1s
+
+# Persistent timer (catch up missed runs)
+Persistent=true
+
+[Install]
+WantedBy=timers.target

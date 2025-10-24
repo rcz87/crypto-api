@@ -1,0 +1,1441 @@
+# 🔥 PERFECT! SAYA EDIT FULL FILE WISANG_GENI.PY DENGAN QUANT INTEGRATION!
+
+Saya lihat ada **MASALAH** dalam file kamu sekarang:
+1. Line 26: `self.quant = QuantExtension(self.knowledge_dir)` **SEBELUM** `self.knowledge_dir` didefinisikan!
+2. Import sudah ada tapi tidak ada try-except untuk handle missing dependencies
+3. Belum ada quant commands di interactive mode
+4. Belum ada quant tool handlers
+
+Mari saya berikan **VERSI FIXED LENGKAP**:
+
+```bash
+nano wisang_geni.py
+```
+
+**DELETE SEMUA ISI, KEMUDIAN COPY PASTE INI:**
+
+```python
+#!/usr/bin/env python3
+"""
+🔥 WISANG GENI v2.0 - COMPLETE AI ENGINEER
+=========================================
+
+AI Engineer yang BENAR-BENAR KUMPLIT dengan kemampuan:
+✅ Auto-detect & fix errors
+✅ Proactive system monitoring  
+✅ Deep code analysis & improvement
+✅ Security vulnerability scanning
+✅ Performance optimization
+✅ Database health checks
+✅ Network diagnostics
+✅ Self-learning & evolution
+✅ Quantitative Trading Extensions
+
+Dibuat dengan ❤️ untuk autonomous engineering excellence
+"""
+
+import anthropic
+import os
+from dotenv import load_dotenv
+import json
+import subprocess
+import time
+import yaml
+from datetime import datetime
+from pathlib import Path
+import re
+import hashlib
+
+# Quant Extension - with graceful fallback
+try:
+    from wisang_geni_quant_extension import QuantExtension
+    QUANT_AVAILABLE = True
+except ImportError:
+    QUANT_AVAILABLE = False
+    print("⚠️  Quant extension not available")
+    print("   Install: pip install pandas numpy scikit-learn scipy")
+
+load_dotenv()
+
+class WisangGeni:
+    """
+    🔥 Wisang Geni v2.0 - The Complete Blazing Intelligence
+    """
+    
+    def __init__(self):
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            print("❌ ANTHROPIC_API_KEY tidak ditemukan!")
+            exit(1)
+        
+        self.client = anthropic.Anthropic(api_key=api_key)
+        self.model = "claude-sonnet-4-5-20250929"
+        
+        # Paths - HARUS DIDEFINISIKAN DULU!
+        self.knowledge_dir = Path("/root/crypto-api/.wisang_geni")
+        self.knowledge_file = self.knowledge_dir / "knowledge_base.json"
+        self.skills_dir = self.knowledge_dir / "skills"
+        self.logs_dir = self.knowledge_dir / "logs"
+        self.cache_dir = self.knowledge_dir / "cache"
+        
+        # Create all directories
+        for dir_path in [self.knowledge_dir, self.skills_dir, self.logs_dir, self.cache_dir]:
+            dir_path.mkdir(exist_ok=True)
+        
+        # Initialize Quant Extension (SETELAH knowledge_dir ada!)
+        self.quant = None
+        if QUANT_AVAILABLE:
+            try:
+                self.quant = QuantExtension(self.knowledge_dir)
+                print("✅ Quant Extension Loaded")
+            except Exception as e:
+                print(f"⚠️  Quant extension error: {e}")
+        
+        # Load everything
+        self.knowledge = self.load_knowledge()
+        self.skills = self.load_skills()
+        self.conversation = []
+        
+        # System state cache
+        self.system_state = {
+            "last_health_check": None,
+            "known_issues": [],
+            "monitoring_enabled": False
+        }
+        
+        self.display_banner()
+        self.tools = self.build_tools()
+    
+    def display_banner(self):
+        """Enhanced banner dengan version info"""
+        print("="*70)
+        print("🔥 WISANG GENI v2.0 - The Complete AI Engineer")
+        print("   Api yang Membara - FULLY AUTONOMOUS")
+        print("="*70)
+        print()
+        print("✅ Claude Sonnet 4.5 - Connected")
+        print(f"✅ Knowledge Base - {len(self.knowledge.get('facts', []))} facts")
+        print(f"✅ Custom Skills - {len(self.skills)} loaded")
+        print(f"✅ Issues Fixed - {len(self.knowledge.get('fixes_applied', []))}")
+        print(f"✅ Optimizations - {len(self.knowledge.get('optimizations', []))}")
+        if self.quant:
+            print("✅ Quant Extension - Active 💰")
+        print()
+        print("🎯 CAPABILITIES:")
+        print("   • Auto-detect errors & issues")
+        print("   • Proactive system monitoring")
+        print("   • Deep code analysis")
+        print("   • Security vulnerability scanning")
+        print("   • Performance optimization")
+        print("   • Auto-fix problems")
+        print("   • Self-learning & improvement")
+        if self.quant:
+            print("   • Quantitative trading ML")
+        print()
+    
+    def load_knowledge(self):
+        """Load knowledge dengan defaults yang comprehensive"""
+        if self.knowledge_file.exists():
+            try:
+                with open(self.knowledge_file, 'r') as f:
+                    return json.load(f)
+            except:
+                pass
+        
+        return {
+            "facts": [],
+            "patterns": {},
+            "preferences": {},
+            "history": [],
+            "discoveries": [],
+            "fixes_applied": [],
+            "optimizations": [],
+            "security_issues": [],
+            "performance_metrics": {},
+            "system_knowledge": {
+                "architecture": "Node.js + TypeScript + Express + React",
+                "database": "Unknown - needs discovery",
+                "deployment": "PM2 process manager",
+                "monitoring": "None - needs setup"
+            }
+        }
+    
+    def save_knowledge(self):
+        """Save with timestamp"""
+        try:
+            self.knowledge["last_updated"] = datetime.now().isoformat()
+            with open(self.knowledge_file, 'w') as f:
+                json.dump(self.knowledge, f, indent=2)
+            return True
+        except Exception as e:
+            print(f"⚠️ Failed to save: {e}")
+            return False
+    
+    def load_skills(self):
+        """Load skills dari files"""
+        skills = {}
+        
+        for ext in ['*.yaml', '*.json']:
+            for skill_file in self.skills_dir.glob(ext):
+                try:
+                    with open(skill_file, 'r') as f:
+                        if skill_file.suffix == '.yaml':
+                            skill_data = yaml.safe_load(f)
+                        else:
+                            skill_data = json.load(f)
+                        skills[skill_data['name']] = skill_data
+                except Exception as e:
+                    print(f"⚠️ Error loading {skill_file}: {e}")
+        
+        return skills
+    
+    def build_tools(self):
+        """Build comprehensive tool suite"""
+        tools = [
+            {
+                "name": "execute_command",
+                "description": "Execute any shell command with full privileges",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "command": {"type": "string", "description": "Shell command to execute"},
+                        "purpose": {"type": "string", "description": "Why executing this command"}
+                    },
+                    "required": ["command", "purpose"]
+                }
+            },
+            {
+                "name": "read_file",
+                "description": "Read and analyze file contents",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "filepath": {"type": "string", "description": "Path to file"}
+                    },
+                    "required": ["filepath"]
+                }
+            },
+            {
+                "name": "write_file",
+                "description": "Write or modify file with automatic backup",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "filepath": {"type": "string"},
+                        "content": {"type": "string"},
+                        "reason": {"type": "string", "description": "Why modifying this file"}
+                    },
+                    "required": ["filepath", "content", "reason"]
+                }
+            },
+            {
+                "name": "analyze_code",
+                "description": "Deep code analysis for quality, security, performance issues",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "filepath": {"type": "string"},
+                        "analysis_types": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": ["security", "performance", "quality", "patterns", "all"]
+                            }
+                        }
+                    },
+                    "required": ["filepath", "analysis_types"]
+                }
+            },
+            {
+                "name": "detect_issues",
+                "description": "Proactively scan system for issues and problems",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "scope": {
+                            "type": "string",
+                            "enum": ["process", "logs", "code", "network", "database", "all"]
+                        }
+                    },
+                    "required": ["scope"]
+                }
+            },
+            {
+                "name": "measure_performance",
+                "description": "Measure and profile system performance",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "enum": ["api", "database", "memory", "cpu", "disk", "all"]
+                        }
+                    },
+                    "required": ["target"]
+                }
+            },
+            {
+                "name": "learn",
+                "description": "Store new knowledge in persistent memory",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "category": {
+                            "type": "string",
+                            "enum": ["fact", "pattern", "fix", "optimization", "security", "discovery"]
+                        },
+                        "data": {"type": "object"}
+                    },
+                    "required": ["category", "data"]
+                }
+            },
+            {
+                "name": "recall",
+                "description": "Retrieve knowledge from memory",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "category": {"type": "string"},
+                        "query": {"type": "string"}
+                    },
+                    "required": ["category"]
+                }
+            },
+            {
+                "name": "add_skill",
+                "description": "Add new skill to capabilities",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "skill_name": {"type": "string"},
+                        "skill_description": {"type": "string"},
+                        "skill_commands": {"type": "array"}
+                    },
+                    "required": ["skill_name", "skill_description"]
+                }
+            },
+            {
+                "name": "suggest_improvement",
+                "description": "Record improvement suggestion",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "area": {"type": "string"},
+                        "suggestion": {"type": "string"},
+                        "priority": {"type": "string", "enum": ["critical", "high", "medium", "low"]}
+                    },
+                    "required": ["area", "suggestion", "priority"]
+                }
+            }
+        ]
+        
+        # Add quant tools if available
+        if self.quant:
+            tools.extend([
+                {
+                    "name": "apply_triple_barrier",
+                    "description": "Apply triple-barrier labeling to price data for ML training",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "data_file": {"type": "string", "description": "Path to CSV with OHLCV data"},
+                            "pt_sl_ratio": {"type": "number", "description": "Profit target / Stop loss ratio (default 2.0)"},
+                            "vol_multiplier": {"type": "number", "description": "ATR volatility multiplier (default 1.5)"}
+                        },
+                        "required": ["data_file"]
+                    }
+                },
+                {
+                    "name": "detect_market_regime",
+                    "description": "Detect if market is in trend or range regime",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "data_file": {"type": "string", "description": "Path to CSV with OHLCV data"},
+                            "lookback": {"type": "integer", "description": "Lookback period (default 50)"}
+                        },
+                        "required": ["data_file"]
+                    }
+                },
+                {
+                    "name": "calculate_kelly_size",
+                    "description": "Calculate Kelly Criterion optimal position size",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "win_rate": {"type": "number", "description": "Win rate as decimal (0-1)"},
+                            "avg_win": {"type": "number", "description": "Average win amount"},
+                            "avg_loss": {"type": "number", "description": "Average loss amount (positive)"}
+                        },
+                        "required": ["win_rate", "avg_win", "avg_loss"]
+                    }
+                }
+            ])
+        
+        # Add custom skills
+        for skill_name, skill_data in self.skills.items():
+            tools.append({
+                "name": f"skill_{skill_name}",
+                "description": skill_data.get('description', f"Execute {skill_name}"),
+                "input_schema": skill_data.get('input_schema', {"type": "object", "properties": {}})
+            })
+        
+        return tools
+    
+    def execute_tool(self, tool_name, tool_input):
+        """Enhanced tool execution dengan comprehensive capabilities"""
+        
+        try:
+            if tool_name == "execute_command":
+                return self._execute_command(tool_input)
+            elif tool_name == "read_file":
+                return self._read_file(tool_input)
+            elif tool_name == "write_file":
+                return self._write_file(tool_input)
+            elif tool_name == "analyze_code":
+                return self._analyze_code(tool_input)
+            elif tool_name == "detect_issues":
+                return self._detect_issues(tool_input)
+            elif tool_name == "measure_performance":
+                return self._measure_performance(tool_input)
+            elif tool_name == "learn":
+                return self._learn(tool_input)
+            elif tool_name == "recall":
+                return self._recall(tool_input)
+            elif tool_name == "add_skill":
+                return self._add_skill(tool_input)
+            elif tool_name == "suggest_improvement":
+                return self._suggest_improvement(tool_input)
+            
+            # Quant tools
+            elif tool_name == "apply_triple_barrier" and self.quant:
+                return self._apply_triple_barrier_tool(tool_input)
+            elif tool_name == "detect_market_regime" and self.quant:
+                return self._detect_regime_tool(tool_input)
+            elif tool_name == "calculate_kelly_size" and self.quant:
+                return self._calculate_kelly_tool(tool_input)
+            
+            # Custom skills
+            elif tool_name.startswith("skill_"):
+                skill_name = tool_name.replace("skill_", "")
+                return self._execute_skill(skill_name, tool_input)
+            
+            else:
+                return {"success": False, "error": f"Unknown tool: {tool_name}"}
+        
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def _execute_command(self, tool_input):
+        """Execute with enhanced output"""
+        cmd = tool_input["command"]
+        purpose = tool_input.get("purpose", "Executing")
+        
+        print(f"\n  🔧 {purpose}")
+        print(f"     $ {cmd[:100]}")
+        
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=60, cwd="/root/crypto-api"
+        )
+        
+        print(f"     {'✅' if result.returncode == 0 else '⚠️'} Exit: {result.returncode}")
+        
+        # Log command untuk learning
+        self.knowledge['history'].append({
+            "timestamp": datetime.now().isoformat(),
+            "command": cmd,
+            "purpose": purpose,
+            "success": result.returncode == 0
+        })
+        
+        return {
+            "success": result.returncode == 0,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "exit_code": result.returncode
+        }
+    
+    def _read_file(self, tool_input):
+        """Read dengan analysis"""
+        filepath = tool_input["filepath"]
+        print(f"\n  📖 Reading: {filepath}")
+        
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+        
+        # Quick analysis
+        lines = len(content.split('\n'))
+        size = len(content)
+        
+        # Check for common issues
+        issues = []
+        if "TODO" in content or "FIXME" in content:
+            issues.append("Contains TODO/FIXME markers")
+        if "console.log" in content:
+            issues.append("Contains console.log statements")
+        if "password" in content.lower() and "=" in content:
+            issues.append("Possible hardcoded credentials")
+        
+        print(f"     ✅ {lines} lines, {size:,} bytes")
+        if issues:
+            print(f"     ⚠️  Quick scan found: {', '.join(issues)}")
+        
+        return {
+            "success": True,
+            "content": content,
+            "filepath": filepath,
+            "lines": lines,
+            "size": size,
+            "quick_issues": issues
+        }
+    
+    def _write_file(self, tool_input):
+        """Write dengan comprehensive backup"""
+        filepath = tool_input["filepath"]
+        content = tool_input["content"]
+        reason = tool_input.get("reason", "File modification")
+        
+        print(f"\n  💾 Modifying: {filepath}")
+        print(f"     Reason: {reason}")
+        
+        backup = None
+        # Backup dengan hash untuk versioning
+        if os.path.exists(filepath):
+            with open(filepath, 'r') as f:
+                old_content = f.read()
+            
+            content_hash = hashlib.md5(old_content.encode()).hexdigest()[:8]
+            backup = f"{filepath}.backup.{int(time.time())}.{content_hash}"
+            
+            with open(backup, 'w') as b:
+                b.write(old_content)
+            
+            print(f"     💾 Backup: {backup}")
+        
+        # Write new
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        print(f"     ✅ Updated")
+        
+        # Record fix
+        self.knowledge['fixes_applied'].append({
+            "timestamp": datetime.now().isoformat(),
+            "file": filepath,
+            "reason": reason,
+            "backup": backup
+        })
+        self.save_knowledge()
+        
+        return {"success": True, "filepath": filepath, "backup": backup}
+    
+    def _analyze_code(self, tool_input):
+        """Deep code analysis"""
+        filepath = tool_input["filepath"]
+        analysis_types = tool_input.get("analysis_types", ["all"])
+        
+        print(f"\n  🔍 Deep Analysis: {filepath}")
+        print(f"     Types: {', '.join(analysis_types)}")
+        
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+        
+        issues = {"security": [], "performance": [], "quality": [], "patterns": []}
+        
+        # Security analysis
+        if "security" in analysis_types or "all" in analysis_types:
+            if re.search(r'eval\s*\(', content):
+                issues["security"].append("❌ CRITICAL: eval() usage - code injection risk")
+            if re.search(r'exec\s*\(', content):
+                issues["security"].append("❌ CRITICAL: exec() usage - code injection risk")
+            if re.search(r'password\s*=\s*["\']', content, re.IGNORECASE):
+                issues["security"].append("⚠️ HIGH: Possible hardcoded password")
+            if re.search(r'api[_-]?key\s*=\s*["\']', content, re.IGNORECASE):
+                issues["security"].append("⚠️ HIGH: Possible hardcoded API key")
+            if "innerHTML" in content:
+                issues["security"].append("⚠️ MEDIUM: innerHTML usage - XSS risk")
+        
+        # Performance analysis
+        if "performance" in analysis_types or "all" in analysis_types:
+            loop_count = len(re.findall(r'\bfor\s*\(', content))
+            if loop_count > 10:
+                issues["performance"].append(f"�� INFO: {loop_count} loops - review for optimization")
+            if re.search(r'setTimeout.*await', content):
+                issues["performance"].append("⚠️ MEDIUM: Mixed async patterns detected")
+            if content.count("JSON.parse") > 5:
+                issues["performance"].append("💡 INFO: Multiple JSON.parse - consider caching")
+        
+        # Code quality
+        if "quality" in analysis_types or "all" in analysis_types:
+            if content.count("console.log") > 0:
+                issues["quality"].append(f"💡 INFO: {content.count('console.log')} console.log statements")
+            if "TODO" in content or "FIXME" in content:
+                issues["quality"].append("�� INFO: Contains TODO/FIXME markers")
+            if re.search(r'catch\s*\([^)]*\)\s*\{\s*\}', content):
+                issues["quality"].append("⚠️ MEDIUM: Empty catch blocks detected")
+            if len(content.split('\n')) > 1000:
+                issues["quality"].append("💡 INFO: Large file (>1000 lines) - consider splitting")
+        
+        # Pattern analysis
+        if "patterns" in analysis_types or "all" in analysis_types:
+            if "export default" in content:
+                issues["patterns"].append("✅ GOOD: Using ES6 modules")
+            if "async/await" in content:
+                issues["patterns"].append("✅ GOOD: Using modern async patterns")
+            if re.search(r'\.then\(', content):
+                issues["patterns"].append("💡 INFO: Promise chains detected - consider async/await")
+        
+        total_issues = sum(len(v) for v in issues.values())
+        print(f"     Found {total_issues} items across {len([k for k, v in issues.items() if v])} categories")
+        
+        return {
+            "success": True,
+            "filepath": filepath,
+            "issues": issues,
+            "total_issues": total_issues
+        }
+    
+    def _detect_issues(self, tool_input):
+        """Proactive issue detection"""
+        scope = tool_input.get("scope", "all")
+        
+        print(f"\n  🔍 Detecting Issues: {scope}")
+        
+        detected = []
+        
+        # Process issues
+        if scope in ["process", "all"]:
+            result = subprocess.run(
+                "pm2 list", shell=True, capture_output=True, text=True, cwd="/root/crypto-api"
+            )
+            if "errored" in result.stdout:
+                detected.append({"type": "process", "severity": "high", "issue": "PM2 process in error state"})
+            if "stopped" in result.stdout:
+                detected.append({"type": "process", "severity": "medium", "issue": "PM2 process stopped"})
+        
+        # Log issues
+        if scope in ["logs", "all"]:
+            result = subprocess.run(
+                "pm2 logs crypto-api --lines 50 --nostream 2>&1 | grep -i 'error\\|fatal\\|critical' | tail -5",
+                shell=True, capture_output=True, text=True, cwd="/root/crypto-api"
+            )
+            if result.stdout.strip():
+                detected.append({"type": "logs", "severity": "high", "issue": "Recent errors in logs", "details": result.stdout[:200]})
+        
+        # Network issues
+        if scope in ["network", "all"]:
+            result = subprocess.run(
+                "curl -s -o /dev/null -w '%{http_code}' http://localhost:5000/gpts/health",
+                shell=True, capture_output=True, text=True
+            )
+            if result.stdout.strip() != "200":
+                detected.append({"type": "network", "severity": "critical", "issue": f"Health endpoint returned {result.stdout}"})
+        
+        print(f"     Found {len(detected)} issues")
+        for issue in detected:
+            print(f"     {'❌' if issue['severity'] == 'critical' else '⚠️'} {issue['issue']}")
+        
+        # Store detected issues
+        self.system_state['known_issues'] = detected
+        
+        return {
+            "success": True,
+            "scope": scope,
+            "issues_found": len(detected),
+            "issues": detected
+        }
+    
+    def _measure_performance(self, tool_input):
+        """Performance measurement"""
+        target = tool_input.get("target", "all")
+        
+        print(f"\n  📊 Measuring Performance: {target}")
+        
+        metrics = {}
+        
+        # API performance
+        if target in ["api", "all"]:
+            result = subprocess.run(
+                "curl -s -w '%{time_total}' http://localhost:5000/gpts/health -o /dev/null",
+                shell=True, capture_output=True, text=True
+            )
+            response_time = float(result.stdout.strip()) if result.stdout.strip() else 0
+            metrics["api_response_time"] = f"{response_time*1000:.0f}ms"
+            print(f"     API Response: {response_time*1000:.0f}ms")
+        
+        # Memory usage
+        if target in ["memory", "all"]:
+            result = subprocess.run(
+                "ps aux | grep 'crypto-api\\|node' | grep -v grep | awk '{sum+=$6} END {print sum/1024}'",
+                shell=True, capture_output=True, text=True
+            )
+            mem_mb = float(result.stdout.strip()) if result.stdout.strip() else 0
+            metrics["memory_usage"] = f"{mem_mb:.0f}MB"
+            print(f"     Memory: {mem_mb:.0f}MB")
+        
+        # CPU usage
+        if target in ["cpu", "all"]:
+            result = subprocess.run(
+                "ps aux | grep 'crypto-api\\|node' | grep -v grep | awk '{sum+=$3} END {print sum}'",
+                shell=True, capture_output=True, text=True
+            )
+            cpu_pct = float(result.stdout.strip()) if result.stdout.strip() else 0
+            metrics["cpu_usage"] = f"{cpu_pct:.1f}%"
+            print(f"     CPU: {cpu_pct:.1f}%")
+        
+        # Disk usage
+        if target in ["disk", "all"]:
+            result = subprocess.run(
+                "du -sh /root/crypto-api 2>/dev/null | awk '{print $1}'",
+                shell=True, capture_output=True, text=True
+            )
+            disk_size = result.stdout.strip()
+            metrics["disk_usage"] = disk_size
+            print(f"     Disk: {disk_size}")
+        
+        # Store metrics
+        self.knowledge['performance_metrics'][datetime.now().isoformat()] = metrics
+        self.save_knowledge()
+        
+        return {
+            "success": True,
+            "target": target,
+            "metrics": metrics
+        }
+    
+    def _learn(self, tool_input):
+        """Enhanced learning dengan categorization"""
+        category = tool_input["category"]
+        data = tool_input["data"]
+        
+        category_map = {
+            "fact": "facts",
+            "pattern": "patterns",
+            "fix": "fixes_applied",
+            "optimization": "optimizations",
+            "security": "security_issues",
+            "discovery": "discoveries"
+        }
+        
+        key = category_map.get(category, "facts")
+        
+        entry = {**data, "learned_at": datetime.now().isoformat()}
+        
+        if isinstance(self.knowledge[key], list):
+            self.knowledge[key].append(entry)
+        else:
+            self.knowledge[key].update(data)
+        
+        self.save_knowledge()
+        
+        print(f"\n  🧠 Learned: {category}")
+        print(f"     {json.dumps(data, indent=6)[:200]}")
+        
+        return {"success": True, "category": category}
+    
+    def _recall(self, tool_input):
+        """Enhanced recall dengan search"""
+        category = tool_input["category"]
+        query = tool_input.get("query", "")
+        
+        category_map = {
+            "fact": "facts",
+            "pattern": "patterns",
+            "fix": "fixes_applied",
+            "optimization": "optimizations",
+            "security": "security_issues",
+            "discovery": "discoveries"
+        }
+        
+        key = category_map.get(category, category)
+        data = self.knowledge.get(key, [])
+        
+        # Filter by query if provided
+        if query and isinstance(data, list):
+            data = [item for item in data if query.lower() in str(item).lower()]
+        
+        print(f"\n  🧠 Recalled: {category}")
+        print(f"     Found {len(data) if isinstance(data, list) else 'N/A'} entries")
+        
+        return {"success": True, "category": category, "data": data}
+    
+    def _add_skill(self, tool_input):
+        """Add skill dynamically"""
+        skill_name = tool_input["skill_name"]
+        skill_description = tool_input["skill_description"]
+        skill_commands = tool_input.get("skill_commands", [])
+        
+        skill_data = {
+            "name": skill_name,
+            "description": skill_description,
+            "commands": skill_commands,
+            "created_at": datetime.now().isoformat()
+        }
+        
+        skill_file = self.skills_dir / f"{skill_name}.json"
+        with open(skill_file, 'w') as f:
+            json.dump(skill_data, f, indent=2)
+        
+        self.skills[skill_name] = skill_data
+        self.tools = self.build_tools()
+        
+        print(f"\n  💪 New Skill: {skill_name}")
+        print(f"     {skill_description}")
+        
+        return {"success": True, "skill_name": skill_name}
+    
+    def _suggest_improvement(self, tool_input):
+        """Record improvement suggestion"""
+        area = tool_input["area"]
+        suggestion = tool_input["suggestion"]
+        priority = tool_input.get("priority", "medium")
+")
+        
+        improvement = {
+            "area": area,
+            "suggestion": suggestion,
+            "priority": priority,
+            "suggested_at": datetime.now().isoformat(),
+            "status": "pending"
+        }
+        
+        if "improvements" not in self.knowledge:
+            self.knowledge["improvements"] = []
+        
+        self.knowledge["improvements"].append(improvement)
+        self.save_knowledge()
+        
+        emoji = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}
+        print(f"\n  �� Suggestion Recorded: {emoji.get(priority, '💡')} {priority.upper()}")
+        print(f"     Area: {area}")
+        print(f"     Suggestion: {suggestion[:100]}")
+        
+        return {"success": True, "improvement": improvement}
+    
+    def _execute_skill(self, skill_name, tool_input):
+        """Execute custom skill"""
+        if skill_name not in self.skills:
+            return {"success": False, "error": f"Skill not found: {skill_name}"}
+        
+        skill = self.skills[skill_name]
+        
+        print(f"\n  💪 Executing Skill: {skill_name}")
+        print(f"     {skill.get('description', '')}")
+        
+        results = []
+        for cmd in skill.get('commands', []):
+            result = subprocess.run(
+                cmd, shell=True, capture_output=True, text=True, timeout=30, cwd="/root/crypto-api"
+            )
+            results.append({
+                "command": cmd,
+                "success": result.returncode == 0,
+                "output": result.stdout[:500]
+            })
+        
+        return {"success": True, "skill": skill_name, "results": results}
+    
+    # ============================================
+    # QUANT TOOL HANDLERS
+    # ============================================
+    
+    def _apply_triple_barrier_tool(self, tool_input):
+        """Handler for triple barrier labeling"""
+        try:
+            import pandas as pd
+            
+            data_file = tool_input["data_file"]
+            pt_sl_ratio = tool_input.get("pt_sl_ratio", 2.0)
+            vol_multiplier = tool_input.get("vol_multiplier", 1.5)
+            
+            print(f"\n🏷️  Applying Triple-Barrier Labeling to {data_file}")
+            
+            # Load data
+            df = pd.read_csv(data_file)
+            
+            # Apply labeling
+            df_labeled = self.quant.triple_barrier_label(
+                df, 
+                pt_sl_ratio=pt_sl_ratio,
+                vol_multiplier=vol_multiplier
+            )
+            
+            # Save result
+            output_file = data_file.replace('.csv', '_labeled.csv')
+            df_labeled.to_csv(output_file, index=False)
+            
+            print(f"   ✅ Saved labeled data to: {output_file}")
+            
+            return {
+                "success": True,
+                "output_file": output_file,
+                "total_samples": len(df_labeled),
+                "long_labels": int((df_labeled['label'] == 1).sum()),
+                "short_labels": int((df_labeled['label'] == -1).sum())
+            }
+        
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def _detect_regime_tool(self, tool_input):
+        """Handler for regime detection"""
+        try:
+            import pandas as pd
+            
+            data_file = tool_input["data_file"]
+            lookback = tool_input.get("lookback", 50)
+            
+            print(f"\n📊 Detecting Market Regime in {data_file}")
+            
+            # Load data
+            df = pd.read_csv(data_file)
+            
+            # Detect regime
+            df_regime = self.quant.detect_regime(df, lookback=lookback)
+            
+            # Get current regime
+            current_regime = df_regime['regime'].iloc[-1]
+            trend_dir = df_regime['trend_direction'].iloc[-1] if current_regime == 'trend' else 'N/A'
+            
+            # Stats
+            regime_counts = df_regime['regime'].value_counts().to_dict()
+            
+            print(f"   ✅ Current Regime: {current_regime} ({trend_dir})")
+            
+            return {
+                "success": True,
+                "current_regime": current_regime,
+                "trend_direction": trend_dir,
+                "regime_distribution": regime_counts
+            }
+        
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def _calculate_kelly_tool(self, tool_input):
+        """Handler for Kelly calculation"""
+        try:
+            win_rate = tool_input["win_rate"]
+            avg_win = tool_input["avg_win"]
+            avg_loss = tool_input["avg_loss"]
+            
+            print(f"\n💰 Calculating Kelly Position Size")
+            print(f"   Win Rate: {win_rate*100:.1f}%")
+            print(f"   Avg Win: {avg_win:.2f}")
+            print(f"   Avg Loss: {avg_loss:.2f}")
+            
+            kelly = self.quant.kelly_position_size(win_rate, avg_win, avg_loss)
+            
+            print(f"   ✅ Kelly Fraction: {kelly*100:.2f}%")
+            print(f"   💡 Recommended (0.25x Kelly): {kelly*0.25*100:.2f}%")
+            
+            return {
+                "success": True,
+                "kelly_full": kelly,
+                "kelly_quarter": kelly * 0.25,
+                "kelly_half": kelly * 0.5
+            }
+        
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def execute_task(self, user_request):
+        """Execute dengan enhanced system prompt"""
+        
+        print(f"\n{'='*70}")
+        print(f"🔥 WISANG GENI WORKING")
+        print('='*70)
+        
+        self.conversation.append({"role": "user", "content": user_request})
+        
+        # Build comprehensive system prompt
+        system_prompt = f"""Kamu adalah WISANG GENI v2.0 - The Complete AI Engineer.
+
+🔥 PERSONALITY:
+- Sangat proaktif dan cerdas
+- Auto-detect masalah tanpa diminta
+- Auto-fix issues immediately
+- Suggest improvements continuously
+- Belajar dari setiap interaction
+- Explain dalam Bahasa Indonesia yang natural
+
+🧠 KNOWLEDGE BASE:
+{json.dumps(self.knowledge, indent=2)[:2000]}...
+
+💪 CUSTOM SKILLS AVAILABLE:
+{', '.join(self.skills.keys())}
+
+🎯 CORE BEHAVIORS:
+1. Ketika user minta "cek sistem" - kamu HARUS:
+   - Jalankan detect_issues dengan scope="all"
+   - Analyze semua code files di server/
+   - Measure performance metrics
+   - Check PM2 processes
+   - Test all endpoints
+   - Auto-fix SEMUA issues yang ditemukan
+   - Suggest improvements proactively
+
+2. Ketika menemukan error/issue:
+   - Langsung analyze root cause
+   - Auto-fix immediately (jangan tanya permission)
+   - Explain apa yang salah dan kenapa
+   - Record learning untuk future reference
+   - Suggest prevention strategies
+
+3. Ketika analyze code:
+   - Deep analysis: security, performance, quality
+   - Find patterns dan anti-patterns
+   - Suggest specific improvements dengan code examples
+   - Auto-implement simple fixes
+   - Prioritize issues by severity
+
+4. Proactive behaviors:
+   - Jika lihat TODO/FIXME → offer to complete
+   - Jika lihat console.log → suggest proper logging
+   - Jika lihat hardcoded values → suggest env vars
+   - Jika lihat performance issues → optimize immediately
+   - Jika lihat security risks → fix and warn
+
+5. Communication style:
+   - Natural Bahasa Indonesia (casual OK)
+   - Explain WHY, not just WHAT
+   - Use emojis untuk clarity
+   - Be encouraging dan supportive
+   - Celebrate successes!
+
+🛠️ AVAILABLE TOOLS:
+- execute_command: Run any shell command
+- read_file: Read dan analyze files
+- write_file: Modify files (auto-backup)
+- analyze_code: Deep code analysis
+- detect_issues: Proactive issue detection
+- measure_performance: Performance profiling
+- learn: Store knowledge
+- recall: Retrieve knowledge
+- add_skill: Add new capabilities
+- suggest_improvement: Record suggestions
+{"- apply_triple_barrier: ML labeling for trading" if self.quant else ""}
+{"- detect_market_regime: Trend/range detection" if self.quant else ""}
+{"- calculate_kelly_size: Position sizing" if self.quant else ""}
+- Custom skills: {', '.join(self.skills.keys())}
+
+📁 WORKING DIRECTORY: /root/crypto-api
+
+🎯 YOUR MISSION:
+Be the BEST AI Engineer possible. Proaktif, intelligent, autonomous.
+Think like senior engineer dengan 10+ years experience.
+Always improve, always learn, always help user succeed!
+
+Sekarang, execute user request dengan excellence! 🔥"""
+
+        max_iterations = 30
+        iteration = 0
+        
+        while iteration < max_iterations:
+            iteration += 1
+            
+            print(f"\n{'─'*70}")
+            print(f"🔄 Iteration {iteration}/{max_iterations}")
+            print('─'*70)
+            
+            try:
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=4000,
+                    system=system_prompt,
+                    tools=self.tools,
+                    messages=self.conversation
+                )
+                
+                self.conversation.append({
+                    "role": "assistant",
+                    "content": response.content
+                })
+                
+                # Display thinking
+                for block in response.content:
+                    if hasattr(block, "text") and block.text:
+                        text = block.text
+                        # Show full text untuk transparency
+                        print(f"\n💭 {text}")
+                
+                # Handle tools
+                if response.stop_reason == "tool_use":
+                    tool_results = []
+                    
+                    for block in response.content:
+                        if block.type == "tool_use":
+                            result = self.execute_tool(block.name, block.input)
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": json.dumps(result)
+                            })
+                    
+                    self.conversation.append({
+                        "role": "user",
+                        "content": tool_results
+                    })
+                    continue
+                
+                else:
+                    # Task completed
+                    print(f"\n{'='*70}")
+                    print("✅ TASK COMPLETED")
+                    print('='*70)
+                    self.save_knowledge()
+                    return True
+            
+            except anthropic.RateLimitError as e:
+                print(f"\n⚠️ Rate limit reached")
+                print("💡 Upgrade to Build tier for unlimited autonomous operations!")
+                print("   Visit: console.anthropic.com")
+                self.save_knowledge()
+                return False
+            
+            except Exception as e:
+                print(f"\n❌ Error: {e}")
+                self.save_knowledge()
+                return False
+        
+        print("\n⚠️ Max iterations reached")
+        self.save_knowledge()
+        return True
+    
+    def quick_health_check(self):
+        """Quick system health check - built-in"""
+        print("\n" + "="*70)
+        print("🏥 QUICK HEALTH CHECK")
+        print("="*70)
+        
+        task = """Lakukan COMPREHENSIVE health check pada crypto-api:
+
+MUST DO:
+1. Check PM2 processes (pm2 list)
+2. Test health endpoint (curl localhost:5000/gpts/health)
+3. Scan logs untuk errors (pm2 logs --lines 50)
+4. Check memory usage
+5. Detect ANY issues dengan detect_issues tool
+6. Analyze critical files: server/index.ts, server/vite.ts, server/routes/gpts.ts
+7. Measure performance dengan measure_performance tool
+
+AUTO-FIX:
+- Jika ada process error → restart
+- Jika ada code issue → fix immediately  
+- Jika ada performance issue → optimize
+- Jika ada security issue → patch
+
+REPORT:
+- Summary status (healthy/issues/critical)
+- Issues found dan fixed
+- Performance metrics
+- Proactive suggestions
+
+Be thorough dan proaktif!"""
+
+        return self.execute_task(task)
+    
+    def deep_code_audit(self):
+        """Deep code audit - built-in"""
+        print("\n" + "="*70)
+        print("🔍 DEEP CODE AUDIT")
+        print("="*70)
+        
+        task = """Lakukan DEEP code audit pada seluruh crypto-api codebase:
+
+ANALYZE ALL FILES IN:
+- server/*.ts
+- server/routes/*.ts
+- server/lib/*.ts
+- server/utils/*.ts
+
+FOR EACH FILE, USE analyze_code TOOL dengan analysis_types=["all"]
+
+FOCUS ON:
+1. Security vulnerabilities (eval, exec, SQL injection, XSS)
+2. Performance bottlenecks (N+1 queries, blocking operations)
+3. Code quality (duplication, complexity, maintainability)
+4. Best practices violations
+5. Error handling gaps
+6. TypeScript type safety
+
+AUTO-FIX:
+- Critical security issues → fix immediately
+- Simple performance issues → optimize now
+- Code quality issues → refactor where possible
+- Missing error handling → add try-catch
+
+SUGGEST:
+- Architecture improvements
+- Refactoring opportunities
+- Testing strategies
+- Documentation needs
+
+Generate comprehensive report dengan prioritized action items!"""
+
+        return self.execute_task(task)
+    
+    def optimize_system(self):
+        """System optimization - built-in"""
+        print("\n" + "="*70)
+        print("⚡ SYSTEM OPTIMIZATION")
+        print("="*70)
+        
+        task = """Optimize SELURUH crypto-api system untuk maximum performance:
+
+ANALYZE & OPTIMIZE:
+1. API Response Times
+   - Measure current performance
+   - Identify slow endpoints
+   - Implement caching strategies
+   - Add compression
+
+2. Database Queries
+   - Find N+1 queries
+   - Add proper indexes
+   - Implement query optimization
+   - Add connection pooling
+
+3. Memory Usage
+   - Identify memory leaks
+   - Optimize object creation
+   - Implement garbage collection tuning
+   - Add memory monitoring
+
+4. Code Performance
+   - Remove blocking operations
+   - Optimize algorithms (O(n²) → O(n))
+   - Implement lazy loading
+   - Add request batching
+
+5. Bundle Size
+   - Analyze dependencies
+   - Remove unused packages
+   - Implement code splitting
+   - Minify production builds
+
+AUTO-IMPLEMENT optimizations dan measure improvements!
+Report before/after metrics."""
+
+        return self.execute_task(task)
+    
+    def interactive_mode(self):
+        """Enhanced interactive mode"""
+        
+        print("\n" + "="*70)
+        print("💬 INTERACTIVE MODE - WISANG GENI v2.0")
+        print("="*70)
+        print()
+        print("🎯 BUILT-IN COMMANDS:")
+        print("   'health'    - Comprehensive system health check")
+        print("   'audit'     - Deep code audit semua files")
+        print("   'optimize'  - System-wide optimization")
+        print("   'learn'     - Show knowledge base")
+        print("   'skills'    - Show available skills")
+        print("   'stats'     - Show statistics")
+        if self.quant:
+            print("   'quant'     - Show quantitative trading capabilities")
+            print("   'checklist' - Show quant implementation checklist")
+        print("   'help'      - Show all commands")
+        print("   'selesai'   - Exit")
+        print()
+        print("💡 NATURAL COMMANDS:")
+        print("   'cek sistemku'")
+        print("   'ada error ga?'")
+        print("   'benerin dong'")
+        print("   'optimize biar cepet'")
+        print("   'analyze server/vite.ts'")
+        if self.quant:
+            print("   'label data untuk ML'")
+            print("   'detect market regime'")
+        print()
+        print("Bicara natural aja! Wisang Geni paham! 🔥")
+        print("="*70)
+        
+        # Do initial quick check
+        print("\n💡 Running initial system check...")
+        self.quick_health_check()
+        
+        while True:
+            print("\n" + "─"*70)
+            user_input = input("🔥 Wisang Geni mendengarkan: ").strip()
+            
+            if not user_input:
+                continue
+            
+            # Exit commands
+            if user_input.lower() in ['selesai', 'exit', 'quit', 'bye', 'keluar']:
+                print("\n🔥 Api padam dengan tenang. Sampai jumpa!")
+                print(f"\n📊 Session ini:")
+                print(f"   • Facts learned: {len(self.knowledge.get('facts', []))}")
+                print(f"   • Issues fixed: {len(self.knowledge.get('fixes_applied', []))}")
+                print(f"   • Optimizations: {len(self.knowledge.get('optimizations', []))}")
+                self.save_knowledge()
+                break
+            
+            # Help command
+            if user_input.lower() == 'help':
+                print("\n💡 AVAILABLE COMMANDS:")
+                print("="*70)
+                print("\n🔧 SYSTEM COMMANDS:")
+                print("  health     - Comprehensive system health check")
+                print("  audit      - Deep code quality analysis")
+                print("  optimize   - Find performance improvements")
+                print("  learn      - Show accumulated knowledge")
+                print("  skills     - Show available skills")
+                print("  stats      - Show statistics")
+                
+                if self.quant:
+                    print("\n💰 QUANT COMMANDS:")
+                    print("  quant      - Show quant capabilities")
+                    print("  checklist  - Show implementation checklist")
+                
+                print("\n💬 NATURAL LANGUAGE:")
+                print("  'cek sistemku'")
+                print("  'ada error ga?'")
+                print("  'benerin yang rusak'")
+                print("  'optimize performance'")
+                
+                if self.quant:
+                    print("  'label data with triple barrier'")
+                    print("  'detect market regime'")
+                    print("  'calculate kelly size'")
+                
+                print("\n🚪 EXIT:")
+                print("  selesai    - Save and exit")
+                print("="*70)
+                continue
+            
+            # Built-in commands
+            if user_input.lower() == 'health':
+                self.quick_health_check()
+                continue
+            
+            if user_input.lower() == 'audit':
+                self.deep_code_audit()
+                continue
+            
+            if user_input.lower() == 'optimize':
+                self.optimize_system()
+                continue
+            
+            if user_input.lower() == 'learn':
+                print("\n🧠 KNOWLEDGE BASE:")
+                print("="*70)
+                for key, value in self.knowledge.items():
+                    if isinstance(value, list):
+                        print(f"\n{key.upper()}: {len(value)} items")
+                        if value and len(value) <= 3:
+                            for item in value:
+                                print(f"  • {str(item)[:100]}")
+                    elif isinstance(value, dict):
+                        print(f"\n{key.upper()}: {len(value)} entries")
+                continue
+            
+            if user_input.lower() == 'skills':
+                print("\n💪 AVAILABLE SKILLS:")
+                print("="*70)
+                if self.skills:
+                    for name, skill in self.skills.items():
+                        print(f"\n• {name}")
+                        print(f"  {skill.get('description', 'No description')}")
+                        if skill.get('commands'):
+                            print(f"  Commands: {len(skill['commands'])}")
+                else:
+                    print("No custom skills yet. I can create them as needed!")
+                continue
+            
+            if user_input.lower() == 'stats':
+                print("\n📊 STATISTICS:")
+                print("="*70)
+                print(f"Facts Learned: {len(self.knowledge.get('facts', []))}")
+                print(f"Patterns Recognized: {len(self.knowledge.get('patterns', {}))}")
+                print(f"Issues Fixed: {len(self.knowledge.get('fixes_applied', []))}")
+                print(f"Optimizations: {len(self.knowledge.get('optimizations', []))}")
+                print(f"Security Issues Found: {len(self.knowledge.get('security_issues', []))}")
+                print(f"Custom Skills: {len(self.skills)}")
+                print(f"Commands Executed: {len(self.knowledge.get('history', []))}")
+                
+                if self.knowledge.get('performance_metrics'):
+                    print(f"\nLatest Performance Metrics:")
+                    latest = list(self.knowledge['performance_metrics'].values())[-1]
+                    for key, value in latest.items():
+                        print(f"  {key}: {value}")
+                continue
+            
+            # Quant commands
+            if user_input.lower() == 'quant':
+                if not self.quant:
+                    print("\n⚠️  Quant extension not available")
+                    print("   Install: pip install pandas numpy scikit-learn scipy")
+                    continue
+                
+                print("\n💰 QUANTITATIVE TRADING CAPABILITIES")
+                print("="*70)
+                print("\n🎯 AVAILABLE METHODS:")
+                print("   • triple_barrier    - Apply triple-barrier labeling to data")
+                print("   • meta_label        - Generate meta-labels for signal filtering")
+                print("   • purged_cv         - Purged K-Fold cross-validation")
+                print("   • regime            - Detect market regime (trend/range)")
+                print("   • kelly             - Calculate Kelly position sizing")
+                print("   • backtest          - Cost-aware backtesting")
+                print("   • checklist         - Show implementation checklist")
+                print("\n💡 USAGE EXAMPLES:")
+                print("   'label data with triple barrier'")
+                print("   'detect regime in recent price data'")
+                print("   'calculate kelly size for 60% winrate'")
+                print("   'show quant checklist'")
+                print("="*70)
+                continue
+            
+            if user_input.lower() == 'checklist' or 'quant checklist' in user_input.lower():
+                if not self.quant:
+                    print("\n⚠️  Quant extension not available")
+                    continue
+                
+                checklist = self.quant.generate_blueprint_checklist()
+                print(checklist)
+                
+                # Save to file
+                checklist_file = self.knowledge_dir / "quant" / "implementation_checklist.txt"
+                with open(checklist_file, 'w') as f:
+                    f.write(checklist)
+                print(f"\n💾 Saved to: {checklist_file}")
+                continue
+            
+            # Execute natural language task
+            self.execute_task(user_input)
+
+def main():
+    """Main entry point"""
+    print("\n" + "="*70)
+    print("  🔥 WISANG GENI v2.0")
+    print("  The Complete AI Engineer")
+    print("  Api yang Membara - Fully Autonomous")
+    print("="*70 + "\n")
+    
+    try:
+        wisang = WisangGeni()
+        
+        print("\n�� Wisang Geni siap membantu!")
+        print("   Ketik 'health' untuk quick check")
+        print("   Ketik 'help' untuk semua commands")
+        print("   Atau langsung berikan instruksi natural language")
+        
+        input("\n🔥 Tekan ENTER untuk mulai... ")
+        
+        wisang.interactive_mode()
+        
+    except KeyboardInterrupt:
+        print("\n\n🔥 Interrupted. Api padam.")
+    except Exception as e:
+        print(f"\n\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    print("\n" + "="*70)
+    print("🔥 Wisang Geni v2.0 - Session Ended")
+    print("="*70 + "\n")
+
+if __name__ == "__main__":
+    main()

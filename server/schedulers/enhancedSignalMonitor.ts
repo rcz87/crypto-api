@@ -11,10 +11,14 @@
  * 4. Send Telegram alert HANYA kalau pass adaptive threshold
  */
 
-// 🔧 PATCH 2: TEMPORARILY DISABLED FOR MEMORY OPTIMIZATION
-// EnhancedSignalMonitor has a sweep overlap memory leak (accumulation issue)
-// Will be re-enabled after fixing the sweep logic
-const ENABLE_SIGNAL_MONITOR = false;
+// 🔧 PATCH 2: RE-ENABLED AFTER MEMORY LEAK FIXES
+// Memory leak fixes implemented:
+// 1. Learning History TTL (24h)
+// 2. Pattern Memory Age-Based Cleanup (7d)
+// 3. Cache Monitoring
+// 4. OpenAI Connection Management
+// 5. Concurrency guard (prevent sweep overlap)
+const ENABLE_SIGNAL_MONITOR = true;
 
 import { okxService } from '../services/okx';
 import { getEnhancedAISignalEngine } from '../services/enhancedAISignalEngine';

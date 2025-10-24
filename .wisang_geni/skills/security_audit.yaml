@@ -1,0 +1,9 @@
+name: security_audit
+description: Audit keamanan sistem crypto-api
+commands:
+  - npm audit
+  - grep -r "password" server/ --exclude-dir=node_modules
+  - find . -name "*.log" -mtime +7
+input_schema:
+  type: object
+  properties: {}

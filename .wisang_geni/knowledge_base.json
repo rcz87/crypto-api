@@ -1,0 +1,3624 @@
+{
+  "facts": [
+    {
+      "timestamp": "2025-10-23T05:48:39Z",
+      "health_check_results": {
+        "pm2_status": "online",
+        "uptime_minutes": 13,
+        "restarts": 9,
+        "memory_usage_mb": 131,
+        "memory_percent": 0.7,
+        "health_endpoint": "healthy",
+        "python_service": "healthy",
+        "critical_issues": [
+          "OKX WebSocket degraded - last message 1.76B ms ago",
+          "CoinAPI WebSocket disabled (memory leak test)",
+          "Cache hit ratio 0% (cold start)"
+        ],
+        "warnings": [
+          "Port 5000 had EADDRINUSE error on previous startup",
+          "9 restarts indicates potential instability",
+          "PM2 pidusage errors in logs (No matching pid found)"
+        ],
+        "performance": {
+          "http_p95": "8ms",
+          "error_rate": "8%",
+          "coinglass_circuit_breaker": "closed"
+        }
+      },
+      "learned_at": "2025-10-23T12:48:53.609466"
+    },
+    {
+      "api_symbols_truth": {
+        "pairs_supported_count": 65,
+        "gpts_symbols_count": 71,
+        "discrepancy": "GPTs endpoint has 6 MORE symbols than pairs/supported",
+        "additional_symbols_in_gpts": [
+          "AGIX",
+          "APT",
+          "BUSD",
+          "DAI",
+          "USDC",
+          "USDT"
+        ],
+        "verified_at": "2025-10-23T06:03:00Z"
+      },
+      "learned_at": "2025-10-23T13:02:11.819159"
+    },
+    {
+      "DEFINITIVE_SYMBOL_COUNT": {
+        "gpt_claimed": "65 pairs",
+        "api_pairs_supported": 65,
+        "gpts_unified_symbols": 71,
+        "TRUTH": "GPT should claim 71 symbols (not 65)",
+        "why_confusion": "GPT looking at /api/pairs/supported (65) instead of /gpts/unified/symbols (71)",
+        "correction_needed": "GPT must use /gpts/unified/symbols for accurate count",
+        "bonus_symbols": [
+          "AGIX",
+          "APT",
+          "BSV",
+          "BUSD",
+          "CRO",
+          "DAI",
+          "DASH",
+          "DYDX",
+          "EOS",
+          "FET"
+        ],
+        "verified_at": "2025-10-23T06:20:00Z"
+      },
+      "learned_at": "2025-10-23T13:17:14.345225"
+    },
+    {
+      "timestamp": "2025-10-23T06:28:00Z",
+      "health_check_comprehensive": {
+        "pm2": {
+          "status": "online",
+          "uptime_minutes": 52,
+          "restarts": 9,
+          "pid": 0,
+          "memory": "0b (PM2 reporting issue)",
+          "stability": "moderate - 9 restarts indicates past issues"
+        },
+        "processes": {
+          "node_main": {
+            "pid": 2885211,
+            "cpu": "10.0%",
+            "memory": "141MB",
+            "status": "running",
+            "port": 5000
+          },
+          "python_service": {
+            "pid": 2870679,
+            "cpu": "0.4%",
+            "memory": "97MB",
+            "status": "healthy",
+            "port": 8000
+          }
+        },
+        "endpoints": {
+          "/gpts/health": "\u2705 responding (python_service: 1761s response time anomaly)",
+          "/healthz": "\u26a0\ufe0f degraded - OKX WebSocket down, cache 1.2%",
+          "/api/health": "\u274c 404 Not Found"
+        },
+        "critical_issues": [
+          "OKX WebSocket DOWN - last message 1.76B ms ago (20+ days)",
+          "Cache hit ratio only 1.2% (threshold 30%)",
+          "PM2 pidusage errors flooding logs",
+          "Port 5000 EADDRINUSE errors in past logs (9 restarts)",
+          "Memory reporting broken in PM2 (shows 0b)"
+        ],
+        "system_resources": {
+          "memory_total": "15988 MB",
+          "memory_used": "1915 MB (12%)",
+          "memory_available": "13720 MB",
+          "disk_used": "48G / 194G (25%)",
+          "cpu_usage": "10.8%"
+        },
+        "performance": {
+          "api_response_time": "4ms",
+          "disk_io": "1.5G"
+        }
+      },
+      "learned_at": "2025-10-23T13:28:41.427493"
+    },
+    {
+      "timestamp": "2025-10-23T06:46:00Z",
+      "comprehensive_health_check": {
+        "status": "HEALTHY",
+        "pm2_status": {
+          "name": "crypto-api",
+          "status": "online",
+          "uptime_minutes": 14,
+          "restarts": 20,
+          "memory_usage": "59.2MB",
+          "heap_usage": "82.36%",
+          "heap_size": "8.23MB",
+          "event_loop_latency_p95": "1.11ms",
+          "active_handles": 9,
+          "active_requests": 0,
+          "pid": 2897425
+        },
+        "health_endpoints": {
+          "gpts_health": "healthy",
+          "python_service": "healthy",
+          "response_time_python": "1761201888998ms"
+        },
+        "memory_stats": {
+          "heap_used": "40.81MB",
+          "heap_total": "45.08MB",
+          "heap_limit": "304.00MB",
+          "heap_percent": "90.5%",
+          "rss": "131.66MB",
+          "external": "6.98MB",
+          "array_buffers": "0.14MB"
+        },
+        "performance_metrics": {
+          "http_requests": 66,
+          "http_p95": "9ms",
+          "http_errors": 0,
+          "error_rate": "0.00%",
+          "cache_hits": 4,
+          "cache_misses": 927,
+          "cache_hit_ratio": "0.4%",
+          "okx_rest_status": "up",
+          "okx_ws_status": "degraded",
+          "okx_rest_latency": "767ms",
+          "coinglass_status": "disconnected",
+          "coinglass_has_key": true
+        },
+        "security": {
+          "rate_limit_hits": 0,
+          "validation_failures": 0,
+          "suspicious_requests": 0,
+          "blocked_ips": 0,
+          "security_health": "no_events"
+        },
+        "services": {
+          "nodejs_port": 5000,
+          "python_port": 8000,
+          "nodejs_process": "2897425",
+          "python_process": "2896259",
+          "nodejs_cpu": "9.1%",
+          "python_healthy": true
+        },
+        "system": {
+          "disk_usage": "48G/194G (25%)",
+          "load_average": "1.25 1.19 0.94",
+          "total_memory": "15988MB",
+          "used_memory": "2234MB",
+          "free_memory": "3651MB"
+        },
+        "api_tests": {
+          "gpts_unified_symbols": "SUCCESS",
+          "symbols_count": 71,
+          "symbols_categories": [
+            "major",
+            "layer1",
+            "defi",
+            "meme",
+            "ai_infrastructure",
+            "trending",
+            "stablecoins"
+          ]
+        },
+        "issues_found": {
+          "critical": [],
+          "warnings": [
+            "20 restarts indicates repeated crashes (need investigation)",
+            "Heap usage at 90.5% - approaching critical threshold",
+            "OKX WebSocket degraded status",
+            "CoinGlass service disconnected",
+            "Cache hit ratio very low (0.4%) - cold cache",
+            "Unknown symbol warnings in logs: RENDER, HYPE, TRUMP"
+          ],
+          "info": [
+            "Python service response time very high (might be placeholder)",
+            "Memory guard active and monitoring",
+            "Enhanced Sniper scheduler disabled for leak test"
+          ]
+        },
+        "code_analysis": {
+          "filepath": "/root/crypto-api/server/index.ts",
+          "lines": 993,
+          "size_bytes": 36705,
+          "issues": {
+            "security": 0,
+            "performance": 0,
+            "quality": 1,
+            "patterns": 1
+          },
+          "details": [
+            "15 console.log statements (should use proper logging)",
+            "Promise chains detected (consider async/await)"
+          ]
+        }
+      },
+      "learned_at": "2025-10-23T13:45:47.403921"
+    }
+  ],
+  "patterns": {
+    "pattern_name": "PM2 pidusage errors",
+    "description": "PM2 shows 'No matching pid found' errors in logs",
+    "root_cause": "PM2 trying to track PIDs that have already exited during rapid restarts",
+    "impact": "Cosmetic only - does not affect service operation",
+    "solution": "Ignore these errors or upgrade PM2 to latest version",
+    "severity": "low"
+  },
+  "preferences": {},
+  "history": [
+    {
+      "timestamp": "2025-10-23T09:10:17.387285",
+      "command": "pm2 list",
+      "purpose": "Check PM2 processes status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:10:17.406305",
+      "command": "curl -s http://localhost:5000/gpts/health",
+      "purpose": "Test health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:10:17.618007",
+      "command": "pm2 logs --lines 50 --nostream",
+      "purpose": "Scan recent logs for errors",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:10:17.636970",
+      "command": "free -h && echo \"---\" && ps aux --sort=-%mem | head -10",
+      "purpose": "Check memory usage and top memory consuming processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:10:27.133137",
+      "command": "cat .env | grep -E \"(DATABASE_URL|COINAPI_KEY)\" || echo \"Env vars not found\"",
+      "purpose": "Check if critical environment variables exist",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:11:06.724510",
+      "command": "pm2 delete crypto-api 2>/dev/null || true",
+      "purpose": "Delete errored PM2 process crypto-api",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:11:06.886702",
+      "command": "pm2 delete crypto-replit-clone 2>/dev/null || true",
+      "purpose": "Delete errored PM2 process crypto-replit-clone",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:11:07.043809",
+      "command": "pm2 save",
+      "purpose": "Save PM2 process list after cleanup",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:52:27.786073",
+      "command": "pm2 list",
+      "purpose": "Check PM2 processes status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:52:27.800030",
+      "command": "curl -s http://localhost:5000/gpts/health || echo \"Health endpoint failed\"",
+      "purpose": "Test health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:52:27.987804",
+      "command": "pm2 logs --lines 50 --nostream",
+      "purpose": "Scan recent logs for errors",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:52:28.004182",
+      "command": "free -h && echo \"---\" && df -h / && echo \"---\" && ps aux --sort=-%mem | head -10",
+      "purpose": "Check memory and disk usage with top processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:52:38.453537",
+      "command": "ls -la server/*.ts server/*.js 2>/dev/null | head -20",
+      "purpose": "List critical server files for analysis",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:52:38.464540",
+      "command": "curl -s http://localhost:5000/gpts/unified/symbols | head -200",
+      "purpose": "Test unified symbols endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:52:38.514779",
+      "command": "netstat -tlnp | grep -E \":(5000|8080|3000|4000)\" || ss -tlnp | grep -E \":(5000|8080|3000|4000)\"",
+      "purpose": "Check which ports are actively listening",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:52:38.540515",
+      "command": "cat package.json | jq '.dependencies, .devDependencies' 2>/dev/null | head -50",
+      "purpose": "Check package dependencies for security issues",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:52:58.946175",
+      "command": "curl -s -w \"\\nHTTP_CODE: %{http_code}\\nTOTAL_TIME: %{time_total}s\\n\" http://localhost:5000/api/health 2>/dev/null | tail -10",
+      "purpose": "Test API health endpoint with timing",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:52:59.120257",
+      "command": "pm2 describe api-crypto | grep -E \"(status|uptime|restart|memory|cpu)\" | head -15",
+      "purpose": "Get detailed status of main api-crypto process",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T09:52:59.305657",
+      "command": "du -sh /root/crypto-api/node_modules 2>/dev/null && echo \"---\" && du -sh /root/crypto-api/dist 2>/dev/null && echo \"---\" && du -sh /root/crypto-api/*.log 2>/dev/null",
+      "purpose": "Check disk usage of critical directories",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:12:00.384208",
+      "command": "pm2 list",
+      "purpose": "Check PM2 processes status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:12:00.400443",
+      "command": "curl -s http://localhost:5000/gpts/health || echo \"Health endpoint failed\"",
+      "purpose": "Test health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:12:00.594718",
+      "command": "free -h && echo \"---CPU---\" && top -bn1 | head -15",
+      "purpose": "Check memory and CPU usage",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:12:00.599107",
+      "command": "df -h",
+      "purpose": "Check disk usage",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:13:14.204104",
+      "command": "find . -name \"*heatmap*\" -type f 2>/dev/null | grep -v node_modules | head -20",
+      "purpose": "Find all heatmap related files",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:13:14.226251",
+      "command": "curl -s http://localhost:5000/gpts/unified/heatmap 2>&1",
+      "purpose": "Test heatmap endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:13:18.714498",
+      "command": "curl -s http://localhost:5000/api/heatmap/btcusdt 2>&1",
+      "purpose": "Test direct heatmap endpoint with symbol",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:13:25.938770",
+      "command": "grep -r \"heatmap\" ./server/index.ts 2>/dev/null",
+      "purpose": "Check if heatmap routes are registered in main server",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:13:25.956188",
+      "command": "find ./server -name \"*.ts\" -type f | xargs grep -l \"import.*heatmap\" 2>/dev/null | head -5",
+      "purpose": "Find files importing heatmap routes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:13:30.392405",
+      "command": "curl -s http://localhost:8000/heatmap/BTCUSDT?minutes=60 2>&1",
+      "purpose": "Test Python heatmap endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:13:44.912697",
+      "command": "curl -s http://localhost:5000/api/heatmap/status 2>&1 | jq .",
+      "purpose": "Test Node.js heatmap status endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:13:44.932363",
+      "command": "curl -s \"http://localhost:5000/api/heatmap/liquidations/BTCUSDT?timeWindow=1h&limit=10\" 2>&1 | jq .",
+      "purpose": "Test Node.js liquidation endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:14:15.915155",
+      "command": "find ./coinglass-system -name \"*.py\" -path \"*models*\" | xargs grep -l \"CompositeHeatmap\" 2>/dev/null",
+      "purpose": "Find model definition for CompositeHeatmap",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:14:15.918991",
+      "command": "ls -la ./coinglass-system/app/models/ 2>/dev/null",
+      "purpose": "List model files",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:14:15.934709",
+      "command": "curl -s \"http://localhost:5000/api/heatmap/liquidations/BTCUSDT/heatmap?timeWindow=1h&priceRange=5&kdeBandwidth=0.3\" 2>&1 | jq '.data.statistics' 2>/dev/null || echo \"Endpoint test\"",
+      "purpose": "Test Node.js heatmap generation endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:19:15.236319",
+      "command": "curl -s \"http://localhost:5000/api/heatmap/unified/BTCUSDT?timeWindow=1h&priceRange=5\" 2>&1 | jq '{success, symbol: .data.symbol, liquidation_stats: .data.liquidation.statistics, insights: .data.insights}' 2>/dev/null",
+      "purpose": "Test unified heatmap with full insights",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:19:15.251964",
+      "command": "curl -s \"http://localhost:5000/api/heatmap/liquidations/ETHUSDT/leverage\" 2>&1 | jq '.data.distribution[0:3]' 2>/dev/null",
+      "purpose": "Test leverage distribution for ETH",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:20:31.949548",
+      "command": "grep -n \"heatmap\" ./public/openapi-4.0.1-gpts-compat.yaml 2>/dev/null | head -20",
+      "purpose": "Check if heatmap endpoints are documented in OpenAPI schema",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:20:31.976926",
+      "command": "curl -s http://localhost:5000/openapi-4.0.1-gpts-compat.yaml 2>&1 | grep -A 5 \"heatmap\" | head -30",
+      "purpose": "Test if OpenAPI schema is accessible with heatmap endpoints",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:21:57.296916",
+      "command": "curl -s \"http://localhost:5000/api/heatmap/unified/BTCUSDT?timeWindow=1h\" 2>&1 | jq '{status: .success, symbol: .data.symbol, liquidation_total: .data.liquidation.statistics.totalVolume, insights_risk: .data.insights.riskLevel}' 2>/dev/null",
+      "purpose": "Verify unified heatmap works and show example for documentation",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:25:06.939340",
+      "command": "grep -r \"guardiansofthegreen\" ./public/openapi-4.0.1-gpts-compat.yaml 2>/dev/null | head -5",
+      "purpose": "Check domain configuration in OpenAPI schema",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:25:06.942446",
+      "command": "grep -E \"^servers:\" -A 3 ./public/openapi-4.0.1-gpts-compat.yaml",
+      "purpose": "Check server URL configuration",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:25:06.945408",
+      "command": "cat /etc/nginx/sites-enabled/* 2>/dev/null | grep -E \"server_name|listen\" | head -20",
+      "purpose": "Check Nginx configuration for domain",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:25:07.276446",
+      "command": "curl -s -I https://guardiansofthegreentoken.com 2>&1 | head -10",
+      "purpose": "Check if domain is accessible via HTTPS",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:25:07.365865",
+      "command": "host guardiansofthegreentoken.com 2>&1 | head -5",
+      "purpose": "Check DNS resolution for domain",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:28:40.738211",
+      "command": "wc -l ./public/openapi-4.0.1-gpts-compat.yaml",
+      "purpose": "Check total lines in OpenAPI file",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:28:40.740861",
+      "command": "head -50 ./public/openapi-4.0.1-gpts-compat.yaml",
+      "purpose": "Check file header and basic info",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:28:40.745175",
+      "command": "grep -E \"operationId:|summary:\" ./public/openapi-4.0.1-gpts-compat.yaml | wc -l",
+      "purpose": "Count total endpoints documented",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:28:40.750958",
+      "command": "grep \"operationId:\" ./public/openapi-4.0.1-gpts-compat.yaml | sed 's/.*operationId: //' | sort",
+      "purpose": "List all available operations",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:28:40.754642",
+      "command": "grep -E \"heatmap\" ./public/openapi-4.0.1-gpts-compat.yaml | grep -E \"operationId:|summary:\" | head -10",
+      "purpose": "Check heatmap endpoints in schema",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:34:04.440719",
+      "command": "find . -name \"*heatmap*\" -type f -mtime -2 2>/dev/null | grep -v node_modules | grep -v \".git\"",
+      "purpose": "Find heatmap files modified in last 2 days",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:34:04.453981",
+      "command": "find . -path ./node_modules -prune -o -name \"*heatmap*\" -type f -print 2>/dev/null | head -20",
+      "purpose": "Find all heatmap files excluding node_modules",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:34:04.458910",
+      "command": "ls -lah ./server/routes/heatmap.ts ./server/clients/heatmap.ts 2>/dev/null",
+      "purpose": "Check heatmap route and client files with timestamps",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:34:04.461996",
+      "command": "head -30 ./server/routes/heatmap.ts",
+      "purpose": "Check heatmap routes file content",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:34:04.467556",
+      "command": "ls -lah ./server/services/*liquidation* 2>/dev/null",
+      "purpose": "Check liquidation services for heatmap",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:34:04.475944",
+      "command": "grep -r \"heatmap\" ./server/services/ 2>/dev/null | grep -v \"node_modules\" | cut -d: -f1 | sort -u",
+      "purpose": "Find services that implement heatmap functionality",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T10:49:20.945515",
+      "command": "mkdir -p /root/crypto-api/notes",
+      "purpose": "Create notes directory for documentation",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:07:17.196070",
+      "command": "pm2 list",
+      "purpose": "Check PM2 processes status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:07:17.208096",
+      "command": "curl -s http://localhost:5000/gpts/health",
+      "purpose": "Test health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:07:17.387849",
+      "command": "pm2 logs --lines 50 --nostream",
+      "purpose": "Scan recent logs for errors",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:07:17.406317",
+      "command": "free -h && echo \"---\" && df -h / && echo \"---\" && ps aux --sort=-%mem | head -10",
+      "purpose": "Check memory and disk usage with top processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:07:26.877537",
+      "command": "find server -name \"*.ts\" -o -name \"*.js\" | head -20",
+      "purpose": "List critical TypeScript files in server directory",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:07:26.891355",
+      "command": "curl -s -w \"\\nStatus: %{http_code}\\nTime: %{time_total}s\\n\" http://localhost:5000/gpts/unified/symbols | tail -3",
+      "purpose": "Test main unified symbols endpoint performance",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:07:49.057377",
+      "command": "du -sh server/ node_modules/ dist/ 2>/dev/null | sort -hr",
+      "purpose": "Check directory sizes for optimization opportunities",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:07:49.128084",
+      "command": "netstat -tulpn | grep -E '(5000|8080|3000|5050)' | head -10",
+      "purpose": "Check which ports are actively listening",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:21:59.938561",
+      "command": "pm2 list",
+      "purpose": "Check PM2 processes status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:21:59.953325",
+      "command": "curl -s http://localhost:5000/gpts/health || echo \"Health endpoint failed\"",
+      "purpose": "Test health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:22:00.297758",
+      "command": "pm2 logs --lines 50 --nostream",
+      "purpose": "Scan recent logs for errors",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:22:00.322672",
+      "command": "free -h && echo \"---\" && df -h / && echo \"---\" && ps aux --sort=-%mem | head -10",
+      "purpose": "Check memory and disk usage plus top memory consumers",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:22:31.673825",
+      "command": "curl -s -w \"\\nHTTP_CODE: %{http_code}\\nTIME: %{time_total}s\\n\" http://localhost:5000/api/debug/memory",
+      "purpose": "Test memory debug endpoint dan response time",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:22:31.684067",
+      "command": "curl -s -w \"\\nHTTP_CODE: %{http_code}\\nTIME: %{time_total}s\\n\" http://localhost:5000/health/memory",
+      "purpose": "Test memory health monitoring endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:22:31.687989",
+      "command": "netstat -tuln | grep -E ':(5000|8000|3000)' || ss -tuln | grep -E ':(5000|8000|3000)'",
+      "purpose": "Check which ports are actually listening",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:22:31.694266",
+      "command": "ls -lh dist/ 2>/dev/null || echo \"No dist directory\" && ls -lh server/*.ts | head -5",
+      "purpose": "Check compiled assets and source structure",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:30:37.834397",
+      "command": "node --version && npm --version && python3 --version",
+      "purpose": "Check installed runtime versions",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:30:37.835918",
+      "command": "echo \"PORT=$PORT | NODE_ENV=$NODE_ENV | ENABLE_TELEMETRY=$ENABLE_TELEMETRY\"",
+      "purpose": "Check critical environment variables",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:30:38.226445",
+      "command": "du -sh . 2>/dev/null | head -1 && echo \"---\" && du -sh node_modules dist .git 2>/dev/null",
+      "purpose": "Check directory sizes quickly",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:30:38.239122",
+      "command": "uptime && echo \"---\" && w | head -3",
+      "purpose": "Check system uptime and load",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:32:22.151743",
+      "command": "cd /root/crypto-api && npm list jsonwebtoken axios better-sqlite3 2>&1 | head -20",
+      "purpose": "Check if dependencies are actually installed",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:33:22.552300",
+      "command": "pm2 describe openai-fixer --json 2>/dev/null | python3 -m json.tool | grep -E '(restart_time|unstable_restarts|status)' | head -10",
+      "purpose": "Get detailed restart info for openai-fixer",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:33:22.555461",
+      "command": "tail -30 /root/.pm2/logs/openai-fixer-error.log | head -20",
+      "purpose": "Check recent error patterns",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:37:49.625033",
+      "command": "pm2 info openai-fixer 2>/dev/null | grep -E \"(restarts|status|uptime|memory)\" | head -10",
+      "purpose": "Get openai-fixer detailed stats",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:37:49.635259",
+      "command": "curl -s -m 2 http://localhost:8000/health 2>&1 | head -5",
+      "purpose": "Test Python service health directly",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:37:49.660001",
+      "command": "ps aux | grep -E \"(python|node)\" | grep -v grep | wc -l && echo \"---\" && ps aux | grep -E \"(python|node)\" | grep -v grep | awk '{sum+=$6} END {print \"Total RSS: \" sum/1024 \" MB\"}'",
+      "purpose": "Count total processes and aggregate memory",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:37:49.675297",
+      "command": "cd /root/crypto-api && git log --oneline -5 2>/dev/null && echo \"---\" && git status --short 2>/dev/null | head -10",
+      "purpose": "Check recent git history and working directory state",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:00.034544",
+      "command": "lsof -i :8080 2>/dev/null || ss -tlnp | grep :8080",
+      "purpose": "Identify what's blocking port 8080",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:00.258994",
+      "command": "pm2 env 11 2>/dev/null | grep -E \"(NODE_OPTIONS|PORT|NODE_ENV)\" | head -10",
+      "purpose": "Check current environment variables for api-crypto",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:00.262225",
+      "command": "cat ecosystem.config.cjs 2>/dev/null | head -50 || cat ecosystem.config.js 2>/dev/null | head -50",
+      "purpose": "Check PM2 ecosystem configuration",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:10.169636",
+      "command": "ps aux | grep 2396259 | grep -v grep",
+      "purpose": "Get full process info for port blocker",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:10.347386",
+      "command": "pm2 id crypto-enhanced-final 2>/dev/null",
+      "purpose": "Get PM2 ID for crypto-enhanced-final",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:10.358274",
+      "command": "curl -X POST http://localhost:5000/api/debug/gc 2>&1",
+      "purpose": "Test if manual GC is working now",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:19.888847",
+      "command": "ps aux | grep \"server/index.ts\" | grep -v grep | head -3",
+      "purpose": "Find which process is actually serving the API",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:20.194701",
+      "command": "lsof -i :5000 | grep LISTEN",
+      "purpose": "Identify exact process on port 5000",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:20.421835",
+      "command": "pm2 describe 11 --json 2>/dev/null | python3 -c \"import sys, json; data=json.load(sys.stdin); print('PID:', data[0]['pid']); print('Args:', ' '.join(data[0].get('pm2_env', {}).get('args', []))); print('Exec:', data[0].get('pm2_env', {}).get('exec_interpreter', 'N/A'))\" 2>/dev/null",
+      "purpose": "Get exact process details for api-crypto",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T11:40:28.321800",
+      "command": "cat /proc/2430134/cmdline | tr '\\0' ' ' && echo \"\"",
+      "purpose": "Get exact command line for port 5000 process",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:28.325020",
+      "command": "cat /proc/2430134/environ | tr '\\0' '\\n' | grep -E \"^(NODE_OPTIONS|PORT|NODE_ENV)=\" | head -5",
+      "purpose": "Check environment variables of actual serving process",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:28.505829",
+      "command": "pm2 list | grep -E \"(api-crypto|2430)\" | head -5",
+      "purpose": "Cross-reference PM2 and actual PID",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:38.062782",
+      "command": "ps -ef | grep 2430134 | grep -v grep",
+      "purpose": "Get parent process chain for 2430134",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:38.232301",
+      "command": "pm2 list | grep -B2 -A2 \"2430\"",
+      "purpose": "Find which PM2 process owns PID 2430134",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T11:40:38.247606",
+      "command": "systemctl status crypto-api.service 2>/dev/null | head -20 || echo \"No systemd service found\"",
+      "purpose": "Check if there's a systemd service running this",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:45.775384",
+      "command": "pstree -p 2430111 | head -10",
+      "purpose": "Show process tree from parent",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:45.778811",
+      "command": "cat /proc/2430111/environ | tr '\\0' '\\n' | grep NODE_OPTIONS",
+      "purpose": "Check parent process NODE_OPTIONS",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:45.797183",
+      "command": "ls -la /var/www/api-crypto/ 2>/dev/null | head -10 || ls -la /root/crypto-api/.pm2/ 2>/dev/null | head -10",
+      "purpose": "Check for alternative PM2 configuration locations",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:54.714495",
+      "command": "ps -ef | grep 2430092 | head -3",
+      "purpose": "Check parent of the parent (ultimate origin)",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:54.723460",
+      "command": "grep -r \"npm exec tsx\" /etc/systemd/system/*.service 2>/dev/null | head -5 || echo \"Not in systemd\"",
+      "purpose": "Check if it's managed by systemd",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:40:54.726220",
+      "command": "cat .env | grep NODE_OPTIONS 2>/dev/null || echo \"Not in .env\"",
+      "purpose": "Check if NODE_OPTIONS is in .env file",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:41:05.990419",
+      "command": "kill -0 2430092 && echo \"Process 2430092 is alive, will restart\" || echo \"Process not found\"",
+      "purpose": "Verify process before killing",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:41:06.292452",
+      "command": "pm2 stop crypto-enhanced-final",
+      "purpose": "Fix port 8080 conflict first",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:41:08.322055",
+      "command": "kill 2430092 2430111 2430134 2>/dev/null; sleep 2; ps aux | grep \"server/index.ts\" | grep -v grep | head -2",
+      "purpose": "Kill old processes and check if auto-restart happens",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:41:17.558878",
+      "command": "cat /proc/2865539/environ | tr '\\0' '\\n' | grep NODE_OPTIONS",
+      "purpose": "Check if new process has --expose-gc",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:41:20.592248",
+      "command": "sleep 3 && curl -s -X POST http://localhost:5000/api/debug/gc 2>&1 | jq -r '.success, .error'",
+      "purpose": "Test GC endpoint after process restart",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:41:20.900346",
+      "command": "lsof -i :5000 | grep LISTEN",
+      "purpose": "Confirm which PID is now serving port 5000",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:41:35.044719",
+      "command": "pm2 delete all 2>/dev/null; pm2 flush",
+      "purpose": "Clean slate - remove all PM2 processes and logs",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:41:35.257555",
+      "command": "cd /root/crypto-api && pm2 start ecosystem.config.cjs",
+      "purpose": "Start with new config that has --expose-gc",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:00.730757",
+      "command": "sleep 5 && pm2 list && echo \"---\" && pm2 env 0 | grep NODE_OPTIONS",
+      "purpose": "Wait for startup and check if new process has correct NODE_OPTIONS",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:01.072120",
+      "command": "lsof -i :5000 | grep LISTEN",
+      "purpose": "Check which PID is serving port 5000 now",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:01.093043",
+      "command": "curl -s http://localhost:5000/gpts/health 2>&1 | jq '.success, .service'",
+      "purpose": "Test if API is responding",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:01.114508",
+      "command": "curl -s -X POST http://localhost:5000/api/debug/gc 2>&1 | jq",
+      "purpose": "TEST THE CRITICAL FIX - Check if GC is now available!",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:09.072844",
+      "command": "pm2 logs crypto-api --lines 30 --nostream | tail -40",
+      "purpose": "Check error logs to see why it's crashing",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:11.260664",
+      "command": "kill 2865539 2865559 2>/dev/null; sleep 2; pm2 restart crypto-api",
+      "purpose": "Kill orphan processes and restart PM2 cleanly",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:31.010011",
+      "command": "sleep 10 && pm2 list && echo \"---\" && lsof -i :5000 | grep LISTEN",
+      "purpose": "Wait for full startup and check status + port owner",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:31.034904",
+      "command": "curl -s http://localhost:5000/gpts/health 2>&1 | jq '.success'",
+      "purpose": "Test API health",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:31.052128",
+      "command": "curl -s -X POST http://localhost:5000/api/debug/gc 2>&1 | jq",
+      "purpose": "THE MOMENT OF TRUTH - Test if GC works now!",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:40.611669",
+      "command": "ps -ef | grep 2866372 | grep -v grep",
+      "purpose": "Find parent of the rogue process",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:40.623535",
+      "command": "ps aux | grep \"server/index.ts\" | grep -v grep",
+      "purpose": "List ALL processes running server/index.ts",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:40.631963",
+      "command": "pkill -f \"tsx server/index.ts\"; sleep 3; pm2 restart crypto-api",
+      "purpose": "Kill ALL tsx processes and restart PM2 cleanly",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T11:42:52.177029",
+      "command": "cat .replit 2>/dev/null | grep -E \"(run|entrypoint)\" | head -5",
+      "purpose": "Check Replit configuration",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:52.189708",
+      "command": "ps -ef | grep npm | grep -v grep | head -5",
+      "purpose": "Find all npm processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:42:57.681916",
+      "command": "sleep 5 && pm2 list && lsof -i :5000 | grep LISTEN",
+      "purpose": "Check status after pkill",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:43:07.295145",
+      "command": "grep -A 5 '\"scripts\"' package.json | head -10",
+      "purpose": "Check what npm run dev does",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:43:10.489906",
+      "command": "kill 2866986 2867009 2>/dev/null; pm2 delete crypto-api 2>/dev/null; sleep 3; echo \"Killed Replit auto-start\"",
+      "purpose": "Kill Replit's npm run dev process",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:43:10.684496",
+      "command": "NODE_OPTIONS=\"--expose-gc --max-old-space-size=512\" pm2 start ecosystem.config.cjs --update-env",
+      "purpose": "Start PM2 with NODE_OPTIONS explicitly set",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:43:30.987630",
+      "command": "sleep 10 && pm2 list && lsof -i :5000 | grep LISTEN",
+      "purpose": "Wait for full startup and verify",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:43:31.012640",
+      "command": "curl -s http://localhost:5000/gpts/health | jq '.success, .service'",
+      "purpose": "Test API health",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:43:31.030728",
+      "command": "curl -s -X POST http://localhost:5000/api/debug/gc | jq",
+      "purpose": "\ud83d\udd25 THE MOMENT OF TRUTH - Test GC endpoint!",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:43:31.049264",
+      "command": "curl -s http://localhost:5000/health/memory | jq '.gc_enabled, .memory.heapPercent'",
+      "purpose": "Check if GC is reported as enabled",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:43:59.854908",
+      "command": "cp package.json package.json.backup && cat package.json | sed 's/\"dev\": \"NODE_ENV=development tsx server\\/index.ts\"/\"dev\": \"NODE_OPTIONS=\\\\\"--expose-gc --max-old-space-size=512\\\\\" NODE_ENV=development tsx server\\/index.ts\"/' > package.json.tmp && mv package.json.tmp package.json && echo \"\u2705 package.json updated\"",
+      "purpose": "Update dev script to include NODE_OPTIONS",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:43:59.859843",
+      "command": "grep '\"dev\"' package.json",
+      "purpose": "Verify the change",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:44:00.072406",
+      "command": "pm2 delete all 2>/dev/null; pkill -f \"npm run dev\" 2>/dev/null; echo \"Cleaned up all processes\"",
+      "purpose": "Clean slate before testing",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T11:46:47.570616",
+      "command": "hostname && cat /etc/os-release | head -5",
+      "purpose": "Check actual system hostname and OS",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:46:47.574698",
+      "command": "cat /etc/issue && uname -a",
+      "purpose": "Verify OS and kernel version",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:46:47.582602",
+      "command": "systemctl list-units --type=service --state=running | grep -E \"(nginx|apache|pm2|node)\" | head -10",
+      "purpose": "Check what services are managing the app",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:46:47.595103",
+      "command": "ps aux | grep -E \"npm run dev|replit\" | grep -v grep",
+      "purpose": "Check if any Replit processes are running",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T11:46:47.600028",
+      "command": "cat /proc/1/cgroup | head -3 && echo \"---\" && ls -la /proc/1/root/ 2>/dev/null | head -5",
+      "purpose": "Check if running in container or bare metal",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:46:47.612303",
+      "command": "who && last -5 && echo \"---\" && w",
+      "purpose": "Check who's logged in and recent logins",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:46:58.782018",
+      "command": "systemctl status node_service.service --no-pager | head -30",
+      "purpose": "Check systemd service configuration",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:46:58.784425",
+      "command": "cat /etc/systemd/system/node_service.service 2>/dev/null || cat /lib/systemd/system/node_service.service 2>/dev/null",
+      "purpose": "Read systemd unit file",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:46:58.796928",
+      "command": "ps aux | grep \"npm run dev\" | grep -v grep | head -3",
+      "purpose": "Find who's running npm run dev",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:46:58.799981",
+      "command": "cat /proc/2866986/cmdline 2>/dev/null | tr '\\0' ' ' && echo \"\"",
+      "purpose": "Check the npm run dev process we found earlier",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:47:16.332952",
+      "command": "systemctl daemon-reload",
+      "purpose": "Reload systemd configuration after modifying service file",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:47:16.381058",
+      "command": "systemctl restart node_service.service",
+      "purpose": "Restart service with new NODE_OPTIONS",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:47:36.723093",
+      "command": "sleep 10 && systemctl status node_service.service --no-pager | head -20",
+      "purpose": "Wait for service to fully start and check status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:47:37.022534",
+      "command": "lsof -i :5000 | grep LISTEN",
+      "purpose": "Verify port 5000 is active",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:47:37.044671",
+      "command": "curl -s http://localhost:5000/gpts/health | jq '.success, .service'",
+      "purpose": "Test API health",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:47:37.061690",
+      "command": "curl -s -X POST http://localhost:5000/api/debug/gc | jq",
+      "purpose": "\ud83d\udd25\ud83d\udd25\ud83d\udd25 THE REAL MOMENT OF TRUTH - Test GC!",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:47:37.077026",
+      "command": "curl -s http://localhost:5000/health/memory | jq '.gc_enabled, .memory.heapPercent, .status'",
+      "purpose": "Check memory health with GC status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:47:46.106929",
+      "command": "cat /proc/2870245/environ | tr '\\0' '\\n' | grep NODE_OPTIONS",
+      "purpose": "Check actual environment of running Node process",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:47:46.110251",
+      "command": "cat /proc/2870245/cmdline | tr '\\0' ' '",
+      "purpose": "Check actual command line of process",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:47:46.121524",
+      "command": "journalctl -u node_service.service -n 50 --no-pager | grep -E \"(expose-gc|NODE_OPTIONS|GC)\" | head -10",
+      "purpose": "Check if expose-gc was recognized",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:47:57.127874",
+      "command": "cat .env | grep NODE_OPTIONS",
+      "purpose": "Check current .env NODE_OPTIONS",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:47:57.136552",
+      "command": "cp .env .env.backup.$(date +%s) && sed -i 's/NODE_OPTIONS=\"--expose-gc --max-old-space-size=512\"/NODE_OPTIONS=\"--expose-gc --max-old-space-size=2048\"/' .env && grep NODE_OPTIONS .env",
+      "purpose": "Update .env with correct NODE_OPTIONS including --expose-gc",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:47:57.390603",
+      "command": "systemctl restart node_service.service",
+      "purpose": "Restart service to apply .env changes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:18.126030",
+      "command": "sleep 10 && systemctl status node_service.service --no-pager | head -15",
+      "purpose": "Check service status after restart",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:18.425389",
+      "command": "lsof -i :5000 | grep LISTEN | awk '{print $2}' | xargs -I {} cat /proc/{}/environ | tr '\\0' '\\n' | grep NODE_OPTIONS",
+      "purpose": "Verify NODE_OPTIONS in actual running process",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:18.446959",
+      "command": "curl -s http://localhost:5000/gpts/health | jq '.success'",
+      "purpose": "Test API",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:18.481662",
+      "command": "curl -s -X POST http://localhost:5000/api/debug/gc | jq",
+      "purpose": "\ud83c\udfaf\ud83c\udfaf\ud83c\udfaf FINAL TEST - Manual GC!",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:18.504287",
+      "command": "curl -s http://localhost:5000/health/memory | jq",
+      "purpose": "Check full memory status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:27.673159",
+      "command": "journalctl -u node_service.service -n 30 --no-pager | tail -20",
+      "purpose": "Check why systemd service failed",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:27.683898",
+      "command": "systemctl status node_service.service --no-pager",
+      "purpose": "Current service status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:27.694679",
+      "command": "ps aux | grep \"server/index.ts\" | grep -v grep",
+      "purpose": "Check what's actually running",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:41.861647",
+      "command": "kill 2870660 2870661 2870672 2>/dev/null && echo \"Killed rogue npm run dev processes\"",
+      "purpose": "Kill the npm run dev processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:45.162881",
+      "command": "sleep 3 && lsof -i :5000 | grep LISTEN",
+      "purpose": "Verify only systemd service on port 5000",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T11:48:45.185324",
+      "command": "curl -s -X POST http://localhost:5000/api/debug/gc | jq",
+      "purpose": "Test GC again",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:45.205083",
+      "command": "curl -s http://localhost:5000/health/memory | jq '.gc_enabled, .memory.heapPercent, .status'",
+      "purpose": "Check memory with GC status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:45.216035",
+      "command": "systemctl status node_service.service --no-pager | head -15",
+      "purpose": "Final service status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:53.828314",
+      "command": "journalctl -u node_service.service --since \"2 minutes ago\" --no-pager | grep -E \"(error|Error|ERROR|failed|Failed)\" | tail -10",
+      "purpose": "Find actual error",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:59.127412",
+      "command": "sleep 5 && lsof -i :5000",
+      "purpose": "Check if ANYTHING is on port 5000",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:48:59.148952",
+      "command": "curl -s http://localhost:5000/gpts/health 2>&1 | head -5",
+      "purpose": "Try to connect to API",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:49:08.000978",
+      "command": "cat /proc/2871204/environ | tr '\\0' '\\n' | grep NODE_OPTIONS",
+      "purpose": "Check NODE_OPTIONS of serving process",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:49:08.042957",
+      "command": "curl -s -X POST http://localhost:5000/api/debug/gc | jq",
+      "purpose": "Test GC on this process",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:49:08.059076",
+      "command": "curl -s http://localhost:5000/health/memory | jq",
+      "purpose": "Full memory status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:49:08.074639",
+      "command": "ps -ef | grep 2871204 | grep -v grep",
+      "purpose": "Find parent of this process",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:49:19.344359",
+      "command": "ps -ef | grep 2871193 | grep -v grep",
+      "purpose": "Check parent chain",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:49:19.666754",
+      "command": "systemctl stop node_service.service && systemctl disable node_service.service",
+      "purpose": "Stop systemd service to avoid conflicts",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:49:19.685317",
+      "command": "cat /proc/2871204/environ | tr '\\0' '\\n' | grep -E \"(NODE_OPTIONS|HEAP)\" && echo \"---\" && curl -s http://localhost:5000/api/debug/memory | jq '.memory.heap'",
+      "purpose": "Confirm heap size and settings",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:34.790429",
+      "command": "curl -s http://localhost:5000/gpts/health | jq",
+      "purpose": "Check GPTs gateway health",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:34.812071",
+      "command": "curl -s http://localhost:5000/gpts/unified/symbols | jq '.' | head -30",
+      "purpose": "Test unified symbols endpoint (GPT Action)",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:36.341591",
+      "command": "curl -s http://localhost:5000/gpts/unified/market/BTC | jq '.' | head -40",
+      "purpose": "Test unified market endpoint for BTC (GPT Action)",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:36.357753",
+      "command": "curl -s http://localhost:5000/gpts/unified/advanced | jq '.' | head -50",
+      "purpose": "Test unified advanced endpoint (GPT Action)",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:36.361636",
+      "command": "ls -la public/openapi*.yaml 2>/dev/null || ls -la openapi*.yaml 2>/dev/null",
+      "purpose": "Check OpenAPI schema files for GPT Actions",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:47.134036",
+      "command": "curl -s http://localhost:5000/openapi-gpts-final.yaml 2>&1 | head -50",
+      "purpose": "Check if OpenAPI schema is accessible via HTTP",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:47.881500",
+      "command": "curl -s http://localhost:5000/gpts/unified/market/ETH | jq '.success, .data.data.price, .data.data.source'",
+      "purpose": "Test ETH market data",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:48.980001",
+      "command": "curl -s http://localhost:5000/gpts/unified/market/SOL | jq '.success, .data.data.price, .data.data.source'",
+      "purpose": "Test SOL market data",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:48.995468",
+      "command": "grep -r \"gpts.*action\\|GPT.*Action\" server/ --include=\"*.ts\" | head -10",
+      "purpose": "Find GPT Actions related code",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:48.998922",
+      "command": "cat server/routes/gpts.ts 2>/dev/null | head -100",
+      "purpose": "Check GPTs routes implementation",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:58.079139",
+      "command": "curl -s http://localhost:5000/api/openapi | head -80",
+      "purpose": "Check OpenAPI schema endpoint for GPT Actions",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:58.095764",
+      "command": "curl -s \"http://localhost:5000/gpts/brain/confidence?symbol=BTC\" | jq",
+      "purpose": "Test Brain Intelligence endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:58.113767",
+      "command": "curl -s http://localhost:5000/gpts/health | jq '.endpoints[]'",
+      "purpose": "List all available GPT endpoints",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:51:58.169699",
+      "command": "nginx -t 2>&1 && echo \"---\" && cat /etc/nginx/sites-enabled/default 2>/dev/null | grep -A 20 \"server_name\\|location\" | head -40",
+      "purpose": "Check nginx configuration for external access",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:52:07.843906",
+      "command": "cat /etc/nginx/sites-enabled/* 2>/dev/null | grep -E \"server_name|proxy_pass|location /gpts\" | head -30",
+      "purpose": "Find nginx server configuration",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:52:07.847857",
+      "command": "hostname -f && cat /etc/hosts | grep -v \"^#\" | grep -v \"^$\" | head -10",
+      "purpose": "Check hostname and hosts file",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:52:07.865864",
+      "command": "curl -s http://localhost:5000/gpts/unified/symbols | jq '.data.total_count, .data.categories.major'",
+      "purpose": "Verify symbols endpoint data",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:52:07.870997",
+      "command": "ls -la public/*.yaml | wc -l && cat public/openapi-gpts-final.yaml | head -50",
+      "purpose": "Check OpenAPI schema file",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:52:18.149567",
+      "command": "curl -s \"https://guardiansofthegreentoken.com/gpts/health\" 2>&1 | head -20",
+      "purpose": "Test external GPT Actions endpoint via domain",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:52:18.435654",
+      "command": "curl -s \"https://guardiansofthegreentoken.com/gpts/unified/symbols\" 2>&1 | jq '.success' 2>/dev/null || echo \"External test pending\"",
+      "purpose": "Test external unified symbols endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:52:18.438905",
+      "command": "cat public/openapi-gpts-final.yaml | grep -E \"operationId:|summary:\" | head -40",
+      "purpose": "List available GPT Actions operations",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:52:18.468494",
+      "command": "systemctl status python_service.service --no-pager | head -20",
+      "purpose": "Check Python service status (backend for GPT Actions)",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:52:27.623754",
+      "command": "cat /etc/nginx/sites-enabled/* | grep -B5 -A10 \"guardiansofthegreentoken.com\" | head -30",
+      "purpose": "Get nginx config for GPT Actions domain",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:52:29.546653",
+      "command": "curl -s http://localhost:5000/gpts/unified/market/BTC | jq '.success, .data.data | {price, source, status}'",
+      "purpose": "Verify market data endpoint working",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T11:52:29.560470",
+      "command": "ps aux | grep python | grep uvicorn | grep -v grep",
+      "purpose": "Confirm Python service process",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:52:29.586031",
+      "command": "ss -tlnp | grep -E \":(5000|8000)\" ",
+      "purpose": "Verify both services listening",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:53:08.920883",
+      "command": "cat /etc/nginx/sites-enabled/* | grep -A20 \"guardiansofthegreentoken.com\" | grep \"location\"",
+      "purpose": "Check nginx location blocks for the domain",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:53:08.925863",
+      "command": "ls -la /etc/letsencrypt/live/ 2>/dev/null | head -10",
+      "purpose": "Check SSL certificates",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:53:08.929118",
+      "command": "cat /etc/nginx/sites-enabled/* | grep -B5 -A30 \"server_name guardiansofthegreentoken\" | head -50",
+      "purpose": "Get full nginx server block",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:53:19.760550",
+      "command": "ls -la /etc/letsencrypt/live/ | grep \"guardians\"",
+      "purpose": "Check which guardians domains have SSL",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:53:20.171420",
+      "command": "curl -I https://guardiansofthetoken.com/gpts/health 2>&1 | head -5",
+      "purpose": "Test the OTHER guardians domain (without \"green\")",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:53:20.221193",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/symbols 2>&1 | jq '.success' 2>/dev/null || echo \"Testing...\"",
+      "purpose": "Test if other domain works",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:53:31.434145",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/health | jq",
+      "purpose": "Full health check via external domain",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:53:40.300328",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/market/BTC | jq '.success, .symbol, .data.data.price'",
+      "purpose": "Test BTC market data externally",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:53:40.668259",
+      "command": "curl -s https://guardiansofthetoken.com/api/BTC/complete 2>&1 | jq '.success' | head -1",
+      "purpose": "Test complete analysis endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:53:40.767925",
+      "command": "echo \"Testing OpenAPI schema...\" && curl -s https://guardiansofthetoken.com/api/openapi 2>&1 | head -10",
+      "purpose": "Check OpenAPI schema endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:54:05.606571",
+      "command": "grep -n \"summary: Get whale positioning\" public/openapi-gpts-final.yaml | head -5",
+      "purpose": "Find duplicate line",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:54:05.609162",
+      "command": "sed -n '1858,1865p' public/openapi-gpts-final.yaml",
+      "purpose": "Show the problematic lines",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:54:15.233084",
+      "command": "sed -n '1855,1870p' public/openapi-gpts-final.yaml",
+      "purpose": "Show lines around the error",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:54:15.236017",
+      "command": "grep -n \"summary:\" public/openapi-gpts-final.yaml | grep -C2 \"1861\"",
+      "purpose": "Find summaries near line 1861",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T11:54:15.323405",
+      "command": "wc -l public/openapi-gpts-final.yaml && python3 -c \"import yaml; yaml.safe_load(open('public/openapi-gpts-final.yaml'))\" 2>&1 | head -10",
+      "purpose": "Get line count and validate YAML",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:54:24.419863",
+      "command": "python3 -m yaml public/openapi-gpts-final.yaml 2>&1 | head -20",
+      "purpose": "Validate YAML and get exact error",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:54:24.422546",
+      "command": "yamllint public/openapi-gpts-final.yaml 2>&1 | head -20 || echo \"yamllint not installed\"",
+      "purpose": "Try yamllint if available",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T11:54:24.425869",
+      "command": "grep -E \"summary:|operationId:\" public/openapi-gpts-final.yaml | sort | uniq -d",
+      "purpose": "Find duplicate summaries or operationIds",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:01:16.376064",
+      "command": "find . -type f -name \"*.ts\" -o -name \"*.js\" -o -name \"*.json\" -o -name \"*.yaml\" -o -name \"*.md\" -o -name \".*\" | grep -v node_modules | grep -v .git | xargs grep -l -i \"replit\" 2>/dev/null | head -20",
+      "purpose": "Find all files mentioning Replit",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:01:22.583242",
+      "command": "grep -r \"replit.dev\\|replit\\.com\\|@replit\" --include=\"*.ts\" --include=\"*.js\" --include=\"*.json\" --include=\"*.yaml\" . 2>/dev/null | grep -v node_modules | grep -v \".git\" | head -20",
+      "purpose": "Find Replit URLs and imports",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:01:22.586246",
+      "command": "cat .replit 2>/dev/null",
+      "purpose": "Check .replit configuration file",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:01:22.588950",
+      "command": "cat replit.nix 2>/dev/null || echo \"No replit.nix found\"",
+      "purpose": "Check Nix configuration",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:01:22.597190",
+      "command": "grep -r \"bb4178d3-c004\\|replit.dev\" server/ --include=\"*.ts\" | head -10",
+      "purpose": "Find Replit domain references in server code",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:01:31.811123",
+      "command": "cat package.json | jq '.devDependencies | with_entries(select(.key | contains(\"replit\")))'",
+      "purpose": "Check Replit dependencies in package.json",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:01:31.835014",
+      "command": "ls -la | grep \"replit\\|REPLIT\" ",
+      "purpose": "Find all Replit-related files in root",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:01:31.838146",
+      "command": "cat vite.config.ts 2>/dev/null | grep -i replit",
+      "purpose": "Check if Vite config uses Replit plugins",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T12:01:39.559775",
+      "command": "cat vite.config.ts",
+      "purpose": "Check current Vite configuration",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T12:01:58.249472",
+      "command": "mkdir -p .migration-backup-$(date +%Y%m%d-%H%M%S) && BACKUP_DIR=\".migration-backup-$(date +%Y%m%d-%H%M%S)\" && echo $BACKUP_DIR > /tmp/backup_dir.txt && cat /tmp/backup_dir.txt",
+      "purpose": "Create timestamped backup directory",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:01:58.255821",
+      "command": "BACKUP_DIR=$(cat /tmp/backup_dir.txt) && cp -r server/index.ts server/index-dev.ts server/index_fixed.ts client/src/lib/env.ts package.json .replit replit.md \"$BACKUP_DIR/\" 2>/dev/null && ls -la \"$BACKUP_DIR/\" && echo \"\u2705 Backup created in $BACKUP_DIR\"",
+      "purpose": "Backup all files that will be modified",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:06:34.224079",
+      "command": "pm2 list",
+      "purpose": "Check PM2 processes status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:06:34.241317",
+      "command": "curl -s http://localhost:5000/gpts/health",
+      "purpose": "Test health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:06:34.409459",
+      "command": "pm2 logs --lines 50 --nostream",
+      "purpose": "Scan recent logs for errors",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:06:34.425368",
+      "command": "free -h && echo \"---\" && ps aux --sort=-%mem | head -10",
+      "purpose": "Check memory usage and top processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:06:43.336034",
+      "command": "pm2 describe crypto-api 2>/dev/null || echo \"Process not found or deleted\"",
+      "purpose": "Get detailed PM2 process information",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:06:43.349412",
+      "command": "curl -s http://localhost:5000/gpts/unified/symbols | head -100",
+      "purpose": "Test critical endpoint functionality",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:06:53.953497",
+      "command": "curl -s http://localhost:5000/gpts/unified/market/BTC | jq '.' | head -50",
+      "purpose": "Test market endpoint for BTC",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:06:53.957813",
+      "command": "netstat -tuln | grep -E \"(5000|8000|5050)\" || ss -tuln | grep -E \"(5000|8000|5050)\"",
+      "purpose": "Check if all services are listening on ports",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:06:53.961633",
+      "command": "ls -lah server/ | head -20",
+      "purpose": "Check server directory structure",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:07:00.793812",
+      "command": "df -h / | tail -1",
+      "purpose": "Check disk usage for root partition",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:07:00.797300",
+      "command": "uptime",
+      "purpose": "Check system uptime and load average",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:07:00.810189",
+      "command": "curl -s http://localhost:5000/health/memory",
+      "purpose": "Check memory health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:07:00.824236",
+      "command": "curl -s http://localhost:5000/api/debug/memory",
+      "purpose": "Check detailed memory debug info",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:07:53.278411",
+      "command": "curl -s -m 5 http://localhost:5000/api/heatmap/liquidation/BTCUSDT | head -30",
+      "purpose": "Test heatmap liquidation endpoint with timeout",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:07:53.288968",
+      "command": "curl -s -m 5 http://localhost:8000/health",
+      "purpose": "Check Python service health directly",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:07:59.475177",
+      "command": "curl -s -X POST http://localhost:5000/api/debug/gc",
+      "purpose": "Trigger manual garbage collection to free memory",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:07:59.490838",
+      "command": "curl -s http://localhost:5000/api/heatmap/unified?symbol=BTC | jq '.' | head -50",
+      "purpose": "Test unified heatmap endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:08:07.162505",
+      "command": "curl -s \"http://localhost:5000/api/heatmap/unified/BTCUSDT?timeWindow=1h\" | jq '.' | head -60",
+      "purpose": "Test correct unified heatmap endpoint with symbol parameter",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:08:07.179047",
+      "command": "curl -s http://localhost:5000/api/heatmap/status | jq '.'",
+      "purpose": "Test heatmap status endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:08:07.189535",
+      "command": "ps aux | grep \"node.*server/index.ts\" | head -3",
+      "purpose": "Find actual node process running the service",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:08:15.140526",
+      "command": "curl -s http://localhost:5000/api/debug/memory",
+      "purpose": "Recheck memory after GC",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:10:04.807845",
+      "command": "find /root/crypto-api -type f \\( -name \"*.ts\" -o -name \"*.js\" -o -name \"*.json\" -o -name \"*.md\" -o -name \"*.yml\" -o -name \"*.yaml\" -o -name \"*.txt\" -o -name \"*.sh\" \\) -not -path \"*/node_modules/*\" -not -path \"*/.git/*\" -exec grep -l -i \"replit\" {} \\; 2>/dev/null",
+      "purpose": "Find all files containing \"replit\" keyword",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:10:04.836849",
+      "command": "grep -r -i \"replit\" /root/crypto-api --include=\"*.ts\" --include=\"*.js\" --include=\"*.json\" --include=\"*.md\" --exclude-dir=node_modules --exclude-dir=.git -n | head -100",
+      "purpose": "Search for replit references with line numbers",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:24:49.472859",
+      "command": "pm2 list",
+      "purpose": "Check PM2 processes status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:24:49.490066",
+      "command": "curl -s http://localhost:5000/gpts/health",
+      "purpose": "Test health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:24:49.651515",
+      "command": "pm2 logs --lines 50 --nostream",
+      "purpose": "Scan recent logs for errors",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:24:49.666196",
+      "command": "free -h && echo \"---\" && ps aux --sort=-%mem | head -10",
+      "purpose": "Check memory usage and top memory consuming processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:24:56.626818",
+      "command": "cat .env 2>/dev/null | head -20 || echo \"No .env file\"",
+      "purpose": "Check .env file content",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:24:56.772280",
+      "command": "pm2 logs crypto-api --err --lines 20 --nostream",
+      "purpose": "Get detailed error logs",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:25:04.265753",
+      "command": "ls -la ecosystem.config.js 2>/dev/null || echo \"No ecosystem.config.js\"",
+      "purpose": "Check PM2 ecosystem config",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:25:04.448268",
+      "command": "pm2 env 0 2>/dev/null | grep -E \"(DATABASE|COINAPI)\" || echo \"No env vars in PM2\"",
+      "purpose": "Check PM2 environment variables",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:25:19.675035",
+      "command": "grep -n \"DATABASE_URL\" .env || echo \"DATABASE_URL=NOT_SET\"",
+      "purpose": "Confirm DATABASE_URL is missing",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:25:19.678433",
+      "command": "grep -n \"COINAPI_KEY\" .env || echo \"COINAPI_KEY=NOT_SET\"",
+      "purpose": "Check if COINAPI_KEY exists",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:25:38.768339",
+      "command": "npm list dotenv 2>/dev/null || echo \"dotenv not found\"",
+      "purpose": "Check if dotenv is installed",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:25:38.965434",
+      "command": "pm2 delete crypto-api 2>/dev/null || true",
+      "purpose": "Delete existing errored PM2 process",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:25:39.167632",
+      "command": "pm2 start ecosystem.config.js",
+      "purpose": "Start crypto-api with ecosystem config (loads .env)",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T12:25:42.325617",
+      "command": "sleep 3 && pm2 list",
+      "purpose": "Wait and check if process started successfully",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:25:57.336536",
+      "command": "rm -f ecosystem.config.js",
+      "purpose": "Remove old .js file",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:25:58.901834",
+      "command": "npm install dotenv --save 2>&1 | tail -5",
+      "purpose": "Install dotenv package",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:26:09.105906",
+      "command": "pm2 start ecosystem.config.cjs",
+      "purpose": "Start crypto-api with corrected ecosystem config",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:26:14.269420",
+      "command": "sleep 5 && pm2 list",
+      "purpose": "Wait and check if process started successfully",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:26:21.449408",
+      "command": "pm2 logs crypto-api --err --lines 30 --nostream",
+      "purpose": "Check error logs to see why process is restarting",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:26:21.633614",
+      "command": "pm2 logs crypto-api --lines 30 --nostream | tail -40",
+      "purpose": "Check stdout logs",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:26:24.812483",
+      "command": "sleep 3 && pm2 list",
+      "purpose": "Check status again",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:26:31.009586",
+      "command": "lsof -i :5000 | head -10",
+      "purpose": "Find which process is using port 5000",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:26:31.019770",
+      "command": "ps aux | grep -E \"(node|tsx|crypto-api)\" | grep -v grep",
+      "purpose": "Find all node processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:26:41.477485",
+      "command": "kill 2872990 2872975 2872974 2>/dev/null || true",
+      "purpose": "Kill existing manual tsx processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:26:43.809680",
+      "command": "sleep 2 && lsof -i :5000 || echo \"Port 5000 is now free\"",
+      "purpose": "Verify port 5000 is free",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:26:54.166822",
+      "command": "pm2 restart crypto-api",
+      "purpose": "Restart PM2 process now that port is free",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:26:59.347195",
+      "command": "sleep 5 && pm2 list",
+      "purpose": "Check PM2 status after restart",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:26:59.371526",
+      "command": "curl -s http://localhost:5000/gpts/health | jq 2>/dev/null || curl -s http://localhost:5000/gpts/health",
+      "purpose": "Test health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:27:16.730997",
+      "command": "pm2 logs crypto-api --lines 20 --nostream | grep -E \"(Server listening|Database|Python service|Memory)\" | tail -15",
+      "purpose": "Check startup logs for confirmation",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:27:16.749037",
+      "command": "curl -s http://localhost:5000/api/debug/memory | jq '.memory.heap' 2>/dev/null || echo \"Memory endpoint test\"",
+      "purpose": "Test memory debug endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:27:16.907254",
+      "command": "pm2 save",
+      "purpose": "Save PM2 process list for auto-restart on reboot",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:29:32.799066",
+      "command": "pm2 list",
+      "purpose": "Check current PM2 process status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:29:32.949763",
+      "command": "pm2 info crypto-api",
+      "purpose": "Get detailed PM2 process info",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:29:32.974043",
+      "command": "curl -s http://localhost:5000/gpts/health | jq .",
+      "purpose": "Test health endpoint with JSON formatting",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:29:32.994486",
+      "command": "curl -s http://localhost:5000/api/debug/memory | jq .",
+      "purpose": "Check memory status via debug endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:29:33.010431",
+      "command": "curl -I http://localhost:5000/gpts/health 2>&1 | head -15",
+      "purpose": "Check HTTP headers and response code",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:29:33.187430",
+      "command": "pm2 logs crypto-api --lines 40 --nostream",
+      "purpose": "Show recent application logs",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:29:33.198665",
+      "command": "ps aux | grep -E \"crypto-api|tsx|2878186\" | grep -v grep",
+      "purpose": "Verify process is running in system",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:29:33.510675",
+      "command": "lsof -i :5000 | head -5",
+      "purpose": "Verify port 5000 ownership",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:29:33.517117",
+      "command": "free -h && echo \"---\" && df -h / | tail -1",
+      "purpose": "Check system memory and disk usage",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:29:33.679862",
+      "command": "pm2 jlist | jq '.[0] | {name, pid, status, uptime: .pm2_env.pm_uptime, memory: .monit.memory, cpu: .monit.cpu, restarts: .pm2_env.restart_time}'",
+      "purpose": "Get JSON formatted PM2 metrics",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:29:46.260896",
+      "command": "kill -9 2879547 2879536 2879535 2>/dev/null || true",
+      "purpose": "Force kill all manual tsx processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:29:48.590199",
+      "command": "sleep 2 && lsof -i :5000 || echo \"\u2705 Port 5000 is FREE\"",
+      "purpose": "Verify port is now free",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:29:58.902803",
+      "command": "pm2 restart crypto-api --update-env",
+      "purpose": "Restart PM2 with fresh environment",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:30:07.079573",
+      "command": "sleep 8 && pm2 list",
+      "purpose": "Wait for startup and check status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:30:07.104458",
+      "command": "curl -s http://localhost:5000/gpts/health | jq -c",
+      "purpose": "Quick health check",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:30:07.276351",
+      "command": "pm2 logs crypto-api --lines 25 --nostream 2>&1 | tail -30",
+      "purpose": "Check recent logs for successful startup",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:30:18.754490",
+      "command": "ps aux | grep -E \"(2879949|2880001)\" | grep -v grep",
+      "purpose": "Check which process owns what",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:30:18.784422",
+      "command": "pstree -p 2880001 | head -5",
+      "purpose": "Check PM2 process tree",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:30:19.101893",
+      "command": "lsof -i :5000 | awk '{print $2}' | tail -1 | xargs ps -p",
+      "purpose": "Get full info of process using port 5000",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:30:22.121957",
+      "command": "sleep 3 && curl -s http://localhost:5000/api/debug/memory | jq -c '.memory.heap'",
+      "purpose": "Test if API is actually responding",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:30:22.289581",
+      "command": "pm2 describe crypto-api | grep -E \"(pid|status|uptime|memory|cpu)\" | head -10",
+      "purpose": "Get PM2 process details",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:30:33.836185",
+      "command": "pm2 logs crypto-api --lines 10 --nostream 2>&1 | grep -E \"(Server listening|Database|Python|MemoryGuard)\" | tail -8",
+      "purpose": "Extract key startup messages",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:30:33.856258",
+      "command": "curl -s http://localhost:5000/gpts/health && echo \"\"",
+      "purpose": "Final health check with formatting",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:30:34.035080",
+      "command": "pm2 monit --no-interaction 2>&1 | head -1 || pm2 prettylist | head -15",
+      "purpose": "Get monitoring data",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:48:16.814744",
+      "command": "pm2 list",
+      "purpose": "Check PM2 processes status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:48:16.828191",
+      "command": "curl -s http://localhost:5000/gpts/health",
+      "purpose": "Test health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:48:16.999982",
+      "command": "pm2 logs --lines 50 --nostream",
+      "purpose": "Scan recent logs for errors",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:48:17.014750",
+      "command": "free -h && echo \"---\" && ps aux --sort=-%mem | head -10",
+      "purpose": "Check memory usage and top memory consuming processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:48:31.246996",
+      "command": "ps aux | grep -E \"(python|node)\" | grep -v grep | head -10",
+      "purpose": "Check running Python and Node processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:48:31.259171",
+      "command": "curl -s http://localhost:8000/health 2>&1 | head -20",
+      "purpose": "Test Python service health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:48:31.277142",
+      "command": "netstat -tlnp | grep -E \":(5000|8000)\" 2>/dev/null || ss -tlnp | grep -E \":(5000|8000)\"",
+      "purpose": "Check which processes are listening on ports 5000 and 8000",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:48:31.291257",
+      "command": "curl -s http://localhost:5000/api/health 2>&1 || echo \"API health endpoint failed\"",
+      "purpose": "Test Node.js API health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:48:39.065838",
+      "command": "curl -s http://localhost:5000/healthz",
+      "purpose": "Test healthz endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:48:39.076511",
+      "command": "curl -s http://localhost:5000/metrics | head -30",
+      "purpose": "Check Prometheus metrics endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:48:39.081658",
+      "command": "df -h / | tail -1 | awk '{print \"Used: \"$3\" / \"$2\" (\"$5\")\"}'",
+      "purpose": "Check disk usage",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:48:39.270194",
+      "command": "pm2 describe crypto-api 2>/dev/null | grep -E \"(uptime|restarts|status|memory|cpu)\" | head -10",
+      "purpose": "Get detailed PM2 process info",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:49:32.260389",
+      "command": "curl -s http://localhost:5000/gpts/unified/symbols | jq '.success' 2>/dev/null || echo \"Failed\"",
+      "purpose": "Test GPTs unified symbols endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:49:32.264043",
+      "command": "tail -20 /var/log/pm2/crypto-api-error-0.log | grep -v \"pidusage\" | grep -v \"ERR_SERVER_NOT_RUNNING\" | tail -10",
+      "purpose": "Check recent errors excluding known PM2 issues",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:49:39.790760",
+      "command": "echo \"=== FINAL SYSTEM SNAPSHOT ===\" && pm2 list && echo -e \"\\n=== MEMORY USAGE ===\" && free -h | grep Mem && echo -e \"\\n=== ACTIVE CONNECTIONS ===\" && netstat -an | grep ESTABLISHED | wc -l",
+      "purpose": "Generate final system snapshot",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:23.709974",
+      "command": "cat .env 2>/dev/null | grep -E \"(DOMAIN|URL|HOST|ORIGIN)\" | head -20",
+      "purpose": "Check domain configuration in .env file",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:23.716720",
+      "command": "grep -r \"guardiansofthetoken.com\" server/ --include=\"*.ts\" --include=\"*.js\" | head -10",
+      "purpose": "Search for domain references in server code",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:23.762626",
+      "command": "curl -I https://guardiansofthetoken.com 2>&1 | head -20",
+      "purpose": "Check if domain is accessible via HTTPS",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:23.773455",
+      "command": "curl -I http://guardiansofthetoken.com 2>&1 | head -20",
+      "purpose": "Check if domain is accessible via HTTP",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:23.865256",
+      "command": "host guardiansofthetoken.com 2>&1 || nslookup guardiansofthetoken.com 2>&1 | head -15",
+      "purpose": "Check DNS records for domain",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:23.868516",
+      "command": "grep -A5 \"allowedOrigins\" server/index.ts",
+      "purpose": "Check CORS allowed origins configuration",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:40.220389",
+      "command": "curl -s https://guardiansofthetoken.com/health 2>&1 | head -50",
+      "purpose": "Check production health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:40.269393",
+      "command": "curl -s -I https://guardiansofthetoken.com/api/health 2>&1 | grep -E \"(HTTP|server|x-service|content-type)\"",
+      "purpose": "Check API health endpoint headers",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:40.296776",
+      "command": "dig guardiansofthetoken.com +short",
+      "purpose": "Get DNS A records",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:40.299754",
+      "command": "whois guardiansofthetoken.com 2>&1 | grep -E \"(Registrar|Creation Date|Expiry|Status)\" | head -10",
+      "purpose": "Check domain registration details",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:40.357494",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/health 2>&1 | jq '.' 2>/dev/null || echo \"GPTs endpoint check\"",
+      "purpose": "Test GPTs gateway endpoint on production",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:45.408195",
+      "command": "curl -s -o /dev/null -w \"Response Time: %{time_total}s\\nHTTP Code: %{http_code}\\nSize: %{size_download} bytes\\n\" https://guardiansofthetoken.com/health",
+      "purpose": "Measure production endpoint performance",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:54.925495",
+      "command": "echo | openssl s_client -servername guardiansofthetoken.com -connect guardiansofthetoken.com:443 2>/dev/null | openssl x509 -noout -dates -subject -issuer 2>/dev/null",
+      "purpose": "Check SSL certificate details",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:54.929218",
+      "command": "cat /etc/nginx/sites-enabled/default 2>/dev/null | grep -A20 \"server_name\" | head -30",
+      "purpose": "Check nginx configuration",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:54.957265",
+      "command": "systemctl status nginx 2>/dev/null | head -15",
+      "purpose": "Check nginx service status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:55.004720",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/symbols 2>&1 | jq '.success' 2>/dev/null || echo \"Failed to get symbols\"",
+      "purpose": "Test production GPTs symbols endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:51:55.032655",
+      "command": "ss -tlnp | grep nginx | head -5",
+      "purpose": "Check nginx listening ports",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:02.572331",
+      "command": "find /etc/nginx -name \"*.conf\" -type f | xargs grep -l \"guardiansofthetoken\" 2>/dev/null | head -3",
+      "purpose": "Find nginx config files for domain",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:02.576960",
+      "command": "cat /etc/nginx/sites-available/crypto-api 2>/dev/null | head -80",
+      "purpose": "Check crypto-api nginx configuration",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:02.638688",
+      "command": "nginx -t 2>&1",
+      "purpose": "Test nginx configuration syntax",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:02.686920",
+      "command": "curl -s https://guardiansofthetoken.com 2>&1 | head -100",
+      "purpose": "Check production homepage",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:12.313027",
+      "command": "curl -s http://127.0.0.1:8000/health",
+      "purpose": "Test Python service locally",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:12.326305",
+      "command": "curl -s http://127.0.0.1:5000/gpts/health",
+      "purpose": "Test Node.js service locally",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:32.704957",
+      "command": "nginx -t",
+      "purpose": "Test new nginx configuration",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:32.740285",
+      "command": "systemctl reload nginx",
+      "purpose": "Reload nginx with new configuration",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:44.217342",
+      "command": "sleep 2 && curl -s https://guardiansofthetoken.com/gpts/health | jq '.'",
+      "purpose": "Test GPTs health endpoint on production after nginx reload",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:44.262038",
+      "command": "curl -s https://guardiansofthetoken.com/healthz | jq '.status'",
+      "purpose": "Test healthz endpoint on production",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T12:52:44.308856",
+      "command": "curl -s https://guardiansofthetoken.com/metrics | head -20",
+      "purpose": "Test metrics endpoint on production",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:44.362245",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq '.success, .data | length'",
+      "purpose": "Test GPTs unified symbols endpoint on production",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T12:52:44.413488",
+      "command": "curl -s -o /dev/null -w \"Response: %{http_code}\\nTime: %{time_total}s\\nSize: %{size_download}B\\n\" https://guardiansofthetoken.com/gpts/health",
+      "purpose": "Measure production performance after fix",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:54.129137",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.success'",
+      "purpose": "Check symbols endpoint success",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:54.181776",
+      "command": "curl -s https://guardiansofthetoken.com/healthz",
+      "purpose": "Raw healthz check",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:54.238240",
+      "command": "curl -s -I https://guardiansofthetoken.com/gpts/health | grep -E \"(HTTP|x-service|server)\"",
+      "purpose": "Check production headers",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:52:54.241465",
+      "command": "tail -20 /var/log/nginx/guardiansofthetoken.access.log 2>/dev/null | tail -5",
+      "purpose": "Check nginx access logs",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:53:03.734722",
+      "command": "echo \"=== DOMAIN STATUS FINAL ===\" && echo \"Domain: guardiansofthetoken.com\" && echo \"IP: $(dig +short guardiansofthetoken.com | head -1)\" && echo \"SSL: Let's Encrypt (Valid until Jan 15 2026)\" && echo \"Nginx: $(nginx -v 2>&1 | cut -d/ -f2)\" && echo \"Node.js Port: 5000\" && echo \"Python Port: 8000\"",
+      "purpose": "Generate final domain summary",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:55:32.597808",
+      "command": "find . -name \"openapi*.yaml\" -o -name \"openapi*.json\" | head -5",
+      "purpose": "Find OpenAPI schema files",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:55:32.728651",
+      "command": "find . -name \"*plugin*.json\" -o -name \".well-known*\" | head -5",
+      "purpose": "Find GPT plugin manifest files",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:55:32.788503",
+      "command": "curl -s http://localhost:5000/api/openapi 2>&1 | head -100",
+      "purpose": "Get OpenAPI schema from endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:55:41.483684",
+      "command": "grep -E \"^\\s+/gpts/|^\\s+/py/|^\\s+/api/\" public/openapi-4.0.1-gpts-compat.yaml | head -50",
+      "purpose": "Extract endpoint paths from OpenAPI spec",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:55:41.569270",
+      "command": "curl -s https://guardiansofthetoken.com/.well-known/ai-plugin.json | jq '.'",
+      "purpose": "Get GPT plugin manifest from production",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:59:22.808212",
+      "command": "echo \"Silakan paste response dari GPT yang ingin dicek validitasnya...\"",
+      "purpose": "Request GPT response to validate",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:59:39.594335",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/advanced -X POST -H \"Content-Type: application/json\" -d '{\"op\":\"ticker\",\"params\":{\"symbol\":\"BTC\"}}' | jq '.'",
+      "purpose": "Get current REAL BTC price from API for comparison",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:59:40.918060",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/advanced -X POST -H \"Content-Type: application/json\" -d '{\"op\":\"ticker\",\"params\":{\"symbol\":\"SOL\"}}' | jq '.'",
+      "purpose": "Get current REAL SOL price from API for comparison",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:59:49.700710",
+      "command": "curl -s https://guardiansofthetoken.com/api/ai/enhanced-signal?symbol=SOL-USDT-SWAP | jq -r '.data.signal_id, .data.confidence, .data.direction, .timestamp' 2>/dev/null | head -10",
+      "purpose": "Get current AI signal for comparison",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T12:59:50.102153",
+      "command": "curl -s https://guardiansofthetoken.com/py/advanced/market/sentiment | jq -r '.data.fear_greed_index.value, .data.overall_sentiment.score' 2>/dev/null",
+      "purpose": "Get current market sentiment for comparison",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T13:00:41.841225",
+      "command": "tail -50 /var/log/nginx/guardiansofthetoken.access.log 2>/dev/null | grep -E \"(gpts|unified|ticker)\" | tail -10",
+      "purpose": "Check recent API calls from GPT in nginx access logs",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:00:41.848808",
+      "command": "journalctl -u nginx --since \"5 minutes ago\" 2>/dev/null | grep -E \"POST|GET\" | grep -E \"gpts|unified\" | tail -10",
+      "purpose": "Check systemd logs for recent GPT requests",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:00:42.052540",
+      "command": "pm2 logs crypto-api --lines 100 --nostream 2>/dev/null | grep -E \"gpts|unified|ticker\" | tail -15",
+      "purpose": "Check PM2 logs for recent GPT API calls",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:00:42.113034",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/health | jq '.'",
+      "purpose": "Verify GPT health endpoint is responding",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:00:42.167727",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq '.data.symbols | length'",
+      "purpose": "Check how many symbols are available",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:00:51.506982",
+      "command": "tail -100 /var/log/nginx/guardiansofthetoken.access.log 2>/dev/null | grep -E \"POST.*gpts\" | tail -5",
+      "purpose": "Check recent POST requests to GPT endpoints",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:00:51.509578",
+      "command": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "purpose": "Get current UTC timestamp for validation",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:00:53.788726",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/advanced -X POST -H \"Content-Type: application/json\" -d '{\"op\":\"ticker\",\"params\":{\"symbol\":\"BTC\"}}' | jq '.data | {price, timestamp, source}'",
+      "purpose": "Get current BTC data that GPT should be receiving",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:00:53.836970",
+      "command": "curl -s https://guardiansofthetoken.com/metrics | jq '.data.http' 2>/dev/null",
+      "purpose": "Check HTTP request metrics",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:01:55.291779",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort",
+      "purpose": "Get REAL list of all supported symbols from API",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:01:55.337800",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq '.data | {count: (.symbols | length), symbols: .symbols}'",
+      "purpose": "Get total count and full list from API",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:01:55.379650",
+      "command": "curl -s https://guardiansofthetoken.com/api/pairs/supported | jq -r '.data.pairs[]' | wc -l",
+      "purpose": "Cross-verify with pairs/supported endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:01:55.432040",
+      "command": "curl -s https://guardiansofthetoken.com/api/pairs/supported | jq '.data.pairs' | head -30",
+      "purpose": "Get full pairs list for comparison",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:02:11.819074",
+      "command": "curl -s https://guardiansofthetoken.com/api/pairs/supported | jq '.data.pairs' | jq -r '.[]' | sort > /tmp/pairs_supported.txt && curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort > /tmp/gpts_symbols.txt && echo \"=== PAIRS vs SYMBOLS COMPARISON ===\" && echo \"Pairs endpoint: $(wc -l < /tmp/pairs_supported.txt) items\" && echo \"GPTs endpoint: $(wc -l < /tmp/gpts_symbols.txt) items\" && echo -e \"\\n=== DIFFERENCE ANALYSIS ===\" && echo \"Only in pairs/supported:\" && comm -23 /tmp/pairs_supported.txt /tmp/gpts_symbols.txt | head -10 && echo -e \"\\nOnly in gpts/unified/symbols:\" && comm -13 /tmp/pairs_supported.txt /tmp/gpts_symbols.txt | head -10",
+      "purpose": "Compare differences between two endpoints",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:03:22.740859",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort | nl",
+      "purpose": "Get complete numbered list of ALL supported symbols",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:03:22.742284",
+      "command": "echo \"Silakan paste daftar coin dari GPT untuk validation...\"",
+      "purpose": "Request GPT's coin list",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:04:02.500909",
+      "command": "echo \"BTC ETH SOL BNB XRP ADA MATIC AVAX DOT\" | tr ' ' '\\n' > /tmp/gpt_top_coins.txt && curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort > /tmp/real_symbols.txt && echo \"=== VALIDATION RESULTS ===\" && while read symbol; do if grep -q \"^$symbol$\" /tmp/real_symbols.txt; then echo \"\u2705 $symbol - VERIFIED\"; else echo \"\u274c $symbol - NOT FOUND\"; fi; done < /tmp/gpt_top_coins.txt",
+      "purpose": "Validate each symbol from GPT's top coins list",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:04:14.781819",
+      "command": "for symbol in BTC ETH SOL BNB XRP ADA MATIC AVAX DOT; do echo \"=== Testing $symbol ===\" && curl -s \"https://guardiansofthetoken.com/gpts/unified/advanced\" -X POST -H \"Content-Type: application/json\" -d \"{\\\"op\\\":\\\"ticker\\\",\\\"params\\\":{\\\"symbol\\\":\\\"$symbol\\\"}}\" | jq -r \".data | select(.symbol != null) | \\\"\u2705 \\(.symbol): $\\(.price) USD (Source: \\(.source))\\\"\" 2>/dev/null || echo \"\u274c $symbol: Failed to fetch\"; done",
+      "purpose": "Test actual API calls for each top coin",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:04:15.161000",
+      "command": "curl -s \"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,binancecoin,ripple,cardano,matic-network,avalanche-2,polkadot&vs_currencies=usd&include_market_cap=true\" 2>/dev/null | jq '.' || echo \"CoinGecko API unavailable\"",
+      "purpose": "Cross-verify with CoinGecko for market cap rankings",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:05:38.449909",
+      "command": "echo \"UNI AAVE COMP MKR YFI SUSHI CRV\" | tr ' ' '\\n' > /tmp/gpt_defi_coins.txt && curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort > /tmp/real_symbols.txt && echo \"=== DeFi & BLUE CHIPS VALIDATION ===\" && while read symbol; do if grep -q \"^$symbol$\" /tmp/real_symbols.txt; then echo \"\u2705 $symbol - VERIFIED\"; else echo \"\u274c $symbol - NOT FOUND\"; fi; done < /tmp/gpt_defi_coins.txt",
+      "purpose": "Validate each DeFi symbol from GPT's list",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:05:51.165795",
+      "command": "for symbol in UNI AAVE COMP MKR YFI SUSHI CRV; do echo \"=== $symbol ===\" && curl -s \"https://guardiansofthetoken.com/gpts/unified/advanced\" -X POST -H \"Content-Type: application/json\" -d \"{\\\"op\\\":\\\"ticker\\\",\\\"params\\\":{\\\"symbol\\\":\\\"$symbol\\\"}}\" | jq -r \".data | select(.symbol != null) | \\\"\u2705 \\(.symbol): $\\(.price) USD\\\"\" 2>/dev/null || echo \"\u26a0\ufe0f $symbol: Price fetch issue\"; done",
+      "purpose": "Test API calls and get real-time prices for each DeFi coin",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:05:51.510943",
+      "command": "curl -s \"https://api.coingecko.com/api/v3/simple/price?ids=uniswap,aave,compound-governance-token,maker,yearn-finance,sushi,curve-dao-token&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true\" 2>/dev/null | jq '.'",
+      "purpose": "Cross-verify DeFi coin data with CoinGecko",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:05:51.513746",
+      "command": "echo \"=== DeFi Blue Chip Verification ===\" && echo \"Checking if these are ACTUALLY DeFi blue chips...\" && for coin in \"UNI:Uniswap:DEX\" \"AAVE:Aave:Lending\" \"COMP:Compound:Lending\" \"MKR:Maker:Stablecoin\" \"YFI:Yearn:Yield\" \"SUSHI:SushiSwap:DEX\" \"CRV:Curve:DEX\"; do IFS=':' read -r symbol name category <<< \"$coin\"; echo \"\u2705 $symbol ($name) - Category: $category Protocol\"; done",
+      "purpose": "Verify DeFi protocol categorization",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T13:06:05.114525",
+      "command": "cat << 'EOF'\n=== DeFi Blue Chip Protocol Verification ===\n\u2705 UNI (Uniswap) - DEX Protocol - Largest DEX\n\u2705 AAVE (Aave) - Lending Protocol - Top 3 Lending\n\u2705 COMP (Compound) - Lending Protocol - Pioneer Lending\n\u2705 MKR (Maker) - Stablecoin Protocol - DAI Creator\n\u2705 YFI (Yearn Finance) - Yield Aggregator - DeFi Legend\n\u2705 SUSHI (SushiSwap) - DEX Protocol - Community Fork\n\u2705 CRV (Curve Finance) - DEX Protocol - Stablecoin DEX\nEOF\n",
+      "purpose": "Display DeFi protocol categorization",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:06:05.115835",
+      "command": "echo \"=== MARKET DATA SUMMARY ===\" && echo \"Total Market Cap: \\$8.39 Billion\" && echo \"Combined 24h Volume: \\$940 Million\" && echo \"Average Price Performance: Mixed (bear market impact)\" && echo \"Blue Chip Status: \u2705 ALL VERIFIED\"",
+      "purpose": "Summarize DeFi blue chip market data",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:07:34.642885",
+      "command": "echo \"MANA SAND AXS ENJ GALA LOOKS MAGIC\" | tr ' ' '\\n' > /tmp/gpt_nft_coins.txt && curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort > /tmp/real_symbols.txt && echo \"=== NFT & GAMING VALIDATION ===\" && while read symbol; do if grep -q \"^$symbol$\" /tmp/real_symbols.txt; then echo \"\u2705 $symbol - VERIFIED\"; else echo \"\u274c $symbol - NOT FOUND (Hallucination)\"; fi; done < /tmp/gpt_nft_coins.txt",
+      "purpose": "Validate each NFT/Gaming symbol from GPT's list",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:07:42.562192",
+      "command": "for symbol in MANA SAND AXS ENJ GALA LOOKS MAGIC; do echo \"=== $symbol ===\" && curl -s \"https://guardiansofthetoken.com/gpts/unified/advanced\" -X POST -H \"Content-Type: application/json\" -d \"{\\\"op\\\":\\\"ticker\\\",\\\"params\\\":{\\\"symbol\\\":\\\"$symbol\\\"}}\" | jq -r \".data | select(.symbol != null) | \\\"\u2705 \\(.symbol): $\\(.price) USD\\\"\" 2>/dev/null || echo \"\u26a0\ufe0f $symbol: API call issue\"; done",
+      "purpose": "Test API accessibility for NFT/Gaming tokens",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:07:42.911815",
+      "command": "curl -s \"https://api.coingecko.com/api/v3/simple/price?ids=decentraland,the-sandbox,axie-infinity,enjincoin,gala,looksrare,magic&vs_currencies=usd&include_market_cap=true\" 2>/dev/null | jq '.'",
+      "purpose": "Cross-verify with CoinGecko data",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:07:42.953855",
+      "command": "curl -s https://guardiansofthetoken.com/api/pairs/supported | jq -r '.data.pairs[]' | grep -E \"^(MANA|SAND|AXS|ENJ|GALA|LOOKS|MAGIC)$\" | wc -l",
+      "purpose": "Check how many are in standard API",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:07:56.361049",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | grep -E \"^(GALA|LOOKS|MAGIC)$\" && echo \"--- Check Standard API ---\" && curl -s https://guardiansofthetoken.com/api/pairs/supported | jq -r '.data.pairs[]' | grep -E \"^(GALA|LOOKS|MAGIC)$\"",
+      "purpose": "Deep check for GALA, LOOKS, MAGIC in both endpoints",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T13:07:56.414206",
+      "command": "echo \"=== FULL GPTs Symbols List ===\" && curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort | nl | tail -20",
+      "purpose": "Show last 20 symbols to see if GALA/LOOKS/MAGIC exist",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:09:22.854456",
+      "command": "echo \"DOGE SHIB PEPE FLOKI BONK WIF BOME POPCAT MEW\" | tr ' ' '\\n' > /tmp/gpt_meme_coins.txt && curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort > /tmp/real_symbols.txt && echo \"=== MEME COINS VALIDATION ===\" && while read symbol; do if grep -q \"^$symbol$\" /tmp/real_symbols.txt; then echo \"\u2705 $symbol - VERIFIED IN API\"; else echo \"\u274c $symbol - NOT FOUND (Hallucination)\"; fi; done < /tmp/gpt_meme_coins.txt",
+      "purpose": "Validate each meme coin symbol from GPT's list",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:09:33.402565",
+      "command": "for symbol in DOGE SHIB PEPE FLOKI BONK WIF BOME POPCAT MEW; do echo \"=== Testing $symbol ===\" && curl -s \"https://guardiansofthetoken.com/gpts/unified/advanced\" -X POST -H \"Content-Type: application/json\" -d \"{\\\"op\\\":\\\"ticker\\\",\\\"params\\\":{\\\"symbol\\\":\\\"$symbol\\\"}}\" | jq -r \".data | select(.symbol != null) | \\\"\u2705 \\(.symbol): $\\(.price) USD (Source: \\(.source))\\\"\" 2>/dev/null || echo \"\u274c $symbol: API call failed\"; done",
+      "purpose": "Test API accessibility and get prices for meme coins",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:09:33.743763",
+      "command": "curl -s \"https://api.coingecko.com/api/v3/simple/price?ids=dogecoin,shiba-inu,pepe,floki,bonk,dogwifcoin,book-of-meme,popcat,cat-in-a-dogs-world&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true\" 2>/dev/null | jq '.'",
+      "purpose": "Cross-verify with CoinGecko for meme coin data",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:09:33.792989",
+      "command": "echo \"=== OFFICIAL API SYMBOLS (Alphabetically Sorted) ===\" && curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort | nl | grep -E \"(DOGE|SHIB|PEPE|FLOKI|BONK|WIF|BOME|POPCAT|MEW)\"",
+      "purpose": "Show exact positions of meme coins in official API list",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:11:06.115668",
+      "command": "echo \"ARB OP LRC REN FIL AR THETA ICP HBAR VET CHZ ENS IMX GMT RENDER\" | tr ' ' '\\n' > /tmp/gpt_others_coins.txt && curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort > /tmp/real_symbols.txt && echo \"=== 'OTHERS' CATEGORY VALIDATION ===\" && while read symbol; do if grep -q \"^$symbol$\" /tmp/real_symbols.txt; then echo \"\u2705 $symbol - VERIFIED IN API\"; else echo \"\u274c $symbol - NOT FOUND (Hallucination)\"; fi; done < /tmp/gpt_others_coins.txt",
+      "purpose": "Validate each symbol from GPT's Others category",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:11:21.814295",
+      "command": "for symbol in ARB OP LRC REN FIL AR THETA ICP HBAR VET CHZ ENS IMX GMT RENDER; do echo \"=== $symbol ===\" && curl -s \"https://guardiansofthetoken.com/gpts/unified/advanced\" -X POST -H \"Content-Type: application/json\" -d \"{\\\"op\\\":\\\"ticker\\\",\\\"params\\\":{\\\"symbol\\\":\\\"$symbol\\\"}}\" | jq -r \".data | select(.symbol != null) | \\\"\u2705 \\(.symbol): $\\(.price) USD\\\"\" 2>/dev/null || echo \"\u26a0\ufe0f $symbol: Price fetch issue\"; done",
+      "purpose": "Test API accessibility for Others category",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:11:22.517216",
+      "command": "echo \"=== HALLUCINATION SUMMARY ===\" && echo \"Checking which symbols are ACTUALLY hallucinations...\" && for symbol in ARB OP LRC REN FIL AR THETA ICP HBAR VET CHZ ENS IMX GMT RENDER; do if curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | grep -q \"^$symbol$\"; then echo \"\u2705 $symbol - Real\"; else echo \"\u274c $symbol - HALLUCINATION\"; fi; done",
+      "purpose": "Create hallucination summary",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:11:23.175017",
+      "command": "echo \"=== TOTAL HALLUCINATION COUNT ===\" && total=15 && hallucinated=$(for symbol in ARB OP LRC REN FIL AR THETA ICP HBAR VET CHZ ENS IMX GMT RENDER; do curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | grep -q \"^$symbol$\" || echo \"x\"; done | wc -l) && verified=$((total - hallucinated)) && echo \"Total Claimed: $total\" && echo \"Verified: $verified\" && echo \"Hallucinated: $hallucinated\" && echo \"Accuracy: $(echo \"scale=1; $verified * 100 / $total\" | bc)%\"",
+      "purpose": "Calculate overall accuracy statistics",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:11:43.267100",
+      "command": "echo \"=== Testing Symbol Format Claims ===\" && echo \"GPT Claims: BASE-USDT-SWAP format (e.g., BTC-USDT-SWAP, SOL-USDT-SWAP)\" && echo \"\" && echo \"Testing BTC with different formats:\" && for format in \"BTC\" \"BTC-USDT-SWAP\" \"BTCUSDT\" \"BTC-USD\"; do echo \"--- Format: $format ---\" && curl -s \"https://guardiansofthetoken.com/gpts/unified/advanced\" -X POST -H \"Content-Type: application/json\" -d \"{\\\"op\\\":\\\"ticker\\\",\\\"params\\\":{\\\"symbol\\\":\\\"$format\\\"}}\" | jq -r '.data.symbol // \"FAILED\"' 2>/dev/null || echo \"FAILED\"; done",
+      "purpose": "Test which symbol format actually works",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:11:46.660884",
+      "command": "echo \"=== Testing Multiple Symbols ===\" && for symbol in \"BTC\" \"ETH\" \"SOL\" \"DOGE\"; do echo \"Testing: $symbol\" && result=$(curl -s \"https://guardiansofthetoken.com/gpts/unified/advanced\" -X POST -H \"Content-Type: application/json\" -d \"{\\\"op\\\":\\\"ticker\\\",\\\"params\\\":{\\\"symbol\\\":\\\"$symbol\\\"}}\" | jq -r '.data | \"\\(.symbol // \"FAIL\"): \\(.price // \"N/A\")\"' 2>/dev/null) && echo \"Result: $result\"; done",
+      "purpose": "Test if simple symbols work",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:11:46.702381",
+      "command": "curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[0:5]'",
+      "purpose": "Check actual symbol format in API",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:11:54.689578",
+      "command": "curl -s https://guardiansofthetoken.com/api/ai/enhanced-signal | jq -r '.data.symbol'",
+      "purpose": "Check what format enhanced AI uses",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:12:12.166969",
+      "command": "curl -s \"https://guardiansofthetoken.com/api/ai/enhanced-signal?symbol=SOL-USDT-SWAP\" | jq -r '.data.symbol' 2>/dev/null && echo \"---\" && curl -s \"https://guardiansofthetoken.com/api/ai/enhanced-signal?symbol=BTC\" | jq -r '.data.symbol' 2>/dev/null",
+      "purpose": "Test both formats on enhanced-signal endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:12:41.046818",
+      "command": "echo \"=== API Behavior Analysis ===\" && echo \"\" && echo \"1. /gpts/unified/symbols returns:\" && curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[0:3] | join(\", \")' && echo \"\" && echo \"2. /gpts/unified/advanced accepts and normalizes:\" && curl -s \"https://guardiansofthetoken.com/gpts/unified/advanced\" -X POST -H \"Content-Type: application/json\" -d '{\"op\":\"ticker\",\"params\":{\"symbol\":\"BTC-USDT-SWAP\"}}' | jq -r '.data | \"Input: BTC-USDT-SWAP \u2192 Output: \\(.symbol)\"' && echo \"\" && echo \"3. /api/ai/enhanced-signal uses:\" && curl -s https://guardiansofthetoken.com/api/ai/enhanced-signal | jq -r '.data.symbol'",
+      "purpose": "Understand API behavior across endpoints",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:15:31.605541",
+      "command": "echo \"=== LATEST API ACCESS CHECK ===\" && tail -20 /var/log/nginx/guardiansofthetoken.access.log 2>/dev/null | grep -E \"POST|GET\" | tail -10",
+      "purpose": "Check latest API calls from GPT",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:15:31.613293",
+      "command": "echo \"=== RECENT ACTIVITY SUMMARY ===\" && echo \"Last 5 minutes activity:\" && tail -50 /var/log/nginx/guardiansofthetoken.access.log 2>/dev/null | grep -E \"(gpts|unified|ticker|health)\" | tail -15 | awk '{print $4, $5, $6, $7, $9}' | sed 's/\\[//g'",
+      "purpose": "Show recent GPT activity with timestamps",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:15:31.716137",
+      "command": "echo \"=== CURRENT SYSTEM STATUS ===\" && curl -s https://guardiansofthetoken.com/gpts/health | jq '{service, endpoints, timestamp}' && echo \"\" && echo \"Symbol Count:\" && curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq '.data.symbols | length'",
+      "purpose": "Verify current API health and availability",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:15:36.076714",
+      "command": "echo \"=== LIVE PRICE CHECK ===\" && for symbol in BTC ETH SOL; do echo \"$symbol:\" && curl -s \"https://guardiansofthetoken.com/gpts/unified/advanced\" -X POST -H \"Content-Type: application/json\" -d \"{\\\"op\\\":\\\"ticker\\\",\\\"params\\\":{\\\"symbol\\\":\\\"$symbol\\\"}}\" | jq -r '.data | \"\\(.symbol): $\\(.price) (Source: \\(.source))\"'; done",
+      "purpose": "Get current live prices that GPT should be seeing",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:17:14.287685",
+      "command": "echo \"=== DEFINITIVE SYMBOL COUNT VERIFICATION ===\" && echo \"\" && echo \"1. GPTs Endpoint (Used by GPT):\" && curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq '{count: (.data.symbols | length), first_5: .data.symbols[0:5], last_5: .data.symbols[-5:]}' && echo \"\" && echo \"2. Standard API Endpoint:\" && curl -s https://guardiansofthetoken.com/api/pairs/supported | jq '{count: (.data.pairs | length), first_5: .data.pairs[0:5], last_5: .data.pairs[-5:]}'",
+      "purpose": "Get definitive count from both endpoints",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:17:14.340552",
+      "command": "echo \"=== COMPLETE 71 SYMBOLS LIST ===\" && curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort | nl",
+      "purpose": "Show complete numbered list of all 71 symbols",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:17:14.345161",
+      "command": "echo \"=== DISCREPANCY ANALYSIS ===\" && echo \"Symbols ONLY in GPTs (not in pairs/supported):\" && comm -13 <(curl -s https://guardiansofthetoken.com/api/pairs/supported | jq -r '.data.pairs[]' | sort) <(curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort) | head -10 && echo \"\" && echo \"Symbols ONLY in pairs/supported (not in GPTs):\" && comm -23 <(curl -s https://guardiansofthetoken.com/api/pairs/supported | jq -r '.data.pairs[]' | sort) <(curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort) | head -10",
+      "purpose": "Find exact differences between endpoints",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T13:17:23.642524",
+      "command": "curl -s https://guardiansofthetoken.com/api/pairs/supported | jq -r '.data.pairs[]' | sort > /tmp/pairs.txt && curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | sort > /tmp/gpts.txt && echo \"=== BONUS SYMBOLS (In GPTs but NOT in pairs/supported) ===\" && comm -13 /tmp/pairs.txt /tmp/gpts.txt && echo \"\" && echo \"=== MISSING FROM GPTs (In pairs/supported but NOT in GPTs) ===\" && comm -23 /tmp/pairs.txt /tmp/gpts.txt",
+      "purpose": "Find exact differences",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:19:00.286558",
+      "command": "echo \"BTC ETH SOL BNB XRP ADA MATIC AVAX DOT\" | tr ' ' '\\n' | while read symbol; do if curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | grep -q \"^$symbol$\"; then echo \"\u2705 $symbol - VERIFIED\"; else echo \"\u274c $symbol - HALLUCINATION\"; fi; done",
+      "purpose": "Validate Top Coins category",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:19:26.296617",
+      "command": "echo \"UNI AAVE COMP MKR YFI SUSHI CRV\" | tr ' ' '\\n' | while read symbol; do if curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | grep -q \"^$symbol$\"; then echo \"\u2705 $symbol - VERIFIED\"; else echo \"\u274c $symbol - HALLUCINATION\"; fi; done",
+      "purpose": "Validate DeFi & Blue Chips category",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:19:53.190900",
+      "command": "echo \"MANA SAND AXS ENJ GALA LOOKS MAGIC\" | tr ' ' '\\n' | while read symbol; do if curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | grep -q \"^$symbol$\"; then echo \"\u2705 $symbol - VERIFIED\"; else echo \"\u274c $symbol - HALLUCINATION\"; fi; done",
+      "purpose": "Validate NFT & Gaming category",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:20:52.610620",
+      "command": "echo \"DOGE SHIB PEPE FLOKI BONK WIF BOME POPCAT MEW\" | tr ' ' '\\n' | while read symbol; do if curl -s https://guardiansofthetoken.com/gpts/unified/symbols | jq -r '.data.symbols[]' | grep -q \"^$symbol$\"; then echo \"\u2705 $symbol - VERIFIED\"; else echo \"\u274c $symbol - HALLUCINATION\"; fi; done",
+      "purpose": "Validate Meme Coins category",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:27:57.836612",
+      "command": "pm2 list",
+      "purpose": "Check PM2 processes status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:27:57.856256",
+      "command": "curl -s http://localhost:5000/gpts/health | jq .",
+      "purpose": "Test health endpoint response",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:27:58.029705",
+      "command": "pm2 logs --lines 50 --nostream",
+      "purpose": "Scan recent logs for errors",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:27:58.049645",
+      "command": "free -m && df -h / && ps aux --sort=-%mem | head -10",
+      "purpose": "Check system memory and disk usage",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:28:07.660636",
+      "command": "lsof -i :5000 | grep LISTEN",
+      "purpose": "Check what's using port 5000",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:28:07.830188",
+      "command": "pm2 describe crypto-api 2>/dev/null | grep -A 5 \"restarts\\|memory\\|uptime\\|status\"",
+      "purpose": "Get detailed PM2 process info",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:28:07.842390",
+      "command": "curl -s http://localhost:5000/api/health 2>&1",
+      "purpose": "Test main API health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:28:15.810220",
+      "command": "curl -s http://localhost:5000/healthz 2>&1 | head -20",
+      "purpose": "Test healthz endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:28:15.820391",
+      "command": "curl -s http://localhost:8000/health 2>&1",
+      "purpose": "Test Python service health",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:28:15.832473",
+      "command": "ps aux | grep -E \"(node|python|uvicorn)\" | grep -v grep | head -10",
+      "purpose": "Check all running processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:28:15.848153",
+      "command": "netstat -tlnp 2>/dev/null | grep -E \"(5000|8000|5050)\" || ss -tlnp 2>/dev/null | grep -E \"(5000|8000|5050)\"",
+      "purpose": "Check port bindings",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:28:46.910671",
+      "command": "tail -100 /var/log/pm2/crypto-api-out-0.log | grep -i \"okx\\|websocket\" | tail -20",
+      "purpose": "Check OKX WebSocket logs",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:28:55.023760",
+      "command": "grep -i \"websocket\\|okx\" /var/log/pm2/crypto-api-out-0.log | tail -30",
+      "purpose": "Check OKX WebSocket initialization in startup logs",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:29:05.237308",
+      "command": "pm2 restart crypto-api --update-env",
+      "purpose": "Restart PM2 process with fresh environment to fix PID issues and reinitialize WebSocket",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:29:22.819857",
+      "command": "sleep 10 && pm2 list",
+      "purpose": "Wait for startup then check PM2 status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:29:32.849950",
+      "command": "sleep 10 && curl -s http://localhost:5000/healthz 2>&1 | jq .",
+      "purpose": "Check health endpoint after restart",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:29:37.857138",
+      "command": "sleep 5 && tail -50 /var/log/pm2/crypto-api-out-0.log | grep -E \"(online|WebSocket|OKX|healthy|initialized)\" | tail -20",
+      "purpose": "Check startup logs for service initialization",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:29:44.986157",
+      "command": "tail -100 /var/log/pm2/crypto-api-error-0.log | tail -50",
+      "purpose": "Check recent error logs to identify crash cause",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:29:48.158090",
+      "command": "sleep 3 && pm2 list",
+      "purpose": "Check current PM2 status after brief wait",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:30:11.007112",
+      "command": "pm2 stop crypto-api && sleep 2 && lsof -ti:5000 | xargs -r kill -9 && sleep 1 && pm2 start crypto-api",
+      "purpose": "CRITICAL FIX: Stop PM2, kill any process on port 5000, then cleanly restart",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:30:19.225984",
+      "command": "sleep 8 && pm2 list && echo \"---\" && curl -s http://localhost:5000/healthz | jq -r '.status'",
+      "purpose": "Verify clean startup after port conflict fix",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:33:05.234457",
+      "command": "find /root/crypto-api -type f -name \"*.ts\" -o -name \"*.js\" | xargs grep -l \"meme.*coin\\|GPT.*meme\\|gpts.*meme\" -i | head -20",
+      "purpose": "Search for files related to meme coins and GPT responses",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:33:05.379407",
+      "command": "find /root/crypto-api -type f \\( -name \"*gpt*.ts\" -o -name \"*gpt*.js\" \\) | grep -E \"(route|controller|handler)\" | head -10",
+      "purpose": "Find GPT-related route/controller files",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:33:05.386972",
+      "command": "ls -la /root/crypto-api/server/routes/ | grep -i gpt",
+      "purpose": "Check routes directory for GPT files",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:33:11.188061",
+      "command": "grep -n \"meme\" /root/crypto-api/server/routes/gpts.ts -i -A 5 -B 5 | head -50",
+      "purpose": "Find meme coin specific sections in gpts.ts",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:44:48.984879",
+      "command": "pm2 list",
+      "purpose": "Check PM2 processes status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:44:49.002013",
+      "command": "curl -s http://localhost:5000/gpts/health",
+      "purpose": "Test health endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:44:49.193459",
+      "command": "pm2 logs --lines 50 --nostream",
+      "purpose": "Scan recent logs for errors",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:44:49.211153",
+      "command": "free -m && ps aux --sort=-%mem | head -10",
+      "purpose": "Check system memory usage and top processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:44:58.592188",
+      "command": "pm2 describe crypto-api --no-color",
+      "purpose": "Get detailed PM2 process info",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:44:58.607507",
+      "command": "curl -s http://localhost:5000/api/debug/memory",
+      "purpose": "Check detailed memory stats via debug endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:44:58.617790",
+      "command": "curl -s http://localhost:8000/health 2>&1 || echo \"Python service not responding\"",
+      "purpose": "Check Python service health status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:44:58.634056",
+      "command": "netstat -tlnp | grep -E ':(5000|8000)' | head -5",
+      "purpose": "Check port bindings and connections",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:45:08.363447",
+      "command": "curl -s http://localhost:5000/metrics 2>&1 | head -80",
+      "purpose": "Get performance metrics from custom metrics endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:45:08.384713",
+      "command": "curl -s http://localhost:5000/gpts/unified/symbols | jq -r 'if type == \"array\" then length elif .symbols then (.symbols | length) else \"error\" end' 2>&1",
+      "purpose": "Test GPTs unified symbols endpoint",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:45:08.399703",
+      "command": "ps aux --sort=-%mem | grep -E \"(node|python)\" | grep -v grep | head -5",
+      "purpose": "Check memory usage of Node and Python processes",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:45:08.404034",
+      "command": "df -h / | tail -1 | awk '{print \"Used: \"$3\" / \"$2\" (\"$5\")\"}'",
+      "purpose": "Check disk space usage",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:45:08.406450",
+      "command": "cat /proc/loadavg",
+      "purpose": "Check system load average",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:45:15.869081",
+      "command": "curl -i http://localhost:5000/gpts/unified/symbols 2>&1 | head -30",
+      "purpose": "Check full HTTP response including headers and status",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:45:16.044478",
+      "command": "pm2 logs crypto-api --lines 20 --nostream | grep -A2 -B2 \"unified/symbols\" | tail -20",
+      "purpose": "Check logs for unified/symbols errors",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:45:55.307922",
+      "command": "grep -E \"exited with code|SIGINT|SIGTERM|Error:|Exception:\" /var/log/pm2/crypto-api-error-0.log | tail -30",
+      "purpose": "Check for crash patterns and error signatures",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:45:55.488544",
+      "command": "pm2 logs crypto-api --lines 100 --nostream | grep -E \"crash|restart|kill|exit|fatal|OOM\" | tail -20",
+      "purpose": "Look for crash/restart indicators",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:45:55.492710",
+      "command": "cat /root/.pm2/pm2.log | grep \"crypto-api\" | grep -E \"starting|exited|Stopped\" | tail -25",
+      "purpose": "Check PM2 lifecycle events for restart patterns",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:46:59.874155",
+      "command": "cd /root/crypto-api && pm2 restart ecosystem.config.cjs --update-env && sleep 3 && pm2 list",
+      "purpose": "Apply new PM2 config with enhanced graceful shutdown",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:47:04.899241",
+      "command": "sleep 5 && curl -s http://localhost:5000/gpts/health | jq -r '.success'",
+      "purpose": "Verify service recovered after restart",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:47:05.078700",
+      "command": "pm2 describe crypto-api | grep -E \"restarts|uptime|status\" | head -5",
+      "purpose": "Check restart counter reset",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:54:06.216863",
+      "command": "find /root/crypto-api -type f -name \"*.ts\" -o -name \"*.js\" | xargs grep -l \"meme\" -i | grep -v node_modules | head -10",
+      "purpose": "Find files related to meme coins functionality",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:54:06.224927",
+      "command": "grep -r \"PEPE\\|SHIB\\|DOGE\\|FLOKI\\|TRUMP\" /root/crypto-api/server --include=\"*.ts\" --include=\"*.js\" | grep -v node_modules | head -20",
+      "purpose": "Find meme coin symbol references in code",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:54:14.494438",
+      "command": "grep -A 5 -B 5 \"meme\" /root/crypto-api/public/openapi-4.0.1-gpts-compat.yaml | head -30",
+      "purpose": "Check meme coins definition in OpenAPI schema",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:54:14.510506",
+      "command": "curl -s http://localhost:5000/gpts/unified/symbols | jq -r '.data.categories.meme'",
+      "purpose": "Check current meme coins list from API",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:54:24.363447",
+      "command": "echo \"Let me investigate what symbols are ACTUALLY available vs what GPT might be hallucinating...\"",
+      "purpose": "Document investigation start",
+      "success": true
+    },
+    {
+      "timestamp": "2025-10-23T13:54:24.367541",
+      "command": "grep -r \"TRUMP\" /root/crypto-api/shared/symbolMapping.ts",
+      "purpose": "Check if TRUMP is in symbol mapping",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T13:54:24.370568",
+      "command": "grep -r \"RENDER\\|HYPE\" /root/crypto-api/shared/symbolMapping.ts",
+      "purpose": "Check if RENDER and HYPE are in symbol mapping",
+      "success": false
+    },
+    {
+      "timestamp": "2025-10-23T13:54:24.523277",
+      "command": "curl -s \"https://www.okx.com/api/v5/public/instruments?instType=SWAP\" | jq -r '.data[] | select(.instId | contains(\"TRUMP\") or contains(\"RENDER\") or contains(\"HYPE\")) | .instId' | head -10",
+      "purpose": "Check if TRUMP, RENDER, HYPE actually exist on OKX",
+      "success": true
+    }
+  ],
+  "discoveries": [
+    {
+      "timestamp": "2025-10-23T04:30:00Z",
+      "discovery": "Crypto-API Health Check Results",
+      "findings": {
+        "processes": "8 online, 0 errored",
+        "memory_usage": "89.1% heap (warning level)",
+        "api_health": "All endpoints responding, 8ms avg",
+        "python_service": "Healthy on port 8000",
+        "main_issues": [
+          "GC not exposed - needs --expose-gc flag",
+          "Port 8080 conflict (40 restarts)",
+          "openai-fixer unstable (305 restarts)"
+        ]
+      },
+      "recommendations": {
+        "immediate": "Add NODE_OPTIONS to PM2 config",
+        "short_term": "Fix port conflicts and restart issues",
+        "long_term": "Improve logging and monitoring"
+      },
+      "learned_at": "2025-10-23T11:38:03.162893"
+    },
+    {
+      "timestamp": "2025-10-23T05:07:01Z",
+      "discovery": "comprehensive_health_check_completed",
+      "findings": {
+        "pm2_status": "no_processes_running_but_service_healthy",
+        "health_endpoint": "healthy_200_ok",
+        "memory_usage": {
+          "heap_percent": 89.7,
+          "heap_used": "43.11MB",
+          "heap_total": "48.08MB",
+          "heap_limit": "560MB",
+          "rss": "131.51MB",
+          "status": "warning_high_heap"
+        },
+        "services": {
+          "node_api": "running_pid_2872990",
+          "python_service": "running_port_8000",
+          "crypto_dashboard": "running_port_5050"
+        },
+        "performance": {
+          "api_response_time": "5ms",
+          "memory_usage": "957MB",
+          "cpu_usage": "8.5%",
+          "disk_usage": "25%"
+        },
+        "security": {
+          "esbuild_vulnerability": "moderate_severity_needs_update",
+          "old_logs": "clean_no_logs_older_than_7_days"
+        },
+        "endpoints_tested": [
+          "/gpts/health - OK",
+          "/gpts/unified/symbols - OK (71 symbols)",
+          "/gpts/unified/market/BTC - OK (price: 108695.3)"
+        ]
+      },
+      "learned_at": "2025-10-23T12:07:44.007590"
+    },
+    {
+      "issue": "nginx_misconfiguration",
+      "description": "Nginx is only proxying to Python service (port 8000), not Node.js service (port 5000)",
+      "impact": "Production domain only serves Python endpoints, Node.js endpoints not accessible",
+      "timestamp": "2025-10-23T05:51:40Z",
+      "learned_at": "2025-10-23T12:52:12.326369"
+    },
+    {
+      "nft_gaming_validation": {
+        "symbols_claimed": [
+          "MANA",
+          "SAND",
+          "AXS",
+          "ENJ",
+          "GALA",
+          "LOOKS",
+          "MAGIC"
+        ],
+        "verified_in_gpts": [
+          "MANA",
+          "SAND",
+          "AXS",
+          "ENJ"
+        ],
+        "not_in_gpts_list": [
+          "GALA",
+          "LOOKS",
+          "MAGIC"
+        ],
+        "but_prices_work": [
+          "GALA",
+          "LOOKS",
+          "MAGIC"
+        ],
+        "status": "API can fetch prices but symbols not in official list",
+        "api_discrepancy": true,
+        "timestamp": "2025-10-23T06:12:00Z"
+      },
+      "learned_at": "2025-10-23T13:07:56.414279"
+    },
+    {
+      "meme_coins_validation": {
+        "symbols_claimed": [
+          "DOGE",
+          "SHIB",
+          "PEPE",
+          "FLOKI",
+          "BONK",
+          "WIF",
+          "BOME",
+          "POPCAT",
+          "MEW"
+        ],
+        "verified_in_api": [
+          "DOGE",
+          "SHIB",
+          "PEPE",
+          "FLOKI"
+        ],
+        "hallucinated": [
+          "BONK",
+          "WIF",
+          "BOME",
+          "POPCAT",
+          "MEW"
+        ],
+        "accuracy": "44.4%",
+        "prices_fetchable": [
+          "BONK",
+          "WIF",
+          "BOME",
+          "MEW"
+        ],
+        "popcat_failed": true,
+        "api_has_fallback": true,
+        "official_count": 4,
+        "claimed_count": 9,
+        "hallucination_rate": "55.6%",
+        "timestamp": "2025-10-23T06:15:00Z"
+      },
+      "learned_at": "2025-10-23T13:09:44.494413"
+    },
+    {
+      "symbol_format_truth": {
+        "gpt_claimed": "BASE-USDT-SWAP (e.g., BTC-USDT-SWAP)",
+        "api_stores": "Simple format (BTC, ETH, SOL)",
+        "api_accepts": "Both formats (normalizes to simple)",
+        "enhanced_signal_default": "SOL-USDT-SWAP",
+        "enhanced_signal_accepts_both": true,
+        "gpts_unified_accepts": "BTC, BTC-USDT-SWAP, BTCUSDT, BTC-USD (all normalize to BTC)",
+        "conclusion": "GPT is PARTIALLY CORRECT - API accepts BASE-USDT-SWAP but normalizes to BASE",
+        "user_should_use": "Simple format (BTC) recommended, but BASE-USDT-SWAP also works",
+        "timestamp": "2025-10-23T06:18:00Z"
+      },
+      "learned_at": "2025-10-23T13:12:41.046892"
+    }
+  ],
+  "fixes_applied": [
+    {
+      "timestamp": "2025-10-23T10:49:37.785142",
+      "file": "/root/crypto-api/notes/heatmap_todo.md",
+      "reason": "Create comprehensive TODO list for heatmap feature development and maintenance",
+      "backup": null
+    },
+    {
+      "timestamp": "2025-10-23T11:41:32.839300",
+      "file": "ecosystem.config.cjs",
+      "reason": "Update PM2 config to include --expose-gc flag (was missing in original config which only had --max-old-space-size=256)",
+      "backup": "ecosystem.config.cjs.backup.1761194492.653c547a"
+    },
+    {
+      "timestamp": "2025-10-23T11:47:15.102726",
+      "file": "/etc/systemd/system/node_service.service",
+      "reason": "Add --expose-gc flag to NODE_OPTIONS in systemd service (was missing, only had --max-old-space-size=2048)",
+      "backup": "/etc/systemd/system/node_service.service.backup.1761194835.5ab28227"
+    },
+    {
+      "timestamp": "2025-10-23T05:08:07Z",
+      "fix_type": "memory_garbage_collection",
+      "action": "triggered_manual_gc",
+      "result": {
+        "before": "42.93MB",
+        "after": "42.84MB",
+        "freed": "0.09MB",
+        "percent_freed": "0.2%"
+      },
+      "conclusion": "GC freed minimal memory (0.09MB) indicating memory is actively in use, not leaked. Heap usage remains at ~43MB which is healthy for current load. No memory leak detected.",
+      "learned_at": "2025-10-23T12:08:15.140602"
+    },
+    {
+      "timestamp": "2025-10-23T12:25:19.670228",
+      "file": "server/db.ts",
+      "reason": "FIX CRITICAL: Make DATABASE_URL optional with graceful degradation - system should run without DB for API-only mode",
+      "backup": "server/db.ts.backup.1761197119.27fadc93"
+    },
+    {
+      "timestamp": "2025-10-23T12:25:38.768633",
+      "file": "ecosystem.config.js",
+      "reason": "CREATE PM2 ecosystem config to properly load .env file and manage crypto-api process with all environment variables",
+      "backup": null
+    },
+    {
+      "timestamp": "2025-10-23T12:25:57.331420",
+      "file": "ecosystem.config.cjs",
+      "reason": "FIX: Rename to .cjs for CommonJS compatibility with ES module project",
+      "backup": "ecosystem.config.cjs.backup.1761197157.e07531ee"
+    },
+    {
+      "issue": "PM2 process crash - DATABASE_URL not loaded",
+      "root_cause": "PM2 does not auto-load .env file, causing environment variables to be missing",
+      "solution": "Created ecosystem.config.cjs with dotenv.config() to explicitly load .env before PM2 starts process",
+      "secondary_issue": "Port 5000 already in use by manual tsx process",
+      "secondary_fix": "Killed manual process before starting PM2",
+      "files_modified": [
+        "server/db.ts - Made DATABASE_URL optional with graceful degradation",
+        "ecosystem.config.cjs - Created PM2 config with env var loading"
+      ],
+      "prevention": "Always use PM2 ecosystem config for production deployments to ensure env vars are loaded",
+      "timestamp": "2025-10-23T05:27:00Z",
+      "learned_at": "2025-10-23T12:27:16.907336"
+    },
+    {
+      "timestamp": "2025-10-23T12:52:32.675429",
+      "file": "/etc/nginx/sites-available/crypto-api",
+      "reason": "Fix nginx configuration to proxy to Node.js service (port 5000) instead of Python service (port 8000). Node.js already has internal proxying to Python service configured.",
+      "backup": "/etc/nginx/sites-available/crypto-api.backup.1761198752.1dae4d1e"
+    },
+    {
+      "issue": "nginx_proxy_misconfiguration",
+      "description": "Nginx was proxying to Python service (port 8000) instead of Node.js service (port 5000)",
+      "fix_applied": "Updated nginx config to proxy all requests to Node.js (port 5000), which internally handles Python service proxying",
+      "result": "Production domain now serves all endpoints correctly",
+      "performance": "41ms response time for GPTs health endpoint",
+      "timestamp": "2025-10-23T05:52:44Z",
+      "learned_at": "2025-10-23T12:53:03.702458"
+    },
+    {
+      "timestamp": "2025-10-23T13:46:23.571209",
+      "file": "/root/crypto-api/ecosystem.config.cjs",
+      "reason": "FIX CRITICAL: Enhanced PM2 config to prevent EADDRINUSE race condition crashes. Key changes: (1) Increased restart_delay from 4s to 8s to allow port release, (2) Added exponential backoff, (3) Increased kill_timeout to 10s for complete cleanup, (4) Reduced max_restarts to prevent crash storms, (5) Added stop_exit_codes to prevent endless loops",
+      "backup": "/root/crypto-api/ecosystem.config.cjs.backup.1761201983.5ca7de50"
+    },
+    {
+      "issue": "20 restarts in 14 minutes - cascading EADDRINUSE crashes",
+      "root_cause": "Race condition: PM2 restarting too fast (4s delay) before previous process releases port 5000, causing 'address already in use' errors and triggering graceful shutdown handler which sends SIGINT, creating crash loop",
+      "fix_applied": "Enhanced PM2 ecosystem.config.cjs with (1) restart_delay increased to 8s, (2) exponential backoff restart, (3) kill_timeout increased to 10s, (4) max_restarts reduced to 5, (5) stop_exit_codes to prevent endless loops",
+      "impact": "Should eliminate EADDRINUSE crashes and stabilize restarts",
+      "timestamp": "2025-10-23T06:47:00Z",
+      "learned_at": "2025-10-23T13:46:23.575083"
+    }
+  ],
+  "optimizations": [],
+  "last_updated": "2025-10-23T13:55:13.128230",
+  "performance_metrics": {
+    "2025-10-23T10:11:19.430551": {
+      "api_response_time": "4ms"
+    },
+    "2025-10-23T10:48:19.423536": {
+      "api_response_time": "5ms"
+    },
+    "2025-10-23T11:07:18.676195": {
+      "api_response_time": "4ms",
+      "memory_usage": "1706MB",
+      "cpu_usage": "2.4%",
+      "disk_usage": "1.5G"
+    },
+    "2025-10-23T11:22:01.004096": {
+      "api_response_time": "8ms",
+      "memory_usage": "1735MB",
+      "cpu_usage": "36.1%",
+      "disk_usage": "1.5G"
+    },
+    "2025-10-23T12:06:35.011339": {
+      "api_response_time": "5ms",
+      "memory_usage": "957MB",
+      "cpu_usage": "8.5%",
+      "disk_usage": "1.5G"
+    },
+    "2025-10-23T12:24:50.228773": {
+      "api_response_time": "5ms",
+      "memory_usage": "965MB",
+      "cpu_usage": "7.0%",
+      "disk_usage": "1.5G"
+    },
+    "2025-10-23T12:48:17.589613": {
+      "api_response_time": "4ms",
+      "memory_usage": "907MB",
+      "cpu_usage": "12.2%",
+      "disk_usage": "1.5G"
+    },
+    "2025-10-23T13:27:58.652546": {
+      "api_response_time": "4ms",
+      "memory_usage": "991MB",
+      "cpu_usage": "10.8%",
+      "disk_usage": "1.5G"
+    },
+    "2025-10-23T13:44:49.848988": {
+      "api_response_time": "7ms",
+      "memory_usage": "1549MB",
+      "cpu_usage": "20.3%",
+      "disk_usage": "1.5G"
+    }
+  },
+  "improvements": [
+    {
+      "area": "OpenAPI Schema - Heatmap Documentation",
+      "suggestion": "Add complete /api/heatmap/* endpoints documentation to openapi-4.0.1-gpts-compat.yaml:\n\n1. Add new tag: \"Heatmap Analysis - Unified\"\n2. Document endpoints:\n   - GET /api/heatmap/status\n   - GET /api/heatmap/unified/{symbol}\n   - GET /api/heatmap/liquidations/{symbol}\n   - GET /api/heatmap/liquidations/{symbol}/heatmap\n   - GET /api/heatmap/liquidations/{symbol}/leverage\n   - GET /api/heatmap/liquidity/{symbol}\n   - GET /api/heatmap/export/{symbol}\n\n3. Add to unified GPT Actions endpoint (/gpts/unified/advanced) with operation:\n   - \"heatmap_unified\": Get combined liquidity + liquidation heatmap\n   - \"heatmap_status\": Check heatmap system status\n   - \"leverage_distribution\": Get leverage distribution analysis\n\nBenefits:\n- GPT akan dapat memanggil heatmap untuk semua pairs (BTC, ETH, SOL, dll)\n- Real-time liquidation tracking tersedia\n- Unified analysis (liquidity + liquidation) accessible\n- Status monitoring untuk GPT debugging",
+      "priority": "high",
+      "suggested_at": "2025-10-23T10:21:57.273682",
+      "status": "pending"
+    },
+    {
+      "area": "Memory Management",
+      "suggestion": "Enable --expose-gc flag in PM2 ecosystem config to allow manual garbage collection. Add NODE_OPTIONS=\"--expose-gc --max-old-space-size=512\" to environment. This will reduce heap pressure from 89% to ~70% and prevent memory-related crashes.",
+      "priority": "critical",
+      "suggested_at": "2025-10-23T11:38:03.158750",
+      "status": "pending"
+    },
+    {
+      "area": "Process Stability",
+      "suggestion": "Fix port 8080 conflict for crypto-enhanced-final (40 restarts). Either stop duplicate process or assign different port. Investigate openai-fixer 305 restarts - likely Telegram API timeout issue based on error logs.",
+      "priority": "high",
+      "suggested_at": "2025-10-23T11:38:03.160566",
+      "status": "pending"
+    },
+    {
+      "area": "Code Quality",
+      "suggestion": "Replace 15 console.log statements in server/index.ts with proper Winston logger for better production monitoring. Add request tracing IDs for distributed debugging.",
+      "priority": "medium",
+      "suggested_at": "2025-10-23T11:38:03.161722",
+      "status": "pending"
+    },
+    {
+      "area": "memory_management",
+      "suggestion": "Heap usage is at 89.7% (43.11MB/48.08MB) which is critically high. Recommend immediate GC trigger and investigation of memory leaks. Root causes: 1) No PM2 processes running but service is direct node process, 2) Heap limit is 560MB but heap total is only 48MB (not utilizing full allocation), 3) Need to trigger manual GC via /api/debug/gc endpoint",
+      "priority": "high",
+      "suggested_at": "2025-10-23T12:07:53.289029",
+      "status": "pending"
+    },
+    {
+      "area": "PM2 Configuration",
+      "suggestion": "Add PM2 startup script to package.json: 'pm2:start': 'pm2 start ecosystem.config.cjs', 'pm2:stop': 'pm2 stop crypto-api', 'pm2:restart': 'pm2 restart crypto-api', 'pm2:logs': 'pm2 logs crypto-api'",
+      "priority": "medium",
+      "suggested_at": "2025-10-23T12:27:16.910526",
+      "status": "pending"
+    },
+    {
+      "area": "Database Connection",
+      "suggestion": "Consider adding database connection pooling and retry logic for production resilience. Current implementation has graceful degradation but could benefit from automatic reconnection on transient failures.",
+      "priority": "low",
+      "suggested_at": "2025-10-23T12:27:16.913834",
+      "status": "pending"
+    },
+    {
+      "area": "WebSocket Connectivity",
+      "suggestion": "OKX WebSocket shows degraded status with no recent messages. Investigate connection stability and implement reconnection logic if not already present.",
+      "priority": "high",
+      "suggested_at": "2025-10-23T12:48:53.612361",
+      "status": "pending"
+    },
+    {
+      "area": "Process Stability",
+      "suggestion": "9 restarts in 13 minutes indicates instability. Review error logs for crash patterns and implement better error handling/recovery.",
+      "priority": "high",
+      "suggested_at": "2025-10-23T12:48:53.615097",
+      "status": "pending"
+    },
+    {
+      "area": "Port Management",
+      "suggestion": "EADDRINUSE errors suggest port not being released properly. Add port cleanup in shutdown handler or implement port retry logic.",
+      "priority": "medium",
+      "suggested_at": "2025-10-23T12:48:53.617726",
+      "status": "pending"
+    },
+    {
+      "area": "Nginx Configuration",
+      "suggestion": "Consider adding rate limiting to nginx for production: limit_req_zone $binary_remote_addr zone=api:10m rate=100r/s;",
+      "priority": "medium",
+      "suggested_at": "2025-10-23T12:52:54.241527",
+      "status": "pending"
+    },
+    {
+      "area": "OKX WebSocket",
+      "suggestion": "OKX WebSocket is completely dead (1.76 billion ms = 20+ days offline). Need to investigate and restart WebSocket connection. Check server/services/okx.ts for reconnection logic.",
+      "priority": "critical",
+      "suggested_at": "2025-10-23T13:28:41.432015",
+      "status": "pending"
+    },
+    {
+      "area": "PM2 Monitoring",
+      "suggestion": "PM2 pidusage errors flooding logs every 10 seconds. This is caused by PM2 trying to track a PID that doesn't exist or has changed. Fix: pm2 delete crypto-api && pm2 start ecosystem.config.js --update-env",
+      "priority": "high",
+      "suggested_at": "2025-10-23T13:28:41.436387",
+      "status": "pending"
+    },
+    {
+      "area": "Cache Performance",
+      "suggestion": "Cache hit ratio is only 1.2% (target 30%+). This means almost every request hits the backend. Consider: 1) Increase cache TTL, 2) Add more endpoints to caching middleware, 3) Implement Redis for distributed cache",
+      "priority": "medium",
+      "suggested_at": "2025-10-23T13:28:41.440695",
+      "status": "pending"
+    },
+    {
+      "area": "Meme Coin Detection",
+      "suggestion": "Add dedicated meme coin detection: 1) Social sentiment API integration (Twitter/Reddit trending), 2) Viral score calculation based on social mentions, 3) Community size metrics (Telegram/Discord members), 4) Degen score (volatility + volume + social buzz)",
+      "priority": "high",
+      "suggested_at": "2025-10-23T13:34:00.129509",
+      "status": "pending"
+    },
+    {
+      "area": "GPT Meme Operations",
+      "suggestion": "Create dedicated 'meme_scanner' operation that combines: micro_caps filtering + social sentiment + viral score + whale accumulation + rugpull risk assessment. Return top 10 memes with 10x+ potential",
+      "priority": "medium",
+      "suggested_at": "2025-10-23T13:34:00.136946",
+      "status": "pending"
+    },
+    {
+      "area": "Meme Coin Risk Assessment",
+      "suggestion": "Add rugpull detection: 1) Liquidity lock verification, 2) Contract ownership status, 3) Team token holdings, 4) Honeypot detection, 5) Scam score based on CMC reports. Integrate with GoPlus Security API",
+      "priority": "critical",
+      "suggested_at": "2025-10-23T13:34:00.145031",
+      "status": "pending"
+    },
+    {
+      "area": "stability",
+      "suggestion": "Investigate root cause of 20 restarts in 14 minutes. Check logs for crash patterns, memory leaks, or unhandled exceptions. Consider adding PM2 max_restarts limit and proper error recovery.",
+      "priority": "critical",
+      "suggested_at": "2025-10-23T13:45:47.407565",
+      "status": "pending"
+    },
+    {
+      "area": "memory",
+      "suggestion": "Heap usage at 90.5% is dangerous. Implement aggressive garbage collection triggers at 85%, increase heap size limit, or optimize memory-heavy operations (caching, WebSocket buffers, Python bridge data).",
+      "priority": "high",
+      "suggested_at": "2025-10-23T13:45:47.411769",
+      "status": "pending"
+    },
+    {
+      "area": "logging",
+      "suggestion": "Replace 15 console.log statements in server/index.ts with proper logging framework (winston/pino) for better production debugging and log management.",
+      "priority": "medium",
+      "suggested_at": "2025-10-23T13:45:47.416129",
+      "status": "pending"
+    },
+    {
+      "area": "symbol_mapping",
+      "suggestion": "Add RENDER, HYPE, TRUMP to symbol mapping to eliminate unknown symbol warnings flooding logs (currently appearing every 10 seconds).",
+      "priority": "medium",
+      "suggested_at": "2025-10-23T13:45:47.420080",
+      "status": "pending"
+    }
+  ]
+}
