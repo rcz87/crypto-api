@@ -15,6 +15,9 @@ import { RotationDetector, RotationPattern } from './rotationDetector';
 import { RegimeAutoSwitcher, RegimeSwitchEvent } from './regimeAutoSwitcher';
 import { sendTelegram } from '../observability/telegram';
 import { coinAPIWebSocket } from '../services/coinapiWebSocket';
+import { fusionEngine } from './fusionEngine';
+import { UnifiedSignalWithMetrics } from './unifiedSignal';
+import { pumpDetector, PumpSignal } from './pumpDetector';
 
 export interface SmartMoneyFlow {
   signal: 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL';
@@ -516,6 +519,248 @@ export class BrainOrchestrator {
   }
   
   /**
+   * 🧬 META-BRAIN: Run fusion analysis combining CoinAPI + CoinGlass
+   *
+   * This is the NEW unified intelligence method that combines:
+   * 1. Brain Orchestrator analysis (CoinAPI price action + smart money)
+   * 2. CoinGlass derivatives intelligence (OI, funding, whale, liquidations)
+   *
+   * Returns: Unified trading signal with multi-factor confidence scoring
+   */
+  async runFusion(symbols: string[] = ['BTC', 'ETH', 'SOL']): Promise<UnifiedSignalWithMetrics> {
+    const primarySymbol = symbols[0];
+    console.log(`🧬 [Meta-Brain] Running fusion analysis for ${primarySymbol}`);
+
+    try {
+      // Step 1: Run traditional brain analysis
+      const brainInsight = await this.run(symbols);
+
+      // Step 2: Get current price
+      const priceData = await coinAPIService.getLatestPrice(`BINANCE_SPOT_${primarySymbol}_USDT`).catch(() => null);
+      const currentPrice = priceData?.price || 0;
+
+      if (currentPrice === 0) {
+        console.warn(`⚠️ [Meta-Brain] No price data available for ${primarySymbol}`);
+      }
+
+      // Step 3: Fuse with CoinGlass data
+      const fusedSignal = await fusionEngine.fuse(brainInsight, currentPrice);
+
+      // Step 4: Send enhanced Telegram alert
+      await this.sendFusionAlert(fusedSignal);
+
+      console.log(`✅ [Meta-Brain] Fusion complete: ${fusedSignal.final_signal} (${(fusedSignal.confidence * 100).toFixed(1)}%)`);
+      return fusedSignal;
+
+    } catch (error) {
+      console.error('❌ [Meta-Brain] Fusion analysis failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send enhanced Telegram alert with fusion signal
+   */
+  private async sendFusionAlert(signal: UnifiedSignalWithMetrics): Promise<void> {
+    const now = Date.now();
+
+    // Check cooldown
+    if (now - this.lastAlertTime < this.alertCooldown) {
+      return;
+    }
+
+    // Only alert on actionable signals with sufficient confidence
+    if (signal.final_signal === 'HOLD' && signal.confidence < 0.7) {
+      return;
+    }
+
+    // Build enhanced alert message
+    let message = `🧬 *META-BRAIN FUSION SIGNAL*\n\n`;
+    message += `📊 *Symbol:* ${signal.symbol}\n`;
+    message += `⏰ *Time:* ${new Date(signal.timestamp).toLocaleString()}\n\n`;
+
+    // Signal
+    const signalEmoji = {
+      'LONG': '🟢',
+      'SHORT': '🔴',
+      'HOLD': '⚪',
+      'CLOSE_LONG': '🟡',
+      'CLOSE_SHORT': '🟡'
+    }[signal.final_signal];
+
+    message += `${signalEmoji} *SIGNAL:* ${signal.final_signal}\n`;
+    message += `📈 *Confidence:* ${(signal.confidence * 100).toFixed(1)}%\n`;
+    message += `⚠️ *Risk Level:* ${signal.risk_level.toUpperCase()}\n`;
+    message += `🎯 *Strategy:* ${signal.strategy}\n`;
+    message += `⏱ *Timeframe:* ${signal.timeframe}\n\n`;
+
+    // Market Regime
+    message += `*Market Regime:*\n`;
+    message += `├ State: ${signal.regime.replace('_', ' ').toUpperCase()}\n`;
+    message += `└ Confidence: ${(signal.regime_confidence * 100).toFixed(1)}%\n\n`;
+
+    // Price Action
+    message += `*Price Action:*\n`;
+    message += `├ Structure: ${signal.price_action.structure}\n`;
+    message += `├ Smart Money: ${signal.price_action.smart_money_signal}\n`;
+    message += `├ CVD: ${signal.price_action.cvd.toUpperCase()}\n`;
+    message += `└ Volume: ${signal.price_action.volume_profile}\n\n`;
+
+    // Derivatives Intelligence
+    message += `*Derivatives Intelligence:*\n`;
+    message += `├ OI Change: ${signal.derivatives.oi_change_percent > 0 ? '+' : ''}${signal.derivatives.oi_change_percent.toFixed(2)}%\n`;
+    message += `├ Funding Rate: ${(signal.derivatives.funding_rate * 100).toFixed(3)}%\n`;
+    message += `├ Funding Pressure: ${signal.derivatives.funding_pressure.toUpperCase()}\n`;
+    message += `├ Long/Short Ratio: ${signal.derivatives.long_short_ratio.toFixed(2)}\n`;
+    message += `└ Whale Activity: ${signal.derivatives.whale_activity.toUpperCase()}\n\n`;
+
+    // Risk Management
+    if (signal.final_signal !== 'HOLD') {
+      message += `*Risk Management:*\n`;
+      message += `├ Entry: $${signal.current_price.toFixed(2)}\n`;
+      if (signal.stop_loss) {
+        message += `├ Stop Loss: $${signal.stop_loss.toFixed(2)} (${((Math.abs(signal.current_price - signal.stop_loss) / signal.current_price) * 100).toFixed(2)}%)\n`;
+      }
+      if (signal.take_profit && signal.take_profit.length > 0) {
+        message += `└ Take Profits:\n`;
+        signal.take_profit.forEach((tp, i) => {
+          const profit = ((Math.abs(tp - signal.current_price) / signal.current_price) * 100).toFixed(2);
+          message += `   ${i + 1}. $${tp.toFixed(2)} (+${profit}%)\n`;
+        });
+      }
+      message += `\n`;
+    }
+
+    // Fusion Metrics
+    message += `*Fusion Quality Metrics:*\n`;
+    message += `├ Overall Confluence: ${(signal.fusion_metrics.overall_confluence * 100).toFixed(1)}%\n`;
+    message += `├ Technical Strength: ${(signal.fusion_metrics.technical_strength * 100).toFixed(1)}%\n`;
+    message += `├ Derivatives Strength: ${(signal.fusion_metrics.derivatives_strength * 100).toFixed(1)}%\n`;
+    message += `└ Institutional Strength: ${(signal.fusion_metrics.institutional_strength * 100).toFixed(1)}%\n\n`;
+
+    // Divergence warnings
+    if (signal.fusion_metrics.divergences.length > 0) {
+      message += `*⚠️ Divergences Detected:*\n`;
+      signal.fusion_metrics.divergences.forEach(div => {
+        message += `├ [${div.severity.toUpperCase()}] ${div.description}\n`;
+      });
+      message += `\n`;
+    }
+
+    // Reasoning
+    message += `*Reasoning:*\n`;
+    signal.reasons.forEach(reason => {
+      message += `• ${reason}\n`;
+    });
+
+    // Warnings
+    if (signal.warnings && signal.warnings.length > 0) {
+      message += `\n*⚠️ Warnings:*\n`;
+      signal.warnings.forEach(warning => {
+        message += `• ${warning}\n`;
+      });
+    }
+
+    // Data source status
+    message += `\n*Data Sources:*\n`;
+    message += `├ CoinAPI: ${signal.data_sources.coinapi_healthy ? '✅' : '❌'}\n`;
+    message += `├ CoinGlass: ${signal.data_sources.coinglass_healthy ? '✅' : '❌'}\n`;
+    message += `└ Data Age: ${signal.data_sources.data_age_seconds}s\n`;
+
+    try {
+      await sendTelegram(message);
+      this.lastAlertTime = now;
+      console.log('✅ [Meta-Brain] Fusion alert sent to Telegram');
+    } catch (error) {
+      console.error('❌ [Meta-Brain] Failed to send Telegram alert:', error);
+    }
+  }
+
+  /**
+   * 🚀 PUMP DETECTOR: Detect early-stage pump before explosive candle
+   *
+   * Runs pump detection analysis in parallel with fusion analysis
+   * Alerts on high-probability pump setups before retail FOMO
+   *
+   * Returns: Pump signal with trading recommendation
+   */
+  async runPumpDetection(symbols: string[] = ['BTC', 'ETH', 'SOL']): Promise<PumpSignal[]> {
+    console.log(`🚀 [PumpDetector] Scanning ${symbols.length} symbols for pump signals...`);
+
+    try {
+      // Run pump detection for all symbols in parallel
+      const pumpSignals = await Promise.all(
+        symbols.map(symbol => pumpDetector.detectPump(symbol))
+      );
+
+      // Filter and log detected pumps
+      const detected = pumpSignals.filter(s => s.detected);
+      if (detected.length > 0) {
+        console.log(`🎯 [PumpDetector] Found ${detected.length} pump signal(s):`);
+        detected.forEach(signal => {
+          console.log(`  - ${signal.symbol}: ${signal.strength} (${(signal.confidence * 100).toFixed(1)}%)`);
+        });
+      } else {
+        console.log(`📊 [PumpDetector] No pump signals detected`);
+      }
+
+      return pumpSignals;
+
+    } catch (error) {
+      console.error('❌ [PumpDetector] Scan failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 🧬 UNIFIED ANALYSIS: Run fusion + pump detection together
+   *
+   * Combines:
+   * 1. Fusion analysis (11 rules combining CoinAPI + CoinGlass)
+   * 2. Pump detection (early pump signals)
+   *
+   * Returns both signals for complete market intelligence
+   */
+  async runUnifiedAnalysis(symbols: string[] = ['BTC', 'ETH', 'SOL']): Promise<{
+    fusion: UnifiedSignalWithMetrics;
+    pumps: PumpSignal[];
+  }> {
+    const primarySymbol = symbols[0];
+    console.log(`🧬 [UnifiedAnalysis] Running complete analysis for ${symbols.join(', ')}`);
+
+    try {
+      // Run fusion and pump detection in parallel for speed
+      const [fusionSignal, pumpSignals] = await Promise.all([
+        this.runFusion(symbols),
+        this.runPumpDetection(symbols)
+      ]);
+
+      // Check for high-priority pump signals
+      const strongPumps = pumpSignals.filter(p => p.detected && p.strength === 'strong');
+      if (strongPumps.length > 0) {
+        console.log(`🚨 [UnifiedAnalysis] STRONG PUMP DETECTED on ${strongPumps.map(p => p.symbol).join(', ')}`);
+        console.log(`💡 [UnifiedAnalysis] Consider prioritizing pump signals over fusion signals`);
+      }
+
+      return {
+        fusion: fusionSignal,
+        pumps: pumpSignals
+      };
+
+    } catch (error) {
+      console.error('❌ [UnifiedAnalysis] Analysis failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get pump detector statistics
+   */
+  getPumpStats(): any {
+    return pumpDetector.getStats();
+  }
+
+  /**
    * Reset orchestrator state
    */
   reset(): void {
@@ -523,6 +768,7 @@ export class BrainOrchestrator {
     this.rotationDetector.clearHistory();
     this.insightHistory = [];
     this.lastAlertTime = 0;
+    pumpDetector.resetAll();
     console.log('🔄 [BrainOrchestrator] State reset');
   }
 }
