@@ -17,6 +17,7 @@ import { sendTelegram } from '../observability/telegram';
 import { coinAPIWebSocket } from '../services/coinapiWebSocket';
 import { fusionEngine } from './fusionEngine';
 import { UnifiedSignalWithMetrics } from './unifiedSignal';
+import { pumpDetector, PumpSignal } from './pumpDetector';
 
 export interface SmartMoneyFlow {
   signal: 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL';
@@ -676,6 +677,90 @@ export class BrainOrchestrator {
   }
 
   /**
+   * 🚀 PUMP DETECTOR: Detect early-stage pump before explosive candle
+   *
+   * Runs pump detection analysis in parallel with fusion analysis
+   * Alerts on high-probability pump setups before retail FOMO
+   *
+   * Returns: Pump signal with trading recommendation
+   */
+  async runPumpDetection(symbols: string[] = ['BTC', 'ETH', 'SOL']): Promise<PumpSignal[]> {
+    console.log(`🚀 [PumpDetector] Scanning ${symbols.length} symbols for pump signals...`);
+
+    try {
+      // Run pump detection for all symbols in parallel
+      const pumpSignals = await Promise.all(
+        symbols.map(symbol => pumpDetector.detectPump(symbol))
+      );
+
+      // Filter and log detected pumps
+      const detected = pumpSignals.filter(s => s.detected);
+      if (detected.length > 0) {
+        console.log(`🎯 [PumpDetector] Found ${detected.length} pump signal(s):`);
+        detected.forEach(signal => {
+          console.log(`  - ${signal.symbol}: ${signal.strength} (${(signal.confidence * 100).toFixed(1)}%)`);
+        });
+      } else {
+        console.log(`📊 [PumpDetector] No pump signals detected`);
+      }
+
+      return pumpSignals;
+
+    } catch (error) {
+      console.error('❌ [PumpDetector] Scan failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 🧬 UNIFIED ANALYSIS: Run fusion + pump detection together
+   *
+   * Combines:
+   * 1. Fusion analysis (11 rules combining CoinAPI + CoinGlass)
+   * 2. Pump detection (early pump signals)
+   *
+   * Returns both signals for complete market intelligence
+   */
+  async runUnifiedAnalysis(symbols: string[] = ['BTC', 'ETH', 'SOL']): Promise<{
+    fusion: UnifiedSignalWithMetrics;
+    pumps: PumpSignal[];
+  }> {
+    const primarySymbol = symbols[0];
+    console.log(`🧬 [UnifiedAnalysis] Running complete analysis for ${symbols.join(', ')}`);
+
+    try {
+      // Run fusion and pump detection in parallel for speed
+      const [fusionSignal, pumpSignals] = await Promise.all([
+        this.runFusion(symbols),
+        this.runPumpDetection(symbols)
+      ]);
+
+      // Check for high-priority pump signals
+      const strongPumps = pumpSignals.filter(p => p.detected && p.strength === 'strong');
+      if (strongPumps.length > 0) {
+        console.log(`🚨 [UnifiedAnalysis] STRONG PUMP DETECTED on ${strongPumps.map(p => p.symbol).join(', ')}`);
+        console.log(`💡 [UnifiedAnalysis] Consider prioritizing pump signals over fusion signals`);
+      }
+
+      return {
+        fusion: fusionSignal,
+        pumps: pumpSignals
+      };
+
+    } catch (error) {
+      console.error('❌ [UnifiedAnalysis] Analysis failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get pump detector statistics
+   */
+  getPumpStats(): any {
+    return pumpDetector.getStats();
+  }
+
+  /**
    * Reset orchestrator state
    */
   reset(): void {
@@ -683,6 +768,7 @@ export class BrainOrchestrator {
     this.rotationDetector.clearHistory();
     this.insightHistory = [];
     this.lastAlertTime = 0;
+    pumpDetector.resetAll();
     console.log('🔄 [BrainOrchestrator] State reset');
   }
 }
