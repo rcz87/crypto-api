@@ -62,9 +62,9 @@ router.get('/stats', async (req: Request, res: Response) => {
 router.post('/analyze', async (req: Request, res: Response) => {
   try {
     const symbols = req.body.symbols || ['BTC', 'ETH', 'SOL'];
-    
+
     const insight = await brainOrchestrator.run(symbols);
-    
+
     res.json({
       success: true,
       data: insight
@@ -74,6 +74,87 @@ router.post('/analyze', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to run brain analysis'
+    });
+  }
+});
+
+/**
+ * POST /api/brain/fusion
+ * 🧬 META-BRAIN: Trigger fusion analysis (CoinAPI + CoinGlass)
+ *
+ * This is the NEW unified intelligence endpoint that combines:
+ * - CoinAPI price action + smart money flow
+ * - CoinGlass derivatives intelligence (OI, funding, whale, liquidations)
+ *
+ * Returns comprehensive UnifiedSignal with multi-factor confidence
+ */
+router.post('/fusion', async (req: Request, res: Response) => {
+  try {
+    const symbols = req.body.symbols || ['BTC', 'ETH', 'SOL'];
+
+    console.log(`🧬 [API] Fusion analysis requested for ${symbols.join(', ')}`);
+
+    const fusedSignal = await brainOrchestrator.runFusion(symbols);
+
+    res.json({
+      success: true,
+      data: fusedSignal,
+      meta: {
+        version: 'fusion-v1',
+        providers: ['coinapi', 'coinglass'],
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error: any) {
+    console.error('Error running fusion analysis:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to run fusion analysis'
+    });
+  }
+});
+
+/**
+ * GET /api/brain/fusion/health
+ * Check health of both CoinAPI and CoinGlass services
+ */
+router.get('/fusion/health', async (req: Request, res: Response) => {
+  try {
+    const { coinGlassBridge } = await import('../services/coinGlassBridgeService.js');
+    const { coinAPIWebSocket } = await import('../services/coinapiWebSocket.js');
+
+    const coinglassHealth = await coinGlassBridge.healthCheck();
+    const coinapiHealth = coinAPIWebSocket.getHealth();
+
+    res.json({
+      success: true,
+      data: {
+        coinglass: {
+          healthy: coinglassHealth,
+          status: coinGlassBridge.getHealthStatus()
+        },
+        coinapi: {
+          healthy: coinapiHealth.wsConnected || coinapiHealth.restOrderbookOk,
+          websocket: {
+            connected: coinapiHealth.wsConnected,
+            lastMessage: coinapiHealth.lastWsMessageTime,
+            totalMessages: coinapiHealth.totalMessagesReceived
+          },
+          rest: {
+            ok: coinapiHealth.restOrderbookOk
+          }
+        },
+        overall: {
+          healthy: coinglassHealth && (coinapiHealth.wsConnected || coinapiHealth.restOrderbookOk),
+          readyForFusion: coinglassHealth && (coinapiHealth.wsConnected || coinapiHealth.restOrderbookOk)
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error('Error checking fusion health:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to check fusion health'
     });
   }
 });
