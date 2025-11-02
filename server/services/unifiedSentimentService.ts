@@ -1,23 +1,24 @@
 /**
  * Unified Sentiment Dashboard Service
  * Aggregates sentiment data from multiple sources with intelligent weighting and confluence scoring
- * 
- * Data Sources:
- * - Fear & Greed Index (30% weight) - from marketSentiment.ts
- * - FOMO Detection (20% weight) - from marketSentiment.ts
- * - ETF Flows (25% weight) - from etf.ts
+ *
+ * Data Sources (Updated with Social Intelligence):
+ * - Fear & Greed Index (25% weight) - from marketSentiment.ts
+ * - FOMO Detection (15% weight) - from marketSentiment.ts
+ * - ETF Flows (20% weight) - from etf.ts
+ * - Social Sentiment (15% weight) - from socialSentiment.ts (LunarCrush)
  * - Whale Activity (15% weight) - from whaleAlerts.ts
  * - Funding Rates (10% weight) - from enhancedFundingRate.ts
  * - Liquidation Heatmaps (optional) - from heatmap.ts
  * - Long/Short Ratios (optional) - from external sources
  */
 
-import { 
-  UnifiedSentimentResponse, 
-  FearGreedData, 
-  FOMOData, 
-  ETFData, 
-  WhaleData, 
+import {
+  UnifiedSentimentResponse,
+  FearGreedData,
+  FOMOData,
+  ETFData,
+  WhaleData,
   FundingData,
   LiquidationData,
   Driver,
@@ -28,16 +29,21 @@ import { EtfClient } from '../clients/etf';
 import { getWhaleAlerts } from '../clients/whaleAlerts';
 import { getHeatmap } from '../clients/heatmap';
 import { EnhancedFundingRateService } from './enhancedFundingRate';
+import { socialSentimentService } from './socialSentiment';
 import { metricsCollector } from '../utils/metrics';
 
-// Configuration constants
+// Configuration constants (Updated to include Social Sentiment)
 const WEIGHTS = {
-  FEAR_GREED: 0.30,  // 30%
-  FOMO: 0.20,        // 20%
-  ETF: 0.25,         // 25%
-  WHALE: 0.15,       // 15%
-  FUNDING: 0.10      // 10%
+  FEAR_GREED: 0.25,  // 25% (reduced from 30%)
+  FOMO: 0.15,        // 15% (reduced from 20%)
+  ETF: 0.20,         // 20% (reduced from 25%)
+  SOCIAL: 0.15,      // 15% (NEW - LunarCrush social intelligence)
+  WHALE: 0.15,       // 15% (same)
+  FUNDING: 0.10      // 10% (same)
 };
+
+// Feature flag for LunarCrush (can be disabled if API key not available)
+const ENABLE_SOCIAL_SENTIMENT = process.env.LUNARCRUSH_API_KEY ? true : false;
 
 const CACHE_TTL = 120000; // 2 minutes cache
 const REQUEST_TIMEOUT = 2500; // 2.5s timeout per source to meet 3s target
