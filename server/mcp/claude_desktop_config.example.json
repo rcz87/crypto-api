@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "crypto-trading": {
+      "command": "node",
+      "args": [
+        "/CHANGE/THIS/PATH/crypto-api/server/mcp/index.ts"
+      ],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}

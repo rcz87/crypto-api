@@ -5,6 +5,8 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_OPTIONS=\"--expose-gc --max-old-space-size=512\" NODE_ENV=development tsx server/index.ts",
+    "mcp": "NODE_ENV=production tsx server/mcp/index.ts",
+    "mcp:dev": "NODE_ENV=development tsx server/mcp/index.ts",
     "build:frontend": "vite build",
     "build:backend": "node esbuild.server.config.cjs",
     "build": "npm run build:frontend && npm run build:backend",
@@ -23,6 +25,7 @@
   },
   "dependencies": {
     "@apidevtools/swagger-parser": "^12.0.0",
+    "@modelcontextprotocol/sdk": "^1.21.0",
     "@neondatabase/serverless": "^0.10.4",
     "@octokit/rest": "^22.0.0",
     "@opentelemetry/api": "^1.9.0",
