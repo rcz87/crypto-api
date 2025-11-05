@@ -1,0 +1,410 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CryptoSat Intelligence - Complete GPT Actions API",
+    "description": "Complete crypto intelligence API with 20+ endpoints covering market data, AI signals, listings, analysis, and premium features",
+    "version": "2.0.0",
+    "contact": {
+      "email": "admin@guardiansofthetoken.com"
+    }
+  },
+  "servers": [{"url": "https://guardiansofthetoken.com"}],
+  "paths": {
+    "/gpts/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "System health check",
+        "tags": ["System"]
+      }
+    },
+    "/gpts/unified/symbols": {
+      "get": {
+        "operationId": "getSymbols",
+        "summary": "Get 71+ supported symbols",
+        "tags": ["Data"]
+      }
+    },
+    "/gpts/unified/market/{symbol}": {
+      "get": {
+        "operationId": "getMarketData",
+        "summary": "Real-time market data",
+        "tags": ["Data"],
+        "parameters": [{
+          "name": "symbol",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"},
+          "example": "SOL"
+        }]
+      }
+    },
+    "/gpts/unified/advanced": {
+      "post": {
+        "operationId": "advancedOps",
+        "summary": "8 advanced operations: whale_alerts, market_sentiment, volume_spikes, multi_coin_screening, new_listings, opportunities, alpha_screening, micro_caps",
+        "tags": ["Intelligence"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["op"],
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "enum": ["whale_alerts", "market_sentiment", "volume_spikes", "multi_coin_screening", "new_listings", "opportunities", "alpha_screening", "micro_caps"]
+                  },
+                  "symbol": {"type": "string"},
+                  "symbols": {"type": "array", "items": {"type": "string"}},
+                  "exchange": {"type": "string"},
+                  "timeframe": {"type": "string", "enum": ["5m", "15m", "30m", "1h", "4h", "1d"]},
+                  "limit": {"type": "integer"},
+                  "minScore": {"type": "integer"},
+                  "maxMarketCap": {"type": "integer"},
+                  "minVolumeChange": {"type": "integer"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/enhanced-signal": {
+      "get": {
+        "operationId": "getEnhancedAISignal",
+        "summary": "Enhanced AI signal with neural network analysis",
+        "tags": ["AI"],
+        "parameters": [{
+          "name": "symbol",
+          "in": "query",
+          "schema": {"type": "string"},
+          "example": "SOL-USDT-SWAP"
+        }]
+      }
+    },
+    "/api/ai/enhanced-performance": {
+      "get": {
+        "operationId": "getAIPerformance",
+        "summary": "AI strategy performance metrics",
+        "tags": ["AI"]
+      }
+    },
+    "/api/screen/intelligent": {
+      "post": {
+        "operationId": "intelligentScreening",
+        "summary": "Intelligent multi-coin screening",
+        "tags": ["Screening"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["symbols"],
+                "properties": {
+                  "symbols": {"type": "array", "items": {"type": "string"}},
+                  "timeframe": {"type": "string", "enum": ["5m", "15m", "30m", "1h", "4h", "1d"]}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/screen/filtered": {
+      "post": {
+        "operationId": "filteredScreening",
+        "summary": "4-layer filtered screening",
+        "tags": ["Screening"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "symbols": {"type": "array", "items": {"type": "string"}},
+                  "timeframe": {"type": "string"},
+                  "limit": {"type": "integer"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/listings/new": {
+      "get": {
+        "operationId": "getNewListings",
+        "summary": "New cryptocurrency listings",
+        "tags": ["Listings"],
+        "parameters": [{
+          "name": "limit",
+          "in": "query",
+          "schema": {"type": "integer", "default": 20}
+        }]
+      }
+    },
+    "/api/listings/spikes": {
+      "get": {
+        "operationId": "getVolumeSpikes",
+        "summary": "Volume spike detection",
+        "tags": ["Listings"],
+        "parameters": [{
+          "name": "limit",
+          "in": "query",
+          "schema": {"type": "integer", "default": 20}
+        }]
+      }
+    },
+    "/api/listings/opportunities": {
+      "get": {
+        "operationId": "getOpportunities",
+        "summary": "Trading opportunity analysis",
+        "tags": ["Listings"],
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "minScore",
+            "in": "query",
+            "schema": {"type": "integer", "default": 60}
+          }
+        ]
+      }
+    },
+    "/api/sol/complete": {
+      "get": {
+        "operationId": "getSOLComplete",
+        "summary": "SOL complete market analysis",
+        "tags": ["SOL Analysis"]
+      }
+    },
+    "/api/sol/funding": {
+      "get": {
+        "operationId": "getFundingRate",
+        "summary": "SOL funding rate",
+        "tags": ["SOL Analysis"],
+        "parameters": [{
+          "name": "timeframe",
+          "in": "query",
+          "schema": {"type": "string"}
+        }]
+      }
+    },
+    "/api/sol/open-interest": {
+      "get": {
+        "operationId": "getOpenInterest",
+        "summary": "SOL open interest",
+        "tags": ["SOL Analysis"]
+      }
+    },
+    "/api/sol/cvd": {
+      "get": {
+        "operationId": "getCVD",
+        "summary": "SOL cumulative volume delta",
+        "tags": ["SOL Analysis"],
+        "parameters": [{
+          "name": "timeframe",
+          "in": "query",
+          "schema": {"type": "string"}
+        }]
+      }
+    },
+    "/api/sol/smc": {
+      "get": {
+        "operationId": "getSMC",
+        "summary": "SOL smart money concepts",
+        "tags": ["SOL Analysis"],
+        "parameters": [{
+          "name": "timeframe",
+          "in": "query",
+          "schema": {"type": "string"}
+        }]
+      }
+    },
+    "/api/sol/confluence": {
+      "get": {
+        "operationId": "getConfluence",
+        "summary": "SOL confluence analysis",
+        "tags": ["SOL Analysis"],
+        "parameters": [{
+          "name": "timeframe",
+          "in": "query",
+          "schema": {"type": "string"}
+        }]
+      }
+    },
+    "/api/sol/volume-profile": {
+      "get": {
+        "operationId": "getVolumeProfile",
+        "summary": "SOL volume profile",
+        "tags": ["SOL Analysis"],
+        "parameters": [{
+          "name": "timeframe",
+          "in": "query",
+          "schema": {"type": "string"}
+        }]
+      }
+    },
+    "/api/sol/mtf-analysis": {
+      "get": {
+        "operationId": "getMultiTimeframeAnalysis",
+        "summary": "SOL multi-timeframe analysis",
+        "tags": ["SOL Analysis"]
+      }
+    },
+    "/api/sol/fibonacci": {
+      "get": {
+        "operationId": "getFibonacciAnalysis",
+        "summary": "SOL Fibonacci levels",
+        "tags": ["SOL Analysis"],
+        "parameters": [
+          {
+            "name": "timeframe",
+            "in": "query",
+            "schema": {"type": "string", "enum": ["5m", "15m", "30m", "1h", "4h", "1d"]}
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {"type": "integer"}
+          }
+        ]
+      }
+    },
+    "/api/sol/order-flow": {
+      "get": {
+        "operationId": "getOrderFlow",
+        "summary": "SOL order flow analysis",
+        "tags": ["SOL Analysis"],
+        "parameters": [
+          {
+            "name": "timeframe",
+            "in": "query",
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "tradeLimit",
+            "in": "query",
+            "schema": {"type": "integer"}
+          }
+        ]
+      }
+    },
+    "/api/sol/liquidation": {
+      "get": {
+        "operationId": "getLiquidationAnalysis",
+        "summary": "SOL liquidation analysis",
+        "tags": ["SOL Analysis"],
+        "parameters": [{
+          "name": "timeframe",
+          "in": "query",
+          "schema": {"type": "string"}
+        }]
+      }
+    },
+    "/api/sol/liquidation-heatmap": {
+      "get": {
+        "operationId": "getLiquidationHeatmap",
+        "summary": "SOL liquidation heatmap",
+        "tags": ["SOL Analysis"]
+      }
+    },
+    "/api/sol/position-calculator": {
+      "post": {
+        "operationId": "calculatePosition",
+        "summary": "Position calculator with risk analysis",
+        "tags": ["SOL Trading"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entryPrice": {"type": "number"},
+                  "size": {"type": "number"},
+                  "leverage": {"type": "integer"},
+                  "side": {"type": "string", "enum": ["long", "short"]},
+                  "accountBalance": {"type": "number"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sol/risk-dashboard": {
+      "post": {
+        "operationId": "getRiskDashboard",
+        "summary": "Portfolio risk management dashboard",
+        "tags": ["SOL Trading"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "positions": {
+                    "type": "array",
+                    "items": {"type": "object"}
+                  },
+                  "accountBalance": {"type": "number"},
+                  "riskLimits": {"type": "object"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sol/premium-orderbook": {
+      "get": {
+        "operationId": "getPremiumOrderbook",
+        "summary": "Premium orderbook metrics (VIP tiers)",
+        "tags": ["Premium"]
+      }
+    },
+    "/api/premium/institutional-analytics": {
+      "get": {
+        "operationId": "getInstitutionalAnalytics",
+        "summary": "Institutional analytics (VIP8+)",
+        "tags": ["Premium"]
+      }
+    },
+    "/api/premium/tier-status": {
+      "get": {
+        "operationId": "getTierStatus",
+        "summary": "VIP tier status and benefits",
+        "tags": ["Premium"]
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "operationId": "getSystemMetrics",
+        "summary": "System performance metrics",
+        "tags": ["System"]
+      }
+    },
+    "/api/adaptive-threshold/stats": {
+      "get": {
+        "operationId": "getAdaptiveStats",
+        "summary": "Adaptive threshold statistics",
+        "tags": ["System"]
+      }
+    }
+  },
+  "tags": [
+    {"name": "System", "description": "System health and metrics"},
+    {"name": "Data", "description": "Market data and symbols"},
+    {"name": "Intelligence", "description": "Advanced intelligence operations"},
+    {"name": "AI", "description": "AI signals and performance"},
+    {"name": "Screening", "description": "Multi-coin screening"},
+    {"name": "Listings", "description": "New listings and opportunities"},
+    {"name": "SOL Analysis", "description": "SOL technical analysis"},
+    {"name": "SOL Trading", "description": "SOL trading tools"},
+    {"name": "Premium", "description": "Premium VIP features"}
+  ]
+}

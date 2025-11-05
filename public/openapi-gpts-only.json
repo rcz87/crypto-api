@@ -1,0 +1,164 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CryptoSat Intelligence - GPT Actions API",
+    "description": "🚀 Real-time crypto intelligence API optimized for GPT Actions\n\n**Available Operations:** 8 advanced operations via unified endpoint\n**Symbols Supported:** 71+ cryptocurrencies\n**Data Sources:** CoinGlass, OKX, CoinMarketCap, Whale Detection",
+    "version": "1.0.0-gpt",
+    "contact": {
+      "email": "admin@guardiansofthetoken.com",
+      "url": "https://guardiansofthetoken.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://guardiansofthetoken.com",
+      "description": "Production server"
+    }
+  ],
+  "paths": {
+    "/gpts/health": {
+      "get": {
+        "operationId": "checkHealth",
+        "summary": "Check API health status",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Service is healthy"
+          }
+        }
+      }
+    },
+    "/gpts/unified/symbols": {
+      "get": {
+        "operationId": "getSymbols",
+        "summary": "Get all supported trading symbols (71+ coins)",
+        "tags": ["Data"],
+        "responses": {
+          "200": {
+            "description": "List of supported symbols"
+          }
+        }
+      }
+    },
+    "/gpts/unified/market/{symbol}": {
+      "get": {
+        "operationId": "getMarketData",
+        "summary": "Get real-time market data for a symbol",
+        "tags": ["Data"],
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Trading symbol (e.g., BTC, ETH, SOL)",
+            "example": "SOL"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Market data retrieved"
+          }
+        }
+      }
+    },
+    "/gpts/unified/advanced": {
+      "post": {
+        "operationId": "advancedOperations",
+        "summary": "Advanced crypto intelligence operations",
+        "tags": ["Intelligence"],
+        "description": "8 operations: whale_alerts, market_sentiment, volume_spikes, multi_coin_screening, new_listings, opportunities, alpha_screening, micro_caps. Use 'op' parameter to select operation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["op"],
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "whale_alerts",
+                      "market_sentiment",
+                      "volume_spikes",
+                      "multi_coin_screening",
+                      "new_listings",
+                      "opportunities",
+                      "alpha_screening",
+                      "micro_caps"
+                    ],
+                    "description": "Operation to perform"
+                  },
+                  "symbol": {
+                    "type": "string",
+                    "description": "Symbol for single-coin operations (e.g., BTC, ETH, SOL)"
+                  },
+                  "symbols": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Symbols for multi-coin operations",
+                    "example": ["BTC", "ETH", "SOL"]
+                  },
+                  "exchange": {
+                    "type": "string",
+                    "description": "Exchange for whale_alerts (hyperliquid, binance, bybit)",
+                    "example": "hyperliquid"
+                  },
+                  "timeframe": {
+                    "type": "string",
+                    "enum": ["5m", "15m", "30m", "1h", "4h", "1d"],
+                    "description": "Timeframe for analysis"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "description": "Result limit",
+                    "example": 20
+                  },
+                  "minScore": {
+                    "type": "integer",
+                    "description": "Minimum score filter",
+                    "example": 60
+                  },
+                  "maxMarketCap": {
+                    "type": "integer",
+                    "description": "Max market cap for micro_caps",
+                    "example": 100000000
+                  },
+                  "minVolumeChange": {
+                    "type": "integer",
+                    "description": "Min volume change %",
+                    "example": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation completed successfully"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "System",
+      "description": "System health and status"
+    },
+    {
+      "name": "Data",
+      "description": "Market data and symbols"
+    },
+    {
+      "name": "Intelligence",
+      "description": "Advanced crypto intelligence operations"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+[Unit]
+Description=LunarCrush Social Intelligence Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/crypto-api
+Environment=PYTHONPATH=/root/crypto-api
+EnvironmentFile=/root/crypto-api/.env
+ExecStart=/usr/bin/python3 services/lunarcrush/lunarcrush_api.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lunarcrush-service
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

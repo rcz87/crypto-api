@@ -1,0 +1,1108 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CryptoSat Intelligence - Unified Gateway API (GPT Actions)",
+    "description": "🚀 Unified gateway for crypto trading intelligence with 30 operations covering 70+ features via smart routing.\n\n**Strategy:** Single endpoints with action parameters to bypass GPT's 30-operation limit while providing full system access.\n\n**Coverage:** Multi-pair analysis, AI signals, derivatives data, CoinGlass intelligence, Brain orchestrator, and more.",
+    "version": "6.0.0-unified",
+    "contact": {
+      "email": "admin@guardiansofthetoken.com",
+      "url": "https://guardiansofthetoken.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://guardiansofthetoken.com",
+      "description": "Production server"
+    }
+  ],
+  "security": [{ "ApiKeyAuth": [] }],
+  "paths": {
+    "/gpts/unified/symbols": {
+      "get": {
+        "operationId": "getGPTsUnifiedSymbols",
+        "summary": "Get all supported symbols for GPT Actions",
+        "tags": ["GPTs"],
+        "responses": {
+          "200": {
+            "description": "List of supported symbols with categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/SuccessResponse" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "symbols": {
+                              "type": "array",
+                              "items": { "type": "string" }
+                            },
+                            "total_count": {
+                              "type": "integer"
+                            },
+                            "categories": {
+                              "type": "object"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gpts/unified/market/{symbol}": {
+      "get": {
+        "operationId": "getMarketDataBySymbol",
+        "summary": "Get real-time market data for a symbol",
+        "tags": ["GPTs"],
+        "description": "Get ticker, price, volume and market data for any trading symbol",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Trading symbol (e.g., BTC, ETH, SOL)",
+            "example": "SOL"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Market data retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "symbol": {
+                      "type": "string",
+                      "example": "SOL"
+                    },
+                    "data": {
+                      "type": "object",
+                      "description": "Market data from CoinGlass service"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - symbol required"
+          },
+          "502": {
+            "description": "Gateway error - service unavailable"
+          }
+        }
+      }
+    },
+    "/api/unified/analysis": {
+      "post": {
+        "operationId": "unifiedAnalysis",
+        "summary": "🔥 Unified technical analysis gateway (SMC, CVD, Technical, Confluence)",
+        "tags": ["Gateway"],
+        "description": "Single endpoint for all analysis types: Smart Money Concepts, Cumulative Volume Delta, Technical Indicators, Multi-timeframe Analysis, Confluence Scoring.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["pair", "analysis_type"],
+                "properties": {
+                  "pair": {
+                    "type": "string",
+                    "description": "Trading pair (BTC, ETH, SOL, etc.)",
+                    "example": "BTC"
+                  },
+                  "analysis_type": {
+                    "type": "string",
+                    "enum": ["smc", "cvd", "technical", "confluence", "fibonacci", "orderflow", "volume_profile", "mtf"],
+                    "description": "smc: Smart Money | cvd: Volume Delta | technical: RSI/MACD | confluence: Multi-indicator | fibonacci: Retracements | orderflow: Order flow | volume_profile: Volume analysis | mtf: Multi-timeframe",
+                    "example": "smc"
+                  },
+                  "timeframe": {
+                    "type": "string",
+                    "enum": ["5m", "15m", "30m", "1h", "4h", "1d"],
+                    "description": "Analysis timeframe",
+                    "example": "1h"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Analysis data based on type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/unified/derivatives": {
+      "post": {
+        "operationId": "unifiedDerivatives",
+        "summary": "🔥 Unified derivatives gateway (Funding, Open Interest, Liquidations)",
+        "tags": ["Gateway"],
+        "description": "Single endpoint for all derivatives data: Funding rates, Open interest, Liquidation levels, Liquidation heatmaps, Position analysis.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["pair", "data_type"],
+                "properties": {
+                  "pair": {
+                    "type": "string",
+                    "description": "Trading pair (BTC, ETH, SOL, etc.)",
+                    "example": "BTC"
+                  },
+                  "data_type": {
+                    "type": "string",
+                    "enum": ["funding", "open_interest", "liquidation", "liquidation_heatmap", "position_calculator"],
+                    "description": "funding: Funding rates | open_interest: OI data | liquidation: Liquidation analysis | liquidation_heatmap: Risk heatmap | position_calculator: Position sizing",
+                    "example": "funding"
+                  },
+                  "start": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Start time for historical data"
+                  },
+                  "end": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "End time for historical data"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "default": 100,
+                    "description": "Number of records to return"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Derivatives data based on type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/unified/ai": {
+      "post": {
+        "operationId": "unifiedAISignals",
+        "summary": "🔥 Unified AI gateway (Standard, Enhanced, Performance, Tracking)",
+        "tags": ["Gateway"],
+        "description": "Single endpoint for all AI features: Standard signals, Enhanced neural signals, Performance metrics, Execution tracking, Outcome recording, Intelligent screening.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": ["signal", "enhanced_signal", "performance", "track_execution", "track_outcome", "screen_intelligent"],
+                    "description": "signal: Standard AI | enhanced_signal: Neural network | performance: Metrics | track_execution: Record trade | track_outcome: Record result | screen_intelligent: Multi-coin screening",
+                    "example": "enhanced_signal"
+                  },
+                  "symbol": {
+                    "type": "string",
+                    "description": "For signal actions (e.g., SOL-USDT-SWAP)",
+                    "example": "SOL-USDT-SWAP"
+                  },
+                  "symbols": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "For screening action",
+                    "example": ["BTC", "ETH", "SOL"]
+                  },
+                  "timeframe": {
+                    "type": "string",
+                    "enum": ["5m", "15m", "30m", "1h", "4h", "1d"],
+                    "description": "Analysis timeframe for screening",
+                    "example": "15m"
+                  },
+                  "signal_id": {
+                    "type": "string",
+                    "description": "For tracking actions"
+                  },
+                  "entry_price": {
+                    "type": "number",
+                    "description": "For track_execution"
+                  },
+                  "position_size": {
+                    "type": "number",
+                    "description": "For track_execution"
+                  },
+                  "exit_price": {
+                    "type": "number",
+                    "description": "For track_outcome"
+                  },
+                  "exit_reason": {
+                    "type": "string",
+                    "enum": ["take_profit", "stop_loss", "manual"],
+                    "description": "For track_outcome"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AI data based on action",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/unified/coinglass": {
+      "post": {
+        "operationId": "unifiedCoinGlass",
+        "summary": "🔥 Unified CoinGlass gateway (Whales, ETF, Sentiment, Technical, Options)",
+        "tags": ["Gateway"],
+        "description": "Single endpoint for all CoinGlass intelligence: Whale alerts, ETF flows, Market sentiment, ATR volatility, Ticker data, Liquidation heatmaps, Orderbook depth, Options OI.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["feature"],
+                "properties": {
+                  "feature": {
+                    "type": "string",
+                    "enum": ["etf_flows", "etf_bitcoin", "sentiment", "coins", "atr", "ticker", "liquidation_heatmap", "spot_orderbook", "options_oi"],
+                    "description": "etf_flows: ETF flow data | etf_bitcoin: BTC ETF list | sentiment: Market sentiment | coins: Supported coins | atr: ATR volatility | ticker: Real-time ticker | liquidation_heatmap: Liquidation clusters | spot_orderbook: Orderbook depth | options_oi: Options open interest",
+                    "example": "etf_flows"
+                  },
+                  "symbol": {
+                    "type": "string",
+                    "description": "Required for ticker, atr, liquidation_heatmap, spot_orderbook, options_oi",
+                    "example": "BTC"
+                  },
+                  "days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365,
+                    "description": "For etf_flows (historical days)",
+                    "example": 30
+                  },
+                  "asset": {
+                    "type": "string",
+                    "description": "For etf_flows (BTC, ETH, etc.)",
+                    "example": "BTC"
+                  },
+                  "timeframe": {
+                    "type": "string",
+                    "enum": ["5m", "15m", "30m", "1H", "4H", "1D"],
+                    "description": "For atr feature",
+                    "example": "1H"
+                  },
+                  "period": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "description": "For atr feature (ATR period)",
+                    "example": 14
+                  },
+                  "range": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 20,
+                    "description": "For liquidation_heatmap (price range %)",
+                    "example": 10
+                  },
+                  "depth": {
+                    "type": "integer",
+                    "enum": [5, 10, 20, 50, 100],
+                    "description": "For spot_orderbook (depth levels)",
+                    "example": 20
+                  },
+                  "expiry": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "For options_oi (YYYY-MM-DD)",
+                    "example": "2025-01-31"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "CoinGlass data based on feature" }
+        }
+      }
+    },
+    "/api/unified/screening": {
+      "post": {
+        "operationId": "unifiedScreening",
+        "summary": "🔥 Unified screening gateway (Filtered, Intelligent, Backtest)",
+        "tags": ["Gateway"],
+        "description": "Single endpoint for all screening features: 4-layer filtered screening, Intelligent routing, Backtesting engine with performance metrics.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["mode", "symbols"],
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": ["filtered", "intelligent", "backtest"],
+                    "description": "filtered: 4-layer filtering | intelligent: Smart routing | backtest: Historical performance",
+                    "example": "filtered"
+                  },
+                  "symbols": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Trading pairs to screen",
+                    "example": ["BTC", "ETH", "SOL"]
+                  },
+                  "timeframe": {
+                    "type": "string",
+                    "enum": ["5m", "15m", "30m", "1h", "4h", "1d"],
+                    "description": "Analysis timeframe",
+                    "example": "15m"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "description": "Data limit for screening",
+                    "example": 500
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "For backtest mode (YYYY-MM-DD)",
+                    "example": "2024-01-01"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "For backtest mode (YYYY-MM-DD)",
+                    "example": "2024-12-31"
+                  },
+                  "initial_balance": {
+                    "type": "number",
+                    "description": "For backtest mode",
+                    "example": 100.0
+                  },
+                  "use_filters": {
+                    "type": "boolean",
+                    "description": "For backtest mode (filtered vs unfiltered)",
+                    "example": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Screening results based on mode" }
+        }
+      }
+    },
+    "/api/unified/listings": {
+      "post": {
+        "operationId": "unifiedNewListings",
+        "summary": "🔥 Unified new listings gateway (New coins, Spikes, Opportunities, Scan)",
+        "tags": ["Gateway"],
+        "description": "Single endpoint for new listing detection: New coins, Volume spikes, Opportunity analysis, Manual scanning.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": ["new", "spikes", "opportunities", "scan"],
+                    "description": "new: New listings | spikes: Volume spikes | opportunities: Opportunity analysis | scan: Manual scan trigger",
+                    "example": "new"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "description": "Number of results to return",
+                    "example": 20
+                  },
+                  "symbol": {
+                    "type": "string",
+                    "description": "For opportunities action (filter by symbol)"
+                  },
+                  "minScore": {
+                    "type": "integer",
+                    "description": "For opportunities action (minimum score)",
+                    "example": 60
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Listing data based on action" }
+        }
+      }
+    },
+    "/api/brain/insights": {
+      "get": {
+        "operationId": "getBrainInsights",
+        "summary": "Brain Orchestrator insights (Regime, Smart Money, Correlation)",
+        "tags": ["Brain"],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 10, "maximum": 50 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Brain insights" }
+        }
+      }
+    },
+    "/api/brain/stats": {
+      "get": {
+        "operationId": "getBrainStats",
+        "summary": "Brain Orchestrator statistics and performance",
+        "tags": ["Brain"],
+        "responses": {
+          "200": { "description": "Brain statistics" }
+        }
+      }
+    },
+    "/api/brain/analyze": {
+      "post": {
+        "operationId": "triggerBrainAnalysis",
+        "summary": "Trigger immediate Brain analysis for symbols",
+        "tags": ["Brain"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "symbols": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "example": ["BTC", "ETH", "SOL"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Fresh brain analysis" }
+        }
+      }
+    },
+    "/api/unified/premium": {
+      "post": {
+        "operationId": "unifiedPremium",
+        "summary": "🔥 Unified premium gateway (VIP8 Analytics, Market Intel, Tier Status)",
+        "tags": ["Gateway"],
+        "description": "Single endpoint for all premium features: VIP8 institutional analytics, Market intelligence dashboard, Tier status, Premium orderbook.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["feature"],
+                "properties": {
+                  "feature": {
+                    "type": "string",
+                    "enum": ["institutional_analytics", "market_intelligence", "tier_status", "premium_orderbook"],
+                    "description": "institutional_analytics: VIP8 analytics | market_intelligence: Market intel dashboard | tier_status: VIP tier info | premium_orderbook: Enhanced orderbook",
+                    "example": "institutional_analytics"
+                  },
+                  "symbol": {
+                    "type": "string",
+                    "description": "For premium_orderbook feature",
+                    "example": "SOL-USDT"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Premium data based on feature" }
+        }
+      }
+    },
+    "/api/unified/system": {
+      "post": {
+        "operationId": "unifiedSystem",
+        "summary": "🔥 Unified system gateway (Health, Metrics, Security, Adaptive Threshold)",
+        "tags": ["Gateway"],
+        "description": "Single endpoint for all system features: Health checks, Performance metrics, Security monitoring, Adaptive threshold management, Memory analysis.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["feature"],
+                "properties": {
+                  "feature": {
+                    "type": "string",
+                    "enum": ["health", "metrics", "security", "alerting", "adaptive_stats", "adaptive_update", "adaptive_evaluate", "memory_analysis"],
+                    "description": "health: System health | metrics: Performance metrics | security: Security monitoring | alerting: Alert system status | adaptive_stats: Threshold stats | adaptive_update: Update outcome | adaptive_evaluate: Manual evaluation | memory_analysis: Memory components",
+                    "example": "health"
+                  },
+                  "signal_id": {
+                    "type": "string",
+                    "description": "For adaptive_update"
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": ["win", "loss", "pending"],
+                    "description": "For adaptive_update"
+                  },
+                  "pnl_pct": {
+                    "type": "number",
+                    "description": "For adaptive_update (P&L percentage)"
+                  },
+                  "symbol": {
+                    "type": "string",
+                    "description": "For adaptive_update"
+                  },
+                  "confidence": {
+                    "type": "number",
+                    "description": "For adaptive_update (signal confidence)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "System data based on feature" }
+        }
+      }
+    },
+    "/api/unified/sol": {
+      "post": {
+        "operationId": "unifiedSOLSpecific",
+        "summary": "🔥 Unified SOL-specific gateway (Legacy endpoints)",
+        "tags": ["Gateway"],
+        "description": "Single endpoint for SOL-specific legacy features: Multi-exchange orderbook, Multi-exchange stats, Enhanced funding, Position calculator, Risk dashboard.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["feature"],
+                "properties": {
+                  "feature": {
+                    "type": "string",
+                    "enum": ["multi_exchange_orderbook", "multi_exchange_stats", "enhanced_funding", "position_calculator", "risk_dashboard"],
+                    "description": "multi_exchange_orderbook: Aggregated orderbook | multi_exchange_stats: Exchange statistics | enhanced_funding: Enhanced funding analysis | position_calculator: Position sizing | risk_dashboard: Risk management",
+                    "example": "multi_exchange_orderbook"
+                  },
+                  "symbol": {
+                    "type": "string",
+                    "description": "For multi_exchange_orderbook",
+                    "example": "SOL-USDT"
+                  },
+                  "accountBalance": {
+                    "type": "number",
+                    "description": "For position_calculator and risk_dashboard",
+                    "example": 10000
+                  },
+                  "entryPrice": {
+                    "type": "number",
+                    "description": "For position_calculator"
+                  },
+                  "size": {
+                    "type": "number",
+                    "description": "For position_calculator"
+                  },
+                  "leverage": {
+                    "type": "integer",
+                    "description": "For position_calculator"
+                  },
+                  "side": {
+                    "type": "string",
+                    "enum": ["long", "short"],
+                    "description": "For position_calculator"
+                  },
+                  "positions": {
+                    "type": "array",
+                    "items": { "type": "object" },
+                    "description": "For risk_dashboard (portfolio positions)"
+                  },
+                  "riskLimits": {
+                    "type": "object",
+                    "description": "For risk_dashboard"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "SOL-specific data based on feature" }
+        }
+      }
+    },
+    "/api/unified/testing": {
+      "post": {
+        "operationId": "unifiedTesting",
+        "summary": "🔥 Unified testing gateway (Bybit, Telegram, Debug)",
+        "tags": ["Gateway"],
+        "description": "Single endpoint for all testing features: Bybit connection tests, Telegram alert tests, Debug tools.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["test_type"],
+                "properties": {
+                  "test_type": {
+                    "type": "string",
+                    "enum": ["bybit", "bybit_ws", "telegram_institutional", "telegram_sniper", "telegram_listing"],
+                    "description": "bybit: Bybit API test | bybit_ws: Bybit WebSocket test | telegram_institutional: Test institutional alerts | telegram_sniper: Test sniper alerts | telegram_listing: Test listing alerts",
+                    "example": "bybit"
+                  },
+                  "symbol": {
+                    "type": "string",
+                    "description": "For telegram tests",
+                    "example": "BTC"
+                  },
+                  "bias": {
+                    "type": "string",
+                    "enum": ["LONG", "SHORT"],
+                    "description": "For telegram_institutional",
+                    "example": "LONG"
+                  },
+                  "entry": {
+                    "type": "array",
+                    "items": { "type": "number" },
+                    "description": "For telegram_sniper (entry prices)",
+                    "example": [221.30, 221.45]
+                  },
+                  "stopLoss": {
+                    "type": "number",
+                    "description": "For telegram_sniper"
+                  },
+                  "takeProfit": {
+                    "type": "array",
+                    "items": { "type": "number" },
+                    "description": "For telegram_sniper (TP levels)"
+                  },
+                  "confidence": {
+                    "type": "number",
+                    "description": "For telegram tests (signal confidence)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Test results" }
+        }
+      }
+    },
+    "/api/signal/institutional/{symbol}": {
+      "get": {
+        "operationId": "getInstitutionalSignal",
+        "summary": "Get institutional signal aggregator for specific symbol",
+        "tags": ["Signals"],
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "BTC"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Institutional signal data" }
+        }
+      }
+    },
+    "/gpts/health": {
+      "get": {
+        "operationId": "getGPTsHealth",
+        "summary": "GPT Actions service health check",
+        "tags": ["GPTs"],
+        "responses": {
+          "200": {
+            "description": "Service health status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gpts/unified/symbols": {
+      "get": {
+        "operationId": "getGPTsUnifiedSymbols",
+        "summary": "Get all supported symbols for GPT Actions",
+        "tags": ["GPTs"],
+        "responses": {
+          "200": {
+            "description": "List of supported symbols with categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/SuccessResponse" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "symbols": {
+                              "type": "array",
+                              "items": { "type": "string" }
+                            },
+                            "total_count": {
+                              "type": "integer"
+                            },
+                            "categories": {
+                              "type": "object"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gpts/unified/advanced": {
+      "post": {
+        "operationId": "gptUnifiedAdvancedEndpoint",
+        "summary": "Unified GPT Actions endpoint for Advanced Operations",
+        "tags": ["GPTs"],
+        "description": "Perform advanced operations: whale_alerts, market_sentiment, volume_spikes, multi_coin_screening, new_listings, opportunities, alpha_screening, micro_caps",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["op"],
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "enum": ["whale_alerts", "market_sentiment", "volume_spikes", "multi_coin_screening", "new_listings", "opportunities", "alpha_screening", "micro_caps"],
+                    "description": "Operation to perform",
+                    "example": "whale_alerts"
+                  },
+                  "symbol": {
+                    "type": "string",
+                    "description": "Trading symbol (e.g., BTC, ETH, SOL)",
+                    "example": "BTC"
+                  },
+                  "symbols": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Multiple symbols for screening operations",
+                    "example": ["BTC", "ETH", "SOL"]
+                  },
+                  "exchange": {
+                    "type": "string",
+                    "description": "Exchange name for whale_alerts (e.g., hyperliquid, binance, bybit)",
+                    "example": "hyperliquid"
+                  },
+                  "timeframe": {
+                    "type": "string",
+                    "enum": ["5m", "15m", "30m", "1h", "4h", "1d"],
+                    "description": "Timeframe for analysis",
+                    "example": "1h"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {"type": "boolean"},
+                    "op": {"type": "string"},
+                    "data": {"type": "object"},
+                    "error": {"type": ["string", "null"]}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "getHealthStatus",
+        "summary": "System health check (backward compatible with Bitcoin ETF flows)",
+        "tags": ["Core"],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "schema": { "type": "integer", "default": 30, "maximum": 365 },
+            "description": "Historical ETF flow days (1-365)"
+          },
+          {
+            "name": "asset",
+            "in": "query",
+            "schema": { "type": "string", "default": "BTC" },
+            "description": "Asset for ETF flows (BTC, ETH, etc.)"
+          }
+        ],
+        "responses": {
+          "200": { "description": "System health and ETF data" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key for authentication (optional for most endpoints)"
+      }
+    },
+    "schemas": {
+      "UnifiedRequest": {
+        "type": "object",
+        "description": "Generic unified request schema",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform"
+          },
+          "params": {
+            "type": "object",
+            "description": "Action-specific parameters",
+            "additionalProperties": true
+          }
+        }
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "description": "Response data (structure varies by endpoint)"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-10-24T10:00:00.000Z"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message"
+          },
+          "details": {
+            "type": "string",
+            "description": "Additional error details"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MarketData": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "pattern": "^[A-Z]{2,10}(-USDT)?(-SWAP)?$",
+            "example": "SOL-USDT-SWAP"
+          },
+          "price": {
+            "type": "number",
+            "format": "double",
+            "example": 191.75
+          },
+          "last": {
+            "type": "number",
+            "format": "double"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string",
+            "example": "CoinGlass→CoinAPI→OKX"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ok", "degraded", "error"],
+            "example": "ok"
+          }
+        }
+      },
+      "PairsList": {
+        "type": "object",
+        "properties": {
+          "pairs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z]{2,10}$"
+            },
+            "example": ["BTC", "ETH", "SOL"]
+          },
+          "total": {
+            "type": "integer",
+            "example": 65
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Core",
+      "description": "Core system endpoints"
+    },
+    {
+      "name": "Gateway",
+      "description": "Unified gateway endpoints with action-based routing"
+    },
+    {
+      "name": "Brain",
+      "description": "Brain Orchestrator intelligence"
+    },
+    {
+      "name": "Signals",
+      "description": "Trading signals and institutional analysis"
+    },
+    {
+      "name": "GPTs",
+      "description": "GPT Actions integration endpoints"
+    }
+  ]
+}

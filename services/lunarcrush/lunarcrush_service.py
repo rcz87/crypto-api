@@ -30,6 +30,9 @@ class SocialMetrics:
     recommendation: str
     confidence: float
     timestamp: str
+    price_change_24h: float = 0.0
+    reddit_posts: int = 0
+    twitter_mentions: int = 0
 
 class LunarCrushService:
     """LunarCrush API service with mock data support"""
