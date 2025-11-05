@@ -1,0 +1,1076 @@
+================================
+TESTING ALL API ENDPOINTS
+================================
+
+=== PUBLIC ENDPOINTS (No Auth) ===
+
+[1] Testing: GET /health
+Description: System health check
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"status"[0m[1;39m: [0m[0;32m"operational"[0m[1;39m,
+    [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:38:59.689Z"[0m[1;39m,
+    [0m[34;1m"services"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"okx"[0m[1;39m: [0m[0;32m"connected"[0m[1;39m,
+      [0m[34;1m"api"[0m[1;39m: [0m[0;32m"operational"[0m[1;39m,
+      [0m[34;1m"coinglass"[0m[1;39m: [0m[0;32m"connected"[0m[1;39m
+    [1;39m}[0m[1;39m,
+    [0m[34;1m"metrics"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"responseTime"[0m[1;39m: [0m[0;39m73[0m[1;39m,
+      [0m[34;1m"requestsToday"[0m[1;39m: [0m[0;39m1[0m[1;39m,
+      [0m[34;1m"uptime"[0m[1;39m: [0m[0;32m"75137.850078209s"[0m[1;39m,
+      [0m[34;1m"coinglassResponseTimeMs"[0m[1;39m: [0m[0;39m3[0m[1;39m
+    [1;39m}[0m[1;39m,
+    [0m[34;1m"coinglass"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"has_key"[0m[1;39m: [0m[0;39mfalse[0m[1;39m
+    [1;39m}[0m[1;39m
+  [1;39m}[0m[1;39m,
+
+---
+
+[2] Testing: GET /gpts/health
+Description: GPT Actions health check
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"service"[0m[1;39m: [0m[0;32m"gpts-gateway"[0m[1;39m,
+  [0m[34;1m"python_service"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"available"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+    [0m[34;1m"status"[0m[1;39m: [0m[0;39m200[0m[1;39m,
+    [0m[34;1m"response_time_ms"[0m[1;39m: [0m[0;39m1761277139797[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"endpoints"[0m[1;39m: [0m[1;39m[
+    [0;32m"/gpts/unified/symbols"[0m[1;39m,
+    [0;32m"/gpts/unified/advanced"[0m[1;39m,
+    [0;32m"/gpts/unified/market/:symbol"[0m[1;39m,
+    [0;32m"/gpts/health"[0m[1;39m
+  [1;39m][0m[1;39m,
+  [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:38:59.797Z"[0m[1;39m
+[1;39m}[0m
+
+---
+
+[3] Testing: GET /api/pairs/supported
+Description: Get all supported trading pairs
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"pairs"[0m[1;39m: [0m[1;39m[
+      [0;32m"BTC"[0m[1;39m,
+      [0;32m"ETH"[0m[1;39m,
+      [0;32m"SOL"[0m[1;39m,
+      [0;32m"ADA"[0m[1;39m,
+      [0;32m"DOT"[0m[1;39m,
+      [0;32m"MATIC"[0m[1;39m,
+      [0;32m"LTC"[0m[1;39m,
+      [0;32m"BCH"[0m[1;39m,
+      [0;32m"ETC"[0m[1;39m,
+      [0;32m"LINK"[0m[1;39m,
+      [0;32m"UNI"[0m[1;39m,
+      [0;32m"AAVE"[0m[1;39m,
+      [0;32m"ATOM"[0m[1;39m,
+      [0;32m"XRP"[0m[1;39m,
+      [0;32m"DOGE"[0m[1;39m,
+      [0;32m"SHIB"[0m[1;39m,
+
+---
+
+[4] Testing: GET /gpts/unified/symbols
+Description: Get GPT supported symbols
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbols"[0m[1;39m: [0m[1;39m[
+      [0;32m"BTC"[0m[1;39m,
+      [0;32m"ETH"[0m[1;39m,
+      [0;32m"SOL"[0m[1;39m,
+      [0;32m"ADA"[0m[1;39m,
+      [0;32m"AVAX"[0m[1;39m,
+      [0;32m"DOT"[0m[1;39m,
+      [0;32m"ATOM"[0m[1;39m,
+      [0;32m"NEAR"[0m[1;39m,
+      [0;32m"ALGO"[0m[1;39m,
+      [0;32m"FTM"[0m[1;39m,
+      [0;32m"LUNA"[0m[1;39m,
+      [0;32m"ONE"[0m[1;39m,
+      [0;32m"MATIC"[0m[1;39m,
+      [0;32m"ARB"[0m[1;39m,
+      [0;32m"OP"[0m[1;39m,
+      [0;32m"LRC"[0m[1;39m,
+
+---
+
+
+=== GPT ACTIONS UNIFIED ENDPOINT ===
+
+[5] Testing: POST /gpts/unified/advanced
+Description: Get BTC ticker
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"ticker"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+    [0m[34;1m"original_symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+    [0m[34;1m"price"[0m[1;39m: [0m[0;39m110380.2[0m[1;39m,
+    [0m[34;1m"last"[0m[1;39m: [0m[0;39m110380.2[0m[1;39m,
+    [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:39:01.696746Z"[0m[1;39m,
+    [0m[34;1m"source"[0m[1;39m: [0m[0;32m"CoinGlass→CoinAPI→OKX"[0m[1;39m,
+    [0m[34;1m"status"[0m[1;39m: [0m[0;32m"ok"[0m[1;39m,
+    [0m[34;1m"cache_ttl"[0m[1;39m: [0m[0;39m60[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"error"[0m[1;39m: [0m[1;30mnull[0m[1;39m
+[1;39m}[0m
+
+---
+
+[6] Testing: POST /gpts/unified/advanced
+Description: Get ETH ticker
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"ticker"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"ETH"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"ETH"[0m[1;39m,
+    [0m[34;1m"original_symbol"[0m[1;39m: [0m[0;32m"ETH"[0m[1;39m,
+    [0m[34;1m"price"[0m[1;39m: [0m[0;39m3882.11[0m[1;39m,
+    [0m[34;1m"last"[0m[1;39m: [0m[0;39m3882.11[0m[1;39m,
+    [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:39:03.159459Z"[0m[1;39m,
+    [0m[34;1m"source"[0m[1;39m: [0m[0;32m"CoinGlass→CoinAPI→OKX"[0m[1;39m,
+    [0m[34;1m"status"[0m[1;39m: [0m[0;32m"ok"[0m[1;39m,
+    [0m[34;1m"cache_ttl"[0m[1;39m: [0m[0;39m60[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"error"[0m[1;39m: [0m[1;30mnull[0m[1;39m
+[1;39m}[0m
+
+---
+
+[7] Testing: POST /gpts/unified/advanced
+Description: Get SOL ticker
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"ticker"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"SOL"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"SOL"[0m[1;39m,
+    [0m[34;1m"original_symbol"[0m[1;39m: [0m[0;32m"SOL"[0m[1;39m,
+    [0m[34;1m"price"[0m[1;39m: [0m[0;39m190.99[0m[1;39m,
+    [0m[34;1m"last"[0m[1;39m: [0m[0;39m190.99[0m[1;39m,
+    [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:39:04.148252Z"[0m[1;39m,
+    [0m[34;1m"source"[0m[1;39m: [0m[0;32m"CoinGlass→CoinAPI→OKX"[0m[1;39m,
+    [0m[34;1m"status"[0m[1;39m: [0m[0;32m"ok"[0m[1;39m,
+    [0m[34;1m"cache_ttl"[0m[1;39m: [0m[0;39m60[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"error"[0m[1;39m: [0m[1;30mnull[0m[1;39m
+[1;39m}[0m
+
+---
+
+[8] Testing: POST /gpts/unified/advanced
+Description: Get market sentiment
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"market_sentiment"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"items"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+    [0m[34;1m"count"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"type"[0m[1;39m: [0m[0;32m"array"[0m[1;39m,
+    [0m[34;1m"source"[0m[1;39m: [0m[0;32m"coinglass_api"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"error"[0m[1;39m: [0m[1;30mnull[0m[1;39m
+[1;39m}[0m
+
+---
+
+[9] Testing: POST /gpts/unified/advanced
+Description: Get whale alerts
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"whale_alerts"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"exchange"[0m[1;39m: [0m[0;32m"hyperliquid"[0m[1;39m,
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"items"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+    [0m[34;1m"count"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"type"[0m[1;39m: [0m[0;32m"array"[0m[1;39m,
+    [0m[34;1m"source"[0m[1;39m: [0m[0;32m"coinglass_api"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"error"[0m[1;39m: [0m[1;30mnull[0m[1;39m
+[1;39m}[0m
+
+---
+
+[10] Testing: POST /gpts/unified/advanced
+Description: Get ETF flows
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"etf_flows"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"asset"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+    [0m[34;1m"window"[0m[1;39m: [0m[0;32m"1d"[0m[1;39m,
+    [0m[34;1m"days"[0m[1;39m: [0m[0;39m30[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"items"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+    [0m[34;1m"count"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"type"[0m[1;39m: [0m[0;32m"array"[0m[1;39m,
+    [0m[34;1m"source"[0m[1;39m: [0m[0;32m"coinglass_api"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"error"[0m[1;39m: [0m[1;30mnull[0m[1;39m
+[1;39m}[0m
+
+---
+
+[11] Testing: POST /gpts/unified/advanced
+Description: Get Bitcoin ETFs
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"etf_bitcoin"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"items"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+    [0m[34;1m"count"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"type"[0m[1;39m: [0m[0;32m"array"[0m[1;39m,
+    [0m[34;1m"source"[0m[1;39m: [0m[0;32m"coinglass_api"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"error"[0m[1;39m: [0m[1;30mnull[0m[1;39m
+[1;39m}[0m
+
+---
+
+[12] Testing: POST /gpts/unified/advanced
+Description: Get market coins list
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"market_coins"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"limit"[0m[1;39m: [0m[0;39m200[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"data"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+    [0m[34;1m"count"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T10:39:05.836438"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"error"[0m[1;39m: [0m[1;30mnull[0m[1;39m
+[1;39m}[0m
+
+---
+
+[13] Testing: POST /gpts/unified/advanced
+Description: Get ATR data
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"atr"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+    [0m[34;1m"tf"[0m[1;39m: [0m[0;32m"1h"[0m[1;39m,
+    [0m[34;1m"len"[0m[1;39m: [0m[0;39m14[0m[1;39m,
+    [0m[34;1m"timeframe"[0m[1;39m: [0m[0;32m"1H"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+    [0m[34;1m"original_symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+    [0m[34;1m"timeframe"[0m[1;39m: [0m[0;32m"1H"[0m[1;39m,
+    [0m[34;1m"atr_percent"[0m[1;39m: [0m[0;39m0.66[0m[1;39m,
+    [0m[34;1m"atr_absolute"[0m[1;39m: [0m[0;39m732.1[0m[1;39m,
+    [0m[34;1m"current_price"[0m[1;39m: [0m[0;39m110308.2[0m[1;39m,
+    [0m[34;1m"candles_analyzed"[0m[1;39m: [0m[0;39m15[0m[1;39m,
+    [0m[34;1m"source"[0m[1;39m: [0m[0;32m"OKX"[0m[1;39m,
+    [0m[34;1m"status"[0m[1;39m: [0m[0;32m"real-time"[0m[1;39m
+  [1;39m}[0m[1;39m,
+
+---
+
+[14] Testing: POST /gpts/unified/advanced
+Description: Get liquidation heatmap
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"liquidation_heatmap"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+    [0m[34;1m"interval"[0m[1;39m: [0m[0;32m"1h"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"items"[0m[1;39m: [0m[1;39m[
+      [1;39m{
+        [0m[34;1m"timeframe"[0m[1;39m: [0m[0;32m"1H"[0m[1;39m,
+        [0m[34;1m"heatmap"[0m[1;39m: [0m[1;39m{
+          [0m[34;1m"levels"[0m[1;39m: [0m[1;39m[
+            [1;39m{
+              [0m[34;1m"price"[0m[1;39m: [0m[0;32m"57914.4300"[0m[1;39m,
+              [0m[34;1m"leverage"[0m[1;39m: [0m[0;39m2[0m[1;39m,
+              [0m[34;1m"volumeUSD"[0m[1;39m: [0m[0;32m"179922363"[0m[1;39m,
+              [0m[34;1m"side"[0m[1;39m: [0m[0;32m"long"[0m[1;39m,
+              [0m[34;1m"distance"[0m[1;39m: [0m[0;32m"52398.7700"[0m[1;39m,
+              [0m[34;1m"distancePercent"[0m[1;39m: [0m[0;39m47.5[0m[1;39m,
+
+---
+
+[15] Testing: POST /gpts/unified/advanced
+Description: Get spot orderbook
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"spot_orderbook"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+    [0m[34;1m"exchange"[0m[1;39m: [0m[0;32m"binance"[0m[1;39m,
+    [0m[34;1m"depth"[0m[1;39m: [0m[0;39m20[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC-USDT"[0m[1;39m,
+    [0m[34;1m"exchange"[0m[1;39m: [0m[0;32m"okx-fallback"[0m[1;39m,
+    [0m[34;1m"bids"[0m[1;39m: [0m[1;39m[
+      [1;39m[
+        [0;39m110354[0m[1;39m,
+        [0;39m0.05836931[0m[1;39m
+      [1;39m][0m[1;39m,
+      [1;39m[
+        [0;39m110353.1[0m[1;39m,
+        [0;39m0.0004345[0m[1;39m
+      [1;39m][0m[1;39m,
+
+---
+
+[16] Testing: POST /gpts/unified/advanced
+Description: Get options open interest
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"options_oi"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+    [0m[34;1m"window"[0m[1;39m: [0m[0;32m"1d"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"items"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+    [0m[34;1m"count"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"type"[0m[1;39m: [0m[0;32m"array"[0m[1;39m,
+    [0m[34;1m"source"[0m[1;39m: [0m[0;32m"coinglass_api"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"error"[0m[1;39m: [0m[1;30mnull[0m[1;39m
+[1;39m}[0m
+
+---
+
+[17] Testing: POST /gpts/unified/advanced
+Description: Alpha screening SOL
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"alpha_screening"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"SOL"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"module"[0m[1;39m: [0m[0;32m"alpha_screening"[0m[1;39m,
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"SOL"[0m[1;39m,
+    [0m[34;1m"name"[0m[1;39m: [0m[0;32m"Solana"[0m[1;39m,
+    [0m[34;1m"marketCap"[0m[1;39m: [0m[0;39m105121119824.76169[0m[1;39m,
+    [0m[34;1m"marketCapFormatted"[0m[1;39m: [0m[0;32m"$105121.12M"[0m[1;39m,
+    [0m[34;1m"price"[0m[1;39m: [0m[0;39m191.36127277804962[0m[1;39m,
+    [0m[34;1m"alphaScore"[0m[1;39m: [0m[0;39m84[0m[1;39m,
+    [0m[34;1m"fundamentalScore"[0m[1;39m: [0m[0;39m31[0m[1;39m,
+    [0m[34;1m"tokenomicsScore"[0m[1;39m: [0m[0;39m25[0m[1;39m,
+    [0m[34;1m"technicalScore"[0m[1;39m: [0m[0;39m25[0m[1;39m,
+    [0m[34;1m"narrativeScore"[0m[1;39m: [0m[0;39m3[0m[1;39m,
+    [0m[34;1m"circulatingSupply"[0m[1;39m: [0m[0;39m549333301.8676481[0m[1;39m,
+    [0m[34;1m"totalSupply"[0m[1;39m: [0m[0;39m612426728.2731028[0m[1;39m,
+
+---
+
+[18] Testing: POST /gpts/unified/advanced
+Description: New listings detection
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"new_listings"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"limit"[0m[1;39m: [0m[0;39m10[0m[1;39m,
+    [0m[34;1m"maxMarketCap"[0m[1;39m: [0m[0;39m500000000[0m[1;39m,
+    [0m[34;1m"minVolumeChange"[0m[1;39m: [0m[0;39m50[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"module"[0m[1;39m: [0m[0;32m"new_listings_enhanced"[0m[1;39m,
+    [0m[34;1m"listings"[0m[1;39m: [0m[1;39m[
+      [1;39m{
+        [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"CASH"[0m[1;39m,
+        [0m[34;1m"name"[0m[1;39m: [0m[0;32m"Cash"[0m[1;39m,
+        [0m[34;1m"price"[0m[1;39m: [0m[0;39m0.9996369837502347[0m[1;39m,
+        [0m[34;1m"priceUsd"[0m[1;39m: [0m[0;32m"$0.999637"[0m[1;39m,
+        [0m[34;1m"marketCap"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+        [0m[34;1m"marketCapFormatted"[0m[1;39m: [0m[0;32m"$0.00K"[0m[1;39m,
+        [0m[34;1m"volume24h"[0m[1;39m: [0m[0;39m14543814.94741347[0m[1;39m,
+        [0m[34;1m"volumeFormatted"[0m[1;39m: [0m[0;32m"$14.54M"[0m[1;39m,
+
+---
+
+[19] Testing: POST /gpts/unified/advanced
+Description: Volume spikes detection
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"volume_spikes"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"limit"[0m[1;39m: [0m[0;39m20[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"module"[0m[1;39m: [0m[0;32m"volume_spikes"[0m[1;39m,
+    [0m[34;1m"spikes"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+    [0m[34;1m"total"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"used_sources"[0m[1;39m: [0m[1;39m[
+      [0;32m"okx_api"[0m[1;39m,
+      [0;32m"whale_detection"[0m[1;39m,
+      [0;32m"cvd_analysis"[0m[1;39m,
+      [0;32m"real_time_monitoring"[0m[1;39m
+    [1;39m][0m[1;39m,
+    [0m[34;1m"summary"[0m[1;39m: [0m[0;32m"Detected 0 volume spikes with enhanced whale & order flow analysis"[0m[1;39m
+  [1;39m}[0m[1;39m
+[1;39m}[0m
+
+---
+
+[20] Testing: POST /gpts/unified/advanced
+Description: Trading opportunities
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"opportunities"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+    [0m[34;1m"minScore"[0m[1;39m: [0m[0;39m60[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"module"[0m[1;39m: [0m[0;32m"opportunities"[0m[1;39m,
+    [0m[34;1m"opportunities"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+    [0m[34;1m"total"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"used_sources"[0m[1;39m: [0m[1;39m[
+      [0;32m"ai_scoring"[0m[1;39m,
+      [0;32m"neural_network"[0m[1;39m,
+      [0;32m"multi_factor_analysis"[0m[1;39m
+    [1;39m][0m[1;39m,
+    [0m[34;1m"summary"[0m[1;39m: [0m[0;32m"Found 0 trading opportunities with score ≥60"[0m[1;39m
+  [1;39m}[0m[1;39m
+[1;39m}[0m
+
+---
+
+[21] Testing: POST /gpts/unified/advanced
+Description: Micro caps discovery
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"op"[0m[1;39m: [0m[0;32m"micro_caps"[0m[1;39m,
+  [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"maxMarketCap"[0m[1;39m: [0m[0;39m100000000[0m[1;39m,
+    [0m[34;1m"minScore"[0m[1;39m: [0m[0;39m50[0m[1;39m,
+    [0m[34;1m"limit"[0m[1;39m: [0m[0;39m10[0m[1;39m,
+    [0m[34;1m"minVolumeChange"[0m[1;39m: [0m[0;39m30[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"module"[0m[1;39m: [0m[0;32m"micro_caps_enhanced"[0m[1;39m,
+    [0m[34;1m"opportunities"[0m[1;39m: [0m[1;39m[
+      [1;39m{
+        [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"RLC"[0m[1;39m,
+        [0m[34;1m"name"[0m[1;39m: [0m[0;32m"iExec RLC"[0m[1;39m,
+        [0m[34;1m"marketCap"[0m[1;39m: [0m[0;39m74867110.80412447[0m[1;39m,
+        [0m[34;1m"marketCapFormatted"[0m[1;39m: [0m[0;32m"$74.87M"[0m[1;39m,
+        [0m[34;1m"price"[0m[1;39m: [0m[0;39m0.8605436302566093[0m[1;39m,
+        [0m[34;1m"priceFormatted"[0m[1;39m: [0m[0;32m"$0.8605"[0m[1;39m,
+        [0m[34;1m"volume24h"[0m[1;39m: [0m[0;39m8723326.63664135[0m[1;39m,
+
+---
+
+[22] Testing: POST /gpts/unified/advanced
+Description: Batch: BTC+ETH+SOL tickers
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"results"[0m[1;39m: [0m[1;39m[
+    [1;39m{
+      [0m[34;1m"ok"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+      [0m[34;1m"op"[0m[1;39m: [0m[0;32m"ticker"[0m[1;39m,
+      [0m[34;1m"args"[0m[1;39m: [0m[1;39m{
+        [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m
+      [1;39m}[0m[1;39m,
+      [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+        [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+        [0m[34;1m"original_symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+        [0m[34;1m"price"[0m[1;39m: [0m[0;39m110350[0m[1;39m,
+        [0m[34;1m"last"[0m[1;39m: [0m[0;39m110350[0m[1;39m,
+        [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:39:13.293392Z"[0m[1;39m,
+        [0m[34;1m"source"[0m[1;39m: [0m[0;32m"CoinGlass→CoinAPI→OKX"[0m[1;39m,
+        [0m[34;1m"status"[0m[1;39m: [0m[0;32m"ok"[0m[1;39m,
+        [0m[34;1m"cache_ttl"[0m[1;39m: [0m[0;39m60[0m[1;39m
+      [1;39m}[0m[1;39m,
+      [0m[34;1m"error"[0m[1;39m: [0m[1;30mnull[0m[1;39m
+
+---
+
+
+=== MULTI-PAIR ENDPOINTS (Requires Auth) ===
+
+[23] Testing: GET /api/BTC/complete
+Description: Get BTC complete analysis
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"ticker"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC-USDT-SWAP"[0m[1;39m,
+      [0m[34;1m"price"[0m[1;39m: [0m[0;32m"110294.1"[0m[1;39m,
+      [0m[34;1m"change24h"[0m[1;39m: [0m[0;32m"1.63%"[0m[1;39m,
+      [0m[34;1m"high24h"[0m[1;39m: [0m[0;32m"111235.3"[0m[1;39m,
+      [0m[34;1m"low24h"[0m[1;39m: [0m[0;32m"108267"[0m[1;39m,
+      [0m[34;1m"volume"[0m[1;39m: [0m[0;32m"6556132.67"[0m[1;39m,
+      [0m[34;1m"tradingVolume24h"[0m[1;39m: [0m[0;32m"723102752318"[0m[1;39m
+    [1;39m}[0m[1;39m,
+    [0m[34;1m"candles"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"5m"[0m[1;39m: [0m[1;39m[
+        [1;39m{
+          [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"1761276900000"[0m[1;39m,
+          [0m[34;1m"open"[0m[1;39m: [0m[0;32m"110272.3"[0m[1;39m,
+          [0m[34;1m"high"[0m[1;39m: [0m[0;32m"110343.6"[0m[1;39m,
+          [0m[34;1m"low"[0m[1;39m: [0m[0;32m"110223"[0m[1;39m,
+          [0m[34;1m"close"[0m[1;39m: [0m[0;32m"110294.1"[0m[1;39m,
+
+---
+
+[24] Testing: GET /api/ETH/complete
+Description: Get ETH complete analysis
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"ticker"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"ETH-USDT-SWAP"[0m[1;39m,
+      [0m[34;1m"price"[0m[1;39m: [0m[0;32m"3879.22"[0m[1;39m,
+      [0m[34;1m"change24h"[0m[1;39m: [0m[0;32m"1.34%"[0m[1;39m,
+      [0m[34;1m"high24h"[0m[1;39m: [0m[0;32m"3934.49"[0m[1;39m,
+      [0m[34;1m"low24h"[0m[1;39m: [0m[0;32m"3806"[0m[1;39m,
+      [0m[34;1m"volume"[0m[1;39m: [0m[0;32m"28914709.7"[0m[1;39m,
+      [0m[34;1m"tradingVolume24h"[0m[1;39m: [0m[0;32m"112166520162"[0m[1;39m
+    [1;39m}[0m[1;39m,
+    [0m[34;1m"candles"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"5m"[0m[1;39m: [0m[1;39m[
+        [1;39m{
+          [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"1761276900000"[0m[1;39m,
+          [0m[34;1m"open"[0m[1;39m: [0m[0;32m"3878.8"[0m[1;39m,
+          [0m[34;1m"high"[0m[1;39m: [0m[0;32m"3882"[0m[1;39m,
+          [0m[34;1m"low"[0m[1;39m: [0m[0;32m"3878.05"[0m[1;39m,
+          [0m[34;1m"close"[0m[1;39m: [0m[0;32m"3879.22"[0m[1;39m,
+
+---
+
+[25] Testing: GET /api/SOL/complete
+Description: Get SOL complete analysis
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"ticker"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"SOL-USDT-SWAP"[0m[1;39m,
+      [0m[34;1m"price"[0m[1;39m: [0m[0;32m"190.92"[0m[1;39m,
+      [0m[34;1m"change24h"[0m[1;39m: [0m[0;32m"4.46%"[0m[1;39m,
+      [0m[34;1m"high24h"[0m[1;39m: [0m[0;32m"193.9"[0m[1;39m,
+      [0m[34;1m"low24h"[0m[1;39m: [0m[0;32m"182.35"[0m[1;39m,
+      [0m[34;1m"volume"[0m[1;39m: [0m[0;32m"10769618.56"[0m[1;39m,
+      [0m[34;1m"tradingVolume24h"[0m[1;39m: [0m[0;32m"2056135575"[0m[1;39m
+    [1;39m}[0m[1;39m,
+    [0m[34;1m"candles"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"5m"[0m[1;39m: [0m[1;39m[
+        [1;39m{
+          [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"1761276900000"[0m[1;39m,
+          [0m[34;1m"open"[0m[1;39m: [0m[0;32m"191.13"[0m[1;39m,
+          [0m[34;1m"high"[0m[1;39m: [0m[0;32m"191.16"[0m[1;39m,
+          [0m[34;1m"low"[0m[1;39m: [0m[0;32m"190.8"[0m[1;39m,
+          [0m[34;1m"close"[0m[1;39m: [0m[0;32m"190.92"[0m[1;39m,
+
+---
+
+[26] Testing: GET /api/BTC/smc
+Description: Get BTC Smart Money Concepts
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"timeframe"[0m[1;39m: [0m[0;32m"1H"[0m[1;39m,
+    [0m[34;1m"trend"[0m[1;39m: [0m[0;32m"bullish"[0m[1;39m,
+    [0m[34;1m"lastBOS"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"type"[0m[1;39m: [0m[0;32m"bullish"[0m[1;39m,
+      [0m[34;1m"price"[0m[1;39m: [0m[0;32m"111235.3"[0m[1;39m,
+      [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"1761242400000"[0m[1;39m
+    [1;39m}[0m[1;39m,
+    [0m[34;1m"lastCHoCH"[0m[1;39m: [0m[1;30mnull[0m[1;39m,
+    [0m[34;1m"fvgs"[0m[1;39m: [0m[1;39m[
+      [1;39m{
+        [0m[34;1m"id"[0m[1;39m: [0m[0;32m"fvg_42_bearish"[0m[1;39m,
+        [0m[34;1m"timeframe"[0m[1;39m: [0m[0;32m"1H"[0m[1;39m,
+        [0m[34;1m"type"[0m[1;39m: [0m[0;32m"bearish"[0m[1;39m,
+        [0m[34;1m"high"[0m[1;39m: [0m[0;32m"112423"[0m[1;39m,
+        [0m[34;1m"low"[0m[1;39m: [0m[0;32m"112300"[0m[1;39m,
+        [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"1761066000000"[0m[1;39m,
+        [0m[34;1m"mitigated"[0m[1;39m: [0m[0;39mfalse[0m[1;39m,
+
+---
+
+[27] Testing: GET /api/BTC/cvd
+Description: Get BTC CVD analysis
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"timeframe"[0m[1;39m: [0m[0;32m"1H"[0m[1;39m,
+    [0m[34;1m"currentCVD"[0m[1;39m: [0m[0;32m"-17577609.37"[0m[1;39m,
+    [0m[34;1m"previousCVD"[0m[1;39m: [0m[0;32m"-17371301.53"[0m[1;39m,
+    [0m[34;1m"deltaChange"[0m[1;39m: [0m[0;32m"-206307.84"[0m[1;39m,
+    [0m[34;1m"percentageChange"[0m[1;39m: [0m[0;39m-1.1876360538887034[0m[1;39m,
+    [0m[34;1m"cvdHistory"[0m[1;39m: [0m[1;39m[
+      [1;39m{
+        [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"1761274800000"[0m[1;39m,
+        [0m[34;1m"price"[0m[1;39m: [0m[0;32m"110294"[0m[1;39m,
+        [0m[34;1m"buyVolume"[0m[1;39m: [0m[0;32m"114.02"[0m[1;39m,
+        [0m[34;1m"sellVolume"[0m[1;39m: [0m[0;32m"63.53"[0m[1;39m,
+        [0m[34;1m"netVolume"[0m[1;39m: [0m[0;32m"50.49"[0m[1;39m,
+        [0m[34;1m"totalVolume"[0m[1;39m: [0m[0;32m"177.55"[0m[1;39m,
+        [0m[34;1m"cumulativeDelta"[0m[1;39m: [0m[0;32m"50.49"[0m[1;39m,
+        [0m[34;1m"aggressionRatio"[0m[1;39m: [0m[0;39m0.6422[0m[1;39m,
+        [0m[34;1m"isAbsorption"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+        [0m[34;1m"isDistribution"[0m[1;39m: [0m[0;39mfalse[0m[1;39m
+
+---
+
+[28] Testing: GET /api/BTC/technical
+Description: Get BTC technical indicators
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"timeframe"[0m[1;39m: [0m[0;32m"1H"[0m[1;39m,
+    [0m[34;1m"rsi"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"current"[0m[1;39m: [0m[0;39m30.2[0m[1;39m,
+      [0m[34;1m"period"[0m[1;39m: [0m[0;39m14[0m[1;39m,
+      [0m[34;1m"signal"[0m[1;39m: [0m[0;32m"neutral"[0m[1;39m,
+      [0m[34;1m"strength"[0m[1;39m: [0m[0;32m"moderate"[0m[1;39m,
+      [0m[34;1m"trend"[0m[1;39m: [0m[0;32m"neutral"[0m[1;39m,
+      [0m[34;1m"divergence"[0m[1;39m: [0m[1;39m{
+        [0m[34;1m"detected"[0m[1;39m: [0m[0;39mfalse[0m[1;39m
+      [1;39m}[0m[1;39m,
+      [0m[34;1m"historical"[0m[1;39m: [0m[1;39m[
+        [1;39m{
+          [0m[34;1m"value"[0m[1;39m: [0m[0;39m59.25[0m[1;39m,
+          [0m[34;1m"signal"[0m[1;39m: [0m[0;32m"neutral"[0m[1;39m,
+          [0m[34;1m"strength"[0m[1;39m: [0m[0;32m"weak"[0m[1;39m,
+          [0m[34;1m"divergence"[0m[1;39m: [0m[0;39mfalse[0m[1;39m,
+          [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"1760986800000"[0m[1;39m
+
+---
+
+[29] Testing: GET /api/BTC/funding
+Description: Get BTC funding rates
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"instId"[0m[1;39m: [0m[0;32m"BTC-USDT-SWAP"[0m[1;39m,
+    [0m[34;1m"fundingRate"[0m[1;39m: [0m[0;32m"-0.0000044258593520"[0m[1;39m,
+    [0m[34;1m"nextFundingRate"[0m[1;39m: [0m[0;32m"0"[0m[1;39m,
+    [0m[34;1m"nextFundingTime"[0m[1;39m: [0m[0;32m"2025-10-24T16:00:00.000Z"[0m[1;39m,
+    [0m[34;1m"fundingTime"[0m[1;39m: [0m[0;32m"2025-10-24T08:00:00.000Z"[0m[1;39m,
+    [0m[34;1m"premium"[0m[1;39m: [0m[0;32m"-0.0005237789290442"[0m[1;39m,
+    [0m[34;1m"interestRate"[0m[1;39m: [0m[0;32m"0.0001000000000000"[0m[1;39m,
+    [0m[34;1m"maxFundingRate"[0m[1;39m: [0m[0;32m"0.00375"[0m[1;39m,
+    [0m[34;1m"minFundingRate"[0m[1;39m: [0m[0;32m"-0.00375"[0m[1;39m,
+    [0m[34;1m"settFundingRate"[0m[1;39m: [0m[0;32m"-0.0000086364236902"[0m[1;39m,
+    [0m[34;1m"settState"[0m[1;39m: [0m[0;32m"settled"[0m[1;39m,
+    [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:39:15.144Z"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:39:16.885Z"[0m[1;39m
+[1;39m}[0m
+
+---
+
+[30] Testing: GET /api/BTC/open-interest
+Description: Get BTC open interest
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"instId"[0m[1;39m: [0m[0;32m"BTC-USDT-SWAP"[0m[1;39m,
+    [0m[34;1m"instType"[0m[1;39m: [0m[0;32m"SWAP"[0m[1;39m,
+    [0m[34;1m"oi"[0m[1;39m: [0m[0;32m"2174731.23000000188"[0m[1;39m,
+    [0m[34;1m"oiCcy"[0m[1;39m: [0m[0;32m"21747.3123000000188"[0m[1;39m,
+    [0m[34;1m"oiUsd"[0m[1;39m: [0m[0;32m"2398600237.54743207352908"[0m[1;39m,
+    [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"1761277156994"[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:39:17.027Z"[0m[1;39m
+[1;39m}[0m
+
+---
+
+
+=== AI SIGNALS (Requires Trading Scope) ===
+
+[31] Testing: GET /api/ai/signal
+Description: Get standard AI signal
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"signal_id"[0m[1;39m: [0m[0;32m"ai_neutral_1761277157263"[0m[1;39m,
+    [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:39:17.263Z"[0m[1;39m,
+    [0m[34;1m"signal_type"[0m[1;39m: [0m[0;32m"hold"[0m[1;39m,
+    [0m[34;1m"direction"[0m[1;39m: [0m[0;32m"neutral"[0m[1;39m,
+    [0m[34;1m"strength"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"confidence"[0m[1;39m: [0m[0;39m50[0m[1;39m,
+    [0m[34;1m"source_patterns"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+    [0m[34;1m"reasoning"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"primary_factors"[0m[1;39m: [0m[1;39m[
+        [0;32m"No clear patterns detected"[0m[1;39m
+      [1;39m][0m[1;39m,
+      [0m[34;1m"supporting_evidence"[0m[1;39m: [0m[1;39m[
+        [0;32m"Market in consolidation phase"[0m[1;39m
+      [1;39m][0m[1;39m,
+      [0m[34;1m"risk_factors"[0m[1;39m: [0m[1;39m[
+        [0;32m"Low conviction environment"[0m[1;39m
+      [1;39m][0m[1;39m,
+
+---
+
+[32] Testing: GET /api/ai/enhanced-signal?symbol=SOL-USDT-SWAP
+Description: Get enhanced AI signal
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"signal_id"[0m[1;39m: [0m[0;32m"84414b8d-da60-41d8-aa29-f338292fc3e5"[0m[1;39m,
+    [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:39:28.917Z"[0m[1;39m,
+    [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"SOL-USDT-SWAP"[0m[1;39m,
+    [0m[34;1m"direction"[0m[1;39m: [0m[0;32m"neutral"[0m[1;39m,
+    [0m[34;1m"strength"[0m[1;39m: [0m[0;39m41[0m[1;39m,
+    [0m[34;1m"confidence"[0m[1;39m: [0m[0;39m41[0m[1;39m,
+    [0m[34;1m"neural_prediction"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"direction"[0m[1;39m: [0m[0;32m"neutral"[0m[1;39m,
+      [0m[34;1m"confidence"[0m[1;39m: [0m[0;39m50[0m[1;39m,
+      [0m[34;1m"price_target"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+      [0m[34;1m"time_horizon"[0m[1;39m: [0m[0;32m"1H"[0m[1;39m,
+      [0m[34;1m"risk_level"[0m[1;39m: [0m[0;32m"medium"[0m[1;39m,
+      [0m[34;1m"supporting_patterns"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+      [0m[34;1m"neural_features"[0m[1;39m: [0m[1;39m[
+        [0;39m0.51[0m[1;39m,
+        [0;39m0.4[0m[1;39m,
+        [0;39m0.7[0m[1;39m,
+
+---
+
+[33] Testing: GET /api/ai/enhanced-performance
+Description: Get enhanced AI performance
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"enhanced_patterns"[0m[1;39m: [0m[1;39m[
+      [1;39m{
+        [0m[34;1m"pattern_id"[0m[1;39m: [0m[0;32m"institutional_accumulation"[0m[1;39m,
+        [0m[34;1m"name"[0m[1;39m: [0m[0;32m"Enhanced Institutional Accumulation"[0m[1;39m,
+        [0m[34;1m"confidence"[0m[1;39m: [0m[0;39m59[0m[1;39m,
+        [0m[34;1m"neural_score"[0m[1;39m: [0m[0;39m62[0m[1;39m,
+        [0m[34;1m"learning_weight"[0m[1;39m: [0m[0;39m1.2030352673276254[0m[1;39m,
+        [0m[34;1m"complexity"[0m[1;39m: [0m[0;32m"advanced"[0m[1;39m,
+        [0m[34;1m"success_rate"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+        [0m[34;1m"last_seen"[0m[1;39m: [0m[0;32m"2025-10-23T10:13:34.565Z"[0m[1;39m
+      [1;39m}[0m[1;39m,
+      [1;39m{
+        [0m[34;1m"pattern_id"[0m[1;39m: [0m[0;32m"institutional_flow_prediction"[0m[1;39m,
+        [0m[34;1m"name"[0m[1;39m: [0m[0;32m"Predictive Institutional Flow"[0m[1;39m,
+        [0m[34;1m"confidence"[0m[1;39m: [0m[0;39m58[0m[1;39m,
+        [0m[34;1m"neural_score"[0m[1;39m: [0m[0;39m61[0m[1;39m,
+        [0m[34;1m"learning_weight"[0m[1;39m: [0m[0;39m1.2999729005808403[0m[1;39m,
+
+---
+
+[34] Testing: GET /api/ai/tracking/overall-performance
+Description: Get overall AI performance
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"total_signals"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"successful_signals"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"win_rate"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"total_pnl"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"avg_pnl"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+    [0m[34;1m"best_pattern"[0m[1;39m: [0m[1;30mnull[0m[1;39m,
+    [0m[34;1m"worst_pattern"[0m[1;39m: [0m[1;30mnull[0m[1;39m
+  [1;39m}[0m[1;39m,
+  [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:39:32.113Z"[0m[1;39m
+[1;39m}[0m
+
+---
+
+
+=== ENHANCED FEATURES (SOL-specific) ===
+
+[35] Testing: GET /api/sol/funding/enhanced
+Description: Get SOL enhanced funding
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"current"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"instId"[0m[1;39m: [0m[0;32m"SOL-USDT-SWAP"[0m[1;39m,
+      [0m[34;1m"fundingRate"[0m[1;39m: [0m[0;39m6.37461252457e-05[0m[1;39m,
+      [0m[34;1m"premium"[0m[1;39m: [0m[0;39m-0.0004188262394639[0m[1;39m,
+      [0m[34;1m"nextFundingTime"[0m[1;39m: [0m[0;32m"2025-10-24T16:00:00.000Z"[0m[1;39m,
+      [0m[34;1m"fundingTime"[0m[1;39m: [0m[0;32m"2025-10-24T08:00:00.000Z"[0m[1;39m,
+      [0m[34;1m"interestRate"[0m[1;39m: [0m[0;39m0.0001[0m[1;39m,
+      [0m[34;1m"settState"[0m[1;39m: [0m[0;32m"settled"[0m[1;39m,
+      [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:39:15.222Z"[0m[1;39m
+    [1;39m}[0m[1;39m,
+    [0m[34;1m"historical_context"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"funding_rate_24h_avg"[0m[1;39m: [0m[0;39m5.703240710514284e-05[0m[1;39m,
+      [0m[34;1m"funding_rate_7d_avg"[0m[1;39m: [0m[0;39m5.703240710514284e-05[0m[1;39m,
+      [0m[34;1m"funding_rate_max_24h"[0m[1;39m: [0m[0;39m7.25509744672e-05[0m[1;39m,
+      [0m[34;1m"funding_rate_min_24h"[0m[1;39m: [0m[0;39m7.748271588e-07[0m[1;39m,
+      [0m[34;1m"premium_24h_avg"[0m[1;39m: [0m[0;39m-0.0004814336159221142[0m[1;39m,
+      [0m[34;1m"volatility_24h"[0m[1;39m: [0m[0;39m2.3234231591786338e-05[0m[1;39m,
+
+---
+
+[36] Testing: GET /api/sol/volume-profile
+Description: Get SOL volume profile
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"poc"[0m[1;39m: [0m[0;32m"185.77"[0m[1;39m,
+    [0m[34;1m"hvnLevels"[0m[1;39m: [0m[1;39m[
+      [1;39m{
+        [0m[34;1m"price"[0m[1;39m: [0m[0;32m"185.77"[0m[1;39m,
+        [0m[34;1m"volume"[0m[1;39m: [0m[0;32m"54148.57"[0m[1;39m,
+        [0m[34;1m"percentage"[0m[1;39m: [0m[0;32m"0.11"[0m[1;39m
+      [1;39m}[0m[1;39m,
+      [1;39m{
+        [0m[34;1m"price"[0m[1;39m: [0m[0;32m"185.78"[0m[1;39m,
+        [0m[34;1m"volume"[0m[1;39m: [0m[0;32m"54148.57"[0m[1;39m,
+        [0m[34;1m"percentage"[0m[1;39m: [0m[0;32m"0.11"[0m[1;39m
+      [1;39m}[0m[1;39m,
+      [1;39m{
+        [0m[34;1m"price"[0m[1;39m: [0m[0;32m"185.79"[0m[1;39m,
+        [0m[34;1m"volume"[0m[1;39m: [0m[0;32m"54148.57"[0m[1;39m,
+        [0m[34;1m"percentage"[0m[1;39m: [0m[0;32m"0.11"[0m[1;39m
+      [1;39m}[0m[1;39m,
+
+---
+
+[37] Testing: GET /api/sol/fibonacci
+Description: Get SOL Fibonacci analysis
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"timeframe"[0m[1;39m: [0m[0;32m"1H"[0m[1;39m,
+    [0m[34;1m"trend"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"direction"[0m[1;39m: [0m[0;32m"bullish"[0m[1;39m,
+      [0m[34;1m"strength"[0m[1;39m: [0m[0;32m"strong"[0m[1;39m,
+      [0m[34;1m"phase"[0m[1;39m: [0m[0;32m"impulse"[0m[1;39m
+    [1;39m}[0m[1;39m,
+    [0m[34;1m"swingPoints"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"current"[0m[1;39m: [0m[1;39m{
+        [0m[34;1m"high"[0m[1;39m: [0m[1;39m{
+          [0m[34;1m"price"[0m[1;39m: [0m[0;39m194.5[0m[1;39m,
+          [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"1760943600000"[0m[1;39m,
+          [0m[34;1m"index"[0m[1;39m: [0m[0;39m92[0m[1;39m,
+          [0m[34;1m"type"[0m[1;39m: [0m[0;32m"high"[0m[1;39m,
+          [0m[34;1m"strength"[0m[1;39m: [0m[0;32m"strong"[0m[1;39m
+        [1;39m}[0m[1;39m,
+        [0m[34;1m"low"[0m[1;39m: [0m[1;39m{
+          [0m[34;1m"price"[0m[1;39m: [0m[0;39m185.51[0m[1;39m,
+
+---
+
+[38] Testing: GET /api/sol/order-flow
+Description: Get SOL order flow
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"timeframe"[0m[1;39m: [0m[0;32m"1H"[0m[1;39m,
+    [0m[34;1m"currentImbalance"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:39:32.888Z"[0m[1;39m,
+      [0m[34;1m"bidSize"[0m[1;39m: [0m[1;30mnull[0m[1;39m,
+      [0m[34;1m"askSize"[0m[1;39m: [0m[1;30mnull[0m[1;39m,
+      [0m[34;1m"imbalanceRatio"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+      [0m[34;1m"strength"[0m[1;39m: [0m[0;32m"weak"[0m[1;39m,
+      [0m[34;1m"significance"[0m[1;39m: [0m[0;32m"minor"[0m[1;39m,
+      [0m[34;1m"prediction"[0m[1;39m: [0m[0;32m"neutral"[0m[1;39m
+    [1;39m}[0m[1;39m,
+    [0m[34;1m"recentTrades"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"total"[0m[1;39m: [0m[0;39m50[0m[1;39m,
+      [0m[34;1m"buyVolume"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+      [0m[34;1m"sellVolume"[0m[1;39m: [0m[0;39m2.7719480000000005[0m[1;39m,
+      [0m[34;1m"netVolume"[0m[1;39m: [0m[0;39m-2.7719480000000005[0m[1;39m,
+      [0m[34;1m"avgTradeSize"[0m[1;39m: [0m[0;39m0.055[0m[1;39m,
+      [0m[34;1m"largeTradeCount"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+
+---
+
+[39] Testing: GET /api/sol/liquidation-heatmap
+Description: Get SOL liquidation heatmap
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"success"[0m[1;39m: [0m[0;39mtrue[0m[1;39m,
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m{
+    [0m[34;1m"currentPrice"[0m[1;39m: [0m[0;39m190.87[0m[1;39m,
+    [0m[34;1m"overallRiskScore"[0m[1;39m: [0m[0;39m18[0m[1;39m,
+    [0m[34;1m"immediateRisk"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"upside"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+      [0m[34;1m"downside"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+      [0m[34;1m"netRisk"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+      [0m[34;1m"criticalLevels"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+      [0m[34;1m"significantLevels"[0m[1;39m: [0m[1;39m[][0m[1;39m
+    [1;39m}[0m[1;39m,
+    [0m[34;1m"mediumTermRisk"[0m[1;39m: [0m[1;39m{
+      [0m[34;1m"upside"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+      [0m[34;1m"downside"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+      [0m[34;1m"netRisk"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+      [0m[34;1m"criticalLevels"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+      [0m[34;1m"significantLevels"[0m[1;39m: [0m[1;39m[][0m[1;39m
+    [1;39m}[0m[1;39m,
+    [0m[34;1m"longTermRisk"[0m[1;39m: [0m[1;39m{
+
+---
+
+
+=== COINGLASS DIRECT ENDPOINTS ===
+
+[40] Testing: GET /py/advanced/etf/bitcoin
+Description: Get Bitcoin ETF data
+✅ SUCCESS (HTTP 200)
+[1;39m[][0m
+
+---
+
+[41] Testing: GET /py/advanced/market/sentiment
+Description: Get market sentiment
+✅ SUCCESS (HTTP 200)
+[1;39m[][0m
+
+---
+
+[42] Testing: GET /py/advanced/market/coins
+Description: Get supported coins
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"data"[0m[1;39m: [0m[1;39m[][0m[1;39m,
+  [0m[34;1m"count"[0m[1;39m: [0m[0;39m0[0m[1;39m,
+  [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T10:39:34.115509"[0m[1;39m
+[1;39m}[0m
+
+---
+
+[43] Testing: GET /py/advanced/technical/atr?symbol=BTC&timeframe=1H
+Description: Get BTC ATR data
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+  [0m[34;1m"original_symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+  [0m[34;1m"timeframe"[0m[1;39m: [0m[0;32m"1H"[0m[1;39m,
+  [0m[34;1m"atr_percent"[0m[1;39m: [0m[0;39m0.66[0m[1;39m,
+  [0m[34;1m"atr_absolute"[0m[1;39m: [0m[0;39m732.1[0m[1;39m,
+  [0m[34;1m"current_price"[0m[1;39m: [0m[0;39m110294[0m[1;39m,
+  [0m[34;1m"candles_analyzed"[0m[1;39m: [0m[0;39m15[0m[1;39m,
+  [0m[34;1m"source"[0m[1;39m: [0m[0;32m"OKX"[0m[1;39m,
+  [0m[34;1m"status"[0m[1;39m: [0m[0;32m"real-time"[0m[1;39m
+[1;39m}[0m
+
+---
+
+[44] Testing: GET /py/advanced/ticker/BTC
+Description: Get BTC ticker
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+  [0m[34;1m"original_symbol"[0m[1;39m: [0m[0;32m"BTC"[0m[1;39m,
+  [0m[34;1m"price"[0m[1;39m: [0m[0;39m110351.7[0m[1;39m,
+  [0m[34;1m"last"[0m[1;39m: [0m[0;39m110351.7[0m[1;39m,
+  [0m[34;1m"timestamp"[0m[1;39m: [0m[0;32m"2025-10-24T03:39:35.096401Z"[0m[1;39m,
+  [0m[34;1m"source"[0m[1;39m: [0m[0;32m"CoinGlass→CoinAPI→OKX"[0m[1;39m,
+  [0m[34;1m"status"[0m[1;39m: [0m[0;32m"ok"[0m[1;39m,
+  [0m[34;1m"cache_ttl"[0m[1;39m: [0m[0;39m60[0m[1;39m
+[1;39m}[0m
+
+---
+
+[45] Testing: GET /py/advanced/liquidation/heatmap/BTC?range=10
+Description: Get BTC liquidation heatmap
+✅ SUCCESS (HTTP 200)
+[1;39m[][0m
+
+---
+
+[46] Testing: GET /py/advanced/spot/orderbook/BTC?depth=20
+Description: Get BTC spot orderbook
+✅ SUCCESS (HTTP 200)
+[1;39m{
+  [0m[34;1m"symbol"[0m[1;39m: [0m[0;32m"BTC-USDT"[0m[1;39m,
+  [0m[34;1m"exchange"[0m[1;39m: [0m[0;32m"okx-fallback"[0m[1;39m,
+  [0m[34;1m"bids"[0m[1;39m: [0m[1;39m[
+    [1;39m[
+      [0;39m110351.6[0m[1;39m,
+      [0;39m0.58028775[0m[1;39m
+    [1;39m][0m[1;39m,
+    [1;39m[
+      [0;39m110351.3[0m[1;39m,
+      [0;39m0.03041757[0m[1;39m
+    [1;39m][0m[1;39m,
+    [1;39m[
+      [0;39m110351[0m[1;39m,
+      [0;39m0.0215[0m[1;39m
+    [1;39m][0m[1;39m,
+    [1;39m[
+      [0;39m110350.1[0m[1;39m,
+      [0;39m0.2931377[0m[1;39m
+    [1;39m][0m[1;39m,
+
+---
+
+[47] Testing: GET /py/advanced/options/oi/BTC
+Description: Get BTC options OI
+✅ SUCCESS (HTTP 200)
+[1;39m[][0m
+
+---
+
+
+================================
+TEST SUMMARY
+================================
+Total Endpoints Tested: 47
+✅ Success: 47
+❌ Failed: 0
+Success Rate: 100.00%
+
