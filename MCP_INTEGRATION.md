@@ -7,7 +7,7 @@ MCP (Model Context Protocol) server memungkinkan Claude Desktop dan AI clients l
 **Keuntungan:**
 - ✅ Zero breaking changes - GPT Actions tetap berfungsi 100%
 - ✅ Direct access dari Claude Desktop tanpa API keys
-- ✅ Semua 21 trading tools available via MCP
+- ✅ Semua 18 trading tools available via MCP
 - ✅ Parallel execution dengan Express.js API
 
 ## 🚀 Quick Start
@@ -40,7 +40,7 @@ Output yang diharapkan:
 ```
 [MCP Server] Crypto Trading Intelligence MCP Server running on stdio
 [MCP Server] Version: 1.0.0
-[MCP Server] Tools available: 21
+[MCP Server] Tools available: 18
 ```
 
 ### 4. Configure Claude Desktop
@@ -88,7 +88,7 @@ Atau menggunakan npm script:
 
 Setelah edit config, restart Claude Desktop untuk load MCP server.
 
-## 🎯 Available Tools (21 Total)
+## 🎯 Available Tools (18 Total)
 
 ### GuardiansOfTheToken (3 tools)
 - `get_whale_data` - Whale detection & accumulation
