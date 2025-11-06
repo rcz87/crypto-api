@@ -20,6 +20,9 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --maxWorkers=2",
+    "test:mcp": "bash scripts/quick-mcp-test.sh",
+    "test:mcp-full": "bash scripts/test-mcp-endpoints.sh",
+    "test:mcp-verbose": "bash scripts/test-mcp-endpoints.sh --verbose",
     "backup:db": "node scripts/backup-database.js",
     "backup:test": "node scripts/test-backup.js"
   },
