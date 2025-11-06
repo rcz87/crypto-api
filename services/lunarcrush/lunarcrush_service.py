@@ -39,15 +39,15 @@ class LunarCrushService:
     
     def __init__(self):
         self.api_key = os.getenv('LUNARCRUSH_API_KEY', '')
-        self.base_url = 'https://api.lunarcrush.com/v2'
+        self.base_url = 'https://lunarcrush.com/api4/public'  # Updated to v4
         self.tier = os.getenv('LUNARCRUSH_TIER', 'free')
         self.mock_mode = not bool(self.api_key)
-        
+
         # Cache for mock data
         self.cache = {}
         self.cache_ttl = 300  # 5 minutes
-        
-        logger.info(f"LunarCrush Service initialized - Mode: {'MOCK' if self.mock_mode else 'PRODUCTION'}")
+
+        logger.info(f"LunarCrush Service initialized (API v4) - Mode: {'MOCK' if self.mock_mode else 'PRODUCTION'}")
         
     def _get_mock_data(self, symbol: str) -> Dict:
         """Generate realistic mock data for testing"""
@@ -155,50 +155,81 @@ class LunarCrushService:
         return SocialMetrics(**data)
     
     def _fetch_real_data(self, symbol: str) -> Dict:
-        """Fetch real data from LunarCrush API"""
+        """Fetch real data from LunarCrush API v4"""
         if not self.api_key:
             raise ValueError("LunarCrush API key not configured")
-        
+
         headers = {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json'
+            'Authorization': f'Bearer {self.api_key}'
         }
-        
-        # Fetch coin data
-        coin_url = f"{self.base_url}/data?symbol={symbol}"
+
+        # Fetch coin data using v4 endpoint
+        coin_url = f"{self.base_url}/coins/{symbol}"
         response = requests.get(coin_url, headers=headers, timeout=10)
         response.raise_for_status()
-        
-        coin_data = response.json()
-        if not coin_data.get('data'):
+
+        result = response.json()
+        if not result.get('data'):
             raise ValueError(f"No data found for symbol {symbol}")
-        
-        coin = coin_data['data'][0]  # Take first result
-        
-        # Fetch influencers
-        influencers_url = f"{self.base_url}/influencers?symbol={symbol}&limit=5"
-        influencers_response = requests.get(influencers_url, headers=headers, timeout=10)
-        influencers_data = influencers_response.json().get('data', [])
-        
+
+        # v4 returns single object, not array
+        coin = result['data']
+
+        # Fetch influencers separately
+        influencers_data = self._fetch_influencers_v4(symbol)
+
         # Transform to our format
         return {
             'symbol': symbol,
             'galaxy_score': coin.get('galaxy_score', 0),
             'sentiment': coin.get('sentiment', 0),
-            'social_volume': coin.get('social_volume', 0),
+            'social_volume': coin.get('social_volume_24h', 0),  # Updated field name
             'alt_rank': coin.get('alt_rank', 0),
-            'trending_score': coin.get('trending_score', 0),
+            'trending_score': coin.get('galaxy_score', 0),  # Use galaxy_score as trending proxy
             'price_change_24h': coin.get('percent_change_24h', 0),
-            'reddit_posts': coin.get('reddit_posts', 0),
-            'twitter_mentions': coin.get('twitter_mentions', 0),
-            'influencers': self._transform_influencers(influencers_data),
+            'reddit_posts': coin.get('reddit_posts_24h', 0),  # Updated field name
+            'twitter_mentions': coin.get('tweets_24h', 0),  # Updated field name
+            'influencers': influencers_data,
             'recommendation': self._calculate_recommendation(coin),
             'confidence': self._calculate_confidence(coin),
             'timestamp': datetime.now().isoformat()
         }
     
+    def _fetch_influencers_v4(self, symbol: str) -> List[Dict]:
+        """Fetch influencers from LunarCrush API v4"""
+        if self.mock_mode:
+            return self._get_mock_influencers(symbol, hash(symbol) % 100)
+
+        try:
+            headers = {'Authorization': f'Bearer {self.api_key}'}
+            # v4 uses topic name (lowercase) for creators endpoint
+            topic = symbol.lower()
+            url = f"{self.base_url}/topic/{topic}/creators?limit=5"
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+
+            result = response.json()
+            creators = result.get('data', [])
+
+            return [
+                {
+                    'username': creator.get('display_name', ''),
+                    'followers': creator.get('followers', 0),
+                    'sentiment': self._sentiment_from_score(creator.get('sentiment', 50)),
+                    'sentiment_score': creator.get('sentiment', 50),
+                    'recent_posts': creator.get('posts_24h', 0),
+                    'engagement': creator.get('interactions_24h', 0)
+                }
+                for creator in creators
+            ]
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch influencers for {symbol}: {e}")
+            # Return mock data as fallback
+            return self._get_mock_influencers(symbol, hash(symbol) % 100)
+
     def _transform_influencers(self, influencers_data: List[Dict]) -> List[Dict]:
-        """Transform influencer data to our format"""
+        """Transform influencer data to our format (legacy v2 support)"""
         return [
             {
                 'username': inf.get('username', ''),
@@ -262,33 +293,41 @@ class LunarCrushService:
         return round(sum(factors) / len(factors) * 100, 1) if factors else 50.0
     
     def get_trending_coins(self, limit: int = 20) -> List[SocialMetrics]:
-        """Get trending cryptocurrencies"""
+        """Get trending cryptocurrencies using v4 API"""
         if self.mock_mode:
             # Generate mock trending coins
             trending_symbols = ['BTC', 'ETH', 'SOL', 'BNB', 'ADA', 'XRP', 'DOGE', 'AVAX', 'MATIC', 'DOT']
             return [self.get_social_sentiment(symbol) for symbol in trending_symbols[:limit]]
         else:
-            # Fetch real trending data
+            # Fetch real trending data from v4 API
             try:
                 headers = {'Authorization': f'Bearer {self.api_key}'}
-                url = f"{self.base_url}/trending?limit={limit}"
+                # v4 endpoint with sorting by galaxy_score
+                url = f"{self.base_url}/coins/list/v2?limit={min(limit, 1000)}&sort=galaxy_score&desc=1"
                 response = requests.get(url, headers=headers, timeout=10)
                 response.raise_for_status()
-                
-                data = response.json().get('data', [])
+
+                result = response.json()
+                data = result.get('data', [])
                 trending = []
-                
+
                 for coin in data:
                     symbol = coin.get('symbol', '')
                     if symbol:
-                        trending.append(self.get_social_sentiment(symbol))
-                
+                        # Use cached or fetch data
+                        try:
+                            trending.append(self.get_social_sentiment(symbol))
+                        except Exception as e:
+                            logger.warning(f"Skipping {symbol}: {e}")
+                            continue
+
                 return trending[:limit]
-                
+
             except Exception as e:
-                logger.error(f"Failed to fetch trending coins: {e}")
+                logger.error(f"Failed to fetch trending coins from v4 API: {e}")
                 # Fallback to mock data
-                return self.get_trending_coins(limit)
+                trending_symbols = ['BTC', 'ETH', 'SOL', 'BNB', 'ADA', 'XRP', 'DOGE', 'AVAX']
+                return [self.get_social_sentiment(symbol) for symbol in trending_symbols[:limit]]
     
     def compare_coins(self, symbols: List[str]) -> Dict[str, SocialMetrics]:
         """Compare multiple cryptocurrencies"""

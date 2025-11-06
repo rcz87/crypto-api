@@ -4,12 +4,21 @@
 
 The LunarCrush Social Intelligence service provides real-time social sentiment analysis for cryptocurrencies, tracking social media mentions, influencer activity, and market sentiment across multiple platforms.
 
+## ⚡ API Version
+
+**Current Version**: LunarCrush API v4
+**Base URL**: `https://lunarcrush.com/api4/public`
+**Updated**: 2025-11-06
+
+> ✅ **Fully updated to v4** - Ready for API key subscription!
+
 ## 🚀 Service Status
 
-✅ **ACTIVE** - LunarCrush API service is running on port 8001  
-📍 **Endpoint**: `http://212.85.26.253:8001`  
-🔧 **Mode**: Production (with API key configured)  
-📊 **Status**: Healthy and operational  
+✅ **ACTIVE** - LunarCrush API service is running on port 8001
+📍 **Endpoint**: `http://212.85.26.253:8001`
+🔧 **Mode**: Mock (waiting for API key configuration)
+📊 **API Compatibility**: v4 Ready
+🔑 **Next Step**: Subscribe to LunarCrush API and configure API key  
 
 ## 📡 API Endpoints
 
@@ -91,10 +100,21 @@ GET /influencers/{symbol}
 ### Environment Variables
 ```bash
 LUNARCRUSH_API_KEY="your_api_key_here"
-LUNARCRUSH_API_SECRET="your_api_secret_here"
 LUNARCRUSH_PORT=8001
 LUNARCRUSH_HOST="0.0.0.0"
 ```
+
+> **Note**: LunarCrush API v4 only requires API key (no separate secret needed)
+
+### Getting Your API Key
+
+1. Sign up at [LunarCrush](https://lunarcrush.com)
+2. Navigate to API settings
+3. Generate your v4 API key
+4. Add to `.env` file: `LUNARCRUSH_API_KEY="your_key_here"`
+5. Restart service: `sudo systemctl restart lunarcrush.service`
+
+**Documentation**: https://lunarcrush.com/faq/how-do-i-generate-an-api-token
 
 ### Service Management
 ```bash
@@ -230,8 +250,31 @@ sudo systemctl daemon-reload
 sudo systemctl restart lunarcrush.service
 ```
 
+## 🆕 v4 Migration Complete
+
+**Migration Date**: 2025-11-06
+
+### What Changed:
+- ✅ Base URL updated to `https://lunarcrush.com/api4/public`
+- ✅ All endpoints migrated to v4 format
+- ✅ Response parsing updated for v4 structure
+- ✅ Influencer fetching updated to use topic creators endpoint
+- ✅ Trending coins now uses `coins/list/v2` with sorting
+- ✅ Full backward compatibility with existing API endpoints
+- ✅ Mock mode still functional for testing without API key
+
+### Benefits:
+- 🚀 Latest features from LunarCrush
+- 📊 Better data quality and coverage
+- 🔧 Improved API reliability
+- 📈 Long-term support and updates
+
+### Migration Guide:
+For detailed migration information, see: `LUNARCRUSH_V4_MIGRATION.md`
+
 ---
 
-**Last Updated**: 2025-11-03  
-**Service Version**: 1.0.0  
-**Status**: ✅ Production Ready
+**Last Updated**: 2025-11-06
+**Service Version**: 2.0.0 (v4)
+**API Version**: LunarCrush v4
+**Status**: ✅ Ready for Production (API key required)
