@@ -160,6 +160,57 @@ def test_coinapi_integration():
             'api_configured': False
         }
 
+def test_coinglass_integration():
+    """Test CoinGlass API integration"""
+    print("\n" + "="*60)
+    print("🧪 TESTING COINGLASS API INTEGRATION")
+    print("="*60)
+    
+    try:
+        from services.coinglass_service import get_api_status, test_coinglass_connection
+        
+        # Test API status
+        print("📊 Checking CoinGlass status...")
+        status = get_api_status()
+        print(f"  API Key Configured: {status.get('api_key_configured', False)}")
+        print(f"  Disabled: {status.get('disabled', False)}")
+        print(f"  Available: {status.get('available', False)}")
+        print(f"  Base URL: {status.get('base_url', 'N/A')}")
+        
+        if not status.get('available'):
+            print("  ⚠️  CoinGlass API not available")
+            return {
+                'status': '⚠️  SKIPPED',
+                'error': 'API not available',
+                'results_count': 0,
+                'api_configured': status.get('api_key_configured', False)
+            }
+        
+        # Test connection
+        print("🔍 Testing CoinGlass connection...")
+        test_result = test_coinglass_connection()
+        print(f"  Status: {test_result['status']}")
+        print(f"  Message: {test_result['message']}")
+        
+        if test_result.get('sample_data'):
+            print(f"  Sample data: {test_result['sample_data']}")
+        
+        return {
+            'status': '✅ PASSED' if test_result['status'] == 'success' else '⚠️  PARTIAL',
+            'results_count': test_result.get('test_data_count', 0),
+            'api_configured': status.get('api_key_configured', False),
+            'connection_status': test_result['status']
+        }
+        
+    except Exception as e:
+        logger.error(f"CoinGlass integration test failed: {e}")
+        return {
+            'status': '❌ FAILED',
+            'error': str(e),
+            'results_count': 0,
+            'api_configured': False
+        }
+
 def test_lunarcrush_integration():
     """Test LunarCrush API integration"""
     print("\n" + "="*60)
@@ -271,6 +322,7 @@ def test_environment_configuration():
         'COINGECKO_API_KEY': os.getenv('COINGECKO_API_KEY'),
         'COINAPI_API_KEY': os.getenv('COINAPI_API_KEY'),
         'COINAPI_KEY': os.getenv('COINAPI_KEY'),
+        'COINGLASS_API_KEY': os.getenv('COINGLASS_API_KEY'),
         'LUNARCRUSH_API_KEY': os.getenv('LUNARCRUSH_API_KEY')
     }
     
@@ -309,6 +361,7 @@ def main():
     test_results['okx'] = test_okx_integration()
     test_results['coingecko'] = test_coingecko_integration()
     test_results['coinapi'] = test_coinapi_integration()
+    test_results['coinglass'] = test_coinglass_integration()
     test_results['lunarcrush'] = test_lunarcrush_integration()
     
     # Test multi-source integration
