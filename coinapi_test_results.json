@@ -1,0 +1,7 @@
+{
+  "success": false,
+  "api_key_configured": false,
+  "api_key_length": 0,
+  "tests": [],
+  "error": "API key not configured"
+}
