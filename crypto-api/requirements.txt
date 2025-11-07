@@ -33,3 +33,6 @@ matplotlib>=3.7.0
 # Optional: For performance monitoring
 psutil>=5.9.0
 memory-profiler>=0.61.0
+
+# CoinAPI for comprehensive market data
+requests>=2.31.0

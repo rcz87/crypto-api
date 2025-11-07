@@ -120,6 +120,10 @@ class GuardiansOfTheTokenAPI:
         Returns:
             GuardiansOrderbookData object or None if failed
         """
+        # Check if we should use mock data (for demo purposes)
+        if self.base_url == "https://api.guardiansofthetoken.com":
+            return await self._get_mock_orderbook_data(symbol, depth)
+        
         if not self.session or self.session.closed:
             await self.start_session()
         
@@ -201,6 +205,10 @@ class GuardiansOfTheTokenAPI:
         Returns:
             GuardiansMarketMetrics object or None if failed
         """
+        # Check if we should use mock data (for demo purposes)
+        if self.base_url == "https://api.guardiansofthetoken.com":
+            return await self._get_mock_market_metrics(symbol)
+        
         if not self.session or self.session.closed:
             await self.start_session()
         
@@ -354,6 +362,144 @@ class GuardiansOfTheTokenAPI:
                 * 100 if (self.update_counts.get(symbol, 0) + self.error_counts.get(symbol, 0)) > 0 else 0
             )
         }
+    
+    async def _get_mock_orderbook_data(self, symbol: str, depth: int = 500) -> GuardiansOrderbookData:
+        """Generate mock orderbook data for demonstration purposes"""
+        import random
+        
+        # Base prices for different symbols
+        base_prices = {
+            'SOLUSDT': 140.0,
+            'BTCUSDT': 65000.0,
+            'ETHUSDT': 3500.0,
+            'BNBUSDT': 600.0,
+            'ADAUSDT': 0.6,
+            'XRPUSDT': 0.55,
+            'DOTUSDT': 7.5,
+            'LINKUSDT': 15.0,
+            'AVAXUSDT': 35.0,
+            'MATICUSDT': 0.9
+        }
+        
+        base_price = base_prices.get(symbol, 100.0)
+        
+        # Generate bid levels
+        bid_levels = []
+        current_price = base_price * 0.999  # Start slightly below base price
+        
+        for i in range(min(depth, 50)):  # Limit to 50 for demo
+            price = current_price * (1 - i * 0.0001)  # Decrease price for each level
+            size = random.uniform(100, 5000) * (1 + i * 0.1)  # Increase size for deeper levels
+            bid_levels.append({
+                'price': round(price, 4),
+                'size': round(size, 2),
+                'total': round(price * size, 2)
+            })
+        
+        # Generate ask levels
+        ask_levels = []
+        current_price = base_price * 1.001  # Start slightly above base price
+        
+        for i in range(min(depth, 50)):  # Limit to 50 for demo
+            price = current_price * (1 + i * 0.0001)  # Increase price for each level
+            size = random.uniform(100, 5000) * (1 + i * 0.1)  # Increase size for deeper levels
+            ask_levels.append({
+                'price': round(price, 4),
+                'size': round(size, 2),
+                'total': round(price * size, 2)
+            })
+        
+        # Calculate metrics
+        best_bid = bid_levels[0]['price'] if bid_levels else 0
+        best_ask = ask_levels[0]['price'] if ask_levels else 0
+        spread = best_ask - best_bid if best_bid and best_ask else 0
+        mid_price = (best_bid + best_ask) / 2 if best_bid and best_ask else 0
+        
+        total_bid_volume = sum(level['size'] for level in bid_levels)
+        total_ask_volume = sum(level['size'] for level in ask_levels)
+        
+        # Calculate imbalance ratio
+        if total_ask_volume > 0:
+            imbalance_ratio = total_bid_volume / total_ask_volume
+        else:
+            imbalance_ratio = float('inf') if total_bid_volume > 0 else 1.0
+        
+        # Update connection status
+        self.connection_status['total_requests'] += 1
+        self.connection_status['last_update'] = datetime.now(timezone.utc)
+        
+        if symbol not in self.update_counts:
+            self.update_counts[symbol] = 0
+            self.error_counts[symbol] = 0
+        
+        self.update_counts[symbol] += 1
+        self.last_update[symbol] = datetime.now(timezone.utc)
+        
+        logger.info(f"Generated mock orderbook for {symbol}: {len(bid_levels)} bids, {len(ask_levels)} asks")
+        
+        return GuardiansOrderbookData(
+            symbol=symbol,
+            timestamp=datetime.now(timezone.utc),
+            bid_levels=bid_levels,
+            ask_levels=ask_levels,
+            spread=spread,
+            mid_price=mid_price,
+            total_bid_volume=total_bid_volume,
+            total_ask_volume=total_ask_volume,
+            imbalance_ratio=imbalance_ratio,
+            vip_tier=self.vip_tier,
+            update_frequency_ms=self.features['update_frequency_ms'],
+            max_depth_levels=self.features['max_depth_levels']
+        )
+    
+    async def _get_mock_market_metrics(self, symbol: str) -> GuardiansMarketMetrics:
+        """Generate mock market metrics for demonstration purposes"""
+        import random
+        
+        # Generate random metrics
+        buy_wall_detected = random.choice([True, False])
+        sell_wall_detected = random.choice([True, False])
+        hidden_orders_detected = random.choice([True, False])
+        
+        # Random institutional imbalance
+        institutional_imbalance = random.choice(['bullish', 'bearish', 'neutral'])
+        
+        # Generate spoofing zones
+        spoofing_zones = []
+        if random.random() > 0.7:  # 30% chance of spoofing zones
+            spoofing_zones.append({
+                'price_range': f"{random.uniform(100, 200):.2f}-{random.uniform(200, 300):.2f}",
+                'size': random.uniform(1000000, 5000000),
+                'confidence': random.uniform(0.7, 0.95)
+            })
+        
+        # Generate iceberg orders
+        iceberg_orders = []
+        if random.random() > 0.8:  # 20% chance of iceberg orders
+            iceberg_orders.append({
+                'estimated_size': random.uniform(2000000, 10000000),
+                'visible_orders': random.randint(5, 15),
+                'price_spacing': random.uniform(0.001, 0.01)
+            })
+        
+        # Generate scores
+        liquidity_score = random.uniform(20, 95)
+        market_depth_score = random.uniform(30, 90)
+        
+        logger.info(f"Generated mock metrics for {symbol}: liquidity={liquidity_score:.1f}, depth={market_depth_score:.1f}")
+        
+        return GuardiansMarketMetrics(
+            symbol=symbol,
+            timestamp=datetime.now(timezone.utc),
+            buy_wall_detected=buy_wall_detected,
+            sell_wall_detected=sell_wall_detected,
+            hidden_orders_detected=hidden_orders_detected,
+            institutional_imbalance=institutional_imbalance,
+            spoofing_zones=spoofing_zones,
+            iceberg_orders=iceberg_orders,
+            liquidity_score=liquidity_score,
+            market_depth_score=market_depth_score
+        )
 
 class GuardiansDataProcessor:
     """
