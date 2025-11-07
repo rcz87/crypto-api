@@ -41,7 +41,10 @@ class LunarCrushService:
         self.api_key = os.getenv('LUNARCRUSH_API_KEY', '')
         self.base_url = 'https://lunarcrush.com/api4/public'  # Updated to v4
         self.tier = os.getenv('LUNARCRUSH_TIER', 'free')
-        self.mock_mode = not bool(self.api_key)
+        
+        # Check if API key is valid (not empty or placeholder)
+        invalid_keys = ['', 'your_lunarcrush_api_key_here', 'your_api_key_here']
+        self.mock_mode = self.api_key in invalid_keys or not bool(self.api_key)
 
         # Cache for mock data
         self.cache = {}
