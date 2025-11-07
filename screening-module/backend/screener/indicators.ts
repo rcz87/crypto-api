@@ -1,7 +1,19 @@
 // Enhanced Indicators with ATR/ADX Support
 import { IndicatorsResult } from "../../shared/schemas";
 
-// EMA calculation
+/**
+ * Calculate Exponential Moving Average (EMA)
+ *
+ * @param values - Array of price values
+ * @param period - EMA period (e.g., 12, 26, 50)
+ * @returns Array of EMA values
+ *
+ * @example
+ * ```typescript
+ * const closes = [100, 102, 101, 103, 105];
+ * const ema12 = calcEMA(closes, 12);
+ * ```
+ */
 function calcEMA(values: number[], period: number): number[] {
   const k = 2 / (period + 1);
   let ema: number[] = [];
@@ -12,7 +24,24 @@ function calcEMA(values: number[], period: number): number[] {
   return ema;
 }
 
-// RSI calculation  
+/**
+ * Calculate Relative Strength Index (RSI) using Wilder's method
+ *
+ * RSI measures momentum on a scale of 0-100:
+ * - RSI > 70: Overbought
+ * - RSI < 30: Oversold
+ * - 40-60: Neutral
+ *
+ * @param values - Array of price values
+ * @param period - RSI period (default: 14)
+ * @returns RSI value (0-100) or null if insufficient data
+ *
+ * @example
+ * ```typescript
+ * const closes = [...]; // 50 candles
+ * const rsi = calcRSI(closes, 14); // 65.5
+ * ```
+ */
 function calcRSI(values: number[], period = 14): number | null {
   if (values.length < period + 1) return null;
   let gains = 0, losses = 0;
@@ -27,11 +56,34 @@ function calcRSI(values: number[], period = 14): number | null {
   return 100 - (100 / (1 + rs));
 }
 
-// ATR (Average True Range) calculation
+/**
+ * Calculate Average True Range (ATR)
+ *
+ * ATR measures market volatility:
+ * - True Range = max(high-low, |high-prevClose|, |low-prevClose|)
+ * - ATR = average of True Range over period
+ *
+ * Used for:
+ * - Stop loss placement: Entry ± (ATR × multiplier)
+ * - Position sizing: Risk / ATR
+ * - Volatility filtering
+ *
+ * @param high - Array of high prices
+ * @param low - Array of low prices
+ * @param close - Array of close prices
+ * @param period - ATR period (default: 14)
+ * @returns ATR value or null if insufficient data
+ *
+ * @example
+ * ```typescript
+ * const atr = calcATR(highs, lows, closes, 14);
+ * const stopLoss = entry - (atr * 1.5);
+ * ```
+ */
 function calcATR(high: number[], low: number[], close: number[], period = 14): number | null {
   if (high.length < period + 1 || low.length < period + 1 || close.length < period + 1) return null;
   const trs: number[] = [];
-  
+
   for (let i = 1; i < high.length; i++) {
     const tr = Math.max(
       high[i] - low[i],
@@ -40,63 +92,146 @@ function calcATR(high: number[], low: number[], close: number[], period = 14): n
     );
     trs.push(tr);
   }
-  
+
   if (trs.length < period) return null;
   const slice = trs.slice(-period);
   const atr = slice.reduce((a, b) => a + b, 0) / period;
   return atr;
 }
 
-// ADX (Average Directional Index) calculation
+/**
+ * Calculate Average Directional Index (ADX)
+ *
+ * ADX measures trend strength (0-100):
+ * - ADX < 20: Weak trend (range-bound)
+ * - ADX 20-40: Moderate trend
+ * - ADX > 40: Strong trend
+ *
+ * Note: This is a simplified implementation optimized for screening.
+ * Full ADX includes DI+ and DI- for directional bias.
+ *
+ * @param high - Array of high prices
+ * @param low - Array of low prices
+ * @param close - Array of close prices
+ * @param period - ADX period (default: 14)
+ * @returns ADX value (0-100) or null if insufficient data
+ *
+ * @example
+ * ```typescript
+ * const adx = calcADX(highs, lows, closes, 14);
+ * if (adx > 25) {
+ *   // Strong trend detected
+ * }
+ * ```
+ */
 function calcADX(high: number[], low: number[], close: number[], period = 14): number | null {
   if (high.length < period + 1 || low.length < period + 1 || close.length < period + 1) return null;
-  
+
   // Simplified ADX calculation for screening purposes
   const atr = calcATR(high, low, close, period);
   if (atr == null) return null;
-  
+
   // Calculate directional movement
   let dmPlus = 0, dmMinus = 0;
   for (let i = 1; i < high.length && i <= period; i++) {
     const highDiff = high[i] - high[i - 1];
     const lowDiff = low[i - 1] - low[i];
-    
+
     if (highDiff > lowDiff && highDiff > 0) dmPlus += highDiff;
     if (lowDiff > highDiff && lowDiff > 0) dmMinus += lowDiff;
   }
-  
+
   const lastClose = close[close.length - 1];
   if (lastClose <= 0) return null;
-  
+
   // Normalize and return as ADX approximation
   const adx = Math.min(100, Math.max(0, ((dmPlus + dmMinus) / (period * lastClose)) * 100 * 10));
   return Math.round(adx * 100) / 100;
 }
 
-// MACD calculation (simplified)
+/**
+ * Calculate MACD (Moving Average Convergence Divergence)
+ *
+ * MACD components:
+ * - MACD Line: EMA(12) - EMA(26)
+ * - Signal Line: EMA(MACD, 9)
+ * - Histogram: MACD - Signal
+ *
+ * Interpretation:
+ * - MACD > Signal: Bullish momentum
+ * - MACD < Signal: Bearish momentum
+ * - Histogram crossing 0: Trend change
+ *
+ * @param values - Array of price values (minimum 35 for proper signal)
+ * @returns Object with macd, signal, and histogram values
+ *
+ * @example
+ * ```typescript
+ * const closes = [...]; // 50 candles
+ * const { macd, signal, hist } = calcMACD(closes);
+ * if (macd > signal) {
+ *   // Bullish signal
+ * }
+ * ```
+ */
 function calcMACD(values: number[]) {
-  if (values.length < 26) return { macd: null, signal: null, hist: null };
-  
+  if (values.length < 35) return { macd: null, signal: null, hist: null };
+
   const ema12 = calcEMA(values, 12);
   const ema26 = calcEMA(values, 26);
-  
+
   if (ema12.length < 26 || ema26.length < 26) return { macd: null, signal: null, hist: null };
-  
-  const macd = ema12[ema12.length - 1] - ema26[ema26.length - 1];
-  // Simplified signal line (would typically be EMA of MACD)
-  const signal = macd * 0.9; // approximation
+
+  // Calculate MACD line (EMA12 - EMA26)
+  const macdLine: number[] = [];
+  for (let i = 0; i < ema12.length; i++) {
+    macdLine.push(ema12[i] - ema26[i]);
+  }
+
+  // Calculate signal line (EMA of MACD with period 9) - IMPROVED!
+  const signalLine = calcEMA(macdLine, 9);
+
+  if (signalLine.length === 0) return { macd: null, signal: null, hist: null };
+
+  // Get current values
+  const macd = macdLine[macdLine.length - 1];
+  const signal = signalLine[signalLine.length - 1];
   const hist = macd - signal;
-  
+
   return { macd, signal, hist };
 }
 
-// Main indicators computation function
-export function computeIndicators(candles: { 
-  open: number; 
-  high: number; 
-  low: number; 
-  close: number; 
-  volume: number; 
+/**
+ * Compute comprehensive technical indicators from OHLCV candle data
+ *
+ * Calculates all major technical indicators used for screening:
+ * - RSI (14): Momentum indicator
+ * - EMA Trend: 20/50 crossover detection
+ * - MACD: Trend following momentum
+ * - ATR (14): Volatility measurement
+ * - ADX (14): Trend strength
+ *
+ * @param candles - Array of OHLCV candles (minimum 50 recommended)
+ * @returns IndicatorsResult with all computed indicators
+ *
+ * @example
+ * ```typescript
+ * const candles = await okxService.getCandles('BTC-USDT', '1h', 100);
+ * const indicators = computeIndicators(candles);
+ *
+ * console.log(indicators.rsi);        // 65.5
+ * console.log(indicators.emaTrend);   // "bullish"
+ * console.log(indicators.macd.hist);  // 0.05
+ * console.log(indicators.atr);        // 250.50
+ * console.log(indicators.adx);        // 45
+ * ```
+ */
+export function computeIndicators(candles: {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
 }[]): IndicatorsResult {
   if (candles.length < 50) {
     // Insufficient data for reliable indicators
