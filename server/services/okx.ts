@@ -9,6 +9,7 @@ import { getSymbolFor, logSymbolMapping } from '@shared/symbolMapping';
 import { consumeQuota, checkQuota } from '../services/rateBudget';
 import { DataQuality, ValidatedTickerData, CachedDataWithQuality } from './coinapi';
 import { RetryHandler, RetryConfig } from '../utils/resilience';
+import { fallbackDataProvider } from '../utils/fallback-data';
 
 // 🔧 PATCH 3: OKX RATE LIMITER - Prevent memory leak from concurrent requests
 class OKXRateLimiter {
@@ -73,12 +74,26 @@ export class OKXService {
   // Retry handler for transient OKX API failures
   private retryHandler: RetryHandler;
 
+  // 🔧 HYBRID FALLBACK SYSTEM - Enable graceful degradation
+  private enableFallback: boolean;
+  private fallbackMode: 'disabled' | 'cache-only' | 'full';
+
   constructor() {
     this.apiKey = process.env.OKX_API_KEY || '';
     this.secretKey = process.env.OKX_SECRET_KEY || '';
     this.passphrase = process.env.OKX_PASSPHRASE || '';
     this.smcService = new SMCService();
-    
+
+    // 🔧 HYBRID FALLBACK: Configure fallback behavior from environment
+    // Options: 'disabled' (fail fast), 'cache-only' (last-good cache), 'full' (cache + mock data)
+    const fallbackConfig = process.env.OKX_FALLBACK_MODE || 'full'; // Default to full resilience
+    this.fallbackMode = ['disabled', 'cache-only', 'full'].includes(fallbackConfig)
+      ? fallbackConfig as 'disabled' | 'cache-only' | 'full'
+      : 'full';
+    this.enableFallback = this.fallbackMode !== 'disabled';
+
+    console.log(`[OKX] 🔧 Fallback mode: ${this.fallbackMode} (enabled: ${this.enableFallback})`);
+
     // Conservative retry config for financial APIs
     const okxRetryConfig: RetryConfig = {
       maxRetries: 2,
@@ -352,8 +367,21 @@ export class OKXService {
           volume: candle[5],
         }));
       } catch (error) {
-        console.error('Error fetching candles:', error);
+        console.error('[OKX] Error fetching candles:', error);
         metricsCollector.updateOkxRestStatus('down');
+
+        // 🔧 HYBRID FALLBACK: Use fallback system if enabled
+        if (this.enableFallback) {
+          console.warn(`[OKX] ⚠️ API failed, using fallback mode: ${this.fallbackMode}`);
+
+          // Option 1: Use mock data (full fallback mode)
+          if (this.fallbackMode === 'full') {
+            console.log(`[OKX] 🔄 Using mock candles for ${symbol} ${bar}`);
+            return fallbackDataProvider.getMockCandles(bar, limit);
+          }
+        }
+
+        // Fallback disabled or cache-only mode with no cache available
         throw new Error(`Failed to fetch ${bar} candle data from OKX`);
       }
     }, TTL_CONFIG.CANDLES);
@@ -461,7 +489,14 @@ export class OKXService {
         timestamp: trade.ts,
       }));
     } catch (error) {
-      console.error('Error fetching recent trades:', error);
+      console.error('[OKX] Error fetching recent trades:', error);
+
+      // 🔧 HYBRID FALLBACK: Use fallback system if enabled
+      if (this.enableFallback && this.fallbackMode === 'full') {
+        console.log(`[OKX] 🔄 Using mock recent trades for ${symbol}`);
+        return fallbackDataProvider.getMockRecentTrades(limit);
+      }
+
       throw new Error('Failed to fetch recent trades data from OKX');
     }
   }
@@ -644,7 +679,14 @@ export class OKXService {
         timestamp: sanitizeTimestamp(fundingData.ts),
       };
     } catch (error) {
-      console.error('Error fetching funding rate:', error);
+      console.error('[OKX] Error fetching funding rate:', error);
+
+      // 🔧 HYBRID FALLBACK: Use fallback system if enabled
+      if (this.enableFallback && this.fallbackMode === 'full') {
+        console.log(`[OKX] 🔄 Using mock funding rate for ${symbol}`);
+        return fallbackDataProvider.getMockFundingRate();
+      }
+
       throw new Error('Failed to fetch funding rate data');
     }
   }
@@ -669,7 +711,14 @@ export class OKXService {
         timestamp: oiData.ts,
       };
     } catch (error) {
-      console.error('Error fetching open interest:', error);
+      console.error('[OKX] Error fetching open interest:', error);
+
+      // 🔧 HYBRID FALLBACK: Use fallback system if enabled
+      if (this.enableFallback && this.fallbackMode === 'full') {
+        console.log(`[OKX] 🔄 Using mock open interest for ${symbol}`);
+        return fallbackDataProvider.getMockOpenInterest();
+      }
+
       throw new Error('Failed to fetch open interest data');
     }
   }
@@ -730,7 +779,14 @@ export class OKXService {
         lastUpdate: new Date().toISOString(),
       };
     } catch (error) {
-      console.error('Error fetching enhanced order book:', error);
+      console.error('[OKX] Error fetching enhanced order book:', error);
+
+      // 🔧 HYBRID FALLBACK: Use fallback system if enabled
+      if (this.enableFallback && this.fallbackMode === 'full') {
+        console.log(`[OKX] 🔄 Using mock enhanced order book for ${symbol}`);
+        return fallbackDataProvider.getMockEnhancedOrderBook();
+      }
+
       throw new Error('Failed to fetch enhanced order book data');
     }
   }
@@ -834,7 +890,14 @@ export class OKXService {
         lastUpdate: new Date().toISOString(),
       };
     } catch (error) {
-      console.error('Error building volume profile:', error);
+      console.error('[OKX] Error building volume profile:', error);
+
+      // 🔧 HYBRID FALLBACK: Use fallback system if enabled
+      if (this.enableFallback && this.fallbackMode === 'full') {
+        console.log(`[OKX] 🔄 Using mock volume profile for ${symbol}`);
+        return fallbackDataProvider.getMockVolumeProfile();
+      }
+
       throw new Error('Failed to build volume profile data');
     }
   }
@@ -1054,7 +1117,14 @@ export class OKXService {
       
       return smcAnalysis;
     } catch (error) {
-      console.error('Error performing SMC analysis:', error);
+      console.error('[OKX] Error performing SMC analysis:', error);
+
+      // 🔧 HYBRID FALLBACK: Use fallback system if enabled
+      if (this.enableFallback && this.fallbackMode === 'full') {
+        console.log(`[OKX] 🔄 Using mock SMC analysis for ${symbol}`);
+        return fallbackDataProvider.getMockSMCAnalysis();
+      }
+
       throw new Error('Failed to perform SMC analysis');
     }
   }
