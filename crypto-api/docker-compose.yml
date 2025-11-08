@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  # Main Crypto API - Liquidation Heatmap System
+  main-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.main
+    container_name: crypto-main-api
+    ports:
+      - "8501:8501"
+    environment:
+      - API_TYPE=main
+      - API_NAME=Liquidation Heatmap System
+      - API_PORT=8501
+      - GPT_GATEWAY_URL=http://gpt-gateway:3000
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env.main
+    depends_on:
+      - redis
+      - gpt-gateway
+    volumes:
+      - ./logs:/app/logs
+      - ../app.py:/app/../app.py
+      - ../services:/app/../services
+      - ../server:/app/../server
+    restart: unless-stopped
+    networks:
+      - crypto-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # GuardiansOfTheToken API - Premium Analytics
+  guardians-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.guardians
+    container_name: crypto-guardians-api
+    ports:
+      - "8502:8502"
+    environment:
+      - API_TYPE=guardians
+      - API_NAME=GuardiansOfTheToken Premium Analytics
+      - API_PORT=8502
+      - GPT_GATEWAY_URL=http://gpt-gateway:3000
+      - REDIS_URL=redis://redis:6379/1
+      - GUARDIANS_ENABLED=true
+      - GUARDIANS_VIP_TIER=premium
+    env_file:
+      - .env.guardians
+    depends_on:
+      - redis
+      - gpt-gateway
+    volumes:
+      - ./logs:/app/logs
+      - ./app.py:/app/app.py
+      - ./services:/app/services
+      - ./utils:/app/utils
+      - ./public:/app/public
+    restart: unless-stopped
+    networks:
+      - crypto-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8502/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # GPT Gateway Service
+  gpt-gateway:
+    image: node:18-alpine
+    container_name: gpt-gateway
+    ports:
+      - "3000:3000"
+    working_dir: /app
+    volumes:
+      - ../server:/app/server
+      - ../package.json:/app/package.json
+      - ../package-lock.json:/app/package-lock.json
+    command: sh -c "npm install && npm start"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    restart: unless-stopped
+    networks:
+      - crypto-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/gpts/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: crypto-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    restart: unless-stopped
+    networks:
+      - crypto-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy (Optional)
+  nginx:
+    image: nginx:alpine
+    container_name: crypto-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - main-api
+      - guardians-api
+    restart: unless-stopped
+    networks:
+      - crypto-network
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  crypto-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

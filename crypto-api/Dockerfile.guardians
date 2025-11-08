@@ -1,0 +1,50 @@
+# GuardiansOfTheToken API - Premium Analytics
+# Port: 8502
+FROM python:3.9-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    git \
+    redis-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy environment configuration
+COPY env_guardians_api.sh .
+RUN chmod +x env_guardians_api.sh
+
+# Copy application files
+COPY app.py .
+COPY config_guardians.py .
+COPY services/ services/
+COPY utils/ utils/
+COPY public/ public/
+COPY run_guardians_api.py .
+
+# Create logs directory
+RUN mkdir -p logs
+
+# Set environment variables
+ENV API_TYPE=guardians
+ENV API_NAME="GuardiansOfTheToken Premium Analytics"
+ENV API_PORT=8502
+ENV PYTHONPATH=/app
+ENV GUARDIANS_ENABLED=true
+
+# Expose port
+EXPOSE 8502
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8502/_stcore/health || exit 1
+
+# Run the application with environment setup
+CMD ["sh", "-c", "source ./env_guardians_api.sh && ./run_guardians_api.py"]
